@@ -86,7 +86,7 @@ Show a "typing…" indicator while the AI replies.
 
 Each stage ends with something you can run and watch.
 
-1. **Pipeline test.** Press a button; Ollama invents a customer; the profile appears on screen.
+1. ✅ **Pipeline test.** Press a button; Ollama invents a customer; the profile appears on screen. *(Done, 12 Nov 2026.)*
 2. **One visit.** A customer arrives, orders from the menu, is served automatically, chats with the owner, pays and leaves. Grey-box art.
 3. **Bars and saves.** Title screen (New / Load), AI-invented owner and bar name, autosave as it goes, close any time and resume on load.
 4. **A full night.** A clock from opening to closing; customers arrive at times that suit the hour.
@@ -101,3 +101,7 @@ Each stage ends with something you can run and watch.
 - Player controls: speed up time, set the menu, choose the weather or day
 - Money, menu upgrades, reputation
 - Owner and regulars developing relationships over many nights
+
+## Tuning notes (parked)
+
+- **Name order:** the AI sometimes writes names Western-style (e.g. "Ji-hoon Kim" instead of "Kim Ji-hoon"), despite being asked for family name first. Minor. Fix later with a prompt example or by having the game split the name into family and given name fields. Related idea for later: non-Korean visitors (tourists, expats), who *would* use Western name order.

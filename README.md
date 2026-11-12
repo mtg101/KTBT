@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-🚧 **Pre-code.** Concept and toolchain are documented, and stage 1 (the AI pipeline test) is next.
+✅ **Stage 1 complete: pipeline test.** Press a button and the local LLM invents a customer, which the game checks and displays. See the build stages in [CONCEPT.md](CONCEPT.md).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -25,11 +25,19 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 ## Running it
 
-Not playable yet. Once stage 1 exists:
-
 1. Set up the toolchain using [TOOLCHAIN.md](TOOLCHAIN.md).
 2. Make sure Ollama is running and the model is pulled.
-3. Open Godot, **Import** `project.godot` from this folder, and press **Play**.
+3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5).
+
+## Project layout
+
+| Path | What it is |
+|---|---|
+| `project.godot` | Godot project settings |
+| `scenes/pipeline_test.tscn` | Stage 1 scene (its UI is built in code) |
+| `scripts/ollama_client.gd` | Reusable node that talks to Ollama's local HTTP API |
+| `scripts/prompts.gd` | The style guide and prompt text sent to the AI |
+| `scripts/pipeline_test.gd` | Stage 1 logic: picks the moment, asks for a customer, validates and shows them |
 
 ## AI usage
 
