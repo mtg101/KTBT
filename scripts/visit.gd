@@ -14,9 +14,10 @@ const Menu = preload("res://scripts/menu.gd")
 
 const MIN_DRINKING_AGE := 19  # Korea's legal drinking age: enforced by the game, not the AI.
 const MAX_ORDER_ITEMS := 4
-const OWNER_FIELDS := ["name", "title", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
-## Korean terms of address that only fit one gender. The game picks the owner's gender,
-## then rejects an owner whose title or archetype uses a word for the other one.
+const OWNER_FIELDS := ["name", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
+## Korean terms of address that only fit one gender. The game picks the owner's gender
+## (and so their title: see Prompts.OWNER_ADDRESS), then rejects an owner whose archetype
+## uses a word for the other gender.
 const GENDERED_TERMS := {
 	"woman": ["ajumma", "ajumeoni", "ajummoni", "imo", "halmeoni", "halmoni", "eomeoni", "eomma", "nuna", "noona", "eonni", "unni"],
 	"man": ["ajusshi", "ajeossi", "ajussi", "ajeoshi", "ajeosshi", "samchon", "harabeoji", "abeoji", "appa", "hyung", "hyeong", "oppa"],
@@ -44,7 +45,9 @@ const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Col
 # Where things stand in the scene (pixels, inside the stage area).
 const CUSTOMER_SEAT_X := 785.0
 const CUSTOMER_Y := 190.0
-const OFFSCREEN_X := 1320.0
+# Off-stage spots either side (far enough out that the name tag is hidden too).
+const OFFSCREEN_LEFT_X := -200.0
+const OFFSCREEN_RIGHT_X := 1400.0
 
 var _ai: Ai
 var _owner := {}
@@ -109,6 +112,7 @@ func _invent_owner() -> void:
 		return
 	_owner = result
 	_owner["gender"] = gender
+	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
 	_owner_tag.text = _owner_display()
 	_owner_node.visible = true
 	_narrate(_as_sentence(str(_owner["appearance"])))
@@ -217,7 +221,8 @@ func _walk_in() -> void:
 	_customer_body.color = _customer_color
 	_customer_head.color = _customer_color.lightened(0.25)
 	_customer_tag.text = str(_customer["name"])
-	_customer_node.position = Vector2(OFFSCREEN_X, CUSTOMER_Y)
+	# They arrive from either end of the street, picked at random.
+	_customer_node.position = Vector2(_random_offscreen_x(), CUSTOMER_Y)
 	_customer_node.visible = true
 	var tween := create_tween()
 	tween.tween_property(_customer_node, "position:x", CUSTOMER_SEAT_X, _scaled(1.6)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -226,9 +231,14 @@ func _walk_in() -> void:
 
 func _walk_out() -> void:
 	var tween := create_tween()
-	tween.tween_property(_customer_node, "position:x", OFFSCREEN_X, _scaled(1.4)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	# ...and leave in whichever direction they're heading home, also at random.
+	tween.tween_property(_customer_node, "position:x", _random_offscreen_x(), _scaled(1.4)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	await tween.finished
 	_customer_node.visible = false
+
+
+func _random_offscreen_x() -> float:
+	return OFFSCREEN_LEFT_X if randi() % 2 == 0 else OFFSCREEN_RIGHT_X
 
 
 func _serve(items: Array) -> void:
@@ -360,12 +370,12 @@ func _validate_owner(data: Variant, gender: String) -> String:
 	var problem := _check_fields(data, OWNER_FIELDS)
 	if problem != "":
 		return problem
-	problem = _check_age(data, 30, 85)
+	problem = _check_age(data, 40, 85)
 	if problem != "":
 		return problem
-	# The owner is a {gender}: their title and archetype mustn't use a word for the other gender.
+	# The owner is a {gender}: their archetype mustn't use a word for the other gender.
 	var other := "man" if gender == "woman" else "woman"
-	for field in ["title", "archetype"]:
+	for field in ["archetype"]:
 		var words := _words(str(data[field]))
 		for term in GENDERED_TERMS[other]:
 			if term in words:
@@ -611,7 +621,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(790, 340), Vector2(70, 12), Color("9a9ab0"))  # stool
 	_rect(stage, Vector2(819, 352), Vector2(12, 20), Color("6e6e86"))
 
-	_customer_node = _person(stage, Vector2(OFFSCREEN_X, CUSTOMER_Y), Color.WHITE)
+	_customer_node = _person(stage, Vector2(OFFSCREEN_RIGHT_X, CUSTOMER_Y), Color.WHITE)
 	_customer_body = _customer_node.get_node("Body") as ColorRect
 	_customer_head = _customer_node.get_node("Head") as ColorRect
 	_customer_tag = _customer_node.get_node("Tag") as Label

@@ -28,20 +28,31 @@ Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night 
 const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences."""
 
 
+## How customers address the owner. The game fixes the owner's title by gender (it's a
+## game fact, not something the AI chooses). Customers may use the title or one of the
+## alternatives, all of which work for any customer speaking to an older stranger.
+## Terms like oppa, hyung, nuna and eonni depend on who's speaking, so they're ruled out.
+const OWNER_ADDRESS := {
+	"woman": {"title": "Ajumma", "also": "Imo, Sajangnim or Eomeoni"},
+	"man": {"title": "Ajusshi", "also": "Samchon or Sajangnim"},
+}
+
+
 ## Messages asking the AI to invent the tent's owner.
-## The game decides whether the owner is a woman or a man; the AI invents the rest.
+## The game decides whether the owner is a woman or a man (and so their title);
+## the AI invents the rest.
 static func owner_messages(gender: String) -> Array:
-	var request := """Invent the owner of this pojangmacha. The owner is a %s. They've run the tent for years, and every regular knows them. Everything about them (title, archetype, appearance) must fit a %s.
+	var title: String = OWNER_ADDRESS[gender]["title"]
+	var request := """Invent the owner of this pojangmacha. The owner is a %s, and customers call them "%s". They've run the tent for years, and every regular knows them. Everything about them (archetype, appearance) must fit a %s.
 
 Reply with ONLY a JSON object with exactly these keys:
 - "name": their Korean name in English letters, family name first
-- "title": what customers call them, a Korean family-style term of address used for a %s
-- "age": a whole number
+- "age": a whole number, 40 or older
 - "archetype": the K-drama type they are, in a few words
 - "appearance": what they look like behind the counter, in one sentence
 - "personality": two or three traits
 - "speech_style": how they talk, in a few words
-- "secret": something about their past they rarely talk about, in one sentence""" % [gender, gender, gender]
+- "secret": something about their past they rarely talk about, in one sentence""" % [gender, title, gender]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -82,6 +93,8 @@ static func order_messages(owner: Dictionary, customer: Dictionary, moment: Dict
 
 %s
 
+%s
+
 What's been said so far:
 %s
 
@@ -96,7 +109,7 @@ Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids
 - "line": what they say as they sit down and order: one or two short sentences""" % [
 		describe_moment(moment), describe_owner(owner), describe_customer(customer),
-		transcript_text(transcript), menu_text, customer["name"]]
+		describe_relationship(owner, customer), transcript_text(transcript), menu_text, customer["name"]]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -114,6 +127,8 @@ static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: D
 
 %s
 
+%s
+
 On the table: %s
 
 The conversation so far:
@@ -124,7 +139,8 @@ One to three sentences. Speak only as %s: don't write the other person's reply o
 
 Reply with ONLY a JSON object with one key:
 - "line": what %s says""" % [
-		describe_moment(moment), describe_owner(owner), describe_customer(customer), served,
+		describe_moment(moment), describe_owner(owner), describe_customer(customer),
+		describe_relationship(owner, customer), served,
 		transcript_text(transcript), speaker, role, direction, speaker, speaker]
 	return [
 		{"role": "system", "content": STYLE_GUIDE + "\n\n" + DIALOGUE_RULES},
@@ -137,8 +153,10 @@ static func describe_moment(moment: Dictionary) -> String:
 
 
 static func describe_owner(owner: Dictionary) -> String:
-	return "THE OWNER: %s, a %s-year-old %s, whom customers call \"%s\". %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
-		owner["name"], owner["age"], owner.get("gender", "person"), owner["title"], owner["archetype"], owner["appearance"],
+	var gender := str(owner.get("gender", "woman"))
+	var address: Dictionary = OWNER_ADDRESS.get(gender, OWNER_ADDRESS["woman"])
+	return "THE OWNER: %s, a %s-year-old %s. Customers call them \"%s\" (or sometimes %s; never oppa, hyung, nuna or eonni). %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
+		owner["name"], owner["age"], gender, owner["title"], address["also"], owner["archetype"], owner["appearance"],
 		owner["personality"], owner["speech_style"], owner["secret"]]
 
 
@@ -146,6 +164,13 @@ static func describe_customer(customer: Dictionary) -> String:
 	return "THE CUSTOMER: %s, %s, %s. Mood: %s. Why they're here tonight: %s Talks: %s." % [
 		customer["name"], customer["age"], customer["job"], customer["mood"],
 		customer["reason"], customer["speech_style"]]
+
+
+## What the owner and customer know about each other. For now every customer is a
+## stranger. Stage 6 (regulars) will replace this with what the game has actually tracked.
+static func describe_relationship(owner: Dictionary, customer: Dictionary) -> String:
+	return "WHO KNOWS WHOM: this is %s's first visit. The owner has never met them and doesn't know their name unless they say it in the conversation. They aren't a regular, so nobody asks for \"the usual\" or acts like old friends. %s knows the owner only as \"%s\"." % [
+		customer["name"], customer["name"], owner["title"]]
 
 
 static func transcript_text(transcript: Array) -> String:
