@@ -15,7 +15,13 @@ const Menu = preload("res://scripts/menu.gd")
 const MIN_DRINKING_AGE := 19  # Korea's legal drinking age: enforced by the game, not the AI.
 const MAX_ORDER_ITEMS := 4
 const OWNER_FIELDS := ["name", "title", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
-const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance", "opening_line"]
+## Korean terms of address that only fit one gender. The game picks the owner's gender,
+## then rejects an owner whose title or archetype uses a word for the other one.
+const GENDERED_TERMS := {
+	"woman": ["ajumma", "ajumeoni", "ajummoni", "imo", "halmeoni", "halmoni", "eomeoni", "eomma", "nuna", "noona", "eonni", "unni"],
+	"man": ["ajusshi", "ajeossi", "ajussi", "ajeoshi", "ajeosshi", "samchon", "harabeoji", "abeoji", "appa", "hyung", "hyeong", "oppa"],
+}
+const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance"]
 
 const DAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const TIMES := ["6:30pm", "7:45pm", "9:00pm", "10:20pm", "11:40pm", "12:50am", "1:40am", "2:30am", "3:15am", "4:05am"]
@@ -92,7 +98,8 @@ func _invent_owner() -> void:
 	_button.disabled = true
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling an orange tarp...")
 	_typing_label.text = "The AI is inventing the tent's owner..."
-	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(), _validate_owner, {"temperature": 0.9})
+	var gender: String = ["woman", "man"].pick_random()
+	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender), _validate_owner.bind(gender), {"temperature": 0.9})
 	_typing_label.text = ""
 	if result.is_empty():
 		_narrate("Couldn't invent the owner: %s" % _ai.last_error)
@@ -101,9 +108,10 @@ func _invent_owner() -> void:
 		_busy = false
 		return
 	_owner = result
+	_owner["gender"] = gender
 	_owner_tag.text = _owner_display()
 	_owner_node.visible = true
-	_narrate(str(_owner["appearance"]))
+	_narrate(_as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
 	_button.text = "Next customer"
@@ -132,7 +140,7 @@ func _run_visit() -> void:
 	# 1. Who walks in?
 	_typing_label.text = "Someone is coming down the street..."
 	var customer: Dictionary = await _ai.ask_json(
-		Prompts.customer_messages(_moment["day"], _moment["time"], _moment["weather"]),
+		Prompts.customer_messages(_moment["day"], _moment["time"], _moment["weather"], false),
 		_validate_customer, {"temperature": 0.9})
 	_typing_label.text = ""
 	if customer.is_empty():
@@ -142,11 +150,11 @@ func _run_visit() -> void:
 	_customer = customer
 	_customer_color = CUSTOMER_COLORS.pick_random()
 	_update_info()
-	_narrate(str(_customer["appearance"]))
+	_narrate(_as_sentence(str(_customer["appearance"])))
 	await _walk_in()
-	await _say(false, str(_customer["opening_line"]))
 
-	# 2. The order. The menu and the bill belong to the game.
+	# 2. They sit down, say hello and order in one line, so what they say matches
+	# what they get. The menu and the bill belong to the game.
 	_typing_label.text = "%s is looking at the menu..." % _customer["name"]
 	var order: Dictionary = await _ai.ask_json(
 		Prompts.order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript),
@@ -307,6 +315,14 @@ func _bill(items: Array) -> int:
 	return total
 
 
+## "a messy bob" -> "A messy bob."
+func _as_sentence(text: String) -> String:
+	var result := _sentence_case(text.strip_edges())
+	if result != "" and not (result.ends_with(".") or result.ends_with("!") or result.ends_with("?")):
+		result += "."
+	return result
+
+
 func _sentence_case(text: String) -> String:
 	if text == "":
 		return text
@@ -340,11 +356,29 @@ func _update_info() -> void:
 
 # --- Checking the AI's replies (the game owns the facts) ---------------------
 
-func _validate_owner(data: Variant) -> String:
+func _validate_owner(data: Variant, gender: String) -> String:
 	var problem := _check_fields(data, OWNER_FIELDS)
 	if problem != "":
 		return problem
-	return _check_age(data, 30, 85)
+	problem = _check_age(data, 30, 85)
+	if problem != "":
+		return problem
+	# The owner is a {gender}: their title and archetype mustn't use a word for the other gender.
+	var other := "man" if gender == "woman" else "woman"
+	for field in ["title", "archetype"]:
+		var words := _words(str(data[field]))
+		for term in GENDERED_TERMS[other]:
+			if term in words:
+				return "the owner is a %s, but their %s uses \"%s\", which is for a %s" % [gender, field, term, other]
+	return ""
+
+
+## "Gruff-but-soft Ajumma!" -> ["gruff", "but", "soft", "ajumma"]
+func _words(text: String) -> PackedStringArray:
+	var letters := ""
+	for c in text.to_lower():
+		letters += c if (c >= "a" and c <= "z") else " "
+	return letters.split(" ", false)
 
 
 func _validate_customer(data: Variant) -> String:
@@ -374,6 +408,15 @@ func _validate_order(data: Variant) -> String:
 	var line := _unquote(_tidy_text(data.get("line", "")))
 	if line == "":
 		return "\"line\" was empty"
+	# What they say must match what they get: no mentioning dishes they didn't order.
+	var allowed := ids.duplicate()
+	if ids.has("somaek"):
+		allowed.append_array(["soju", "beer"])  # somaek is soju in beer, so they may say so
+	var said := _words(line)
+	for item in Menu.ITEMS:
+		var item_word: String = _words(str(item["name"]))[0]
+		if not allowed.has(item["id"]) and item_word in said:
+			return "the line mentions %s, but that isn't in \"items\"" % item["name"]
 	data["line"] = line
 	return ""
 

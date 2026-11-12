@@ -29,18 +29,19 @@ const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene 
 
 
 ## Messages asking the AI to invent the tent's owner.
-static func owner_messages() -> Array:
-	var request := """Invent the owner of this pojangmacha. They've run the tent for years, and every regular knows them.
+## The game decides whether the owner is a woman or a man; the AI invents the rest.
+static func owner_messages(gender: String) -> Array:
+	var request := """Invent the owner of this pojangmacha. The owner is a %s. They've run the tent for years, and every regular knows them. Everything about them (title, archetype, appearance) must fit a %s.
 
 Reply with ONLY a JSON object with exactly these keys:
 - "name": their Korean name in English letters, family name first
-- "title": what customers call them, a Korean family-style term of address
+- "title": what customers call them, a Korean family-style term of address used for a %s
 - "age": a whole number
 - "archetype": the K-drama type they are, in a few words
 - "appearance": what they look like behind the counter, in one sentence
 - "personality": two or three traits
 - "speech_style": how they talk, in a few words
-- "secret": something about their past they rarely talk about, in one sentence"""
+- "secret": something about their past they rarely talk about, in one sentence""" % [gender, gender, gender]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -49,7 +50,9 @@ Reply with ONLY a JSON object with exactly these keys:
 
 ## Messages asking the AI to invent one customer for the given moment.
 ## The game picks day, time and weather; the AI only invents the person.
-static func customer_messages(day: String, time_text: String, weather: String) -> Array:
+## include_opening_line: stage 1 shows an opening line on the profile card. In a visit,
+## the customer's first words come with their order instead, so the two always match.
+static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true) -> Array:
 	var request := """It's %s, %s, with %s.
 
 Invent ONE customer who would plausibly duck under the tarp right now.
@@ -61,8 +64,10 @@ Reply with ONLY a JSON object with exactly these keys:
 - "mood": a few words
 - "reason": why they're here tonight, in one sentence
 - "speech_style": how they talk, in a few words
-- "appearance": what they look like as they arrive, in one sentence
-- "opening_line": the first thing they say to the owner as they sit down""" % [day, time_text, weather]
+- "appearance": what they look like as they arrive, in one sentence""" % [day, time_text, weather]
+	if include_opening_line:
+		request += """
+- "opening_line": the first thing they say to the owner as they sit down"""
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -85,11 +90,11 @@ TONIGHT'S MENU (use these exact ids):
 
 What does %s order? Think about who they are and why they're here tonight. Order between 1 and 4 items. Repeat an id to order more than one of something.
 
-They've already greeted the owner (see above), so their order line follows straight on from that. It must NOT greet the owner again or repeat or rephrase anything they've already said. Just a few words asking for what they want, in their own voice.
+They've just sat down and haven't said anything yet. Their line is the very first thing they say: greet the owner in their own way (using what they call the owner) and ask for their order, in their own voice. The line must match "items" exactly: don't mention any food or drink that isn't in "items", and don't say things like "one of everything".
 
 Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids
-- "line": what they say as they order: one short sentence""" % [
+- "line": what they say as they sit down and order: one or two short sentences""" % [
 		describe_moment(moment), describe_owner(owner), describe_customer(customer),
 		transcript_text(transcript), menu_text, customer["name"]]
 	return [
@@ -132,8 +137,8 @@ static func describe_moment(moment: Dictionary) -> String:
 
 
 static func describe_owner(owner: Dictionary) -> String:
-	return "THE OWNER: %s, %s, whom customers call \"%s\". %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
-		owner["name"], owner["age"], owner["title"], owner["archetype"], owner["appearance"],
+	return "THE OWNER: %s, a %s-year-old %s, whom customers call \"%s\". %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
+		owner["name"], owner["age"], owner.get("gender", "person"), owner["title"], owner["archetype"], owner["appearance"],
 		owner["personality"], owner["speech_style"], owner["secret"]]
 
 
