@@ -121,10 +121,12 @@ You should get back a small JSON object describing a customer. If you do, the wh
 
 ## Setup checklist
 
-- [ ] Godot 4.7.x (standard) extracted and opens to the Project Manager
-- [ ] Ollama installed, and `ollama --version` works
-- [ ] Model downloaded: `ollama pull llama3.1:8b` (or let the next step download it)
-- [ ] `ollama run llama3.1:8b` gives sensible replies. `ollama run` needs the model name; on its own it just errors. Type `/bye` to exit.
-- [ ] `ollama list` shows `llama3.1:8b`
-- [ ] The PowerShell API test returns JSON
-- [ ] `ollama ps` shows 100% GPU while a reply is being generated
+✅ All verified on the reference machine (Windows, RTX 3080 12GB) on 12 November 2026.
+
+- [x] Godot 4.7.x (standard) extracted and opens to the Project Manager
+- [x] Ollama installed, and `ollama --version` works
+- [x] Model downloaded: `ollama pull llama3.1:8b` (or let the next step download it)
+- [x] `ollama run llama3.1:8b` gives sensible replies. `ollama run` needs the model name; on its own it just errors. Type `/bye` to exit.
+- [x] `ollama list` shows `llama3.1:8b`
+- [x] The PowerShell API test returns JSON
+- [x] `ollama ps` shows 100% GPU while a reply is being generated
