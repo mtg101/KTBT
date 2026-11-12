@@ -37,7 +37,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 - **New bar:** the AI invents the owner (and the bar's name), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on from where you left off.
 - **When it saves:** at natural moments (a customer arrives, orders, says a line, leaves, or the clock ticks over an hour) and again when the window is closed.
-- **What's saved:** the owner, the clock (night number and time), the weather, the menu, who's seated and their conversation so far, and (from stage 5) regulars and their memory summaries.
+- **What's saved:** the owner, the clock (night number and time), the weather, the menu, who's seated and their conversation so far, and (from stage 6) regulars and their memory summaries.
 - **Resuming mid-conversation:** a customer who was seated when you quit is still there on load, and their chat continues from the saved transcript. If the AI was halfway through a reply, that one line is simply asked for again.
 - **Safe writes:** each save is written to a temporary file and then swapped in, so a crash mid-save can't corrupt the bar.
 - **Format:** one JSON file per bar in Godot's `user://saves/` folder (on Windows: `%APPDATA%\Godot\app_userdata\KTBT\saves\`). It's human-readable, which is handy for debugging, or for peeking at what the AI invented.
@@ -82,26 +82,6 @@ Food: tteokbokki, odeng (fish cake skewers), sundae, dakgalbi, pajeon, ramyeon, 
 
 Show a "typing…" indicator while the AI replies.
 
-## Build stages
+## Plan
 
-Each stage ends with something you can run and watch.
-
-1. ✅ **Pipeline test.** Press a button; Ollama invents a customer; the profile appears on screen. *(Done, 12 Nov 2026.)*
-2. **One visit.** A customer arrives, orders from the menu, is served automatically, chats with the owner, pays and leaves. Grey-box art.
-3. **Bars and saves.** Title screen (New / Load), AI-invented owner and bar name, autosave as it goes, close any time and resume on load.
-4. **A full night.** A clock from opening to closing; customers arrive at times that suit the hour.
-5. **Several at once.** Multiple seats, overlapping customers.
-6. **Regulars.** Returning customers who remember past visits.
-7. **Art, sound and polish.** Real assets, rain ambience, UI styling.
-8. **The game.** The player joins the conversations, probably as the owner.
-
-## Later ideas (not committed)
-
-- Customers chatting with each other across tables
-- Player controls: speed up time, set the menu, choose the weather or day
-- Money, menu upgrades, reputation
-- Owner and regulars developing relationships over many nights
-
-## Tuning notes (parked)
-
-- **Name order:** the AI sometimes writes names Western-style (e.g. "Ji-hoon Kim" instead of "Kim Ji-hoon"), despite being asked for family name first. Minor. Fix later with a prompt example or by having the game split the name into family and given name fields. Related idea for later: non-Korean visitors (tourists, expats), who *would* use Western name order.
+The build stages, later ideas and tuning notes are in [PLAN.md](PLAN.md).

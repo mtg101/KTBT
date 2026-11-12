@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Stage 1 complete: pipeline test.** Press a button and the local LLM invents a customer, which the game checks and displays. See the build stages in [CONCEPT.md](CONCEPT.md).
+✅ **Stage 2 complete: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. See the build stages in [PLAN.md](PLAN.md).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -14,7 +14,8 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 | File | What's in it |
 |---|---|
-| [CONCEPT.md](CONCEPT.md) | The game concept, characters, K-drama style guide, saving/loading, build stages |
+| [CONCEPT.md](CONCEPT.md) | The game concept, characters, K-drama style guide, saving/loading, menu, tech |
+| [PLAN.md](PLAN.md) | Build stages and progress, later ideas, tuning notes |
 | [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting |
 
 ## Tech
@@ -33,11 +34,15 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 | Path | What it is |
 |---|---|
-| `project.godot` | Godot project settings |
-| `scenes/pipeline_test.tscn` | Stage 1 scene (its UI is built in code) |
-| `scripts/ollama_client.gd` | Reusable node that talks to Ollama's local HTTP API |
-| `scripts/prompts.gd` | The style guide and prompt text sent to the AI |
-| `scripts/pipeline_test.gd` | Stage 1 logic: picks the moment, asks for a customer, validates and shows them |
+| `project.godot` | Godot project settings (main scene: `scenes/visit.tscn`) |
+| `scenes/visit.tscn` | Stage 2: one visit (its UI and grey-box tent are built in code) |
+| `scenes/pipeline_test.tscn` | Stage 1: pipeline test, kept as a quick AI check (open it and press F6) |
+| `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
+| `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong |
+| `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
+| `scripts/menu.gd` | The menu and prices (the game's facts) |
+| `scripts/visit.gd` | Stage 2 logic: owner, arrival, order, serving, conversation, bill |
+| `scripts/pipeline_test.gd` | Stage 1 logic |
 
 ## AI usage
 
@@ -48,7 +53,7 @@ This project is an experiment in **vibe coding**. The code and documentation are
 
 - **The developer** owns the idea, makes the design decisions, runs and playtests each build, and reports what's broken or what feels wrong.
 - **Claude** writes the GDScript, scenes and docs, and fixes issues based on that feedback.
-- Work proceeds in small, playable stages (see [CONCEPT.md](CONCEPT.md)) so every change is tested by a human before moving on.
+- Work proceeds in small, playable stages (see [PLAN.md](PLAN.md)) so every change is tested by a human before moving on.
 
 Commits made by Claude are marked with a `Co-Authored-By: Claude` line.
 

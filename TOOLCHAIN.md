@@ -114,8 +114,25 @@ You should get back a small JSON object describing a customer. If you do, the wh
 
 ## 6. Optional but recommended
 
-- **Git** (https://git-scm.com/download/win), for version control so we can roll back when an experiment goes wrong. Godot can generate a suitable `.gitignore` for us.
-- **VS Code** with the **godot-tools** extension, if you'd rather read and edit scripts outside Godot's built-in editor. Not required.
+### Git
+**Git** (https://git-scm.com/download/win) for version control, so we can roll back when an experiment goes wrong. The project already includes a `.gitignore` (which keeps Godot's `.godot/` cache folder out) and a `.gitattributes`.
+
+### VS Code
+**VS Code** is handy for reading scripts, previewing the `.md` docs and running commands. It isn't required, since Godot has its own script editor.
+
+**GDScript highlighting:** VS Code doesn't understand `.gd` files out of the box.
+1. Press `Ctrl+Shift+X` to open Extensions.
+2. Search for **godot-tools** (publisher *Godot Engine*, ID `geequlim.godot-tools`) and click **Install**.
+
+That highlights `.gd`, `.tscn` and `project.godot` files straight away.
+
+**Autocomplete, hover docs and error underlining (optional):** keep the Godot editor open with the KTBT project loaded. The extension connects to it automatically (port 6005), and the status bar shows when it's connected.
+
+**Opening scripts from Godot in VS Code (optional):** in Godot, go to **Editor → Editor Settings → Text Editor → External**, tick **Use External Editor**, and set **Exec Path** to VS Code's `Code.exe`.
+
+**Built-in terminal:** **Terminal → New Terminal** opens PowerShell in the project folder. On a UK keyboard, the `` Ctrl+` `` shortcut shown in the menus often doesn't work. Press `Ctrl+K Ctrl+S`, search for **View: Toggle Terminal**, and record a shortcut that does.
+
+**Markdown preview:** `Ctrl+Shift+V` opens it in a tab, and `Ctrl+K V` opens it side by side.
 
 ---
 

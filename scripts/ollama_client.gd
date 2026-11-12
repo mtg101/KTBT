@@ -1,11 +1,15 @@
 extends Node
 ## Talks to a local Ollama server over HTTP.
 ##
-## Usage: add it as a child, connect chat_completed / chat_failed,
-## then call chat(messages). Only one request at a time.
+## Usage: add it as a child, then call chat(messages). Either connect to
+## chat_completed / chat_failed, or `await finished` to get [ok, text].
+## Only one request at a time.
 
 signal chat_completed(content: String)
 signal chat_failed(error: String)
+## Emitted after every request, success or not: ok is true on success, and text
+## is either the AI's reply or the error message.
+signal finished(ok: bool, text: String)
 
 ## 127.0.0.1 rather than "localhost": on Windows, localhost can resolve to the
 ## IPv6 address first, and Ollama only listens on IPv4 by default.
@@ -32,7 +36,8 @@ func _ready() -> void:
 ## options are passed straight through (e.g. {"temperature": 0.9}).
 func chat(messages: Array, json_format: bool = false, options: Dictionary = {}) -> void:
 	if busy:
-		chat_failed.emit("Still waiting for the previous reply.")
+		# Deferred so anyone awaiting `finished` right after this call still hears it.
+		_done.call_deferred(false, "Still waiting for the previous reply.")
 		return
 	var body := {
 		"model": model,
@@ -47,7 +52,7 @@ func chat(messages: Array, json_format: bool = false, options: Dictionary = {}) 
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	var err := _http.request(base_url + "/api/chat", headers, HTTPClient.METHOD_POST, JSON.stringify(body))
 	if err != OK:
-		chat_failed.emit("Couldn't start the request (Godot error %d)." % err)
+		_done.call_deferred(false, "Couldn't start the request (Godot error %d)." % err)
 		return
 	busy = true
 
@@ -55,7 +60,7 @@ func chat(messages: Array, json_format: bool = false, options: Dictionary = {}) 
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	busy = false
 	if result != HTTPRequest.RESULT_SUCCESS:
-		chat_failed.emit(_describe_result(result))
+		_done(false, _describe_result(result))
 		return
 	var text := body.get_string_from_utf8()
 	var data = JSON.parse_string(text)
@@ -63,12 +68,20 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		var detail := text
 		if typeof(data) == TYPE_DICTIONARY and data.has("error"):
 			detail = str(data["error"])
-		chat_failed.emit("Ollama said no (HTTP %d): %s" % [response_code, detail])
+		_done(false, "Ollama said no (HTTP %d): %s" % [response_code, detail])
 		return
 	if typeof(data) != TYPE_DICTIONARY or not data.has("message"):
-		chat_failed.emit("Ollama sent back something unexpected.")
+		_done(false, "Ollama sent back something unexpected.")
 		return
-	chat_completed.emit(str(data["message"].get("content", "")))
+	_done(true, str(data["message"].get("content", "")))
+
+
+func _done(ok: bool, text: String) -> void:
+	if ok:
+		chat_completed.emit(text)
+	else:
+		chat_failed.emit(text)
+	finished.emit(ok, text)
 
 
 func _describe_result(result: int) -> String:

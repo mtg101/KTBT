@@ -6,6 +6,11 @@ const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Trop
 
 Everyone you invent belongs in a K-drama. Lean into the familiar tropes, but make each character feel like a real person rather than a cliche.
 
+Owner types that fit (riff on these, don't copy them):
+- the gruff-but-soft ajumma who scolds customers for not eating properly
+- the quiet ajusshi with a mysterious past who gives one line of perfect advice
+- the ex-something (gangster, chef, idol trainee) who left it all behind
+
 Customer types that fit (riff on these, don't copy them):
 - salarymen escaping a hoesik (company dinner)
 - a newly dumped office worker drinking alone
@@ -19,6 +24,27 @@ Customer types that fit (riff on these, don't copy them):
 Who turns up should suit the hour: the after-work crowd early in the evening, night-shift workers and lonely stragglers in the small hours.
 
 Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle"."""
+
+const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences."""
+
+
+## Messages asking the AI to invent the tent's owner.
+static func owner_messages() -> Array:
+	var request := """Invent the owner of this pojangmacha. They've run the tent for years, and every regular knows them.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "name": their Korean name in English letters, family name first
+- "title": what customers call them, a Korean family-style term of address
+- "age": a whole number
+- "archetype": the K-drama type they are, in a few words
+- "appearance": what they look like behind the counter, in one sentence
+- "personality": two or three traits
+- "speech_style": how they talk, in a few words
+- "secret": something about their past they rarely talk about, in one sentence"""
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
 
 
 ## Messages asking the AI to invent one customer for the given moment.
@@ -41,3 +67,86 @@ Reply with ONLY a JSON object with exactly these keys:
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
 	]
+
+
+## Messages asking the AI what the customer orders, from the game's menu.
+static func order_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, menu_text: String, transcript: Array) -> Array:
+	var request := """%s
+
+%s
+
+%s
+
+What's been said so far:
+%s
+
+TONIGHT'S MENU (use these exact ids):
+%s
+
+What does %s order? Think about who they are and why they're here tonight. Order between 1 and 4 items. Repeat an id to order more than one of something.
+
+They've already greeted the owner (see above), so their order line follows straight on from that. It must NOT greet the owner again or repeat or rephrase anything they've already said. Just a few words asking for what they want, in their own voice.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "items": an array of menu ids
+- "line": what they say as they order: one short sentence""" % [
+		describe_moment(moment), describe_owner(owner), describe_customer(customer),
+		transcript_text(transcript), menu_text, customer["name"]]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Messages asking the AI for the next line of the conversation.
+## direction is an optional hint from the game about where the scene is (e.g. "they're about to leave").
+static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, served: String, transcript: Array, owner_speaks: bool, direction: String) -> Array:
+	var speaker := str(owner["name"]) if owner_speaks else str(customer["name"])
+	var role := "the owner" if owner_speaks else "the customer"
+	var request := """%s
+
+%s
+
+%s
+
+On the table: %s
+
+The conversation so far:
+%s
+
+Write the next line, spoken by %s (%s). %s
+One to three sentences. Speak only as %s: don't write the other person's reply or any narration.
+
+Reply with ONLY a JSON object with one key:
+- "line": what %s says""" % [
+		describe_moment(moment), describe_owner(owner), describe_customer(customer), served,
+		transcript_text(transcript), speaker, role, direction, speaker, speaker]
+	return [
+		{"role": "system", "content": STYLE_GUIDE + "\n\n" + DIALOGUE_RULES},
+		{"role": "user", "content": request},
+	]
+
+
+static func describe_moment(moment: Dictionary) -> String:
+	return "TONIGHT: %s, %s, with %s." % [moment["day"], moment["time"], moment["weather"]]
+
+
+static func describe_owner(owner: Dictionary) -> String:
+	return "THE OWNER: %s, %s, whom customers call \"%s\". %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
+		owner["name"], owner["age"], owner["title"], owner["archetype"], owner["appearance"],
+		owner["personality"], owner["speech_style"], owner["secret"]]
+
+
+static func describe_customer(customer: Dictionary) -> String:
+	return "THE CUSTOMER: %s, %s, %s. Mood: %s. Why they're here tonight: %s Talks: %s." % [
+		customer["name"], customer["age"], customer["job"], customer["mood"],
+		customer["reason"], customer["speech_style"]]
+
+
+static func transcript_text(transcript: Array) -> String:
+	if transcript.is_empty():
+		return "(nothing yet)"
+	var lines := PackedStringArray()
+	for entry in transcript:
+		lines.append("%s: \"%s\"" % [entry["speaker"], entry["text"]])
+	return "\n".join(lines)

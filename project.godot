@@ -12,7 +12,7 @@ config_version=5
 
 config/name="KTBT"
 config/description="Korean Tent Bar Tropes: a pojangmacha simulation with AI-generated K-drama characters."
-run/main_scene="res://scenes/pipeline_test.tscn"
+run/main_scene="res://scenes/visit.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
