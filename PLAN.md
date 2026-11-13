@@ -8,10 +8,6 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Tests:** automated testing with GdUnit4, so the game's rules can't silently break as it grows. See [TESTS.md](TESTS.md) for the approach.
-  - **Make the visit scene testable:** give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); allow a fixed random seed and near-zero pauses. (The rules are in `scripts/rules.gd` with their own tests, and the fake AI exists: offline mode's canned AI, with scripted replies.)
-  - **Click-through visit tests:** run the visit scene with the fake AI, click **Next customer**, and check the whole visit plays out, including when the AI keeps failing or Ollama isn't running.
-  - **Fast mode defaults back off:** Fast mode is on by default while we're testing a lot; turn the default off again once testing settles (or move it into the settings screen).
 - **Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load. Comes with save/load round-trip tests.
 - **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
 - **Several at once:** multiple seats and overlapping customers.
@@ -27,7 +23,7 @@ Grouped by type. Within each group, roughly in order of importance.
 
 - **Content boundaries (a setting):** the AI writes about late-night drinking and K-drama heartbreak, so it will sometimes drift somewhere dark or crude. A **content setting** chooses how far it may go, e.g. **Cosy** (gentle, no swearing), **Drama** (the default: PG-13 heartbreak, mild language) and **Mature** (stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. Some limits apply at every setting: nothing sexual beyond a kiss implied off-screen, no hateful slurs, no real-world politics, and themes like self-harm are never described or encouraged: if they come up, the owner responds with care. Most important once players can type to customers.
 - **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting: generate the next line while the current one is being read, and invent the next customer while the current one is still drinking. Probably the biggest single improvement to how the game feels.
-- **Settings and accessibility:** one options screen for text size and speed, volumes (sound, music, voices), content setting, AI backend and model, voice mode and full-screen. Plus accessibility options that cost little in a text-heavy game: bigger text, high contrast, and pausing between lines until the player clicks.
+- **Settings and accessibility:** one options screen for text size and speed, volumes (sound, music, voices), content setting, AI backend and model (today these live in each machine's `ai_settings.cfg`), voice mode and full-screen. Fast mode is currently on by default while we're testing a lot; its default goes back off, or into this screen, once testing settles. Plus accessibility options that cost little in a text-heavy game: bigger text, high contrast, and pausing between lines until the player clicks.
 - **Packaging and first-run setup:** export a playable Windows build, and on first run check for Ollama and the model, offer offline mode if they're missing, and point to setup help. Without this, nobody but the developer can run it. Later: a release on itch.io.
 
 ### Richer play

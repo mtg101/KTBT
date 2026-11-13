@@ -17,6 +17,11 @@ const CannedAi = preload("res://scripts/canned_ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 
 @export var max_attempts := 3
+## In "auto" mode, how long to wait for Ollama to answer "are you there?" before going offline.
+const SERVER_CHECK_SECONDS := 3.0
+
+## Test hook: behave as if Ollama can't be reached, instantly. Leave alone otherwise.
+static var simulate_unreachable := false
 
 ## Why the last ask_json() call failed, in plain words.
 var last_error := ""
@@ -29,6 +34,9 @@ var settings := {}
 var _client: OllamaClient
 var _canned := CannedAi.new()
 var _auto_fallback := false
+var _checking_server := false
+
+signal _server_checked
 
 
 func _ready() -> void:
@@ -41,19 +49,28 @@ func _ready() -> void:
 	if settings["backend"] == "canned":
 		offline = true
 		offline_reason = "chosen in the AI settings"
+	elif _auto_fallback:
+		_check_server()
 
 
 ## Use with await. request says what's being asked, for the canned AI: {"purpose": ...,
 ## plus context}; the LLM ignores it and reads the messages instead. Returns the approved
 ## Dictionary, or {} if it couldn't get a usable reply (see last_error).
 func ask_json(messages: Array, validator: Callable, options: Dictionary = {}, request: Dictionary = {}) -> Dictionary:
+	if _checking_server:
+		await _server_checked
 	if offline:
 		return await _ask_canned(validator, request)
 	last_error = ""
 	var convo := messages.duplicate()
 	for attempt in max_attempts:
-		_client.chat(convo, true, options)
-		var reply: Array = await _client.finished
+		var reply: Array
+		if simulate_unreachable:
+			await get_tree().process_frame
+			reply = [false, "Can't reach Ollama (simulated for a test)."]
+		else:
+			_client.chat(convo, true, options)
+			reply = await _client.finished
 		if not reply[0]:
 			# Ollama didn't answer at all: retrying straight away won't help.
 			if _auto_fallback:
@@ -84,6 +101,28 @@ func _ask_canned(validator: Callable, request: Dictionary) -> Dictionary:
 			return data
 		last_error = "the canned reply was rejected %d times (last time because %s)" % [attempt + 1, problem]
 	return {}
+
+
+## Auto mode: ask Ollama "are you there?" with a short time limit, and go offline straight
+## away if it doesn't answer, rather than waiting for a full request to time out (which can
+## take minutes when nothing's listening). Requests wait for this check to finish.
+func _check_server() -> void:
+	_checking_server = true
+	# Wait a frame so the game has connected to offline_started before we might emit it.
+	await get_tree().process_frame
+	var reachable := false
+	if not simulate_unreachable:
+		var http := HTTPRequest.new()
+		http.timeout = SERVER_CHECK_SECONDS
+		add_child(http)
+		if http.request(str(settings["server"]) + "/api/tags") == OK:
+			var result: Array = await http.request_completed
+			reachable = result[0] == HTTPRequest.RESULT_SUCCESS and result[1] == 200
+		http.queue_free()
+	_checking_server = false
+	if not reachable:
+		_go_offline("couldn't reach Ollama at %s" % settings["server"])
+	_server_checked.emit()
 
 
 func _go_offline(reason: String) -> void:

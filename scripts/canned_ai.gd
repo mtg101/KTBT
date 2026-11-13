@@ -81,7 +81,10 @@ const CUSTOMER_LAST_LINES := [
 func reply(request: Dictionary) -> Variant:
 	if not scripted.is_empty():
 		var next = scripted.pop_front()
-		return JSON.parse_string(next) if typeof(next) == TYPE_STRING else next
+		if typeof(next) == TYPE_STRING:
+			return JSON.parse_string(next)
+		# A copy, so the game can tidy it without touching the test's original.
+		return next.duplicate(true) if typeof(next) == TYPE_DICTIONARY else next
 	var title := str(request.get("title", "Ajumma"))
 	match str(request.get("purpose", "")):
 		"owner":

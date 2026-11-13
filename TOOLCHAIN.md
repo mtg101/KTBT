@@ -165,7 +165,7 @@ model="llama3.1:8b"
 
 | Setting | What it does | When to use it |
 |---|---|---|
-| `auto` (default) | Uses Ollama. If Ollama can't be reached or fails to answer, switches to offline mode for the rest of the session and shows the **OFFLINE MODE** badge. | Normal use on any machine: it works whether Ollama is running or not. |
+| `auto` (default) | Uses Ollama. At startup it checks Ollama answers within 3 seconds; if not, or if Ollama later fails to answer, it switches to offline mode for the rest of the session and shows the **OFFLINE MODE** badge. | Normal use on any machine: it works whether Ollama is running or not. |
 | `ollama` | Always uses Ollama, never falls back. If Ollama isn't available, the game says so (e.g. "Couldn't invent the owner"). | When you want to be sure you're seeing real AI output: tuning prompts, comparing models. |
 | `canned` | Never contacts Ollama. Uses the pre-written characters and lines straight away (offline mode), with the badge showing from the start. | The laptop, or when working on anything other than the writing (UI, flow, timing) and you want instant visits. |
 

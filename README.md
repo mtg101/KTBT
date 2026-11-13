@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Automated tests (106 so far) cover the game's rules and prompts. Runs without the AI too, in an offline mode. Next up: click-through tests. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 128 automated tests cover the game's rules, prompts, offline mode and whole visits played by clicking. Next up: bars and saves. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -55,7 +55,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, text tidying (no scene or AI, so easy to test) |
 | `scripts/visit.gd` | One-visit logic: owner, arrival, order, serving, conversation, bill |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
-| `tests/` | GdUnit4 tests (see [TESTS.md](TESTS.md)) |
+| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, and click-through visits (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage

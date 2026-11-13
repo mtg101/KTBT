@@ -20,6 +20,13 @@ KTBT's core rule is **the game owns the facts; the AI owns the flavour**. The ga
 - **Visual tests:** screenshot a scene and compare it with an approved image, to catch broken layouts and clipped text. These need a real display rather than headless mode. *From the Art, sound and polish stage, once the art settles.*
 - **AI quality runs (not pass/fail):** generate a batch of real customers or visits with the actual model and count problems: rejection and retry rates, backwards names, wrong titles, mismatched orders. Useful for tuning prompts and for comparing models (Llama, Gemma, Qwen). *Whenever we tune prompts or try a new model.*
 
+## How the click-through tests work
+
+- **Real scene, real clicks:** each test loads `scenes/visit.tscn` with GdUnit4's scene runner and clicks buttons by moving the simulated mouse over them and pressing, so a disabled or covered button fails the test.
+- **Offline AI:** tests set `AiSettings.override = {"backend": "canned"}`, so no Ollama is needed. `CannedAi.scripted` queues exact replies (including bad ones) that are used before the normal canned ones.
+- **Test hooks** (static variables, reset after every test): `Visit.pause_scale_override` (0.01 makes a visit take a blink), `Visit.random_seed` (same customers and orders every run) and `Ai.simulate_unreachable` (behave as if Ollama can't be reached, instantly).
+- **Waiting:** tests wait a frame at a time until the scene isn't busy, with a time limit, rather than sleeping for fixed times.
+
 ## Conventions
 
 - **Location:** tests live in `tests/`, mirroring `scripts/` (e.g. `tests/test_menu.gd` tests `scripts/menu.gd`).
@@ -45,15 +52,15 @@ When we fix a problem, we add a test that would have caught it, so it can't cree
 
 ## Coverage so far
 
-All 118 tests pass (13 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 128 tests pass (13 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
 | Menu and prices (`menu.gd`) | `tests/test_menu.gd` | ✅ 16: lookup by id, name or alias, won formatting, every item complete, mains and sides, unique ids | — |
 | Rules and validators (`rules.gd`): customers, owners, orders, later orders, dialogue lines, bills, order odds and timing | `tests/test_rules.gd` | ✅ 71 | — |
 | Prompts include the right facts (`prompts.gd`) | `tests/test_prompts.gd` | ✅ 19 | — |
-| One visit (`visit.tscn`) | — | — | Not yet (needs the fake AI) |
-| Offline mode (`canned_ai.gd`) and AI settings (`ai_settings.gd`) | `tests/test_canned_ai.gd` | ✅ 12: every canned owner, customer, order, later order and line passes the game's rules; no canned line mentions menu food; replies are copies; scripted replies; settings override and fallback | Not yet |
+| One visit (`visit.tscn`) | `tests/test_visit.gd` | — | ✅ 10: the owner arrives; offline badge; a full visit by clicking (transcript, exact takings, customer leaves, counter clears, button re-enabled); button disabled during a visit; takings over four visits (covers later orders); a bad owner reply retried; Try again after the owner fails; soju-and-odeng fallback; Ollama unreachable in `auto` (goes offline); `ollama` backend never falls back |
+| Offline mode (`canned_ai.gd`) and AI settings (`ai_settings.gd`) | `tests/test_canned_ai.gd` | ✅ 12: every canned owner, customer, order, later order and line passes the game's rules; no canned line mentions menu food; replies are copies; scripted replies; settings override and fallback | Covered by `test_visit.gd`, which runs on the canned AI |
 | Saving and loading | — | — | — (Bars and saves stage) |
 
 *Updated as tests are added.*

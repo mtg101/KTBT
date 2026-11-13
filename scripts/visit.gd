@@ -37,11 +37,22 @@ const OWNER_TEXT := Color("ffd27f")
 const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Color("c7b06f"), Color("9a8fc7"), Color("c7836f")]
 
 # Where things stand in the scene (pixels, inside the stage area).
+# Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
+const SCREEN := Vector2(1920, 1080)
+const PANELS_TOP := 452.0  # The transcript and info panels fill the screen below the tent.
+const INFO_WIDTH := 520.0
+
 const CUSTOMER_SEAT_X := 785.0
 const CUSTOMER_Y := 190.0
 # Off-stage spots either side (far enough out that the name tag is hidden too).
 const OFFSCREEN_LEFT_X := -200.0
 const OFFSCREEN_RIGHT_X := 1400.0
+
+## Test hooks (set by tests before loading the scene; leave alone otherwise).
+## pause_scale_override >= 0 replaces the Fast toggle (e.g. 0.01 runs a visit in a blink);
+## random_seed != 0 makes every run pick the same moments, customers and orders.
+static var pause_scale_override := -1.0
+static var random_seed := 0
 
 var _ai: Ai
 var _owner := {}
@@ -74,6 +85,8 @@ var _items_row: HBoxContainer
 
 
 func _ready() -> void:
+	if random_seed != 0:
+		seed(random_seed)
 	_ai = Ai.new()
 	add_child(_ai)
 	_build_ui()
@@ -350,6 +363,8 @@ func _pause_for(text: String) -> void:
 
 
 func _scaled(seconds: float) -> float:
+	if pause_scale_override >= 0.0:
+		return seconds * pause_scale_override
 	return seconds * (0.3 if _fast_toggle.button_pressed else 1.0)
 
 
@@ -419,7 +434,7 @@ func _build_ui() -> void:
 	# Top bar
 	var bar := HBoxContainer.new()
 	bar.position = Vector2(24, 10)
-	bar.size = Vector2(1232, 44)
+	bar.size = Vector2(SCREEN.x - 48, 44)
 	bar.add_theme_constant_override("separation", 18)
 	add_child(bar)
 
@@ -441,6 +456,7 @@ func _build_ui() -> void:
 	bar.add_child(_mode_label)
 
 	_moment_label = Label.new()
+	_moment_label.name = "MomentLabel"
 	_moment_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_moment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_moment_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -448,17 +464,20 @@ func _build_ui() -> void:
 	bar.add_child(_moment_label)
 
 	_takings_label = Label.new()
+	_takings_label.name = "TakingsLabel"
 	_takings_label.text = "Takings: %s" % Menu.format_won(0)
 	_takings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(_takings_label)
 
 	_fast_toggle = CheckBox.new()
+	_fast_toggle.name = "FastToggle"
 	_fast_toggle.text = "Fast"
 	_fast_toggle.button_pressed = true  # On by default while we're testing a lot.
 	_fast_toggle.tooltip_text = "Shorter pauses between lines, for testing."
 	bar.add_child(_fast_toggle)
 
 	_button = Button.new()
+	_button.name = "NextButton"
 	_button.text = "Next customer"
 	_button.custom_minimum_size = Vector2(180, 40)
 	_button.disabled = true
@@ -467,39 +486,43 @@ func _build_ui() -> void:
 
 	# The tent
 	var stage := Control.new()
-	stage.position = Vector2(0, 60)
+	# The grey-box tent is 1280 wide; centre it, and give the rest of the height to the dialogue.
+	stage.position = Vector2((SCREEN.x - 1280) / 2, 60)
 	stage.size = Vector2(1280, 380)
 	stage.clip_contents = true
 	add_child(stage)
 	_build_stage(stage)
 
 	# Bottom left: what's being said
-	var log_panel := _panel(Vector2(24, 452), Vector2(820, 256))
+	var log_panel := _panel(Vector2(24, PANELS_TOP), Vector2(SCREEN.x - INFO_WIDTH - 72, SCREEN.y - PANELS_TOP - 24))
 	add_child(log_panel)
 	var log_box := VBoxContainer.new()
 	log_panel.add_child(log_box)
 	_log = RichTextLabel.new()
+	_log.name = "Transcript"
 	_log.bbcode_enabled = true
 	_log.scroll_following = true
 	_log.selection_enabled = true
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log.add_theme_font_size_override("normal_font_size", 17)
-	_log.add_theme_font_size_override("bold_font_size", 17)
-	_log.add_theme_font_size_override("italics_font_size", 16)
+	_log.add_theme_font_size_override("normal_font_size", 19)
+	_log.add_theme_font_size_override("bold_font_size", 19)
+	_log.add_theme_font_size_override("italics_font_size", 18)
 	log_box.add_child(_log)
 	_typing_label = Label.new()
+	_typing_label.name = "Status"
 	_typing_label.add_theme_color_override("font_color", MUTED)
 	log_box.add_child(_typing_label)
 
 	# Bottom right: who's who
-	var info_panel := _panel(Vector2(860, 452), Vector2(396, 256))
+	var info_panel := _panel(Vector2(SCREEN.x - INFO_WIDTH - 24, PANELS_TOP), Vector2(INFO_WIDTH, SCREEN.y - PANELS_TOP - 24))
 	add_child(info_panel)
 	_info = RichTextLabel.new()
+	_info.name = "Info"
 	_info.bbcode_enabled = true
 	_info.selection_enabled = true
-	_info.add_theme_font_size_override("normal_font_size", 15)
-	_info.add_theme_font_size_override("bold_font_size", 15)
-	_info.add_theme_font_size_override("italics_font_size", 15)
+	_info.add_theme_font_size_override("normal_font_size", 17)
+	_info.add_theme_font_size_override("bold_font_size", 17)
+	_info.add_theme_font_size_override("italics_font_size", 17)
 	info_panel.add_child(_info)
 
 
@@ -536,6 +559,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(632, 146), Vector2(16, 16), OWNER_TEXT)  # the bulb
 
 	_owner_node = _person(stage, Vector2(560, 150), OWNER_COLOR)
+	_owner_node.name = "Owner"
 	_owner_tag = _owner_node.get_node("Tag") as Label
 	_owner_node.visible = false
 
@@ -543,6 +567,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(320, 268), Vector2(640, 104), Color("5c3820"))  # counter front
 
 	_items_row = HBoxContainer.new()
+	_items_row.name = "Counter"
 	_items_row.position = Vector2(400, 198)
 	_items_row.size = Vector2(370, 52)
 	_items_row.alignment = BoxContainer.ALIGNMENT_END
@@ -553,6 +578,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(819, 352), Vector2(12, 20), Color("6e6e86"))
 
 	_customer_node = _person(stage, Vector2(OFFSCREEN_RIGHT_X, CUSTOMER_Y), Color.WHITE)
+	_customer_node.name = "Customer"
 	_customer_body = _customer_node.get_node("Body") as ColorRect
 	_customer_head = _customer_node.get_node("Head") as ColorRect
 	_customer_tag = _customer_node.get_node("Tag") as Label
