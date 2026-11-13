@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Automated tests (106 so far) cover the game's rules and prompts. Next up: click-through tests and an offline mode. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Automated tests (106 so far) cover the game's rules and prompts. Runs without the AI too, in an offline mode. Next up: click-through tests. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -33,9 +33,11 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 2. Make sure Ollama is running and the model is pulled.
 3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5).
 
-**No suitable GPU?** From the Tests stage, the game has an offline mode with canned characters, and it can also use a small model on the CPU or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
+**Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
-**Tests** (from the Tests stage): open the **GdUnit** panel in Godot and click **Run All**. See [TESTS.md](TESTS.md).
+**No suitable GPU?** Use offline mode, a small model on the CPU, or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
+
+**Tests:** open the **GdUnit** panel in Godot and click **Run All** (they don't need Ollama). See [TESTS.md](TESTS.md).
 
 ## Project layout
 
@@ -45,7 +47,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scenes/visit.tscn` | The one-visit scene (its UI and grey-box tent are built in code) |
 | `scenes/pipeline_test.tscn` | The pipeline test, kept as a quick AI check (open it and press F6) |
 | `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
-| `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong |
+| `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
+| `scripts/ai_settings.gd` | Reads each machine's `ai_settings.cfg` (backend, server, model) |
+| `scripts/canned_ai.gd` | Offline mode: pre-written owners, customers, orders and lines, built to pass the game's rules; also the tests' fake AI |
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
 | `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, text tidying (no scene or AI, so easy to test) |
@@ -78,7 +82,8 @@ At runtime the game uses a **local** language model (via Ollama) to:
 Design guard-rails:
 
 - **The game owns the facts; the AI owns the flavour.** Time, menu, prices and seating are controlled by game code. The AI's structured output (JSON) is checked, and anything invalid, such as an order for a dish that isn't on the menu, is rejected and retried.
-- **Everything runs locally.** No cloud AI service is called, no API key is needed, and nothing you see in the game leaves your machine.
+- **Everything runs locally.** No cloud AI service is called, no API key is needed, and nothing you see in the game leaves your machine (unless you point the settings at another PC's Ollama on your own network).
+- **Offline mode is clearly marked.** Without the AI, the game uses pre-written characters and lines instead, and shows an **OFFLINE MODE** badge so they're never mistaken for AI output.
 - **Generated content is unscripted.** Characters and dialogue are created fresh each time and aren't reviewed by a human, so expect occasional oddities. A shared style guide in every prompt keeps the tone warm, melodramatic and K-drama flavoured.
 
 ## Assets and credits

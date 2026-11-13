@@ -9,11 +9,9 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 ## Stages
 
 - **Tests:** automated testing with GdUnit4, so the game's rules can't silently break as it grows. See [TESTS.md](TESTS.md) for the approach.
-  - **Make the visit scene testable:** give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); let a fake AI be plugged in; allow a fixed random seed and near-zero pauses. (The game rules have already moved to `scripts/rules.gd` and have their own tests.)
-  - **AI settings and offline mode:** replace the hard-coded Ollama address and model with AI settings (backend, server address, model). Add a **canned AI** backend that answers instantly from a small library of pre-written owners, customers, orders and conversation lines, so the game runs on machines without a suitable GPU (like the laptop). The game falls back to canned mode automatically if Ollama can't be reached, and shows an "offline mode" label so it's never mistaken for the real AI. The canned AI is also the fake AI the click-through tests use.
+  - **Make the visit scene testable:** give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); allow a fixed random seed and near-zero pauses. (The rules are in `scripts/rules.gd` with their own tests, and the fake AI exists: offline mode's canned AI, with scripted replies.)
   - **Click-through visit tests:** run the visit scene with the fake AI, click **Next customer**, and check the whole visit plays out, including when the AI keeps failing or Ollama isn't running.
   - **Fast mode defaults back off:** Fast mode is on by default while we're testing a lot; turn the default off again once testing settles (or move it into the settings screen).
-  - **Tidy stage numbers out of the code:** a few code comments and the visit screen's title still say "Stage 1" or "Stage 2". Rename them to match the stage names.
 - **Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load. Comes with save/load round-trip tests.
 - **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
 - **Several at once:** multiple seats and overlapping customers.

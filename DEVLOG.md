@@ -4,6 +4,7 @@ A running record of what we've done on KTBT and why, newest first. What's coming
 
 ## 13 November 2026
 
+- **AI settings and offline mode:** each machine now has an `ai_settings.cfg` (in Godot's user data folder) choosing the AI backend (`auto`, `ollama` or `canned`), the Ollama server and the model, so the desktop and laptop can share the project. Offline mode (`canned_ai.gd`) answers instantly from pre-written owners, customers, orders and lines, built to pass the game's rules, and shows an **OFFLINE MODE** badge; in `auto` the game switches to it by itself if Ollama fails. It's also the fake AI for the coming click-through tests. Stage numbers were tidied out of the code and screen titles. 12 new tests, 118 in total, all passing. Setup documented in `TOOLCHAIN.md` section 5b.
 - **Tuning notes renamed:** `TUNING.md` is now `LLM-TUNING.md` (title "LLM Tuning notes"), to make clear it's about tuning the local LLM's output. Links and test comments updated.
 - **Ordering like a real pojangmacha:** a run of playtesting fixes, each with regression tests (details in [LLM-TUNING.md](LLM-TUNING.md)):
   - **Food stays on the table:** the style guide no longer names any dish, and conversation lines that mention food that isn't on the table are rejected.

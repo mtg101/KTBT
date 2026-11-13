@@ -114,10 +114,10 @@ You should get back a small JSON object describing a customer. If you do, the wh
 
 ## 5a. Machines without a suitable GPU
 
-The reference setup assumes an NVIDIA GPU with about 10GB+ of video memory. On a machine without one (e.g. a laptop with integrated graphics) there are three ways to work. Options 2 and 3 need the AI settings planned for the Tests stage; until then the game always uses `llama3.1:8b` on the local machine.
+The reference setup assumes an NVIDIA GPU with about 10GB+ of video memory. On a machine without one (e.g. a laptop with integrated graphics) there are three ways to work. All three are chosen in the AI settings file (section 5b).
 
-### Option 1: canned AI (offline mode, from the Tests stage)
-No AI needed at all. The game answers from a small library of pre-written characters and lines, instantly. Good for working on anything except the writing: UI, saving, the night clock, seats, art. It's also what the automated tests use. The game switches to it automatically if Ollama can't be reached, and shows an "offline mode" label.
+### Option 1: canned AI (offline mode)
+Set `backend="canned"` in the AI settings. No AI needed at all. The game answers from a small library of pre-written characters and lines, instantly. Good for working on anything except the writing: UI, saving, the night clock, seats, art. It's also what the automated tests use. With the default `backend="auto"`, the game also switches to it by itself if Ollama can't be reached, and shows an **OFFLINE MODE** badge.
 
 ### Option 2: Ollama on the CPU with a small model
 Ollama runs without a GPU, using the processor instead. It's much slower, so use a small model:
@@ -126,7 +126,7 @@ Ollama runs without a GPU, using the processor instead. It's much slower, so use
 ollama pull llama3.2:3b
 ```
 
-Then set the game's AI model to `llama3.2:3b`. Expect replies to take several seconds and the writing to be weaker than the 8B model. While it's answering, `ollama ps` will show **100% CPU**, which is expected here.
+Then set `model="llama3.2:3b"` in the AI settings. Expect replies to take several seconds and the writing to be weaker than the 8B model. While it's answering, `ollama ps` will show **100% CPU**, which is expected here.
 
 ### Option 3: use the desktop's Ollama over your home network
 The laptop's game talks to Ollama running on the desktop (which must be on). Full-quality AI, at home only.
@@ -141,9 +141,43 @@ The laptop's game talks to Ollama running on the desktop (which must be on). Ful
 ```powershell
 Invoke-RestMethod http://192.168.1.20:11434/api/tags
 ```
-It should list the desktop's models. Then set the game's AI server address to `http://192.168.1.20:11434`.
+It should list the desktop's models. Then set `server="http://192.168.1.20:11434"` in the AI settings.
 
 > Only do this on a home network you trust: anyone on the same network can use the desktop's Ollama while it's set up this way. Remove the `OLLAMA_HOST` variable to switch it off. The desktop's address can also change after a router restart; if the laptop stops connecting, check `ipconfig` again.
+
+---
+
+## 5b. AI settings: choosing which AI the game uses
+
+Each machine has its own small settings file that says which AI to use, so the desktop (with a big GPU) and the laptop (without one) can share the project. It's created with the defaults the first time the game or the tests run.
+
+**Where it is:** in Godot's user data folder for the project, not in the project folder. The easiest way there is **Project → Open User Data Folder** in Godot. Or paste `%APPDATA%\Godot\app_userdata\KTBT` into Explorer's address bar. The file is `ai_settings.cfg`; open it in any text editor.
+
+**What's in it (the defaults):**
+```ini
+[ai]
+backend="auto"
+server="http://127.0.0.1:11434"
+model="llama3.1:8b"
+```
+
+**`backend`: which AI answers:**
+
+| Setting | What it does | When to use it |
+|---|---|---|
+| `auto` (default) | Uses Ollama. If Ollama can't be reached or fails to answer, switches to offline mode for the rest of the session and shows the **OFFLINE MODE** badge. | Normal use on any machine: it works whether Ollama is running or not. |
+| `ollama` | Always uses Ollama, never falls back. If Ollama isn't available, the game says so (e.g. "Couldn't invent the owner"). | When you want to be sure you're seeing real AI output: tuning prompts, comparing models. |
+| `canned` | Never contacts Ollama. Uses the pre-written characters and lines straight away (offline mode), with the badge showing from the start. | The laptop, or when working on anything other than the writing (UI, flow, timing) and you want instant visits. |
+
+**`server`:** where Ollama is. `http://127.0.0.1:11434` means this machine; use another PC's address to borrow its Ollama (option 3 in section 5a).
+
+**`model`:** which Ollama model to use, e.g. `llama3.1:8b`, or `llama3.2:3b` on a machine without a suitable GPU. It must already be pulled (`ollama list` shows what you have).
+
+**Notes:**
+- Keep the quotes around values (`backend="canned"`). A misspelt backend shows a warning in Godot's Output panel and falls back to `auto`.
+- Changes take effect next time you press F5.
+- The file stays out of the repo on purpose, so pulling changes on one machine never overwrites another machine's choice.
+- The **OFFLINE MODE** badge in the top bar is the giveaway that you're seeing canned characters; hover over it to see why the game is offline.
 
 ---
 

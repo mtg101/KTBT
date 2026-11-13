@@ -1,5 +1,5 @@
 extends Control
-## Stage 2: one visit.
+## One visit.
 ##
 ## When the scene starts, the AI invents the tent's owner. Press "Next customer" and
 ## one customer arrives, orders from the menu, is served, chats with the owner,
@@ -57,6 +57,7 @@ var _customer_color := Color.WHITE
 var _button: Button
 var _fast_toggle: CheckBox
 var _moment_label: Label
+var _mode_label: Label
 var _takings_label: Label
 var _log: RichTextLabel
 var _typing_label: Label
@@ -76,7 +77,22 @@ func _ready() -> void:
 	_ai = Ai.new()
 	add_child(_ai)
 	_build_ui()
+	_ai.offline_started.connect(_on_offline_started)
+	if _ai.offline:
+		_show_offline_mode()
 	_invent_owner()
+
+
+## Ollama couldn't be reached partway through, so the AI switched to canned replies.
+func _on_offline_started(reason: String) -> void:
+	_show_offline_mode()
+	_narrate("(Couldn't reach the local AI, so the game switched to offline mode: %s.)" % reason)
+
+
+func _show_offline_mode() -> void:
+	_mode_label.text = "OFFLINE MODE"
+	_mode_label.tooltip_text = "Characters and lines are pre-written, not from the AI (%s). Change it in ai_settings.cfg." % _ai.offline_reason
+	_mode_label.visible = true
 
 
 func _on_button_pressed() -> void:
@@ -96,7 +112,8 @@ func _invent_owner() -> void:
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling an orange tarp...")
 	_typing_label.text = "The AI is inventing the tent's owner..."
 	var gender: String = ["woman", "man"].pick_random()
-	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender), _validate_owner.bind(gender), {"temperature": 0.9})
+	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender), _validate_owner.bind(gender), {"temperature": 0.9},
+		{"purpose": "owner", "gender": gender})
 	_typing_label.text = ""
 	if result.is_empty():
 		_narrate("Couldn't invent the owner: %s" % _ai.last_error)
@@ -139,7 +156,7 @@ func _run_visit() -> void:
 	_typing_label.text = "Someone is coming down the street..."
 	var customer: Dictionary = await _ai.ask_json(
 		Prompts.customer_messages(_moment["day"], _moment["time"], _moment["weather"], false),
-		_validate_customer, {"temperature": 0.9})
+		_validate_customer, {"temperature": 0.9}, {"purpose": "customer"})
 	_typing_label.text = ""
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
@@ -159,7 +176,8 @@ func _run_visit() -> void:
 	var rough_night := randf() < ROUGH_NIGHT_CHANCE
 	var order: Dictionary = await _ai.ask_json(
 		Prompts.order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript, hungry, rough_night),
-		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7})
+		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7},
+		{"purpose": "order", "title": _owner["title"], "max_mains": 2 if hungry else 1, "max_drinks": 2 if rough_night else 1})
 	_typing_label.text = ""
 	if order.is_empty():
 		_order = ["soju", "odeng"]
@@ -198,7 +216,8 @@ func _run_visit() -> void:
 		_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 		var reply: Dictionary = await _ai.ask_json(
 			Prompts.dialogue_messages(_owner, _customer, _moment, _table_text(), _transcript, owner_speaks, direction),
-			_validate_line.bind(speaker, alias, _order), {"temperature": 0.85})
+			_validate_line.bind(speaker, alias, _order), {"temperature": 0.85},
+			{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": i == total_lines - 1})
 		_typing_label.text = ""
 		if reply.is_empty():
 			_narrate("(The conversation fizzled out: %s.)" % _ai.last_error)
@@ -266,7 +285,8 @@ func _extra_order() -> bool:
 	_typing_label.text = "%s is eyeing the menu again..." % _customer["name"]
 	var extra: Dictionary = await _ai.ask_json(
 		Prompts.extra_order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript, _table_text()),
-		_validate_extra_order.bind(_order.duplicate()), {"temperature": 0.7})
+		_validate_extra_order.bind(_order.duplicate()), {"temperature": 0.7},
+		{"purpose": "extra_order", "title": _owner["title"], "table": _order.duplicate()})
 	_typing_label.text = ""
 	if extra.is_empty():
 		return false
@@ -404,11 +424,21 @@ func _build_ui() -> void:
 	add_child(bar)
 
 	var title := Label.new()
-	title.text = "KTBT  ·  Stage 2: one visit"
+	title.text = "KTBT  ·  One visit"
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", ACCENT)
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(title)
+
+	# Shown only in offline mode, so canned characters are never mistaken for the AI.
+	_mode_label = Label.new()
+	_mode_label.name = "ModeLabel"
+	_mode_label.add_theme_color_override("font_color", Color.BLACK)
+	_mode_label.add_theme_stylebox_override("normal", _badge(OWNER_TEXT))
+	_mode_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_mode_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	_mode_label.visible = false
+	bar.add_child(_mode_label)
 
 	_moment_label = Label.new()
 	_moment_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -471,6 +501,14 @@ func _build_ui() -> void:
 	_info.add_theme_font_size_override("bold_font_size", 15)
 	_info.add_theme_font_size_override("italics_font_size", 15)
 	info_panel.add_child(_info)
+
+
+func _badge(colour: Color) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = colour
+	box.set_corner_radius_all(6)
+	box.set_content_margin_all(6)
+	return box
 
 
 func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:

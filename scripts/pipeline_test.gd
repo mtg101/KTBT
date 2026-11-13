@@ -1,5 +1,5 @@
 extends Control
-## Stage 1: pipeline test.
+## Pipeline test: a quick check that Godot, Ollama and the model are talking to each other.
 ## Press the button and the local LLM (via Ollama) invents a pojangmacha customer.
 ## The game picks the day, time and weather and checks the reply;
 ## the AI only invents the person.
@@ -175,7 +175,7 @@ func _build_ui() -> void:
 	margin.add_child(col)
 
 	var title := Label.new()
-	title.text = "KTBT  ·  Stage 1: pipeline test"
+	title.text = "KTBT  ·  Pipeline test"
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", ACCENT)
 	col.add_child(title)

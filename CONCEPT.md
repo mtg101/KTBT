@@ -84,7 +84,7 @@ The current menu is a fixed placeholder (see bar-specific menus in [PLAN.md](PLA
 | Piece | Choice |
 |---|---|
 | Engine | Godot 4, GDScript |
-| AI | Local model via Ollama (RTX 3080, so 7–9B models; try Llama 3.1 8B, Gemma and Qwen to compare) |
+| AI | Local model via Ollama (RTX 3080, so 7–9B models; try Llama 3.1 8B, Gemma and Qwen to compare). Per-machine AI settings choose Ollama or an offline mode with pre-written characters |
 | Connection | Godot `HTTPRequest` to Ollama's local API, JSON output mode for structured replies |
 | Art | Placeholder shapes first, then a consistent CC0 pack (e.g. Kenney) |
 | Assets log | `CREDITS.md`, recording the source and licence of every asset |
