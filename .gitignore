@@ -8,3 +8,6 @@ Thumbs.db
 
 # Personal editor settings (contain machine-specific paths)
 .vscode/
+
+# GdUnit4 test reports (generated on every run)
+/reports/

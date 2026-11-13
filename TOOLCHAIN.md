@@ -136,6 +136,55 @@ That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 
 ---
 
+## 7. Testing: GdUnit4
+
+KTBT's automated tests use **GdUnit4**, a free Godot add-on. How we use it is in [TESTS.md](TESTS.md). This section covers installing and running it.
+
+### Pick the right version
+GdUnit4 releases are tied to Godot versions. As of November 2026:
+
+| GdUnit4 | Supports Godot |
+|---|---|
+| v6.2.x | 4.5 to 4.7.1 |
+| v7.0.0 (in development) | 4.7 to 4.8 dev |
+
+We're on Godot 4.7.2, a patch release just past what v6.2.x lists, so use the **latest v6.2.x** and confirm the test suite runs. If it doesn't, check the compatibility table on the GdUnit4 GitHub page (https://github.com/MikeSchulze/gdUnit4) for a newer release.
+
+### Install
+1. In Godot, open the **AssetLib** tab at the top of the editor.
+2. Search for **GdUnit4** and pick **GdUnit4 - Unit Testing Framework**. Check the version shown matches the table above.
+3. Click **Download**, then **Install**. It installs into `addons/gdUnit4/`.
+4. Go to **Project → Project Settings → Plugins** and tick **Enabled** next to GdUnit4.
+5. Restart the editor if asked. A **GdUnit** panel appears (usually bottom or right dock).
+
+The `addons/gdUnit4/` folder is committed to the repo, so anyone cloning the project gets the same version.
+
+### Run tests in the editor
+- Open the **GdUnit** panel and click **Run All**, or right-click the `tests/` folder in the FileSystem dock and choose **Run Tests**.
+- Results show in the panel, with failures linking to the line that failed.
+
+### Run tests from the command line
+Useful for a quick check from VS Code's terminal, and for running tests automatically on GitHub.
+
+1. Tell GdUnit4 where Godot is (once). Use the **console** build, which prints output to the terminal:
+   ```powershell
+   setx GODOT_BIN "C:\path\to\Godot_v4.7.2-stable_win64_console.exe"
+   ```
+   Then open a new terminal so it picks up the setting.
+2. From the project folder:
+   ```powershell
+   .\addons\gdUnit4\runtest.cmd -a res://tests -c
+   ```
+   `-a` says which tests to run, and `-c` keeps going after a failure so you see them all.
+3. Reports are written to `reports/` (an HTML page and a JUnit XML file). That folder is in `.gitignore`.
+
+If the colours in the terminal look like garbage, see the GdUnit4 docs on enabling ANSI colours in Windows consoles.
+
+### On GitHub (optional, later)
+GdUnit4 has a ready-made GitHub Action (`gdunit4-action`) that runs the tests on every push. We'll set it up once there's a meaningful test suite.
+
+---
+
 ## Setup checklist
 
 ✅ All verified on the reference machine (Windows, RTX 3080 12GB) on 12 November 2026.
@@ -147,3 +196,7 @@ That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 - [x] `ollama list` shows `llama3.1:8b`
 - [x] The PowerShell API test returns JSON
 - [x] `ollama ps` shows 100% GPU while a reply is being generated
+
+Added later:
+
+- [ ] GdUnit4 installed and enabled, and the test suite runs and passes (stage 2.5)

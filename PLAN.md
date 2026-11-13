@@ -6,16 +6,22 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Build stages
 
-Each stage ends with something you can run and watch. ✅ marks a finished stage.
+Each stage ends with something you can run and watch. ✅ marks a finished stage. Stage 2.5 was slotted in after stage 2, so the later numbers stay as they were.
 
-1. ✅ **Pipeline test:** press a button, and Ollama invents a customer whose profile appears on screen. *Done 12 Nov 2026.*
-2. ✅ **One visit:** a customer arrives, orders from the menu, is served automatically, chats with the owner, pays and leaves. Grey-box art. *Done 12 Nov 2026. The AI-invented owner was pulled forward from stage 3 so customers have someone to talk to, but it isn't saved yet.*
-3. **Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load.
-4. **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
-5. **Several at once:** multiple seats and overlapping customers.
-6. **Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
-7. **Art, sound and polish:** real assets, rain ambience, UI styling.
-8. **The game:** the player joins the conversations, probably as the owner.
+- ✅ **1. Pipeline test:** press a button, and Ollama invents a customer whose profile appears on screen. *Done 12 Nov 2026.*
+- ✅ **2. One visit:** a customer arrives, orders from the menu, is served automatically, chats with the owner, pays and leaves. Grey-box art. *Done 12 Nov 2026. The AI-invented owner was pulled forward from stage 3 so customers have someone to talk to, but it isn't saved yet.*
+- **2.5. Tests:** automated testing with GdUnit4, so the game's rules can't silently break as it grows. See [TESTS.md](TESTS.md) for the approach.
+  - **Docs first:** `TESTS.md`, plus a GdUnit4 section and checklist item in `TOOLCHAIN.md`.
+  - **Install GdUnit4:** the release that supports our Godot version (see `TOOLCHAIN.md`).
+  - **Make the code testable:** move the validators and other game rules out of `visit.gd` into `scripts/rules.gd`; give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); let a fake AI be plugged in; allow a fixed random seed and near-zero pauses.
+  - **Rule tests:** menu lookup and prices, the bill, ages, owner titles and gendered terms, order/line matching, dialogue tidying. Includes a test for each fixed tuning issue so it can't creep back.
+  - **Click-through visit tests:** run the visit scene with the fake AI, click **Next customer**, and check the whole visit plays out, including when the AI keeps failing or Ollama isn't running.
+- **3. Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load. Comes with save/load round-trip tests.
+- **4. A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
+- **5. Several at once:** multiple seats and overlapping customers.
+- **6. Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
+- **7. Art, sound and polish:** real assets, rain ambience, UI styling. Add visual (screenshot) tests once the art settles.
+- **8. The game:** the player joins the conversations, probably as the owner.
 
 ## Later ideas (not committed)
 

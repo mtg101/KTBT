@@ -16,7 +16,8 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 |---|---|
 | [CONCEPT.md](CONCEPT.md) | The game concept, characters, K-drama style guide, saving/loading, menu, tech |
 | [PLAN.md](PLAN.md) | Build stages and progress, later ideas, tuning notes |
-| [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting |
+| [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting, and installing the test framework |
+| [TESTS.md](TESTS.md) | How KTBT is tested: what's automated, what's playtested, conventions and coverage |
 
 ## Tech
 
@@ -29,6 +30,8 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 1. Set up the toolchain using [TOOLCHAIN.md](TOOLCHAIN.md).
 2. Make sure Ollama is running and the model is pulled.
 3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5).
+
+**Tests** (from stage 2.5): open the **GdUnit** panel in Godot and click **Run All**. See [TESTS.md](TESTS.md).
 
 ## Project layout
 
