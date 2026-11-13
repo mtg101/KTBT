@@ -176,21 +176,37 @@ That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 KTBT's automated tests use **GdUnit4**, a free Godot add-on. How we use it is in [TESTS.md](TESTS.md). This section covers installing and running it.
 
 ### Pick the right version
-GdUnit4 releases are tied to Godot versions. As of November 2026:
+GdUnit4 releases are tied to Godot versions. The project now lives at **https://github.com/godot-gdunit-labs/gdUnit4** (older links to `MikeSchulze/gdUnit4` point to the same project). Its compatibility table, checked 13 November 2026:
 
 | GdUnit4 | Supports Godot |
 |---|---|
-| v6.2.x | 4.5 to 4.7.1 |
-| v7.0.0 (in development) | 4.7 to 4.8 dev |
+| v7.0.0 (in development, not released) | 4.7, 4.7.1, 4.8 dev |
+| **v6.2.x** | 4.5 to 4.5.2, 4.6 to 4.6.3, 4.7, 4.7.1 |
+| v6.1.x | 4.5 to 4.5.2, 4.6 to 4.6.3 |
+| v6.0.x | 4.5 to 4.5.2 |
+| v5.x | 4.3, 4.4, 4.4.1 |
+| Older | Godot 4.0 to 4.3 |
 
-We're on Godot 4.7.2, a patch release just past what v6.2.x lists, so use the **latest v6.2.x** and confirm the test suite runs. If it doesn't, check the compatibility table on the GdUnit4 GitHub page (https://github.com/MikeSchulze/gdUnit4) for a newer release.
+**Latest release:** v6.2.2 (7 October 2026). Recent releases: v6.2.0 (July), v6.2.1 (August), v6.2.2 (October).
+
+**What we use:** **v6.2.0**, installed from the Godot Asset Store, which (as of 13 November 2026) lags GitHub by two bug-fix releases. That's the same v6.2 line, with the same Godot support. We're on Godot **4.7.2**, which isn't in the table yet: it's a patch release just after 4.7.1, and patch releases rarely break plugins. Confirmed 13 November 2026: all 61 tests run and pass on 4.7.2. If we hit a bug fixed in v6.2.1 or v6.2.2, or v6.2.0 doesn't work with 4.7.2, install the newer release by hand from the releases page (https://github.com/godot-gdunit-labs/gdUnit4/releases).
+
+**When we upgrade Godot,** check this table first, and upgrade GdUnit4 to a release that lists the new Godot version.
 
 ### Install
-1. In Godot, open the **AssetLib** tab at the top of the editor.
-2. Search for **GdUnit4** and pick **GdUnit4 - Unit Testing Framework**. Check the version shown matches the table above.
-3. Click **Download**, then **Install**. It installs into `addons/gdUnit4/`.
-4. Go to **Project → Project Settings → Plugins** and tick **Enabled** next to GdUnit4.
-5. Restart the editor if asked. A **GdUnit** panel appears (usually bottom or right dock).
+Godot 4.7 replaced the old **AssetLib** tab with the official **Godot Asset Store**, so older guides that mention AssetLib are out of date.
+
+**From the Asset Store (what we did):**
+1. In Godot, open the **Asset Store** tab at the top of the editor. If it won't load, check **Editor → Editor Settings → Network** and set the network mode to online.
+2. Search for **GdUnit4** and pick **GdUnit4 - Unit Testing Framework**. Check the version shown is in the v6.2 line (see the table above).
+3. Install it. It goes into `addons/gdUnit4/`.
+4. Go to **Project → Project Settings → Plugins** and tick **Enabled** next to GdUnit4. Godot records this in `project.godot`.
+5. Restart the editor if asked. A **GdUnit** tab appears in the editor.
+
+**By hand from GitHub (for a newer release than the store has):**
+1. On the releases page (https://github.com/godot-gdunit-labs/gdUnit4/releases), download the **Source code (zip)** for the release you want.
+2. Unzip it and copy its `addons/gdUnit4` folder into the project as `addons/gdUnit4/`, replacing any older copy.
+3. Enable the plugin as in step 4 above.
 
 The `addons/gdUnit4/` folder is committed to the repo, so anyone cloning the project gets the same version.
 
@@ -234,4 +250,4 @@ GdUnit4 has a ready-made GitHub Action (`gdunit4-action`) that runs the tests on
 
 Added later:
 
-- [ ] GdUnit4 installed and enabled, and the test suite runs and passes (Tests stage)
+- [x] GdUnit4 installed and enabled, and the test suite runs and passes (13 November 2026: v6.2.0 on Godot 4.7.2, 61 tests)

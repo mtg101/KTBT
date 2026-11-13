@@ -10,7 +10,7 @@ KTBT's core rule is **the game owns the facts; the AI owns the flavour**. The ga
 - **Playtesting** checks the parts tests can't judge: whether characters feel right, whether dialogue reads well, whether it's fun to watch. For an AI-driven game, a human reading the output is still the main quality check.
 - **AI quality runs** sit in between: batches of real AI generations, counted rather than pass/fail.
 
-**Framework:** [GdUnit4](https://github.com/MikeSchulze/gdUnit4). Chosen over GUT for its click-through scene testing, built-in mocks, and VS Code and GitHub integration.
+**Framework:** [GdUnit4](https://github.com/godot-gdunit-labs/gdUnit4) (v6.2.0 from the Godot Asset Store; version notes in [TOOLCHAIN.md](TOOLCHAIN.md#pick-the-right-version)). Chosen over GUT for its click-through scene testing, built-in mocks, and VS Code and GitHub integration.
 
 ## Test layers
 
@@ -33,20 +33,27 @@ KTBT's core rule is **the game owns the facts; the AI owns the flavour**. The ga
 
 ## Bugs become tests
 
-When we fix a problem, we add a test that would have caught it, so it can't creep back. Fixes from [TUNING.md](TUNING.md) waiting for tests:
+When we fix a problem, we add a test that would have caught it, so it can't creep back. These tests have `regression` in their name and point to the matching entry in [LLM-TUNING.md](LLM-TUNING.md). Fixed issues covered so far:
 
-- **Owner titles:** an owner's title always matches their gender (Ajumma or Ajusshi), and an archetype using a term for the other gender is rejected.
-- **Double opening and mismatched orders:** in a visit, the customer's first line comes from the order step, and a line mentioning an item that wasn't ordered is rejected (except soju and beer with somaek).
-- **Strangers acting like regulars:** order and conversation prompts include the first-visit relationship note.
+- **Owner titles:** the owner prompt no longer asks the AI for a title, and an archetype using a term for the other gender is rejected (whole words only). `test_rules.gd`, `test_prompts.gd`.
+- **Double opening and mismatched orders:** a visit's customer prompt has no opening line, and an order line mentioning an item that wasn't ordered is rejected (except soju and beer with somaek). `test_rules.gd`, `test_prompts.gd`.
+- **Strangers acting like regulars:** order and conversation prompts include the first-visit note. `test_prompts.gd`.
+- **Not listening to each other (partly fixed):** serving appears in the transcript as a stage direction, and the "what just happened" recap comes after the conversation in every dialogue prompt. `test_prompts.gd`.
+- **Talking about food that isn't on the table:** the style guide names no menu items, and a conversation line mentioning food that isn't on the table is rejected. `test_rules.gd`, `test_prompts.gd`.
+- **Unrealistic orders:** orders need a drink and a food; two mains or two drinks are rejected unless the customer is hungry or having a rough night; the prompt asks for one drink. `test_rules.gd`, `test_prompts.gd`, `test_menu.gd`.
+- **Everyone orders exactly once / later orders too early / sounding like a first order:** later-order limits, fried rice only after a main, the "more" wording check, the odds, and the turn spacing (never the first reply or last line, two later orders spaced apart). `test_rules.gd`, `test_prompts.gd`.
 
 ## Coverage so far
 
-| Area | Rule tests | Click-through tests |
-|---|---|---|
-| Menu and prices (`menu.gd`) | Not yet | — |
-| Validators: owner, customer, order, dialogue | Not yet | — |
-| Prompts include the right facts (`prompts.gd`) | Not yet | — |
-| One visit (`visit.tscn`) | — | Not yet |
-| Saving and loading | — | — (Bars and saves stage) |
+All 106 tests pass (13 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+
+| Area | Test file | Rule tests | Click-through tests |
+|---|---|---|---|
+| Menu and prices (`menu.gd`) | `tests/test_menu.gd` | ✅ 16: lookup by id, name or alias, won formatting, every item complete, mains and sides, unique ids | — |
+| Rules and validators (`rules.gd`): customers, owners, orders, later orders, dialogue lines, bills, order odds and timing | `tests/test_rules.gd` | ✅ 71 | — |
+| Prompts include the right facts (`prompts.gd`) | `tests/test_prompts.gd` | ✅ 19 | — |
+| One visit (`visit.tscn`) | — | — | Not yet (needs the fake AI) |
+| Offline mode (canned AI) | — | Not yet | Not yet |
+| Saving and loading | — | — | — (Bars and saves stage) |
 
 *Updated as tests are added.*

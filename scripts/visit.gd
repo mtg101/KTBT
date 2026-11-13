@@ -11,18 +11,12 @@ extends Control
 const Ai = preload("res://scripts/ai.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
+const Rules = preload("res://scripts/rules.gd")
 
-const MIN_DRINKING_AGE := 19  # Korea's legal drinking age: enforced by the game, not the AI.
-const MAX_ORDER_ITEMS := 4
-const OWNER_FIELDS := ["name", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
-## Korean terms of address that only fit one gender. The game picks the owner's gender
-## (and so their title: see Prompts.OWNER_ADDRESS), then rejects an owner whose archetype
-## uses a word for the other gender.
-const GENDERED_TERMS := {
-	"woman": ["ajumma", "ajumeoni", "ajummoni", "imo", "halmeoni", "halmoni", "eomeoni", "eomma", "nuna", "noona", "eonni", "unni"],
-	"man": ["ajusshi", "ajeossi", "ajussi", "ajeoshi", "ajeosshi", "samchon", "harabeoji", "abeoji", "appa", "hyung", "hyeong", "oppa"],
-}
-const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance"]
+const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
+const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
+## Free side dishes served with every order, as at a real pojangmacha. Not on the bill.
+const BANCHAN := "kimchi and pickled radish"
 
 const DAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 const TIMES := ["6:30pm", "7:45pm", "9:00pm", "10:20pm", "11:40pm", "12:50am", "1:40am", "2:30am", "3:15am", "4:05am"]
@@ -115,7 +109,7 @@ func _invent_owner() -> void:
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
 	_owner_tag.text = _owner_display()
 	_owner_node.visible = true
-	_narrate(_as_sentence(str(_owner["appearance"])))
+	_narrate(Rules.as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
 	_button.text = "Next customer"
@@ -139,7 +133,7 @@ func _run_visit() -> void:
 	_moment_label.text = "%s, %s, %s" % [_moment["day"], _moment["time"], _moment["weather"]]
 	_update_info()
 	_log.append_text("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
-	_narrate("%s, %s. %s." % [_moment["day"], _moment["time"], _sentence_case(_moment["weather"])])
+	_narrate("%s, %s. %s." % [_moment["day"], _moment["time"], Rules.sentence_case(_moment["weather"])])
 
 	# 1. Who walks in?
 	_typing_label.text = "Someone is coming down the street..."
@@ -154,19 +148,22 @@ func _run_visit() -> void:
 	_customer = customer
 	_customer_color = CUSTOMER_COLORS.pick_random()
 	_update_info()
-	_narrate(_as_sentence(str(_customer["appearance"])))
+	_narrate(Rules.as_sentence(str(_customer["appearance"])))
 	await _walk_in()
 
 	# 2. They sit down, say hello and order in one line, so what they say matches
 	# what they get. The menu and the bill belong to the game.
 	_typing_label.text = "%s is looking at the menu..." % _customer["name"]
+	# The game decides who's extra hungry (two mains) or having a rough night (two drinks).
+	var hungry := randf() < HUNGRY_CHANCE
+	var rough_night := randf() < ROUGH_NIGHT_CHANCE
 	var order: Dictionary = await _ai.ask_json(
-		Prompts.order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript),
-		_validate_order, {"temperature": 0.7})
+		Prompts.order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript, hungry, rough_night),
+		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7})
 	_typing_label.text = ""
 	if order.is_empty():
-		_order = ["soju"]
-		_narrate("(The AI couldn't come up with a valid order, so the game served soju: %s.)" % _ai.last_error)
+		_order = ["soju", "odeng"]
+		_narrate("(The AI couldn't come up with a valid order, so the game served soju and odeng: %s.)" % _ai.last_error)
 	else:
 		_order = order["items"]
 		await _say(false, str(order["line"]))
@@ -176,13 +173,22 @@ func _run_visit() -> void:
 	await _serve(_order)
 
 	# 4. The conversation: owner and customer take turns; the customer has the last word.
-	var exchanges := randi_range(3, 5)
+	# The game decides how many times they order more partway through (often none, sometimes
+	# once, rarely twice). Each later order adds an exchange, so it doesn't eat into the talk,
+	# and the rules space them out (never their first reply or last line).
+	var extra_count := Rules.extra_order_count(randf())
+	var exchanges := randi_range(3, 5) + extra_count
 	var total_lines := exchanges * 2
+	var extra_turns := Rules.extra_order_turns(exchanges, extra_count)
 	for i in total_lines:
+		if extra_turns.has(i):
+			var ordered: bool = await _extra_order()
+			if ordered:
+				continue
 		var owner_speaks := i % 2 == 0
 		var direction := ""
 		if i == 0:
-			direction = "They've just set down the order: %s." % _item_names(_order)
+			direction = "They've just set down the order: %s." % Rules.item_names(_order)
 		elif i == total_lines - 2:
 			direction = "The customer is nearly ready to leave."
 		elif i == total_lines - 1:
@@ -191,8 +197,8 @@ func _run_visit() -> void:
 		var alias := str(_owner["title"]) if owner_speaks else ""
 		_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 		var reply: Dictionary = await _ai.ask_json(
-			Prompts.dialogue_messages(_owner, _customer, _moment, _item_names(_order), _transcript, owner_speaks, direction),
-			_validate_line.bind(speaker, alias), {"temperature": 0.85})
+			Prompts.dialogue_messages(_owner, _customer, _moment, _table_text(), _transcript, owner_speaks, direction),
+			_validate_line.bind(speaker, alias, _order), {"temperature": 0.85})
 		_typing_label.text = ""
 		if reply.is_empty():
 			_narrate("(The conversation fizzled out: %s.)" % _ai.last_error)
@@ -200,7 +206,7 @@ func _run_visit() -> void:
 		await _say(owner_speaks, str(reply["line"]))
 
 	# 5. Pay and leave. The game works out the bill.
-	var bill := _bill(_order)
+	var bill := Rules.bill(_order)
 	_takings += bill
 	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
 	_narrate("%s pays %s and heads back out into the night." % [_customer["name"], Menu.format_won(bill)])
@@ -246,8 +252,41 @@ func _serve(items: Array) -> void:
 	for id in items:
 		await get_tree().create_timer(_scaled(0.9)).timeout
 		_add_item_visual(Menu.find(id))
+	await get_tree().create_timer(_scaled(0.9)).timeout
+	_add_item_visual({"name": "Banchan", "color": "8fae6a"})
 	_typing_label.text = ""
-	_narrate("Served: %s." % _item_names(items))
+	_narrate("Served: %s, with the free banchan (%s)." % [Rules.item_names(items), BANCHAN])
+	# Record it in the transcript too, so the AI knows the food has arrived.
+	_transcript.append({"action": "%s serves: %s, with the free banchan (%s)." % [_owner["name"], Rules.item_names(items), BANCHAN]})
+
+
+## The customer orders more partway through. Returns false if the AI couldn't manage it,
+## in which case the conversation just carries on with a normal line.
+func _extra_order() -> bool:
+	_typing_label.text = "%s is eyeing the menu again..." % _customer["name"]
+	var extra: Dictionary = await _ai.ask_json(
+		Prompts.extra_order_messages(_owner, _customer, _moment, Menu.prompt_list(), _transcript, _table_text()),
+		_validate_extra_order.bind(_order.duplicate()), {"temperature": 0.7})
+	_typing_label.text = ""
+	if extra.is_empty():
+		return false
+	var items: Array = extra["items"]
+	await _say(false, str(extra["line"]))
+	_typing_label.text = "%s is getting it..." % _owner_display()
+	for id in items:
+		await get_tree().create_timer(_scaled(0.9)).timeout
+		_add_item_visual(Menu.find(id))
+	_typing_label.text = ""
+	_order.append_array(items)
+	_narrate("Served: %s." % Rules.item_names(items))
+	_transcript.append({"action": "%s brings: %s." % [_owner["name"], Rules.item_names(items)]})
+	_update_info()
+	return true
+
+
+## What's on the table, as the AI is told it.
+func _table_text() -> String:
+	return "%s, plus free banchan (%s)" % [Rules.item_names(_order), BANCHAN]
 
 
 func _add_item_visual(item: Dictionary) -> void:
@@ -302,43 +341,6 @@ func _owner_display() -> String:
 	return "%s (%s)" % [_owner["name"], _owner["title"]]
 
 
-## "Soju, Soju, Tteokbokki" -> "2x Soju, Tteokbokki"
-func _item_names(items: Array) -> String:
-	var counts := {}
-	var order_seen: Array = []
-	for id in items:
-		if not counts.has(id):
-			counts[id] = 0
-			order_seen.append(id)
-		counts[id] += 1
-	var parts := PackedStringArray()
-	for id in order_seen:
-		var item_name := str(Menu.find(id).get("name", id))
-		parts.append(item_name if counts[id] == 1 else "%dx %s" % [counts[id], item_name])
-	return ", ".join(parts)
-
-
-func _bill(items: Array) -> int:
-	var total := 0
-	for id in items:
-		total += int(Menu.find(id).get("price", 0))
-	return total
-
-
-## "a messy bob" -> "A messy bob."
-func _as_sentence(text: String) -> String:
-	var result := _sentence_case(text.strip_edges())
-	if result != "" and not (result.ends_with(".") or result.ends_with("!") or result.ends_with("?")):
-		result += "."
-	return result
-
-
-func _sentence_case(text: String) -> String:
-	if text == "":
-		return text
-	return text.substr(0, 1).to_upper() + text.substr(1)
-
-
 ## Stop anything the AI writes from being read as BBCode formatting.
 func _esc(value: Variant) -> String:
 	return str(value).replace("[", "[lb]")
@@ -360,140 +362,30 @@ func _update_info() -> void:
 		t += "Mood: %s\n" % _esc(_customer["mood"])
 		t += "[color=#%s]%s[/color]\n" % [muted, _esc(_customer["reason"])]
 		if not _order.is_empty():
-			t += "Ordered: %s (%s)\n" % [_esc(_item_names(_order)), Menu.format_won(_bill(_order))]
+			t += "Ordered: %s (%s)\n" % [_esc(Rules.item_names(_order)), Menu.format_won(Rules.bill(_order))]
 	_info.text = t
 
 
-# --- Checking the AI's replies (the game owns the facts) ---------------------
+# --- Checking the AI's replies (the rules live in scripts/rules.gd) -----------
 
 func _validate_owner(data: Variant, gender: String) -> String:
-	var problem := _check_fields(data, OWNER_FIELDS)
-	if problem != "":
-		return problem
-	problem = _check_age(data, 40, 85)
-	if problem != "":
-		return problem
-	# The owner is a {gender}: their archetype mustn't use a word for the other gender.
-	var other := "man" if gender == "woman" else "woman"
-	for field in ["archetype"]:
-		var words := _words(str(data[field]))
-		for term in GENDERED_TERMS[other]:
-			if term in words:
-				return "the owner is a %s, but their %s uses \"%s\", which is for a %s" % [gender, field, term, other]
-	return ""
-
-
-## "Gruff-but-soft Ajumma!" -> ["gruff", "but", "soft", "ajumma"]
-func _words(text: String) -> PackedStringArray:
-	var letters := ""
-	for c in text.to_lower():
-		letters += c if (c >= "a" and c <= "z") else " "
-	return letters.split(" ", false)
+	return Rules.validate_owner(data, gender)
 
 
 func _validate_customer(data: Variant) -> String:
-	var problem := _check_fields(data, CUSTOMER_FIELDS)
-	if problem != "":
-		return problem
-	return _check_age(data, MIN_DRINKING_AGE, 90)
+	return Rules.validate_customer(data)
 
 
-func _validate_order(data: Variant) -> String:
-	if typeof(data) != TYPE_DICTIONARY:
-		return "it wasn't a JSON object"
-	if not data.has("items") or typeof(data["items"]) != TYPE_ARRAY:
-		return "\"items\" wasn't a list of menu ids"
-	var raw: Array = data["items"]
-	if raw.is_empty():
-		return "they didn't order anything"
-	if raw.size() > MAX_ORDER_ITEMS:
-		return "they ordered %d items, and the most is %d" % [raw.size(), MAX_ORDER_ITEMS]
-	var ids: Array = []
-	for entry in raw:
-		var id := Menu.resolve(str(entry))
-		if id == "":
-			return "\"%s\" isn't on the menu" % str(entry)
-		ids.append(id)
-	data["items"] = ids
-	var line := _unquote(_tidy_text(data.get("line", "")))
-	if line == "":
-		return "\"line\" was empty"
-	# What they say must match what they get: no mentioning dishes they didn't order.
-	var allowed := ids.duplicate()
-	if ids.has("somaek"):
-		allowed.append_array(["soju", "beer"])  # somaek is soju in beer, so they may say so
-	var said := _words(line)
-	for item in Menu.ITEMS:
-		var item_word: String = _words(str(item["name"]))[0]
-		if not allowed.has(item["id"]) and item_word in said:
-			return "the line mentions %s, but that isn't in \"items\"" % item["name"]
-	data["line"] = line
-	return ""
+func _validate_order(data: Variant, max_mains: int, max_drinks: int) -> String:
+	return Rules.validate_order(data, max_mains, max_drinks)
 
 
-func _validate_line(data: Variant, speaker: String, alias: String) -> String:
-	if typeof(data) != TYPE_DICTIONARY or not data.has("line"):
-		return "it didn't include \"line\""
-	var line := _tidy_text(data["line"])
-	# Small models sometimes carry on and write the other person's reply too: keep the first part.
-	var cut := line.find("\n")
-	if cut > 0:
-		line = line.substr(0, cut).strip_edges()
-	# ...or start with "Name:". Strip that off.
-	for prefix in [speaker, alias]:
-		if prefix != "" and line.to_lower().begins_with(prefix.to_lower() + ":"):
-			line = line.substr(prefix.length() + 1).strip_edges()
-	line = _unquote(line)
-	if line == "":
-		return "the line was empty"
-	if line.length() > 500:
-		return "the line was far too long"
-	data["line"] = line
-	return ""
+func _validate_extra_order(data: Variant, table: Array) -> String:
+	return Rules.validate_extra_order(data, table)
 
 
-func _check_fields(data: Variant, fields: Array) -> String:
-	if typeof(data) != TYPE_DICTIONARY:
-		return "it wasn't a JSON object"
-	for field in fields:
-		if not data.has(field):
-			return "it left out \"%s\"" % field
-		if field == "age":
-			continue
-		var text := _tidy_text(data[field])
-		if text == "":
-			return "\"%s\" was empty" % field
-		data[field] = text
-	return ""
-
-
-func _check_age(data: Dictionary, lowest: int, highest: int) -> String:
-	var age = data["age"]
-	if typeof(age) == TYPE_STRING and age.is_valid_int():
-		age = age.to_int()
-	if typeof(age) != TYPE_INT and typeof(age) != TYPE_FLOAT:
-		return "the age wasn't a number"
-	if int(age) < lowest or int(age) > highest:
-		return "an age of %d doesn't fit here (it must be %d to %d)" % [int(age), lowest, highest]
-	data["age"] = int(age)
-	return ""
-
-
-## Text fields sometimes come back as lists: join them up.
-func _tidy_text(value: Variant) -> String:
-	if typeof(value) == TYPE_ARRAY:
-		var parts := PackedStringArray()
-		for part in value:
-			parts.append(str(part).strip_edges())
-		return ", ".join(parts)
-	return str(value).strip_edges()
-
-
-func _unquote(text: String) -> String:
-	for pair in [["\"", "\""], ["“", "”"], ["'", "'"]]:
-		if text.length() >= 2 and text.begins_with(pair[0]) and text.ends_with(pair[1]):
-			return text.substr(1, text.length() - 2).strip_edges()
-	return text
+func _validate_line(data: Variant, speaker: String, alias: String, items: Array) -> String:
+	return Rules.validate_line(data, speaker, alias, items)
 
 
 # --- Building the screen ------------------------------------------------------
@@ -532,6 +424,7 @@ func _build_ui() -> void:
 
 	_fast_toggle = CheckBox.new()
 	_fast_toggle.text = "Fast"
+	_fast_toggle.button_pressed = true  # On by default while we're testing a lot.
 	_fast_toggle.tooltip_text = "Shorter pauses between lines, for testing."
 	bar.add_child(_fast_toggle)
 

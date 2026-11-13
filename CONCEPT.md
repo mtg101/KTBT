@@ -65,10 +65,19 @@ Included in every AI prompt so all characters feel like they belong to the same 
 
 **Tone:** warm, melodramatic, a little melancholy. "One more bottle", unspoken feelings, late-night honesty, with humour mixed in.
 
-## Starter menu (placeholder)
+## Menu and ordering
 
-Drinks: soju, makgeolli, beer, somaek (soju + beer)
-Food: tteokbokki, odeng (fish cake skewers), sundae, dakgalbi, pajeon, ramyeon, gyeran-mari
+The current menu is a fixed placeholder (see bar-specific menus in [PLAN.md](PLAN.md) for where it's heading). Prices live in `scripts/menu.gd`.
+
+- **Drinks:** soju, makgeolli, beer, somaek (soju dropped in beer)
+- **Mains:** tteokbokki, sundae, dakgalbi, pajeon, ramyeon
+- **Sides:** odeng (fish cake skewers), gyeran-mari, gonggibap (a bowl of rice), bokkeumbap (fried rice made in the leftover sauce; only ordered later, after a main)
+- **Free banchan** (kimchi and pickled radish) comes with every order and isn't on the bill.
+
+**How people order** (game rules, checked on every AI order):
+
+- **First order:** at least one drink and one food, because nobody drinks on an empty stomach. Usually one main and one drink, maybe a side. The game decides who's **hungry** (may order two mains) or having a **rough night** (may order two drinks).
+- **Later orders:** half of customers order once; the rest order more partway through the conversation (one more bottle, a side, rice), and a few order a third time. Never a new main, at most one more drink each time, and it has to sound like ordering more.
 
 ## Tech
 
@@ -84,4 +93,4 @@ Show a "typing…" indicator while the AI replies.
 
 ## Plan
 
-What we're building next is in [PLAN.md](PLAN.md), what's been done so far is in [DEVLOG.md](DEVLOG.md), and AI quirks are in [TUNING.md](TUNING.md).
+What we're building next is in [PLAN.md](PLAN.md), what's been done so far is in [DEVLOG.md](DEVLOG.md), and AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).

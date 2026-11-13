@@ -2,18 +2,17 @@
 
 What we're going to build next for [KTBT](CONCEPT.md). Stages are listed in the order we'll build them, and the first one is up next. Each stage ends with something you can run and watch.
 
-When a stage is finished, it moves out of this file and into [DEVLOG.md](DEVLOG.md). AI quirks and how we handle them are in [TUNING.md](TUNING.md).
+When a stage is finished, it moves out of this file and into [DEVLOG.md](DEVLOG.md). AI quirks and how we handle them are in [LLM-TUNING.md](LLM-TUNING.md).
 
 Every list item follows the same pattern: a **bold label**, a colon, then the details.
 
 ## Stages
 
 - **Tests:** automated testing with GdUnit4, so the game's rules can't silently break as it grows. See [TESTS.md](TESTS.md) for the approach.
-  - **Install GdUnit4:** the release that supports our Godot version (see `TOOLCHAIN.md`).
-  - **Make the code testable:** move the validators and other game rules out of `visit.gd` into `scripts/rules.gd`; give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); let a fake AI be plugged in; allow a fixed random seed and near-zero pauses.
-  - **Rule tests:** menu lookup and prices, the bill, ages, owner titles and gendered terms, order/line matching, dialogue tidying. Includes a test for each fixed issue in [TUNING.md](TUNING.md) so it can't creep back.
+  - **Make the visit scene testable:** give key UI nodes fixed names (`NextButton`, `Transcript`, `TakingsLabel`, `Customer`…); let a fake AI be plugged in; allow a fixed random seed and near-zero pauses. (The game rules have already moved to `scripts/rules.gd` and have their own tests.)
   - **AI settings and offline mode:** replace the hard-coded Ollama address and model with AI settings (backend, server address, model). Add a **canned AI** backend that answers instantly from a small library of pre-written owners, customers, orders and conversation lines, so the game runs on machines without a suitable GPU (like the laptop). The game falls back to canned mode automatically if Ollama can't be reached, and shows an "offline mode" label so it's never mistaken for the real AI. The canned AI is also the fake AI the click-through tests use.
   - **Click-through visit tests:** run the visit scene with the fake AI, click **Next customer**, and check the whole visit plays out, including when the AI keeps failing or Ollama isn't running.
+  - **Fast mode defaults back off:** Fast mode is on by default while we're testing a lot; turn the default off again once testing settles (or move it into the settings screen).
   - **Tidy stage numbers out of the code:** a few code comments and the visit screen's title still say "Stage 1" or "Stage 2". Rename them to match the stage names.
 - **Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load. Comes with save/load round-trip tests.
 - **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
@@ -38,7 +37,7 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Calendar, holidays and events:** seasons and Korean occasions (Seollal, Chuseok, Christmas, Pepero Day on 11/11, payday Fridays) and one-off events (a big football match on the overpass screens, a typhoon closing the tent early). Game facts that shape who turns up, what they order and what they talk about.
 - **Drama incidents and story arcs:** K-drama beats across nights: a confession at the counter, a drunk customer the owner sends home in a taxi, a breakup at the next table, the owner's secret slowly coming out, and the classic: redevelopers threatening to tear the tent down. A light **drama director** in the game picks a beat for the night (a game fact), and the AI writes it.
 - **Journal and trope book:** a diary of past nights to reread, and, fitting the name *Korean Tent Bar Tropes*, a **trope book** that fills in as tropes appear ("Chaebol heir in disguise ✓", "Rain-soaked confession ✓"). The game tags tropes as it plans each visit, so collecting them is reliable rather than guessed from the text.
-- **Variety controls:** the game tracks recent names, jobs and archetypes and tells the AI to avoid them, so a small model doesn't send three Ji-hoons in a row. If repetition shows up in practice, log it in [TUNING.md](TUNING.md).
+- **Variety controls:** the game tracks recent names, jobs and archetypes and tells the AI to avoid them, so a small model doesn't send three Ji-hoons in a row. If repetition shows up in practice, log it in [LLM-TUNING.md](LLM-TUNING.md).
 - **Customer-to-customer chat:** customers at nearby seats talking to each other across tables.
 - **Long-term relationships:** the owner and regulars getting closer over many nights.
 - **Economy:** money, menu upgrades, reputation.
@@ -75,4 +74,4 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Other languages:** a Korean-language mode (and maybe others), since the LLM can write them. Voices, the Korean-terms glossary and the gendered-term checks would all need work.
 - **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own version of the bar.
 - **Designing the game stage:** decide what the player actually does when they join the conversation (pick from dialogue choices, or type freely to the AI customers) and what changes as a result (mood, tips, whether they come back, story beats). Worth designing before that stage starts.
-- **Non-Korean visitors:** tourists and expats, who would naturally use Western name order (see the name-order note in [TUNING.md](TUNING.md)).
+- **Non-Korean visitors:** tourists and expats, who would naturally use Western name order (see the name-order note in [LLM-TUNING.md](LLM-TUNING.md)).

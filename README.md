@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Next up: automated tests and an offline mode. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Automated tests (106 so far) cover the game's rules and prompts. Next up: click-through tests and an offline mode. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -17,7 +17,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | [CONCEPT.md](CONCEPT.md) | The game concept, characters, K-drama style guide, saving/loading, menu, tech |
 | [PLAN.md](PLAN.md) | What we're building next: upcoming stages and later ideas |
 | [DEVLOG.md](DEVLOG.md) | A dated record of what's been done and why |
-| [TUNING.md](TUNING.md) | AI quirks we've noticed and how we handle them |
+| [LLM-TUNING.md](LLM-TUNING.md) | LLM tuning notes: quirks in the local model's output and how we handle them |
 | [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting, and installing the test framework |
 | [TESTS.md](TESTS.md) | How KTBT is tested: what's automated, what's playtested, conventions and coverage |
 
@@ -48,8 +48,11 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong |
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
+| `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, text tidying (no scene or AI, so easy to test) |
 | `scripts/visit.gd` | One-visit logic: owner, arrival, order, serving, conversation, bill |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
+| `tests/` | GdUnit4 tests (see [TESTS.md](TESTS.md)) |
+| `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage
 
