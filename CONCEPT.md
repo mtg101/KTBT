@@ -37,7 +37,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 - **New bar:** the AI invents the owner (and the bar's name), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on from where you left off.
 - **When it saves:** at natural moments (a customer arrives, orders, says a line, leaves, or the clock ticks over an hour) and again when the window is closed.
-- **What's saved:** the owner, the clock (night number and time), the weather, the menu, who's seated and their conversation so far, and (from stage 6) regulars and their memory summaries.
+- **What's saved:** the owner, the clock (night number and time), the weather, the menu, who's seated and their conversation so far, and (from the Regulars and relationships stage) regulars and their memory summaries.
 - **Resuming mid-conversation:** a customer who was seated when you quit is still there on load, and their chat continues from the saved transcript. If the AI was halfway through a reply, that one line is simply asked for again.
 - **Safe writes:** each save is written to a temporary file and then swapped in, so a crash mid-save can't corrupt the bar.
 - **Format:** one JSON file per bar in Godot's `user://saves/` folder (on Windows: `%APPDATA%\Godot\app_userdata\KTBT\saves\`). It's human-readable, which is handy for debugging, or for peeking at what the AI invented.
@@ -84,4 +84,4 @@ Show a "typing…" indicator while the AI replies.
 
 ## Plan
 
-The build stages, later ideas and tuning notes are in [PLAN.md](PLAN.md).
+What we're building next is in [PLAN.md](PLAN.md), what's been done so far is in [DEVLOG.md](DEVLOG.md), and AI quirks are in [TUNING.md](TUNING.md).

@@ -112,6 +112,41 @@ You should get back a small JSON object describing a customer. If you do, the wh
 
 ---
 
+## 5a. Machines without a suitable GPU
+
+The reference setup assumes an NVIDIA GPU with about 10GB+ of video memory. On a machine without one (e.g. a laptop with integrated graphics) there are three ways to work. Options 2 and 3 need the AI settings planned for the Tests stage; until then the game always uses `llama3.1:8b` on the local machine.
+
+### Option 1: canned AI (offline mode, from the Tests stage)
+No AI needed at all. The game answers from a small library of pre-written characters and lines, instantly. Good for working on anything except the writing: UI, saving, the night clock, seats, art. It's also what the automated tests use. The game switches to it automatically if Ollama can't be reached, and shows an "offline mode" label.
+
+### Option 2: Ollama on the CPU with a small model
+Ollama runs without a GPU, using the processor instead. It's much slower, so use a small model:
+
+```powershell
+ollama pull llama3.2:3b
+```
+
+Then set the game's AI model to `llama3.2:3b`. Expect replies to take several seconds and the writing to be weaker than the 8B model. While it's answering, `ollama ps` will show **100% CPU**, which is expected here.
+
+### Option 3: use the desktop's Ollama over your home network
+The laptop's game talks to Ollama running on the desktop (which must be on). Full-quality AI, at home only.
+
+**On the desktop (once):**
+1. Search Windows for **"Edit environment variables for your account"** and add a variable named `OLLAMA_HOST` with the value `0.0.0.0:11434`. This makes Ollama accept connections from other machines, not just the desktop itself.
+2. Quit Ollama from the tray icon and start it again.
+3. If Windows Firewall asks whether to allow Ollama on **private networks**, allow it. (If it doesn't ask and the laptop can't connect, add an inbound rule allowing TCP port 11434 on private networks.)
+4. Find the desktop's address: run `ipconfig` and note the **IPv4 Address** (e.g. `192.168.1.20`).
+
+**On the laptop, check it can reach the desktop:**
+```powershell
+Invoke-RestMethod http://192.168.1.20:11434/api/tags
+```
+It should list the desktop's models. Then set the game's AI server address to `http://192.168.1.20:11434`.
+
+> Only do this on a home network you trust: anyone on the same network can use the desktop's Ollama while it's set up this way. Remove the `OLLAMA_HOST` variable to switch it off. The desktop's address can also change after a router restart; if the laptop stops connecting, check `ipconfig` again.
+
+---
+
 ## 6. Optional but recommended
 
 ### Git
@@ -199,4 +234,4 @@ GdUnit4 has a ready-made GitHub Action (`gdunit4-action`) that runs the tests on
 
 Added later:
 
-- [ ] GdUnit4 installed and enabled, and the test suite runs and passes (stage 2.5)
+- [ ] GdUnit4 installed and enabled, and the test suite runs and passes (Tests stage)

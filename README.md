@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Stage 2 complete: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. See the build stages in [PLAN.md](PLAN.md).
+✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Next up: automated tests and an offline mode. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -15,7 +15,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | File | What's in it |
 |---|---|
 | [CONCEPT.md](CONCEPT.md) | The game concept, characters, K-drama style guide, saving/loading, menu, tech |
-| [PLAN.md](PLAN.md) | Build stages and progress, later ideas, tuning notes |
+| [PLAN.md](PLAN.md) | What we're building next: upcoming stages and later ideas |
+| [DEVLOG.md](DEVLOG.md) | A dated record of what's been done and why |
+| [TUNING.md](TUNING.md) | AI quirks we've noticed and how we handle them |
 | [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting, and installing the test framework |
 | [TESTS.md](TESTS.md) | How KTBT is tested: what's automated, what's playtested, conventions and coverage |
 
@@ -23,7 +25,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 - **Engine:** [Godot 4](https://godotengine.org) (GDScript)
 - **AI characters:** a local LLM (Llama 3.1 8B to start) served by [Ollama](https://ollama.com), called from Godot over HTTP
-- **Target platform:** Windows PC, with an NVIDIA GPU of roughly 10GB+ VRAM for the local model
+- **Target platform:** Windows PC, with an NVIDIA GPU of roughly 10GB+ VRAM for the local model (or offline mode without one, from the Tests stage)
 
 ## Running it
 
@@ -31,21 +33,23 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 2. Make sure Ollama is running and the model is pulled.
 3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5).
 
-**Tests** (from stage 2.5): open the **GdUnit** panel in Godot and click **Run All**. See [TESTS.md](TESTS.md).
+**No suitable GPU?** From the Tests stage, the game has an offline mode with canned characters, and it can also use a small model on the CPU or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
+
+**Tests** (from the Tests stage): open the **GdUnit** panel in Godot and click **Run All**. See [TESTS.md](TESTS.md).
 
 ## Project layout
 
 | Path | What it is |
 |---|---|
 | `project.godot` | Godot project settings (main scene: `scenes/visit.tscn`) |
-| `scenes/visit.tscn` | Stage 2: one visit (its UI and grey-box tent are built in code) |
-| `scenes/pipeline_test.tscn` | Stage 1: pipeline test, kept as a quick AI check (open it and press F6) |
+| `scenes/visit.tscn` | The one-visit scene (its UI and grey-box tent are built in code) |
+| `scenes/pipeline_test.tscn` | The pipeline test, kept as a quick AI check (open it and press F6) |
 | `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
 | `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong |
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
-| `scripts/visit.gd` | Stage 2 logic: owner, arrival, order, serving, conversation, bill |
-| `scripts/pipeline_test.gd` | Stage 1 logic |
+| `scripts/visit.gd` | One-visit logic: owner, arrival, order, serving, conversation, bill |
+| `scripts/pipeline_test.gd` | Pipeline test logic |
 
 ## AI usage
 
@@ -56,7 +60,7 @@ This project is an experiment in **vibe coding**. The code and documentation are
 
 - **The developer** owns the idea, makes the design decisions, runs and playtests each build, and reports what's broken or what feels wrong.
 - **Claude** writes the GDScript, scenes and docs, and fixes issues based on that feedback.
-- Work proceeds in small, playable stages (see [PLAN.md](PLAN.md)) so every change is tested by a human before moving on.
+- Work proceeds in small, playable stages (see [PLAN.md](PLAN.md) and [DEVLOG.md](DEVLOG.md)) so every change is tested by a human before moving on.
 
 Commits made by Claude are marked with a `Co-Authored-By: Claude` line.
 
