@@ -135,7 +135,13 @@ func test_takings_add_up_over_several_visits() -> void:
 func test_a_bad_owner_reply_is_retried() -> void:
 	CannedAi.scripted = [{"name": "Nobody", "age": 12}]  # missing fields and far too young
 	var runner := await _open_bar()
+	var scene = runner.scene()
+	# The bad reply really was handed to the game...
+	assert_array(CannedAi.scripted).override_failure_message("the scripted bad reply was never used").is_empty()
+	# ...rejected, and replaced by a valid owner on the retry.
 	assert_bool((runner.find_child("Owner") as Control).visible).is_true()
+	assert_str(str(scene._owner["name"])).is_not_equal("Nobody")
+	assert_int(int(scene._owner["age"])).is_greater_equal(Rules.MIN_OWNER_AGE)
 
 
 func test_owner_that_cant_be_invented_offers_try_again() -> void:
