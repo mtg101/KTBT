@@ -13,5 +13,9 @@ You are free to share and adapt this material for any purpose, including commerc
 as long as you **give appropriate credit** and **distribute your contributions under the
 same licence**.
 
+The placeholder sounds and the Arirang arrangement are made in code (`scripts/ambience.gd`,
+`scripts/music.gd`) and are original to this project. Arirang itself is a traditional Korean
+folk song in the public domain.
+
 Source code is licensed separately under the GNU GPL v3. See [LICENSE](LICENSE).
 Third-party assets keep their own licences, as listed in `CREDITS.md`.

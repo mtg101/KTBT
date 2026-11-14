@@ -70,6 +70,8 @@ func after_test() -> void:
 	Visit.cat_wanders = true
 	Visit.strollers = true
 	Visit.offer_every_look = true
+	Ambience.make_sound = false  # quiet tests (and quick ones)
+	Ambience.settings_path = "user://test_settings.cfg"
 	Ai.canned_think_seconds = 0.0
 
 
@@ -904,3 +906,22 @@ func test_passers_by_carry_umbrellas_in_the_rain() -> void:
 	scene._stroll()
 	var walker := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
 	assert_object(walker.find_child("Umbrella", true, false)).is_not_null()
+
+
+func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Ambience.settings_path))
+	var runner := await _open_bar()
+	var toggle := runner.find_child("SoundToggle") as CheckBox
+	assert_bool(toggle.button_pressed).is_true()
+	await _click(runner, toggle)
+	assert_bool(toggle.button_pressed).is_false()
+	assert_bool(Ambience.load_enabled()).is_false()  # remembered for next time
+	var slider := runner.find_child("SoundVolume") as HSlider
+	assert_float(slider.value).is_equal(0.8)  # the default
+	slider.value = 0.3
+	assert_float(Ambience.load_volume()).is_equal_approx(0.3, 0.001)
+	var music := runner.find_child("MusicVolume") as HSlider
+	assert_float(music.value).is_equal(0.5)
+	music.value = 0.0  # all the way down: no music
+	assert_float(Music.load_volume()).is_equal(0.0)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Ambience.settings_path))

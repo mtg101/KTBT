@@ -193,6 +193,9 @@ var _attention := 0
 var _last_orders := false
 var _leave_requested := false
 var _passers_by := 0  # how many have walked past tonight (also names their nodes)
+var _ambience: Ambience  # the tent's background sound
+var _sound_toggle: CheckBox
+var _music: Music  # Arirang, now and then
 var _loading: LoadingScreen  # the loading screen while a new bar is set up
 var _look_offer: Dictionary = {}  # the colours and shapes a new bar is offered
 var _tent: Array[CanvasItem] = []  # the tent's pieces: hidden until its look is known
@@ -282,6 +285,10 @@ func _ready() -> void:
 		seed(random_seed)
 	_ai = Ai.new()
 	add_child(_ai)
+	_ambience = Ambience.new()
+	_ambience.name = "Ambience"
+	add_child(_ambience)
+	_music = Game.start_music()
 	_build_ui()
 	_build_loading()
 	_ai.offline_started.connect(_on_offline_started)
@@ -535,6 +542,8 @@ func _process(delta: float) -> void:
 	_update_light()
 	if _loading != null and _loading.visible:
 		_loading.status = _typing_label.text
+	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
+		"open": _night_open, "minutes": int(_clock)})
 	if not _night_open or _stopped:
 		return
 	var seconds_per_minute := _scaled(REAL_SECONDS_PER_GAME_MINUTE)
@@ -979,6 +988,7 @@ func _greet() -> void:
 	guest.node.name = "Customer%d" % guest.seat
 	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
 	_guests.append(guest)
+	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
 	_greeting = false
 	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
 	_update_info()
@@ -1035,6 +1045,11 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	guest.food_news = true
 	if first_order:
 		guest.drinks_row.add_child(_banchan_shape())
+	if now.any(func(id): return Menu.find(id).get("kind", "") == "drink"):
+		_ambience.play("pour")
+		_ambience.play("clink", 1.0, 0.8)
+	elif not now.is_empty():
+		_ambience.play("clink", 0.55)  # a bowl of odeng or rice set down
 	for id in later:
 		_kitchen.append({"guest": guest, "id": id, "left": float(Menu.cook_minutes(id)), "ordered": _clock})
 	_typing_label.text = ""
@@ -1075,6 +1090,7 @@ func _carry_dish() -> void:
 		_carrying = false
 		return
 	_add_dish(guest, id)
+	_ambience.play("clink", 0.55)  # a bowl set down
 	guest.served.append(id)
 	guest.version += 1
 	guest.food_news = true
@@ -1113,6 +1129,8 @@ func _settle_up(guest: Guest) -> void:
 	_customer = guest.customer
 	_order = guest.order.duplicate()
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
+	_ambience.play("cash")
+	_ambience.play("scrape", 0.9, 0.5)
 	_clear_table(guest)
 	_walk_out(guest)  # off they go; the owner gets on with the next thing
 	_guests.erase(guest)
@@ -1441,6 +1459,8 @@ func _guest_named(customer_name: String) -> Guest:
 ## The cat moves on: somewhere new, chosen by its personality (spot: a test can choose). If
 ## it's with a customer, that customer's conversation hears about it, so the AI can react.
 func _move_cat(spot: String = "") -> void:
+	if randf() < 0.25:
+		_ambience.play("meow")
 	var people := _guests.filter(func(g): return not g.order.is_empty())
 	var eating := people.filter(func(g): return g.served.any(func(id): return Menu.find(id).get("kind", "") == "food"))
 	if spot == "":
@@ -1887,8 +1907,42 @@ func _build_ui() -> void:
 	_stats_toggle.toggled.connect(_on_stats_toggled)
 	bar.add_child(_stats_toggle)
 
+	_sound_toggle = CheckBox.new()
+	_sound_toggle.name = "SoundToggle"
+	_sound_toggle.text = "Sound"
+	_sound_toggle.button_pressed = _ambience.enabled  # on unless it was turned off last time
+	_sound_toggle.tooltip_text = "The tent's background sound: the street, the weather, the stove and the counter."
+	_sound_toggle.toggled.connect(_ambience.set_enabled)
+	bar.add_child(_sound_toggle)
+	var volume := HSlider.new()
+	volume.name = "SoundVolume"
+	volume.min_value = 0.0
+	volume.max_value = 1.0
+	volume.step = 0.05
+	volume.value = _ambience.volume
+	volume.custom_minimum_size = Vector2(120, 0)
+	volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	volume.tooltip_text = "How loud the background sound is."
+	volume.value_changed.connect(_ambience.set_volume)
+	bar.add_child(volume)
+	var music_label := Label.new()
+	music_label.text = "Music"
+	music_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(music_label)
+	var music := HSlider.new()
+	music.name = "MusicVolume"
+	music.min_value = 0.0
+	music.max_value = 1.0
+	music.step = 0.05
+	music.value = _music.volume
+	music.custom_minimum_size = Vector2(120, 0)
+	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	music.tooltip_text = "Arirang, now and then through the night (all the way down for none)."
+	music.value_changed.connect(_music.set_volume)
+	bar.add_child(music)
+
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
-	for toggle in [_reading_toggle, _stats_toggle]:
+	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle]:
 		toggle.add_theme_icon_override("unchecked", _tick_box(false))
 		toggle.add_theme_icon_override("checked", _tick_box(true))
 
@@ -2064,6 +2118,7 @@ func _build_stage(stage: Control) -> void:
 		_bulb_lights.append(_rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT))  # the bulb
 		_bulbs.append(bulb)
 	_decor_back = _layer(stage, "DecorBack")
+	_build_fridge(stage)
 
 	_owner_node = _person(stage, Vector2(OWNER_HOME_X, OWNER_Y), OWNER_COLOR)
 	_owner_node.name = "Owner"
@@ -2074,13 +2129,14 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820"))  # counter front
 	_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))  # the stove
 	_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a"))  # a flame
+	_build_odeng_pot(stage)
 	_decor_counter = _layer(stage, "DecorCounter")
 
 	# What's cooking (and what's ready to carry over), at the stove.
 	_stove_row = HBoxContainer.new()
 	_stove_row.name = "Stove"
-	_stove_row.position = Vector2(110, 207)
-	_stove_row.size = Vector2(226, 34)
+	_stove_row.position = Vector2(176, 207)  # beside the odeng pot
+	_stove_row.size = Vector2(160, 34)
 	_stove_row.add_theme_constant_override("separation", 4)
 	_stove_row.clip_contents = true
 	stage.add_child(_stove_row)
@@ -2127,6 +2183,72 @@ func _build_stage(stage: Control) -> void:
 	_build_sign(stage)
 	_weather_front = _layer(stage, "WeatherFront")
 	_weather_front.z_index = 2  # in front of everyone
+
+
+## The drinks fridge at the back, by the stove (the owner's station), behind the owner: a
+## glass door lit from inside, with shelves of soju, beer and makgeolli (only what's on the
+## menu). Its shelves sit high, so the odeng pot in front doesn't hide them.
+func _build_fridge(stage: Control) -> void:
+	var fridge := Control.new()
+	fridge.name = "Fridge"
+	fridge.position = Vector2(186, 116)  # just right of the odeng pot
+	fridge.size = Vector2(92, 134)
+	fridge.mouse_filter = Control.MOUSE_FILTER_STOP
+	fridge.tooltip_text = "The drinks fridge: soju, beer and makgeolli, ice cold."
+	stage.add_child(fridge)
+	_rect(fridge, Vector2.ZERO, Vector2(92, 134), Color("d8dce4"))  # the cabinet
+	_rect(fridge, Vector2.ZERO, Vector2(92, 14), Color("c8443a"))  # the header strip
+	_rect(fridge, Vector2(6, 18), Vector2(80, 112), Color("23344a"))  # inside
+	_rect(fridge, Vector2(6, 18), Vector2(80, 112), Color(0.9, 0.96, 1.0, 0.18))  # its light
+	var shelves := [
+		["soju", Vector2(7, 20), 6],  # green bottles
+		["beer", Vector2(10, 16), 5],  # gold cans
+		["makgeolli", Vector2(9, 20), 5],  # white bottles
+	]
+	for row in shelves.size():
+		var drink: String = shelves[row][0]
+		var shape: Vector2 = shelves[row][1]
+		var count: int = shelves[row][2]
+		var floor_y := 18.0 + (row + 1) * 26.0
+		var colour := Color(str(Menu.find(drink)["color"]))
+		var gap := (80.0 - count * shape.x) / (count + 1)
+		for k in count:
+			var x := 6.0 + gap + k * (shape.x + gap)
+			_rect(fridge, Vector2(x, floor_y - shape.y), shape, colour)
+			if drink != "beer":  # a neck and a cap on the bottles
+				_rect(fridge, Vector2(x + shape.x / 2 - 2, floor_y - shape.y - 6), Vector2(4, 6), colour)
+				_rect(fridge, Vector2(x + shape.x / 2 - 2, floor_y - shape.y - 8), Vector2(4, 2), Color("2e7a44") if drink == "makgeolli" else Color("d8dce4"))
+		_rect(fridge, Vector2(6, floor_y), Vector2(80, 2), Color("9aa6b4"))  # the shelf
+	var sheen := Polygon2D.new()  # light catching the glass
+	sheen.polygon = PackedVector2Array([Vector2(14, 18), Vector2(34, 18), Vector2(16, 130), Vector2(6, 130), Vector2(6, 60)])
+	sheen.color = Color(1, 1, 1, 0.1)
+	fridge.add_child(sheen)
+	_rect(fridge, Vector2(80, 40), Vector2(3, 40), Color("8a8c96"))  # the handle
+
+
+## The odeng pot, simmering on the stove all night: fish cake skewers poking out of the
+## broth, and steam curling up off it.
+func _build_odeng_pot(stage: Control) -> void:
+	var pot := Control.new()
+	pot.name = "OdengPot"
+	pot.position = Vector2(108, 212)
+	pot.mouse_filter = Control.MOUSE_FILTER_STOP
+	pot.size = Vector2(60, 32)
+	pot.tooltip_text = "Odeng: %s" % Menu.find("odeng")["desc"]
+	stage.add_child(pot)
+	for k in 4:  # skewers, at a slant
+		var skewer := _rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
+		skewer.rotation = -0.2 + k * 0.12
+		_rect(pot, Vector2(7 + k * 12, -2 + (k % 2) * 4), Vector2(9, 8), Color("c9a26b"))  # a folded fish cake
+	_rect(pot, Vector2(0, 6), Vector2(60, 26), Color("8a8c96"))  # the pot (a square metal one)
+	_rect(pot, Vector2(-3, 4), Vector2(66, 4), Color("b0b2bc"))  # its rim
+	_rect(pot, Vector2(2, 8), Vector2(56, 3), Color("c9a26b", 0.8))  # the broth
+	for k in 3:  # steam, rising and fading, one puff after another
+		var puff := _rect(pot, Vector2(20 + k * 10, 0), Vector2(10, 10), Color(1, 1, 1, 0.0))
+		var rise := puff.create_tween().set_loops()
+		rise.tween_interval(k * 0.9)
+		rise.tween_property(puff, "position", Vector2(14 + k * 12, -46), 2.7).from(Vector2(20 + k * 10, 0))
+		rise.parallel().tween_property(puff, "color:a", 0.0, 2.7).from(0.3)
 
 
 ## An empty full-stage layer for things added later (weather, the bar's touches).

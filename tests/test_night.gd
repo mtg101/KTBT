@@ -22,6 +22,8 @@ const TEST_STATS := "user://test_stats_night/"
 
 
 func before_test() -> void:
+	Ambience.make_sound = false  # quiet tests (and quick ones)
+	Ambience.settings_path = "user://test_settings.cfg"
 	_real_saves = SaveStore.folder
 	SaveStore.folder = TEST_SAVES
 	_real_stats = NightStats.folder

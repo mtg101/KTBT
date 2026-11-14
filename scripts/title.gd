@@ -17,6 +17,7 @@ const CONFIRM_SECONDS := 4.0
 
 
 func _ready() -> void:
+	Game.start_music()
 	_build_ui()
 	_fill_list()
 
@@ -139,6 +140,25 @@ func _build_ui() -> void:
 	subtitle.add_theme_font_size_override("font_size", 28)
 	subtitle.add_theme_color_override("font_color", MUTED)
 	col.add_child(subtitle)
+
+	var music_row := HBoxContainer.new()  # the music's volume (it plays from here on)
+	music_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(music_row)
+	var music_label := Label.new()
+	music_label.text = "Music"
+	music_label.add_theme_color_override("font_color", MUTED)
+	music_row.add_child(music_label)
+	var music := HSlider.new()
+	music.name = "MusicVolume"
+	music.min_value = 0.0
+	music.max_value = 1.0
+	music.step = 0.05
+	music.value = Game.music.volume
+	music.custom_minimum_size = Vector2(160, 0)
+	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	music.tooltip_text = "Arirang, now and then (all the way down for none)."
+	music.value_changed.connect(Game.music.set_volume)
+	music_row.add_child(music)
 
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 30)

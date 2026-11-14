@@ -21,6 +21,18 @@ var bar := {}
 var change_scenes := true
 var requested_scene := ""
 
+## The music, which carries on from scene to scene (see music.gd).
+var music: Music = null
+
+
+## Starts the music if it isn't going yet (the title screen and the bar both ask).
+func start_music() -> Music:
+	if music == null:
+		music = Music.new()
+		music.name = "Music"
+		add_child(music)
+	return music
+
 
 ## Start a brand new bar.
 func new_bar() -> void:

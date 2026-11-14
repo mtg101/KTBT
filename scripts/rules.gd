@@ -520,7 +520,7 @@ static func validate_bar_look(data: Variant, offered: Dictionary = {}) -> String
 	if hangul.length() > MAX_HANGUL_LENGTH:
 		return "\"hangul\" is too long for the sign"
 	var tarp := tidy_text(data["tarp"]).to_lower()
-	var sign := tidy_text(data["sign"]).to_lower()
+	var sign_style := tidy_text(data["sign"]).to_lower()
 	var shape := tidy_text(data.get("shape", "classic")).to_lower()  # older looks have none
 	var shapes: Array = offered.get("shape", TENT_SHAPES.keys())
 	var tarps: Array = offered.get("tarp", BAR_TARPS.keys())
@@ -528,7 +528,7 @@ static func validate_bar_look(data: Variant, offered: Dictionary = {}) -> String
 		return "\"shape\" must be one of: %s" % ", ".join(PackedStringArray(shapes))
 	if not BAR_TARPS.has(tarp) or not tarps.has(tarp):
 		return "\"tarp\" must be one of: %s" % ", ".join(PackedStringArray(tarps))
-	if not SIGN_STYLES.has(sign):
+	if not SIGN_STYLES.has(sign_style):
 		return "\"sign\" must be one of: %s" % ", ".join(PackedStringArray(SIGN_STYLES.keys()))
 	var touches: Array = []
 	var raw = data.get("touches", [])
@@ -542,7 +542,7 @@ static func validate_bar_look(data: Variant, offered: Dictionary = {}) -> String
 			touches.append(touch)
 	data["hangul"] = hangul
 	data["tarp"] = tarp
-	data["sign"] = sign
+	data["sign"] = sign_style
 	data["shape"] = shape
 	data["touches"] = touches
 	return ""

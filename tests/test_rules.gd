@@ -941,3 +941,40 @@ func test_a_new_bar_is_offered_a_few_looks_and_must_pick_from_them() -> void:
 	assert_str(Rules.validate_bar_look(_look({"tarp": "teal", "shape": "awning"}), limited)).is_empty()
 	assert_str(Rules.validate_bar_look(_look({"tarp": "orange", "shape": "awning"}), limited)).contains("teal, maroon")
 	assert_str(Rules.validate_bar_look(_look({"tarp": "teal", "shape": "peaked"}), limited)).contains("\"shape\"")
+
+
+func test_the_sound_follows_the_scene() -> void:
+	var quiet := Ambience.mix({"weather": "", "people": 0, "open": true})
+	assert_float(quiet["hum"]).is_equal(1.0)
+	assert_float(quiet["simmer"]).is_equal(1.0)  # the odeng pot's always on
+	assert_float(quiet["murmur"]).is_equal(0.0)
+	assert_float(quiet["sizzle"]).is_equal(0.0)
+	var busy := Ambience.mix({"weather": "rain", "people": 5, "cooking": true, "open": true})
+	assert_float(busy["rain"]).is_equal(1.0)
+	assert_float(busy["murmur"]).is_equal(1.0)
+	assert_float(busy["sizzle"]).is_equal(1.0)
+	assert_float(Ambience.mix({"weather": "muggy"})["cicadas"]).is_equal(1.0)
+	assert_float(Ambience.mix({"weather": "breeze"})["wind"]).is_equal(1.0)
+	assert_bool(Ambience.muffled("snow")).is_true()
+	assert_bool(Ambience.muffled("rain")).is_false()
+	assert_float(Ambience.traffic_gap(1.0, 0.5)).is_less(Ambience.traffic_gap(0.0, 0.5))
+
+
+func test_every_sound_is_made() -> void:
+	for sound in ["clink", "meow", "scrape"]:  # the quick ones; loops take longer to make
+		var stream := Ambience.make(sound)
+		assert_int(stream.data.size()).is_greater(1000)
+		assert_int(stream.loop_mode).is_equal(AudioStreamWAV.LOOP_DISABLED)
+
+
+func test_arirang_is_in_whole_bars_of_three() -> void:
+	var beats := 0.0
+	var bar := 0.0
+	for note in Music.ARIRANG:
+		assert_bool(Music.SEMITONES.has(note[0])).override_failure_message(str(note)).is_true()
+		beats += float(note[1])
+		bar += float(note[1])
+		assert_float(bar).is_less_equal(3.0)  # no note runs over a bar line
+		if is_equal_approx(bar, 3.0):
+			bar = 0.0
+	assert_float(beats).is_equal(48.0)  # sixteen bars
