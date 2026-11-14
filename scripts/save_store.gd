@@ -84,6 +84,15 @@ static func load_bar(id: String) -> Dictionary:
 
 
 ## Every saved bar, most recently played first. Unreadable files are skipped.
+## Deletes a bar's save (and any half-written copy). Returns true if anything was removed.
+static func delete_bar(id: String) -> bool:
+	var removed := false
+	for path in [_path(id), _path(id) + ".tmp"]:
+		if FileAccess.file_exists(path) and DirAccess.remove_absolute(path) == OK:
+			removed = true
+	return removed
+
+
 static func list_bars() -> Array:
 	var bars: Array = []
 	var seen := {}

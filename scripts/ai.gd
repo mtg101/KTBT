@@ -22,6 +22,9 @@ const SERVER_CHECK_SECONDS := 3.0
 
 ## Test hook: behave as if Ollama can't be reached, instantly. Leave alone otherwise.
 static var simulate_unreachable := false
+## Test hook: how long the canned AI "thinks" before each reply (0: just a frame), so tests
+## can check what the game does while it waits for the AI.
+static var canned_think_seconds := 0.0
 
 ## Why the last ask_json() call failed, in plain words.
 var last_error := ""
@@ -37,6 +40,10 @@ var _auto_fallback := false
 var _checking_server := false
 
 signal _server_checked
+## After every ask_json(), for the stats: what it was for, how long it took (retries
+## included), the problems with any replies that were rejected, and whether it got a
+## usable reply in the end.
+signal answered(purpose: String, seconds: float, problems: Array, ok: bool)
 
 
 func _ready() -> void:
@@ -57,10 +64,18 @@ func _ready() -> void:
 ## plus context}; the LLM ignores it and reads the messages instead. Returns the approved
 ## Dictionary, or {} if it couldn't get a usable reply (see last_error).
 func ask_json(messages: Array, validator: Callable, options: Dictionary = {}, request: Dictionary = {}) -> Dictionary:
+	var started := Time.get_ticks_msec()
+	var problems: Array = []
+	var result: Dictionary = await _ask(messages, validator, options, request, problems)
+	answered.emit(str(request.get("purpose", "")), (Time.get_ticks_msec() - started) / 1000.0, problems, not result.is_empty())
+	return result
+
+
+func _ask(messages: Array, validator: Callable, options: Dictionary, request: Dictionary, problems: Array) -> Dictionary:
 	if _checking_server:
 		await _server_checked
 	if offline:
-		return await _ask_canned(validator, request)
+		return await _ask_canned(validator, request, problems)
 	last_error = ""
 	var convo := messages.duplicate()
 	for attempt in max_attempts:
@@ -75,7 +90,7 @@ func ask_json(messages: Array, validator: Callable, options: Dictionary = {}, re
 			# Ollama didn't answer at all: retrying straight away won't help.
 			if _auto_fallback:
 				_go_offline(str(reply[1]))
-				return await _ask_canned(validator, request)
+				return await _ask_canned(validator, request, problems)
 			last_error = str(reply[1])
 			return {}
 		var content := str(reply[1])
@@ -83,6 +98,7 @@ func ask_json(messages: Array, validator: Callable, options: Dictionary = {}, re
 		var problem: String = validator.call(data)
 		if problem == "":
 			return data
+		problems.append(problem)
 		last_error = "the AI's reply was rejected %d times (last time because %s)" % [attempt + 1, problem]
 		convo = messages.duplicate()
 		convo.append({"role": "assistant", "content": content})
@@ -90,15 +106,18 @@ func ask_json(messages: Array, validator: Callable, options: Dictionary = {}, re
 	return {}
 
 
-func _ask_canned(validator: Callable, request: Dictionary) -> Dictionary:
+func _ask_canned(validator: Callable, request: Dictionary, problems: Array) -> Dictionary:
 	last_error = ""
 	for attempt in max_attempts:
 		# A frame's pause, so the game behaves the same as with a real (slower) AI.
 		await get_tree().process_frame
+		if canned_think_seconds > 0.0:
+			await get_tree().create_timer(canned_think_seconds).timeout
 		var data = _canned.reply(request)
 		var problem: String = validator.call(data)
 		if problem == "":
 			return data
+		problems.append(problem)
 		last_error = "the canned reply was rejected %d times (last time because %s)" % [attempt + 1, problem]
 	return {}
 

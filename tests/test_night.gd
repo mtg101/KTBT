@@ -7,6 +7,7 @@ const Visit = preload("res://scripts/visit.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
+const NightStats = preload("res://scripts/night_stats.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -15,11 +16,16 @@ const TIMEOUT_MS := 15000
 const NIGHT_TIMEOUT_MS := 60000
 
 var _real_saves := ""
+var _real_stats := ""
+const TEST_STATS := "user://test_stats_night/"
 
 
 func before_test() -> void:
 	_real_saves = SaveStore.folder
 	SaveStore.folder = TEST_SAVES
+	_real_stats = NightStats.folder
+	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
+	_clear_folder(TEST_STATS)
 	_clear_saves()
 	Game.bar = {}
 	Game.change_scenes = false
@@ -34,6 +40,8 @@ func before_test() -> void:
 func after_test() -> void:
 	_clear_saves()
 	SaveStore.folder = _real_saves
+	_clear_folder(TEST_STATS)
+	NightStats.folder = _real_stats
 	Game.bar = {}
 	Game.change_scenes = true
 	Game.requested_scene = ""
@@ -42,9 +50,20 @@ func after_test() -> void:
 	Visit.pause_scale_override = -1.0
 	Visit.random_seed = 0
 	Visit.run_clock = true
+	Visit.stay_minutes_override = -1
+	Visit.company_override = ""
+	Visit.chat_chance_override = -1.0
 
 
 # --- Helpers ---------------------------------------------------------------------------
+
+func _clear_folder(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for file_name in dir.get_files():
+		dir.remove(file_name)
+
 
 func _clear_saves() -> void:
 	var dir := DirAccess.open(TEST_SAVES)
@@ -120,12 +139,12 @@ func test_customers_arrive_without_clicking() -> void:
 	assert_int(int(Game.bar["visits"])).is_greater_equal(1)
 
 
-func test_next_customer_still_works_mid_night() -> void:
+func test_someone_turning_up_mid_night_is_served() -> void:
 	Visit.run_clock = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(scene.busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
+	scene._waiting.append(scene._clock)
+	assert_bool(scene.busy).override_failure_message("nobody turned up").is_true()
 	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 	assert_int(scene._night_visits).is_equal(1)
@@ -137,7 +156,6 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	assert_bool(await _wait_for_summary(runner)).override_failure_message("the night never ended").is_true()
 	assert_int(int(scene._clock)).is_greater_equal(27 * 60)  # the last customers may finish after 3am
 	assert_bool(scene._night_open).is_false()
-	assert_bool((runner.find_child("NextButton") as Button).disabled).is_true()
 	var summary := (runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()
 	assert_str(summary).contains("Night 1 at %s" % Game.bar["name"])
 	assert_str(summary).contains("customer")
@@ -158,6 +176,18 @@ func test_the_finished_night_is_saved() -> void:
 	assert_int(int(entry["takings"])).is_equal(scene._night_takings)
 
 
+func test_the_night_log_is_written() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var files := DirAccess.get_files_at(TEST_STATS)
+	assert_int(files.size()).is_equal(1)
+	assert_str(files[0]).ends_with("_night1.json")
+	var data = JSON.parse_string(FileAccess.get_file_as_string(TEST_STATS.path_join(files[0])))
+	assert_bool(bool(data["context"]["finished"])).is_true()
+	assert_int(int(data["people"]["served"])).is_equal(scene._night_visits)
+
+
 func test_open_for_another_night_starts_night_two() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -173,11 +203,14 @@ func test_open_for_another_night_starts_night_two() -> void:
 	assert_int(scene._night_visits).is_equal(0)
 
 
-func test_close_the_bar_goes_back_to_the_title() -> void:
+func test_close_the_bar_saves_and_goes_back_to_the_title() -> void:
 	var runner := await _open_bar()
 	assert_bool(await _wait_for_summary(runner)).is_true()
+	var id := str(Game.bar["id"])
 	await _click(runner, runner.find_child("SummaryLeaveButton"))
 	assert_bool(await _wait_until(func(): return Game.requested_scene == TITLE, 3000)).override_failure_message("Close the bar didn't go to the title").is_true()
+	assert_bool(Game.bar.is_empty()).is_true()
+	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
 
 
 func test_a_saved_bar_carries_on_from_its_next_night() -> void:

@@ -529,13 +529,13 @@ func test_arrival_gaps_are_never_tiny() -> void:
 
 
 func test_a_whole_night_fits_a_sensible_number_of_customers() -> void:
-	# Average gaps across the night: busy enough to be a night, not a stampede.
+	# Average gaps across the night: about twenty customers, so there's time to talk.
 	var minutes := Rules.OPEN_MINUTES
 	var arrivals := 0
 	while minutes < Rules.LAST_ARRIVAL_MINUTES:
 		minutes += Rules.next_arrival_gap(minutes, 0.5)
 		arrivals += 1
-	assert_int(arrivals).is_between(20, 45)
+	assert_int(arrivals).is_between(17, 23)
 
 
 func test_nights_go_round_the_week() -> void:
@@ -586,10 +586,157 @@ func test_table_text_with_only_banchan() -> void:
 	assert_str(Rules.table_text([], ["bokkeumbap"], "kimchi")).starts_with("free banchan (kimchi). Still cooking")
 
 
-func test_last_orders_wraps_conversations_up() -> void:
-	# The owner's turn next: one more owner line and the customer's reply.
-	assert_int(Rules.last_orders_total(4, 10)).is_equal(6)
-	# The customer's turn next: just their reply.
-	assert_int(Rules.last_orders_total(5, 10)).is_equal(6)
-	# Nearly done anyway: no change.
-	assert_int(Rules.last_orders_total(9, 10)).is_equal(10)
+# --- How long people stay, and their mood for company -------------------------------------
+
+func test_company_is_mostly_chatty() -> void:
+	assert_str(Rules.company(0.0)).is_equal("owner")
+	assert_str(Rules.company(Rules.HERE_TO_TALK_CHANCE + 0.01)).is_equal("quiet")
+	assert_str(Rules.company(0.99)).is_equal("chatty")
+	var chatty := 0
+	for i in 100:
+		if Rules.company(i / 100.0) == "chatty":
+			chatty += 1
+	assert_int(chatty).is_between(50, 60)
+
+
+func test_most_people_stay_half_an_hour_to_an_hour() -> void:
+	assert_int(Rules.stay_minutes("chatty", 0.0)).is_equal(30)
+	assert_int(Rules.stay_minutes("quiet", 1.0)).is_equal(60)
+	assert_int(Rules.stay_minutes("chatty", 0.5)).is_equal(45)
+
+
+func test_people_here_to_talk_stay_longer() -> void:
+	assert_int(Rules.stay_minutes("owner", 0.0)).is_equal(60)
+	assert_int(Rules.stay_minutes("owner", 1.0)).is_equal(90)
+
+
+func test_greetings_are_quick_when_its_busy() -> void:
+	assert_bool(Rules.quick_greeting(1, 0)).is_true()  # someone else is waiting
+	assert_bool(Rules.quick_greeting(0, Rules.BUSY_COUNTER)).is_true()  # a busy counter
+	assert_bool(Rules.quick_greeting(0, Rules.BUSY_COUNTER - 1)).is_false()  # quiet: a proper hello
+
+
+func test_only_quiet_customers_stay_out_of_chats() -> void:
+	assert_bool(Rules.joins_chats("chatty")).is_true()
+	assert_bool(Rules.joins_chats("owner")).is_true()
+	assert_bool(Rules.joins_chats("quiet")).is_false()
+
+
+func test_every_mood_for_company_is_described() -> void:
+	for mood in ["chatty", "quiet", "owner"]:
+		assert_bool(Rules.COMPANY_TEXT.has(mood)).is_true()
+
+
+# --- How strangers talk ---------------------------------------------------------------------
+
+func test_strangers_dont_say_oppa_or_eonni() -> void:
+	for line in ["Oppa, pass the soju?", "Thanks, eonni.", "Hyung! Over here.", "Noona, are you okay?"]:
+		var data := {"line": line}
+		assert_str(Rules.validate_line(data, "Kim Ji-ho", "")).override_failure_message(line).contains("only just met")
+
+
+func test_polite_lines_between_strangers_are_fine() -> void:
+	var data := {"line": "Jeogiyo, sorry to bother you. Is this seat taken?"}
+	assert_str(Rules.validate_line(data, "Kim Ji-ho", "", [], ["Lee Min-jun"])).is_empty()
+
+
+func test_names_dont_count_as_close_terms() -> void:
+	# Lee Hyung-jun's name has "hyung" in it; saying his name is fine.
+	assert_str(Rules.close_term("Nice to meet you, Hyung-jun.", ["Lee Hyung-jun"])).is_empty()
+	assert_str(Rules.close_term("Lee Hyung-jun, right?", ["Lee Hyung-jun"])).is_empty()
+	assert_str(Rules.close_term("Hyung-jun, oppa!", ["Lee Hyung-jun"])).is_equal("oppa")
+
+
+func test_close_terms_are_whole_words_only() -> void:
+	assert_str(Rules.close_term("Unnecessary, honestly.")).is_empty()
+
+
+# --- No same names ----------------------------------------------------------------------------
+
+func test_a_customer_name_and_gender_is_fine() -> void:
+	var data := {"name": " Moon Tae-il ", "gender": "Man"}
+	assert_str(Rules.validate_customer_name(data, ["Kim Ji-ho"])).is_empty()
+	assert_str(str(data["name"])).is_equal("Moon Tae-il")
+	assert_str(str(data["gender"])).is_equal("man")
+
+
+func test_a_name_already_at_the_counter_is_rejected_straight_away() -> void:
+	var problem := Rules.validate_customer_name({"name": "Kim Ji-ho", "gender": "woman"}, ["kim ji-ho"])
+	assert_str(problem).contains("already at the counter")
+
+
+func test_bad_names_and_genders_are_rejected() -> void:
+	assert_str(Rules.validate_customer_name({"name": "Ji-ho", "gender": "woman"})).contains("family name")
+	assert_str(Rules.validate_customer_name({"name": "김지호 Kim", "gender": "woman"})).contains("English letters")
+	assert_str(Rules.validate_customer_name({"name": "Kim Ji-ho", "gender": "girl"})).contains("gender")
+	assert_str(Rules.validate_customer_name({"name": "Kim Ji-ho"})).is_not_empty()
+
+
+func test_customer_details_need_everything_but_the_name() -> void:
+	var details := _customer()
+	details.erase("name")
+	assert_str(Rules.validate_customer_details(details)).is_empty()
+	details.erase("job")
+	assert_str(Rules.validate_customer_details(details)).is_not_empty()
+
+
+func test_a_customer_with_a_name_already_at_the_counter_is_rejected() -> void:
+	var problem := Rules.validate_customer(_customer(), ["Lee Min-jun", "kim ji-ho"])
+	assert_str(problem).contains("already at the counter")
+
+
+func test_a_customer_with_a_new_name_is_fine() -> void:
+	assert_str(Rules.validate_customer(_customer(), ["Lee Min-jun"])).is_empty()
+
+
+# --- Kinds of problem, for the stats -----------------------------------------------------
+
+func test_problems_are_grouped_by_kind() -> void:
+	var cases := {
+		"someone called Kim Ji-ho is already at the counter: pick a different name": "same name",
+		"the line says \"oppa\", but these people have only just met: strangers don't use oppa, hyung, nuna or eonni": "oppa, hyung, nuna or eonni",
+		"the line mentions Tteokbokki, but that isn't on the table (Beer)": "food that wasn't ordered",
+		"\"pizza\" isn't on the menu": "not on the menu",
+		"it wasn't a JSON object": "missing or broken JSON",
+		"an age of 12 doesn't fit here (it must be 19 to 90)": "age",
+		"\"gender\" must be \"woman\" or \"man\"": "name format",
+		"there's no drink: everyone orders at least one drink": "order rules",
+	}
+	for problem in cases:
+		assert_str(Rules.problem_kind(problem)).override_failure_message(problem).is_equal(cases[problem])
+
+
+# --- Non-binary customers -------------------------------------------------------------------
+
+func test_about_one_in_a_hundred_is_non_binary() -> void:
+	assert_str(Rules.game_gender(0.0)).is_equal("non-binary")
+	assert_str(Rules.game_gender(Rules.NON_BINARY_CHANCE + 0.001)).is_empty()  # the AI chooses
+	var count := 0
+	for i in 1000:
+		if Rules.game_gender(i / 1000.0) == "non-binary":
+			count += 1
+	assert_int(count).is_equal(10)
+
+
+func test_a_gender_the_game_decided_needs_only_a_name() -> void:
+	var data := {"name": "Han Seol"}
+	assert_str(Rules.validate_customer_name(data, [], "non-binary")).is_empty()
+	assert_str(str(data["gender"])).is_equal("non-binary")
+	# ...and it overrides whatever gender the AI added anyway.
+	var other := {"name": "Han Seol", "gender": "woman"}
+	assert_str(Rules.validate_customer_name(other, [], "non-binary")).is_empty()
+	assert_str(str(other["gender"])).is_equal("non-binary")
+
+
+func test_the_ai_cant_choose_non_binary_itself() -> void:
+	# So the game's 1% stays 1%.
+	assert_str(Rules.validate_customer_name({"name": "Han Seol", "gender": "non-binary"})).contains("gender")
+
+
+# --- How fast time runs ---------------------------------------------------------------------
+
+func test_time_runs_fast_when_the_tent_is_quiet() -> void:
+	assert_float(Rules.time_speed(0)).is_greater(Rules.time_speed(1))  # empty: really fast
+	assert_float(Rules.time_speed(1)).is_greater(Rules.time_speed(2))  # one: a bit fast
+	assert_float(Rules.time_speed(2)).is_equal(1.0)  # two or more: time to chat
+	assert_float(Rules.time_speed(5)).is_equal(1.0)

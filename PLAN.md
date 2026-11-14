@@ -8,20 +8,6 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Customers talk to each other:** the counter becomes a place where strangers chat, not just a queue for the owner. Mostly it's still customer and owner.
-  - **How long people stay (built first):** the game gives each customer a **stay** when they sit down, a game fact like hunger. Most stay **30–60 game minutes**, whether or not the owner gets to them much. About one in five is **here to talk**: they stay **60–90 minutes** and get the owner's attention sooner. When someone's time is up they say a goodbye line, pay and go, even mid-conversation (but they wait for any food still on its way). At 3am last orders, everyone's time is up. Stays run in game time, so they don't depend on how fast the AI is.
-  - **Who talks to whom:** customers sometimes talk to each other, anyone at the counter, not just neighbours. Sometimes the owner joins a customer chat, and sometimes another customer does.
-  - **One voice at a time:** the AI still writes one line at a time, so a customer chat is another thing the owner's turn-taking can choose: a short spell of a few lines, only when nothing more urgent is waiting.
-  - **Mood for company:** the game decides each customer's mood: **chatty**, **keeps to themselves** or **here for the owner** (the ones here to talk). Someone who keeps to themselves isn't drawn into chats.
-  - **Strangers:** the AI is told they've just met, so they don't know each other's names until one of them says theirs.
-  - **Honorifics:** strangers talk politely to each other. Oppa, hyung, nuna and eonni are ruled out between people who've just met (calling for attention with "jeogiyo", excuse me, is fine), and the game checks for them, like the owner's title. Getting closer could unlock them later, in Regulars and relationships.
-  - **No same names:** a new customer with the same name as someone already at the counter is rejected and asked for again.
-  - **Food:** customers can mention what's on each other's tables, but still not food nobody's ordered.
-  - **What the AI sees:** each owner–customer conversation and each customer chat keeps its own history. After a customer chat, a short note goes into each person's owner conversation (who they chatted to, and the gist), so the owner can pick up on it.
-  - **On screen:** everything stays in the one transcript, in order, and lines say who's speaking to whom ("Kim Ji-ho to Lee Min-jun:").
-  - **Offline mode:** the canned AI gets customer-to-customer lines that pass the same rules, so tests and offline play keep working.
-  - **The night summary:** lines from customer chats can be the night's memorable line.
-  - **Not in this stage:** making the most of slow AI (customers may only get a greeting and a goodbye on a busy night; see **Speed and waiting**), stopping the AI from writing lines for the wrong person in a three- or four-way chat, and keeping late-night chats in the right zone (see **Content boundaries**).
 - **Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
 - **Art, sound and polish:** real assets, ambient sound and background animation (see **Ambience** in the later ideas for the full wish list), UI styling. Add visual (screenshot) tests once the art settles.
 - **The game:** the player joins the conversations, probably as the owner.
@@ -33,13 +19,17 @@ Grouped by type. Within each group, roughly in order of importance.
 ### Essentials (needed before anyone else plays it)
 
 - **Content boundaries (a setting):** the AI writes about late-night drinking and K-drama heartbreak, so it will sometimes drift somewhere dark or crude. A **content setting** chooses how far it may go, e.g. **Cosy** (gentle, no swearing), **Drama** (the default: PG-13 heartbreak, mild language) and **Mature** (stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. Some limits apply at every setting: nothing sexual beyond a kiss implied off-screen, no hateful slurs, no real-world politics, and themes like self-harm are never described or encouraged: if they come up, the owner responds with care. Matters more now customers chat to each other late at night (flirting and dark turns), and most of all once players can type to customers.
-- **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting: generate the next line while the current one is being read, and invent the next customer while the current one is still drinking. Probably the biggest single improvement to how the game feels.
-- **Settings and accessibility:** one options screen for text size and speed, volumes (sound, music, voices), content setting, AI backend and model (today these live in each machine's `ai_settings.cfg`), voice mode and full-screen. Fast mode is currently on by default while we're testing a lot; its default goes back off, or into this screen, once testing settles. Plus accessibility options that cost little in a text-heavy game: bigger text, high contrast, and pausing between lines until the player clicks.
+- **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting. Partly done: the AI writes the next line while you're reading the last, the owner's hands carry food over while the AI thinks, greetings are quicker when it's busy, and a new customer comes in two quick steps (name, then details). Still to do: invent the next customer while the current ones are still drinking.
+- **Settings and accessibility:** one options screen (and an **Esc** menu during a night) for text size, reading pauses (a checkbox for now, off; perhaps a reading speed instead), how fast time runs when the tent's quiet (`TIME_SPEEDS` in `rules.gd`), how busy the tent gets (about twenty customers a night now; a real pojangmacha might get thirty), volumes (sound, music, voices), content setting, AI backend and model (today these live in each machine's `ai_settings.cfg`), voice mode, full-screen, and the debug stats panel (F3; shown by default while we're testing). Plus accessibility options that cost little in a text-heavy game: bigger text, high contrast, and pausing between lines until the player clicks.
 - **Packaging and first-run setup:** export a playable Windows build, and on first run check for Ollama and the model, offer offline mode if they're missing, and point to setup help. Without this, nobody but the developer can run it. Later: a release on itch.io.
 
 ### Richer play
 
-- **You turn up as a customer:** the **Next customer** button (kept for testing, alongside the automatic arrivals) could become the moment *you* walk in and take a stool, as a way into the game stage.
+- **Follow-ups from the Customers talk to each other stage:**
+  - **Nobody leaves without a word:** on a busy night, a customer greeted in a rush can run out of time before the owner comes back, and leave after just one line (their goodbye). Move quick-greeted customers up the queue for their first proper word with the owner.
+  - **Tune the order prompt:** "order rules" is the most common rejected reply (5–12 a night). The night logs' `rejection_reasons` show which rule; tune the prompt from them and record it in [LLM-TUNING.md](LLM-TUNING.md).
+  - **Reading pace:** with reading pauses off and the AI answering in under a second, lines can fly by. Revisit once the tent feels right: perhaps shorter pauses, or a reading-speed setting.
+- **You turn up as a customer:** a way into the game stage: *you* walk in and take a stool, as one of the night's customers (the old **Next customer** test button, now gone, was the first hint of this).
 - **Resume mid-night:** today, a night you leave before 3am isn't counted, and opening the bar again starts that night afresh at 6pm. Later, the clock, weather and night's takings could be saved, so it carries on where you left.
 - **Resume mid-conversation:** if you quit partway through a visit, loading the bar puts the customer back on their stool and the conversation picks up from the saved transcript (if the AI was halfway through a line, that one line is asked for again). Until then, an unfinished visit ends when you quit.
 - **Calendar, holidays and events:** seasons and Korean occasions (Seollal, Chuseok, Christmas, Pepero Day on 11/11, payday Fridays) and one-off events (a big football match on the overpass screens, a typhoon closing the tent early). Game facts that shape who turns up, what they order and what they talk about.
@@ -51,7 +41,7 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Following one customer:** a way to show just one customer's conversations in the transcript, now that several are mixed together.
 - **Long-term relationships:** the owner and regulars getting closer over many nights.
 - **Economy:** money, menu upgrades, reputation.
-- **Player controls:** set the night's length (now about 5 minutes, or 1 on Fast), the menu, the weather or day.
+- **Player controls:** set the night's length (time runs faster when the tent's quiet, so it varies), the menu, the weather or day.
 - **Weather that changes:** today each night picks one weather at 6pm; it could change during the night (rain setting in after midnight).
 - **A better memorable line:** the night summary quotes the longest thing a customer said. The AI could pick the line instead, or the game could favour lines with drama.
 
@@ -87,3 +77,4 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own version of the bar.
 - **Designing the game stage:** decide what the player actually does when they join the conversation (pick from dialogue choices, or type freely to the AI customers) and what changes as a result (mood, tips, whether they come back, story beats). Worth designing before that stage starts.
 - **Non-Korean visitors:** tourists and expats, who would naturally use Western name order (see the name-order note in [LLM-TUNING.md](LLM-TUNING.md)).
+- **Non-binary owners:** owners are a woman or a man for now, because their title (Ajumma or Ajusshi) depends on it; a non-binary owner would need a title that works (perhaps just Sajangnim, boss).

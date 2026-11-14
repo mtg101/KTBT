@@ -2,6 +2,8 @@ extends RefCounted
 ## Prompt text sent to the local LLM.
 ## This is creative writing rather than code: CC BY-SA 4.0 (see LICENSE-ASSETS.md).
 
+const Rules = preload("res://scripts/rules.gd")
+
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: an orange-tarp street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, a single bulb swinging in the wind.
 
 Everyone you invent belongs in a K-drama. Lean into the familiar tropes, but make each character feel like a real person rather than a cliche.
@@ -79,7 +81,58 @@ Reply with ONLY a JSON object with exactly these keys:
 ## The game picks day, time and weather; the AI only invents the person.
 ## include_opening_line: stage 1 shows an opening line on the profile card. In a visit,
 ## the customer's first words come with their order instead, so the two always match.
-static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true) -> Array:
+## The first of two steps in inventing a customer: just a name and gender, which is quick.
+## taken: names of people at the counter, which the new customer mustn't share; used_tonight:
+## names from earlier tonight, best avoided for variety.
+## gender: one the game has already decided (non-binary), so only the name is asked for.
+static func customer_name_messages(day: String, time_text: String, weather: String, taken: Array = [], used_tonight: Array = [], gender: String = "") -> Array:
+	var request := """It's %s, %s, with %s. Someone is about to duck under the tarp.
+
+Who are they? Give only their name and gender. Pick a name that real Koreans have, and not always the most common ones.""" % [day, time_text, weather]
+	if gender != "":
+		request = """It's %s, %s, with %s. Someone is about to duck under the tarp. They're %s.
+
+What's their name? Pick a name that real Koreans have, and not always the most common ones.""" % [day, time_text, weather, gender_phrase(gender)]
+	if not taken.is_empty():
+		request += "\n\nThese people are already here, so the new customer must have a different name: %s." % ", ".join(PackedStringArray(taken))
+	if not used_tonight.is_empty():
+		request += "\nThese names have come up tonight already, so avoid them too: %s." % ", ".join(PackedStringArray(used_tonight))
+	if gender != "":
+		request += """
+
+Reply with ONLY a JSON object with exactly one key:
+- "name": their Korean name in English letters, family name first, then the given name"""
+	else:
+		request += """
+
+Reply with ONLY a JSON object with exactly these keys:
+- "name": their Korean name in English letters, family name first, then the given name
+- "gender": either woman or man"""
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Inventing a customer. With a name and gender (the second step, once the game has them),
+## the AI fills in the rest of that person; without, it invents a whole customer.
+static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "") -> Array:
+	if customer_name != "":
+		var details := """It's %s, %s, with %s.
+
+A customer has just ducked under the tarp: %s (%s). Fill in who they are, so they'd plausibly turn up right now.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "age": a whole number, 19 or older
+- "job": their job, or what they do
+- "mood": a few words
+- "reason": why they're here tonight, in one sentence
+- "speech_style": how they talk, in a few words
+- "appearance": what they look like as they arrive, in one sentence""" % [day, time_text, weather, customer_name, gender_phrase(gender)]
+		return [
+			{"role": "system", "content": STYLE_GUIDE},
+			{"role": "user", "content": details},
+		]
 	var request := """It's %s, %s, with %s.
 
 Invent ONE customer who would plausibly duck under the tarp right now.
@@ -173,6 +226,55 @@ Reply with ONLY a JSON object with exactly these keys:
 	]
 
 
+## "a woman", "a man", or "non-binary, they/them": how prompts describe someone's gender.
+static func gender_phrase(gender: String) -> String:
+	if gender == "non-binary":
+		return "non-binary, they/them"
+	return "a %s" % gender
+
+
+## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
+const STRANGERS_RULES := "They're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
+
+
+## Messages asking the AI for the next line of a chat between customers at the counter
+## (sometimes with the owner joining in). people: the customers in the chat; tables: what's
+## on each one's table, in the same order. speaker and addressee are names (the owner's
+## name when they speak or are spoken to).
+static func counter_chat_messages(owner: Dictionary, owner_in: bool, people: Array, tables: Array, moment: Dictionary, transcript: Array, speaker: String, addressee: String, direction: String) -> Array:
+	var who := PackedStringArray()
+	for i in people.size():
+		who.append("- %s Their table: %s." % [describe_person(people[i]), tables[i]])
+	var owner_part := "The owner is busy elsewhere and isn't part of this conversation."
+	if owner_in:
+		owner_part = describe_owner(owner) + "\nThe owner has joined in."
+	var request := """%s
+
+AT THE COUNTER, talking to each other:
+%s
+
+%s
+
+%s
+
+The conversation between them so far:
+%s
+
+%s
+
+Write the next line, spoken by %s to %s. %s
+One to three sentences. Speak only as %s: don't write anyone else's reply or any narration.
+
+Reply with ONLY a JSON object with one key:
+- "line": what %s says""" % [
+		describe_moment(moment), "\n".join(who), owner_part, STRANGERS_RULES,
+		transcript_text(transcript), what_just_happened(transcript), speaker, addressee, direction, speaker, speaker]
+	return [
+		{"role": "system", "content": STYLE_GUIDE + "\n\n" + DIALOGUE_RULES},
+		{"role": "user", "content": request},
+	]
+
+
 ## Messages asking the AI for the next line of the conversation.
 ## direction is an optional hint from the game about where the scene is (e.g. "they're about to leave").
 static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, served: String, transcript: Array, owner_speaks: bool, direction: String) -> Array:
@@ -220,9 +322,21 @@ static func describe_owner(owner: Dictionary) -> String:
 
 
 static func describe_customer(customer: Dictionary) -> String:
-	return "THE CUSTOMER: %s, %s, %s. Mood: %s. Why they're here tonight: %s Talks: %s." % [
-		customer["name"], customer["age"], customer["job"], customer["mood"],
+	return "THE CUSTOMER: " + describe_person(customer)
+
+
+## One customer, for any prompt: who they are, their mood, and (once the game has decided
+## it) their mood for company.
+static func describe_person(customer: Dictionary) -> String:
+	var who := str(customer["name"])
+	if customer.has("gender"):
+		who += " (%s)" % gender_phrase(str(customer["gender"]))
+	var text := "%s, %s, %s. Mood: %s. Why they're here tonight: %s Talks: %s." % [
+		who, customer["age"], customer["job"], customer["mood"],
 		customer["reason"], customer["speech_style"]]
+	if customer.has("company"):
+		text += " With other customers: %s." % Rules.COMPANY_TEXT.get(customer["company"], "")
+	return text
 
 
 ## What the owner and customer know about each other. For now every customer is a

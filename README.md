@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: several at once.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Each night runs from 6pm to 3am (about 5 minutes, or 1 on Fast): AI-invented customers turn up on their own, busiest late in the evening, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner, who moves round the counter, pay and leave; when it's full, people walk on by. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 207 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits, bars and nights played by clicking. Next up: customers talking to each other. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: customers talk to each other.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each night runs from 6pm to 3am, with time running faster while the tent's quiet. About twenty AI-invented customers turn up, most in the late-evening rush, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner as they move round the counter, sometimes strike up conversations with each other, and leave when their time's up; when it's full, people walk on by. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. A debug stats panel and nightly stats logs help with tuning. Grey-box art. Runs without the AI too, in an offline mode. 263 automated tests cover the game's rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -33,7 +33,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 2. Make sure Ollama is running and the model is pulled.
 3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5). Start a **New bar**, or open a saved one.
 
-**Saves** live in `saves/` in Godot's user data folder, one readable JSON file per bar. On Windows that's `%APPDATA%\Godot\app_userdata\KTBT\saves\` (paste it into Explorer's address bar), or in Godot use **Project → Open User Data Folder**. Saving is automatic, and each machine keeps its own saves.
+**Saves** live in `saves/` in Godot's user data folder, one readable JSON file per bar. On Windows that's `%APPDATA%\Godot\app_userdata\KTBT\saves\` (paste it into Explorer's address bar), or in Godot use **Project → Open User Data Folder**. Saving is automatic, and each machine keeps its own saves. Delete old bars from the title screen.
+
+**Stats:** while we're testing, a debug stats panel shows tonight's numbers (F3 hides it), and each night writes a stats log (JSON) to `stats/` in the same user data folder, to compare runs.
 
 **Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
@@ -57,11 +59,12 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
 | `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, the night's clock and arrivals, text tidying (no scene or AI, so easy to test) |
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close |
-| `scripts/save_store.gd` | Reads and writes each bar's save file, safely |
+| `scripts/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
+| `scripts/night_stats.gd` | The debug stats for a night: the stats panel and the nightly stats log |
 | `scripts/title.gd` | Title screen logic |
-| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations, bills, the night summary, autosave |
+| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
-| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
+| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage

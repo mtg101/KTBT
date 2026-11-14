@@ -122,3 +122,43 @@ func test_canned_bar_names_pass_the_rules() -> void:
 				var reply: Dictionary = _canned.reply({"purpose": "bar_name", "owner_name": owner_data["name"]})
 				var problem := Rules.validate_bar_name(reply)
 				assert_str(problem).override_failure_message("%s -> %s" % [JSON.stringify(reply), problem]).is_empty()
+
+
+func test_canned_customers_avoid_names_already_at_the_counter() -> void:
+	var taken: Array = []
+	for i in 5:
+		var customer: Dictionary = _canned.reply({"purpose": "customer_name", "taken": taken})
+		assert_str(Rules.validate_customer_name(customer, taken)).override_failure_message("%s was already at the counter" % customer["name"]).is_empty()
+		taken.append(customer["name"])
+
+
+func test_canned_chat_lines_pass_the_rules() -> void:
+	for flags in [[false, true], [false, false], [true, false]]:
+		for attempt in 20:
+			var reply: Dictionary = _canned.reply({"purpose": "chat_line", "owner_speaks": flags[0], "first": flags[1]})
+			var problem := Rules.validate_line(reply, "Kim Ji-ho", "", ["beer", "tteokbokki"], ["Lee Min-jun"])
+			assert_str(problem).override_failure_message("%s -> %s" % [JSON.stringify(reply), problem]).is_empty()
+
+
+func test_no_canned_chat_line_mentions_food_or_close_terms() -> void:
+	for line in CannedAi.CHAT_OPENERS + CannedAi.CHAT_LINES:
+		assert_array(Rules.mentions(line, true)).override_failure_message(line).is_empty()
+		assert_str(Rules.close_term(line)).override_failure_message(line).is_empty()
+
+
+func test_canned_details_pass_the_rules_for_any_name() -> void:
+	for named in [{"name": "Kim Ji-ho", "gender": "woman"}, {"name": "Moon Tae-il", "gender": "man"}]:
+		var details: Dictionary = _canned.reply({"purpose": "customer", "name": named["name"], "gender": named["gender"]})
+		assert_str(Rules.validate_customer_details(details)).is_empty()
+		assert_str(str(details["gender"])).is_equal(named["gender"])
+
+
+func test_canned_names_are_non_binary_only_when_the_game_says() -> void:
+	for i in 50:
+		var reply: Dictionary = _canned.reply({"purpose": "customer_name", "taken": []})
+		assert_str(str(reply["gender"])).is_not_equal("non-binary")
+	var nb: Dictionary = _canned.reply({"purpose": "customer_name", "taken": [], "gender": "non-binary"})
+	assert_str(Rules.validate_customer_name(nb, [], "non-binary")).is_empty()
+	var details: Dictionary = _canned.reply({"purpose": "customer", "name": nb["name"], "gender": "non-binary"})
+	assert_str(str(details["gender"])).is_equal("non-binary")
+	assert_str(Rules.validate_customer_details(details)).is_empty()

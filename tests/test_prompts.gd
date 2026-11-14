@@ -166,3 +166,89 @@ func test_bar_name_prompt_asks_for_romanised_korean_and_knows_the_owner() -> voi
 	assert_str(text).contains("Park Mi-sook")
 	assert_str(text).contains("romanised")
 	assert_str(text).contains("not English words")
+
+
+# --- Customers talking to each other -----------------------------------------------------
+
+func _second_customer() -> Dictionary:
+	return {
+		"name": "Lee Min-jun", "age": 27, "job": "line cook", "mood": "restless",
+		"reason": "His restaurant closed tonight for good.", "speech_style": "quick, joking",
+		"appearance": "Kitchen clogs.", "company": "chatty",
+	}
+
+
+func _chat(owner_in: bool, transcript: Array = []) -> String:
+	return _request(Prompts.counter_chat_messages(_owner_data(), owner_in, [_customer_data(), _second_customer()],
+		["Beer, plus free banchan", "Soju, plus free banchan"], _moment(), transcript, "Kim Ji-ho", "Lee Min-jun", ""))
+
+
+func test_counter_chat_prompt_describes_everyone_and_their_tables() -> void:
+	var text := _chat(false)
+	assert_str(text).contains("Kim Ji-ho, 34, office worker")
+	assert_str(text).contains("Lee Min-jun, 27, line cook")
+	assert_str(text).contains("Their table: Beer, plus free banchan")
+	assert_str(text).contains("Their table: Soju, plus free banchan")
+	assert_str(text).contains("1:40am")
+
+
+func test_counter_chat_prompt_says_who_speaks_to_whom() -> void:
+	assert_str(_chat(false)).contains("spoken by Kim Ji-ho to Lee Min-jun")
+
+
+func test_counter_chat_prompt_says_they_are_strangers_who_talk_politely() -> void:
+	var text := _chat(false)
+	assert_str(text).contains("strangers who've only just met")
+	assert_str(text).contains("don't know each other's names")
+	assert_str(text).contains("never oppa, hyung, nuna or eonni")
+
+
+func test_counter_chat_prompt_leaves_the_owner_out_unless_they_join() -> void:
+	assert_str(_chat(false)).contains("isn't part of this conversation")
+	assert_str(_chat(false)).not_contains("Park Mi-sook")
+	assert_str(_chat(true)).contains("THE OWNER: Park Mi-sook")
+	assert_str(_chat(true)).contains("The owner has joined in")
+
+
+func test_counter_chat_prompt_includes_the_chat_and_what_just_happened() -> void:
+	var text := _chat(false, [{"speaker": "Lee Min-jun", "text": "Rough night?"}])
+	assert_str(text).contains("Lee Min-jun: \"Rough night?\"")
+	assert_str(text).contains("WHAT JUST HAPPENED: Lee Min-jun just said: \"Rough night?\"")
+
+
+func test_customer_description_includes_their_mood_for_company() -> void:
+	var text := Prompts.describe_person(_second_customer())
+	assert_str(text).contains("With other customers: happy to chat with anyone at the counter")
+	assert_str(Prompts.describe_person(_customer_data())).not_contains("With other customers")
+
+
+func test_name_prompt_avoids_names_at_the_counter_and_from_tonight() -> void:
+	var text := _request(Prompts.customer_name_messages("Friday", "9:00pm", "fog", ["Kim Ji-ho", "Lee Min-jun"], ["Park Seo-jun"]))
+	assert_str(text).contains("must have a different name: Kim Ji-ho, Lee Min-jun")
+	assert_str(text).contains("avoid them too: Park Seo-jun")
+	assert_str(text).contains("\"gender\"")
+	assert_str(text).not_contains("\"job\"")
+
+
+func test_details_prompt_is_for_the_named_customer() -> void:
+	var text := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Moon Tae-il", "man"))
+	assert_str(text).contains("Moon Tae-il (a man)")
+	assert_str(text).contains("\"job\"")
+	assert_str(text).not_contains("\"name\"")
+
+
+func test_customer_description_includes_gender_when_known() -> void:
+	var data := _customer_data()
+	data["gender"] = "woman"
+	assert_str(Prompts.describe_person(data)).starts_with("Kim Ji-ho (a woman), 34, office worker")
+
+
+func test_non_binary_customers_are_they_them() -> void:
+	var named := _request(Prompts.customer_name_messages("Friday", "9:00pm", "fog", [], [], "non-binary"))
+	assert_str(named).contains("They're non-binary, they/them")
+	assert_str(named).not_contains("\"gender\"")  # the game decided it: only the name is asked for
+	var details := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Han Seol", "non-binary"))
+	assert_str(details).contains("Han Seol (non-binary, they/them)")
+	var data := _customer_data()
+	data["gender"] = "non-binary"
+	assert_str(Prompts.describe_person(data)).starts_with("Kim Ji-ho (non-binary, they/them), 34")

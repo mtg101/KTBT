@@ -6,9 +6,9 @@
 
 A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Over the course of a night, AI-invented customers turn up, order soju and street food, and chat with the tent's owner. Each customer is generated to fit the time of night, so the after-work crowd gives way to night-shift workers and heartbroken stragglers as the hours pass.
 
-**A night** runs from 6pm to 3am on a clock that always runs (about five minutes of real time). Customers arrive at times that suit the hour, busiest from 9pm to midnight, with nobody new after 2:30am. At 3am the owner calls last orders; once the last customer has gone, a summary shows the night's customers, takings and most memorable line, and the bar is ready for another night. Each bar goes round the week, night by night.
+**A night** runs from 6pm to 3am on a clock that always runs: at most about five minutes of real time, since time runs faster while the tent's quiet (6× when it's empty, 2× with one customer, normal from two). About twenty customers arrive, at times that suit the hour: a trickle after work, a rush from 9pm to 1am, and nobody new after 2:30am. At 3am the owner calls last orders; once the last customer has gone, a summary shows the night's customers, takings and most memorable line, and the bar is ready for another night. Each bar goes round the week, night by night.
 
-**The tent** has five stools and one owner, who is also the only cook. Drinks and banchan come straight away; cooked dishes queue at the stove, and the AI is told what's still cooking. The owner talks to one customer at a time and moves round: greeting newcomers first, then carrying over food that's ready, then settling bills, otherwise chatting with whoever's been left alone longest. When every stool is taken, newcomers wait a while, then walk on.
+**The tent** has five stools and one owner, who is also the only cook. Drinks and banchan come straight away; cooked dishes queue at the stove, the AI is told what's still cooking, and the owner carries each dish over as soon as it's ready. The owner talks to one customer at a time and moves round: greeting newcomers first (quickly when it's busy), then settling up with whoever's leaving, otherwise chatting with whoever's been left alone longest. Now and then, customers chat to each other instead, and sometimes the owner or another customer joins in. When every stool is taken, newcomers wait a while, then walk on.
 
 **Version one is a simulation, not a game.** The player just watches. Orders are served automatically. Talking to customers yourself (the "game" part) comes later.
 
@@ -24,20 +24,23 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 ### The owner
 - Invented by the AI **once per bar (save)** and then kept. They're the constant heart of the tent.
-- Every customer talks to the owner (not to each other, for now).
+- Every customer talks to the owner, and sometimes customers talk to each other too.
 - Later, the player can step into the owner's role.
 
 ### Customers
-- Generated per visit, shaped by the time of night, the day and the weather.
-- Profile (JSON): name, age, job, mood, why they're here tonight, how they talk.
-- Visits are short: arrive, order from the menu, eat and drink, around 6–10 exchanges with the owner, pay, leave.
+- Generated per visit, shaped by the time of night, the day and the weather, in two steps: first a name and gender (so a name that's already at the counter can be swapped quickly), then the rest.
+- Profile (JSON): name, gender, age, job, mood, why they're here tonight, how they talk.
+- **Gender:** woman or man, chosen by the AI; about one customer in a hundred is non-binary (they/them), which the game decides. Shown on screen as ♀ ♂ ⚲ next to names, since Korean names don't make it obvious.
+- **Game facts about each customer:** how long they'll stay (30–60 game minutes, longer for someone here to talk), their mood for company (chatty, keeps to themselves, or here to talk to the owner), whether they're hungry or having a rough night, and whether they'll order more later.
+- Visits: arrive, order from the menu, eat and drink, talk with the owner (and maybe other customers), then say goodbye, pay and leave when their time's up.
+- **Strangers talk politely:** nobody at the counter knows anyone yet, so terms like oppa, hyung, nuna and eonni (for people who are close) are ruled out, and no two people there share a name.
 - **Later:** regulars who return and remember previous visits, via a short stored summary of each.
 
 ## Saving and loading
 
 Each **save is one bar**: its owner, its regulars, its history. You can have several and come back to any of them.
 
-- **Title screen:** *New bar* or a list of saved bars (bar name, owner, nights and visits, takings and last played).
+- **Title screen:** *New bar* or a list of saved bars (bar name, owner, nights and visits, takings and last played), each of which can be opened or deleted (two clicks, so a stray one can't lose a bar).
 - **New bar:** the AI invents the owner and the bar's name (a Korean name, checked by the game like everything else the AI writes), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on with the next customer.
 - **When it saves:** when a bar is created, after every visit, at the end of each night, when you close the bar, and when the window is closed.

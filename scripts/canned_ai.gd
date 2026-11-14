@@ -39,16 +39,18 @@ const BAR_NAMES := [
 ]
 
 const CUSTOMERS := [
-	{"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer and a lanyard she forgot to take off."},
-	{"name": "Park Seo-jun", "age": 27, "job": "junior salaryman", "mood": "relieved", "reason": "He escaped the company dinner before the third round.", "speech_style": "polite, nervous laughter", "appearance": "A loosened tie and a suit a size too big."},
-	{"name": "Lee Min-ji", "age": 29, "job": "night-shift nurse", "mood": "exhausted but wired", "reason": "Her shift ended and she can't face going home to sleep yet.", "speech_style": "brisk, darkly funny", "appearance": "Scrubs under a long padded coat."},
-	{"name": "Jung Woo-jin", "age": 23, "job": "university student", "mood": "triumphant", "reason": "He just finished his last exam of the year.", "speech_style": "loud, excitable", "appearance": "A backpack covered in keyrings and a grin he can't hide."},
-	{"name": "Choi Hye-rin", "age": 31, "job": "web designer", "mood": "heartbroken", "reason": "Her boyfriend of five years ended it by text this afternoon.", "speech_style": "quiet, trailing off", "appearance": "Smudged eyeliner and a phone she keeps checking."},
-	{"name": "Oh Sang-chul", "age": 55, "job": "taxi driver", "mood": "content", "reason": "He's on his break between fares.", "speech_style": "easygoing, full of road stories", "appearance": "A cap pushed back and a thermos under his arm."},
-	{"name": "Seo Yeon-woo", "age": 38, "job": "chaebol heir in disguise", "mood": "curious, a little lost", "reason": "He wanted one night where nobody knows who he is.", "speech_style": "too formal, then trying to sound casual", "appearance": "A cheap hoodie over very expensive shoes."},
-	{"name": "Kang Da-eun", "age": 26, "job": "convenience store clerk", "mood": "nervous", "reason": "She's working up the courage to tell someone how she feels.", "speech_style": "hesitant, rehearsing lines under her breath", "appearance": "A neatly ironed shirt and a letter sticking out of her bag."},
-	{"name": "Bae Joon-young", "age": 44, "job": "delivery rider", "mood": "soaked and grumpy", "reason": "His last delivery of the night was cancelled at the door.", "speech_style": "short complaints, then a laugh", "appearance": "A dripping rain cape and a helmet under one arm."},
-	{"name": "Yoon Na-rae", "age": 36, "job": "single mother and accountant", "mood": "guilty but determined", "reason": "Her mother is babysitting, and this is her first night out in a year.", "speech_style": "warm, apologetic", "appearance": "A tidy coat and a hair clip shaped like a cartoon rabbit."},
+	{"name": "Kim Ji-ho", "gender": "woman", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer and a lanyard she forgot to take off."},
+	{"name": "Park Seo-jun", "gender": "man", "age": 27, "job": "junior salaryman", "mood": "relieved", "reason": "He escaped the company dinner before the third round.", "speech_style": "polite, nervous laughter", "appearance": "A loosened tie and a suit a size too big."},
+	{"name": "Lee Min-ji", "gender": "woman", "age": 29, "job": "night-shift nurse", "mood": "exhausted but wired", "reason": "Her shift ended and she can't face going home to sleep yet.", "speech_style": "brisk, darkly funny", "appearance": "Scrubs under a long padded coat."},
+	{"name": "Jung Woo-jin", "gender": "man", "age": 23, "job": "university student", "mood": "triumphant", "reason": "He just finished his last exam of the year.", "speech_style": "loud, excitable", "appearance": "A backpack covered in keyrings and a grin he can't hide."},
+	{"name": "Choi Hye-rin", "gender": "woman", "age": 31, "job": "web designer", "mood": "heartbroken", "reason": "Her boyfriend of five years ended it by text this afternoon.", "speech_style": "quiet, trailing off", "appearance": "Smudged eyeliner and a phone she keeps checking."},
+	{"name": "Oh Sang-chul", "gender": "man", "age": 55, "job": "taxi driver", "mood": "content", "reason": "He's on his break between fares.", "speech_style": "easygoing, full of road stories", "appearance": "A cap pushed back and a thermos under his arm."},
+	{"name": "Seo Yeon-woo", "gender": "man", "age": 38, "job": "chaebol heir in disguise", "mood": "curious, a little lost", "reason": "He wanted one night where nobody knows who he is.", "speech_style": "too formal, then trying to sound casual", "appearance": "A cheap hoodie over very expensive shoes."},
+	{"name": "Kang Da-eun", "gender": "woman", "age": 26, "job": "convenience store clerk", "mood": "nervous", "reason": "She's working up the courage to tell someone how she feels.", "speech_style": "hesitant, rehearsing lines under her breath", "appearance": "A neatly ironed shirt and a letter sticking out of her bag."},
+	{"name": "Bae Joon-young", "gender": "man", "age": 44, "job": "delivery rider", "mood": "soaked and grumpy", "reason": "His last delivery of the night was cancelled at the door.", "speech_style": "short complaints, then a laugh", "appearance": "A dripping rain cape and a helmet under one arm."},
+	{"name": "Yoon Na-rae", "gender": "woman", "age": 36, "job": "single mother and accountant", "mood": "guilty but determined", "reason": "Her mother is babysitting, and this is her first night out in a year.", "speech_style": "warm, apologetic", "appearance": "A tidy coat and a hair clip shaped like a cartoon rabbit."},
+	{"name": "Han Seol", "gender": "non-binary", "age": 28, "job": "tattoo artist", "mood": "quietly pleased", "reason": "They just finished a twelve-hour piece and want to sit somewhere warm.", "speech_style": "soft, dry humour", "appearance": "Ink-stained fingers and a long black coat."},
+	{"name": "Yoo Ha-neul", "gender": "non-binary", "age": 33, "job": "radio producer", "mood": "restless", "reason": "Their late-night show was cancelled this afternoon.", "speech_style": "fast, thoughtful", "appearance": "Big headphones round their neck and a scarf wound three times."},
 ]
 
 const OWNER_FIRST_LINES := [
@@ -101,8 +103,15 @@ func reply(request: Dictionary) -> Variant:
 	match str(request.get("purpose", "")):
 		"owner":
 			return OWNERS[str(request.get("gender", "woman"))].pick_random().duplicate()
+		"customer_name":
+			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
+			return {"name": picked["name"], "gender": picked["gender"]}
 		"customer":
-			return CUSTOMERS.pick_random().duplicate()
+			return _customer_details(str(request.get("name", "")), str(request.get("gender", "")))
+		"chat_line":
+			if bool(request.get("owner_speaks", false)):
+				return {"line": OWNER_LINES.pick_random()}
+			return {"line": CHAT_OPENERS.pick_random() if bool(request.get("first", false)) else CHAT_LINES.pick_random()}
 		"bar_name":
 			return _bar_name(str(request.get("owner_name", "")))
 		"order":
@@ -112,6 +121,29 @@ func reply(request: Dictionary) -> Variant:
 		"line":
 			return {"line": _line(title, bool(request.get("owner_speaks", true)), bool(request.get("first", false)), bool(request.get("last", false)))}
 	return {}
+
+
+## The details for a customer the game has already named: the canned one with that name,
+## or (for a name from a scripted reply) one of the same gender, renamed.
+func _customer_details(customer_name: String, gender: String) -> Dictionary:
+	for c in CUSTOMERS:
+		if c["name"] == customer_name:
+			return c.duplicate()
+	var same := CUSTOMERS.filter(func(c): return gender == "" or c["gender"] == gender)
+	var details: Dictionary = (same if not same.is_empty() else CUSTOMERS).pick_random().duplicate()
+	if customer_name != "":
+		details["name"] = customer_name
+	return details
+
+
+## A customer whose name nobody at the counter already has. gender: one the game has
+## decided (non-binary); otherwise a woman or a man, as the AI would choose.
+func _customer(taken: Array, gender: String = "") -> Dictionary:
+	var kind := CUSTOMERS.filter(func(c): return c["gender"] == gender if gender != "" else c["gender"] != "non-binary")
+	var choices := kind.filter(func(c): return not taken.has(c["name"]))
+	if choices.is_empty():
+		choices = kind if not kind.is_empty() else CUSTOMERS
+	return choices.pick_random().duplicate()
 
 
 ## Half the time named after the owner's given name ("Park Mi-sook" -> "Mi-sook-ne Pocha").
@@ -155,6 +187,26 @@ func _extra_order(title: String, table: Array) -> Dictionary:
 	if has_main and not table.has("bokkeumbap"):
 		options.append({"items": ["bokkeumbap"], "line": "%s, could you make fried rice in this sauce too?" % title})
 	return options.pick_random().duplicate(true)
+
+## Customers chatting to each other: strangers, so polite, and no food or names.
+const CHAT_OPENERS := [
+	"Jeogiyo, sorry. Is it always this busy in here?",
+	"Sorry, I couldn't help overhearing. Rough day?",
+	"Excuse me, do you mind if I ask what time the last bus goes?",
+	"Is this weather ever going to make up its mind?",
+]
+const CHAT_LINES := [
+	"Ha! You sound like my sister. She says the same thing.",
+	"Same here, honestly. Work's been eating me alive.",
+	"Cheers to that. To surviving the week.",
+	"I come here when my flat's too quiet. Strange, isn't it?",
+	"Nobody listens like a stranger at midnight.",
+	"You're right. I should stop worrying about things I can't change.",
+	"Is that so? I'd never have guessed.",
+	"My boss would faint if he saw me out this late.",
+	"It's nice, talking to someone who doesn't know my whole story.",
+	"Well, now I feel a bit better. Thank you for that.",
+]
 
 
 func _line(title: String, owner_speaks: bool, first: bool, last: bool) -> String:

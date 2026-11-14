@@ -31,6 +31,8 @@ const MAX_BAR_MEANING_LENGTH := 80
 
 const OWNER_FIELDS := ["name", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
 const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance"]
+const CUSTOMER_DETAIL_FIELDS := ["age", "job", "mood", "reason", "speech_style", "appearance"]
+const MAX_NAME_LENGTH := 30
 
 ## Korean terms of address that only fit one gender. The game picks the owner's gender
 ## (and so their title: see Prompts.OWNER_ADDRESS), then rejects an owner whose archetype
@@ -97,10 +99,66 @@ static func fallback_bar_name(owner_name: String) -> Dictionary:
 	return {"name": "%s-ne Pocha" % given, "meaning": "%s's family's tent" % given}
 
 
-static func validate_customer(data: Variant) -> String:
+## About one customer in a hundred is non-binary. The game decides (the AI wouldn't hit 1%
+## reliably); otherwise the AI chooses woman or man along with the name.
+const NON_BINARY_CHANCE := 0.01
+
+
+## The gender the game has decided for a new customer, from a random roll between 0 and 1:
+## "non-binary", or "" to let the AI choose.
+static func game_gender(roll: float) -> String:
+	return "non-binary" if roll < NON_BINARY_CHANCE else ""
+
+
+## A new customer's name and gender, the first of two steps (it's quick, so a retry costs
+## little): {"name": family name first, in English letters, "gender": "woman" or "man"}.
+## taken: the names of everyone already at the counter. Two people there can't share a name
+## (it would confuse the transcript, and the AI). gender: one the game has already decided
+## (then only the name is needed).
+static func validate_customer_name(data: Variant, taken: Array = [], gender: String = "") -> String:
+	if gender != "" and typeof(data) == TYPE_DICTIONARY:
+		data["gender"] = gender
+	var problem := check_fields(data, ["name", "gender"])
+	if problem != "":
+		return problem
+	var customer_name := tidy_text(data["name"])
+	if gender == "":
+		# The AI's choice: woman or man (non-binary customers are the game's decision).
+		gender = tidy_text(data["gender"]).to_lower()
+		if gender not in ["woman", "man"]:
+			return "\"gender\" must be \"woman\" or \"man\""
+	if customer_name.split(" ", false).size() < 2:
+		return "the name needs a family name and a given name, family name first"
+	if customer_name.length() > MAX_NAME_LENGTH:
+		return "the name was far too long"
+	for c in customer_name:
+		if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c in [" ", "-", "'"]):
+			return "the name must be in English letters"
+	for other in taken:
+		if customer_name.to_lower() == str(other).to_lower():
+			return "someone called %s is already at the counter: pick a different name" % customer_name
+	data["name"] = customer_name
+	data["gender"] = gender
+	return ""
+
+
+## The rest of a customer, the second step, once the game has their name and gender.
+static func validate_customer_details(data: Variant) -> String:
+	var problem := check_fields(data, CUSTOMER_DETAIL_FIELDS)
+	if problem != "":
+		return problem
+	return check_age(data, MIN_DRINKING_AGE, MAX_CUSTOMER_AGE)
+
+
+## A whole customer at once (name included). taken: names already at the counter.
+static func validate_customer(data: Variant, taken: Array = []) -> String:
 	var problem := check_fields(data, CUSTOMER_FIELDS)
 	if problem != "":
 		return problem
+	var customer_name := tidy_text(data["name"])
+	for other in taken:
+		if customer_name.to_lower() == str(other).to_lower():
+			return "someone called %s is already at the counter: pick a different name" % customer_name
 	return check_age(data, MIN_DRINKING_AGE, MAX_CUSTOMER_AGE)
 
 
@@ -246,8 +304,11 @@ const CLOSE_MINUTES := 27 * 60
 const LAST_ARRIVAL_MINUTES := 26 * 60 + 30  # 2:30am
 const DAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 ## Roughly how many customers arrive in each hour (keyed by the hour it starts; 24 is midnight):
-## a few after work, busiest from 9 to midnight, then the stragglers.
-const ARRIVALS_PER_HOUR := {18: 2.0, 19: 3.0, 20: 4.0, 21: 5.0, 22: 5.0, 23: 5.0, 24: 4.0, 25: 2.5, 26: 1.5}
+## a steady trickle after work, a rush from 9 to 1am (peaking from 10 to 11, when the tent
+## usually fills up), then the stragglers. About twenty a night: enough that strangers are
+## often sitting side by side, while leaving time to talk (a real tent might get thirty; a
+## setting could change it).
+const ARRIVALS_PER_HOUR := {18: 1.4, 19: 1.6, 20: 1.8, 21: 3.4, 22: 4.8, 23: 3.4, 24: 2.2, 25: 1.2, 26: 0.8}
 
 
 ## 1080 -> "6:00pm", 1445 -> "12:05am"
@@ -270,6 +331,16 @@ static func arrivals_per_hour(minutes: int) -> float:
 static func next_arrival_gap(minutes: int, roll: float) -> int:
 	var average := 60.0 / arrivals_per_hour(minutes)
 	return maxi(5, roundi(average * (0.5 + roll)))
+
+
+## How fast game time runs, by how many people are in (at the counter or waiting to be
+## greeted): an empty tent's quiet stretches fly by, one customer goes a bit quicker, and
+## from two (when customers can chat) it's normal speed, so there's time to talk.
+const TIME_SPEEDS := [6.0, 2.0, 1.0]
+
+
+static func time_speed(people: int) -> float:
+	return TIME_SPEEDS[clampi(people, 0, TIME_SPEEDS.size() - 1)]
 
 
 ## A customer who's been waiting this many game minutes for a free stool gives up.
@@ -318,11 +389,77 @@ static func table_text(served: Array, cooking: Array, banchan: String) -> String
 	return text
 
 
-## At 3am the owner calls last orders, and every conversation wraps up: at most the owner's
-## next line and the customer's reply (or just the reply, if it's the customer's turn).
-## Returns the conversation's new length in lines.
-static func last_orders_total(next_line: int, total_lines: int) -> int:
-	return mini(total_lines, next_line + (2 if next_line % 2 == 0 else 1))
+# --- Customers: how long they stay, and their mood for company ------------------------
+
+## The game decides each customer's mood for company when they sit down:
+## "chatty" (happy to talk to anyone at the counter), "quiet" (keeps to themselves, so isn't
+## drawn into other customers' chats) or "owner" (here to talk to the owner: they stay
+## longer and get the owner's attention sooner).
+const HERE_TO_TALK_CHANCE := 0.2
+const KEEPS_TO_THEMSELVES_CHANCE := 0.25
+const COMPANY_TEXT := {
+	"chatty": "happy to chat with anyone at the counter",
+	"quiet": "keeps to themselves, and would rather not talk to other customers",
+	"owner": "here to talk to the owner: they have something on their mind",
+}
+
+
+## The mood for company, from a random roll between 0 and 1.
+static func company(roll: float) -> String:
+	if roll < HERE_TO_TALK_CHANCE:
+		return "owner"
+	if roll < HERE_TO_TALK_CHANCE + KEEPS_TO_THEMSELVES_CHANCE:
+		return "quiet"
+	return "chatty"
+
+
+## How many game minutes a customer stays, from a random roll between 0 and 1: 30 to 60
+## for most, 60 to 90 for someone here to talk. When it's up, they say goodbye and pay,
+## whether or not they got much of the owner's time.
+static func stay_minutes(company_mood: String, roll: float) -> int:
+	var shortest := 60 if company_mood == "owner" else 30
+	return shortest + roundi(30.0 * clampf(roll, 0.0, 1.0))
+
+
+## When it's busy (someone else waiting to be greeted, or this many already at the counter),
+## the owner greets a newcomer quickly: takes the order and serves it, and comes back for a
+## proper word later. On a quiet night they have a first chat straight away.
+const BUSY_COUNTER := 3
+
+
+## waiting: how many others are still waiting to be greeted; seated: how many are already
+## at the counter.
+static func quick_greeting(waiting: int, seated: int) -> bool:
+	return waiting > 0 or seated >= BUSY_COUNTER
+
+
+## Whether someone can be drawn into a chat with another customer.
+static func joins_chats(company_mood: String) -> bool:
+	return company_mood != "quiet"
+
+
+# --- How strangers talk -------------------------------------------------------------------
+
+## Terms for someone you're close to (and depending on who's speaking). Strangers at the
+## counter, owner included, don't use them. Romanised spellings vary, so all are listed.
+const CLOSE_TERMS := ["oppa", "orabeoni", "hyung", "hyeong", "nuna", "noona", "eonni", "unni", "onni"]
+
+
+## The first close term in a line, or "" if there isn't one. names: the people in the
+## conversation, removed first, so a name like Lee Hyung-jun doesn't count as "hyung".
+static func close_term(line: String, names: Array = []) -> String:
+	var text := line
+	for person in names:
+		var full := str(person)
+		text = text.replacen(full, " ")
+		var parts := full.split(" ", false)
+		if parts.size() > 1:
+			text = text.replacen(parts[parts.size() - 1], " ")
+	var said := words(text)
+	for term in CLOSE_TERMS:
+		if term in said:
+			return term
+	return ""
 
 
 static func has_main(items: Array) -> bool:
@@ -335,7 +472,10 @@ static func has_main(items: Array) -> bool:
 ## A line of dialogue is {"line": "..."}. Tidies the usual small-model habits: a "Name:"
 ## prefix, quotes around the line, or carrying on to write the other person's reply.
 ## If items (what's on the table) is given, the line mustn't mention other menu items.
-static func validate_line(data: Variant, speaker: String, alias: String, items: Array = []) -> String:
+## A line of dialogue: {"line": "..."}. items: everything ordered by the people talking (a
+## line can't mention food nobody ordered). names: the people in the conversation (for the
+## check that strangers don't call each other oppa, hyung, nuna or eonni).
+static func validate_line(data: Variant, speaker: String, alias: String, items: Array = [], names: Array = []) -> String:
 	if typeof(data) != TYPE_DICTIONARY or not data.has("line"):
 		return "it didn't include \"line\""
 	var line := tidy_text(data["line"])
@@ -356,8 +496,42 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 		var mention := unordered_mention(line, items)
 		if mention != "":
 			return "the line mentions %s, but that isn't on the table (%s)" % [mention, item_names(items)]
+	var term := close_term(line, names + [speaker])
+	if term != "":
+		return "the line says \"%s\", but these people have only just met: strangers don't use oppa, hyung, nuna or eonni" % term
 	data["line"] = line
 	return ""
+
+
+## What kind of problem a validator found, for the stats: the AI's rejected replies,
+## grouped so the most common mistakes stand out.
+static func problem_kind(problem: String) -> String:
+	var p := problem.to_lower()
+	if p.contains("already at the counter"):
+		return "same name"
+	if p.contains("only just met"):
+		return "oppa, hyung, nuna or eonni"
+	if p.contains("isn't on the table") or p.contains("isn't in \"items\"") or p.contains("asks for more"):
+		return "food that wasn't ordered"
+	if p.contains("isn't on the menu"):
+		return "not on the menu"
+	if p.contains("sounds like a first order"):
+		return "later order sounded like a first one"
+	if p.contains("json") or p.contains("didn't include") or p.contains("left out") or p.contains("was empty") or p.contains("wasn't a list"):
+		return "missing or broken JSON"
+	if p.contains("gender"):
+		return "name format"
+	if p.contains("age"):
+		return "age"
+	if p.contains("archetype"):
+		return "owner's gendered words"
+	if p.contains("name"):
+		return "name format"
+	if p.contains("drink") or p.contains("food") or p.contains("main") or p.contains("order") or p.contains("bokkeumbap"):
+		return "order rules"
+	if p.contains("too long"):
+		return "too long"
+	return "other"
 
 
 ## Checks an order has at least one drink, at least one food, and no more main dishes or

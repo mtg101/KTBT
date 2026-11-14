@@ -9,6 +9,11 @@ const MUTED := Color("a9a6c2")
 const PANEL := Color("22203a")
 
 var _list: VBoxContainer
+## The bar whose Delete button has been clicked once ("Sure?"), and when, so a second click
+## soon after deletes it. One stray click never loses a bar.
+var _confirming := ""
+var _confirm_left := 0.0
+const CONFIRM_SECONDS := 4.0
 
 
 func _ready() -> void:
@@ -25,8 +30,27 @@ func _on_bar_pressed(id: String) -> void:
 		_fill_list()  # It's gone or broken since the list was made; refresh it.
 
 
+func _process(delta: float) -> void:
+	if _confirming != "":
+		_confirm_left -= delta
+		if _confirm_left <= 0.0:
+			_confirming = ""
+			_fill_list()
+
+
+func _on_delete_pressed(id: String) -> void:
+	if _confirming == id:
+		SaveStore.delete_bar(id)
+		_confirming = ""
+	else:
+		_confirming = id
+		_confirm_left = CONFIRM_SECONDS
+	_fill_list()
+
+
 func _fill_list() -> void:
 	for child in _list.get_children():
+		_list.remove_child(child)
 		child.queue_free()
 	var bars := SaveStore.list_bars()
 	if bars.is_empty():
@@ -38,7 +62,22 @@ func _fill_list() -> void:
 		_list.add_child(none)
 		return
 	for i in bars.size():
-		_list.add_child(_bar_button(bars[i], i))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var open := _bar_button(bars[i], i)
+		open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(open)
+		var id := str(bars[i]["id"])
+		var delete := Button.new()
+		delete.name = "Delete%d" % i
+		delete.text = "Sure?" if _confirming == id else "Delete"
+		delete.tooltip_text = "Click again to delete this bar for good." if _confirming == id else "Delete this bar (you'll be asked to click again)."
+		delete.custom_minimum_size = Vector2(110, 64)
+		if _confirming == id:
+			delete.add_theme_color_override("font_color", ACCENT)
+		delete.pressed.connect(_on_delete_pressed.bind(id))
+		row.add_child(delete)
+		_list.add_child(row)
 
 
 ## One saved bar: its name and meaning, owner, nights, visits, takings and when it was last played.

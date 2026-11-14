@@ -183,3 +183,12 @@ func test_nights_come_back_as_whole_numbers() -> void:
 	assert_int(loaded["nights"]).is_equal(1)
 	assert_int(loaded["first_day"]).is_equal(2)
 	assert_int(typeof(loaded["nights"])).is_equal(TYPE_INT)
+
+
+func test_a_bar_can_be_deleted() -> void:
+	var bar := _bar()
+	SaveStore.save_bar(bar)
+	assert_bool(SaveStore.delete_bar(bar["id"])).is_true()
+	assert_bool(SaveStore.load_bar(bar["id"]).is_empty()).is_true()
+	assert_array(SaveStore.list_bars()).is_empty()
+	assert_bool(SaveStore.delete_bar(bar["id"])).is_false()  # nothing left to delete

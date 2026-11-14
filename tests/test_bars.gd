@@ -6,6 +6,7 @@ const Visit = preload("res://scripts/visit.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
+const NightStats = preload("res://scripts/night_stats.gd")
 const Menu = preload("res://scripts/menu.gd")
 
 const TITLE := "res://scenes/title.tscn"
@@ -15,11 +16,16 @@ const TIMEOUT_MS := 15000
 const OWNER_DATA := {"name": "Kim Sung-ho", "age": 58, "gender": "man", "title": "Ajusshi", "archetype": "quiet ajusshi with a mysterious past", "appearance": "A grey cardigan.", "personality": "calm, kind", "speech_style": "few words", "secret": "He was once a bodyguard."}
 
 var _real_saves := ""
+var _real_stats := ""
+const TEST_STATS := "user://test_stats_bars/"
 
 
 func before_test() -> void:
 	_real_saves = SaveStore.folder
 	SaveStore.folder = TEST_SAVES
+	_real_stats = NightStats.folder
+	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
+	_clear_folder(TEST_STATS)
 	_clear_saves()
 	Game.bar = {}
 	Game.change_scenes = false
@@ -34,6 +40,8 @@ func before_test() -> void:
 func after_test() -> void:
 	_clear_saves()
 	SaveStore.folder = _real_saves
+	_clear_folder(TEST_STATS)
+	NightStats.folder = _real_stats
 	Game.bar = {}
 	Game.change_scenes = true
 	Game.requested_scene = ""
@@ -42,9 +50,20 @@ func after_test() -> void:
 	Visit.pause_scale_override = -1.0
 	Visit.random_seed = 0
 	Visit.run_clock = true
+	Visit.stay_minutes_override = -1
+	Visit.company_override = ""
+	Visit.chat_chance_override = -1.0
 
 
 # --- Helpers ---------------------------------------------------------------------------
+
+func _clear_folder(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for file_name in dir.get_files():
+		dir.remove(file_name)
+
 
 func _clear_saves() -> void:
 	var dir := DirAccess.open(TEST_SAVES)
@@ -103,10 +122,11 @@ func _open_visit() -> GdUnitSceneRunner:
 	return runner
 
 
+## Someone turns up, and this waits for their whole visit to finish.
 func _run_one_visit(runner: GdUnitSceneRunner) -> void:
 	var scene = runner.scene()
-	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(scene.busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
+	scene._waiting.append(scene._clock)
+	assert_bool(scene.busy).override_failure_message("nobody turned up").is_true()
 	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 
@@ -138,6 +158,20 @@ func test_title_shows_nights_and_visits() -> void:
 	SaveStore.save_bar(bar)
 	var runner := scene_runner(TITLE)
 	assert_str((runner.find_child("Bar0") as Button).text).contains("3 nights, 1 visit")
+
+
+func test_deleting_a_bar_takes_two_clicks() -> void:
+	_saved_bar("Golmok Pocha", 12000, 1000)
+	_saved_bar("Sarang Pocha", 34000, 2000)
+	var runner := scene_runner(TITLE)
+	await _click(runner, runner.find_child("Delete0"))
+	# One click only asks: nothing's gone yet.
+	assert_bool(await _wait_until(func(): return (runner.find_child("Delete0") as Button).text == "Sure?", 3000)).is_true()
+	assert_int(SaveStore.list_bars().size()).is_equal(2)
+	await _click(runner, runner.find_child("Delete0"))
+	assert_bool(await _wait_until(func(): return SaveStore.list_bars().size() == 1, 3000)).override_failure_message("the bar wasn't deleted").is_true()
+	assert_str(str(SaveStore.list_bars()[0]["name"])).is_equal("Golmok Pocha")
+	assert_bool(await _wait_until(func(): return (runner.find_child("Bar0") as Button).text.contains("Golmok Pocha"), 3000)).is_true()
 
 
 func test_new_bar_button_starts_a_new_bar() -> void:
@@ -230,8 +264,7 @@ func test_close_the_bar_waits_until_the_owner_is_free() -> void:
 	var scene = runner.scene()
 	var id := str(Game.bar["id"])
 	var leave := runner.find_child("LeaveButton") as Button
-	assert_bool(leave.disabled).is_false()
-	await _click(runner, runner.find_child("NextButton"))
+	scene._waiting.append(scene._clock)  # someone turns up
 	assert_bool(await _wait_until(func(): return scene._owner_working)).is_true()
 	await _click(runner, leave)
 	# Mid-task, the owner finishes what they're doing first...

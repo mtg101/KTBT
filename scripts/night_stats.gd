@@ -1,0 +1,193 @@
+extends RefCounted
+## Debug stats for one night, for testing and tuning: who came, how much talking there was
+## (owner and customer chats), how long people waited, and how the AI did. The visit scene
+## counts things as they happen; this shows them in the stats panel and, when the night
+## ends (or the bar's closed partway through), writes them to a log file in stats/ in the
+## user data folder, one per night, to compare runs.
+
+const Rules = preload("res://scripts/rules.gd")
+
+## Where the logs go. Tests point this at their own folder.
+static var folder := "user://stats/"
+
+# People
+var arrived := 0
+var served := 0  # paid and left
+var walked_past := 0  # gave up waiting for a stool
+var peak_seated := 0
+var quick_greetings := 0
+var proper_greetings := 0
+var greet_waits: Array = []  # game minutes from arriving to being served their order
+var owner_lines_each: Array = []  # for each customer who paid: lines in their chat with the owner
+
+# Talk
+var owner_lines := 0  # lines in owner–customer conversations (either of them speaking)
+var chat_lines := 0  # lines in customer chats (owner joining in included)
+var chats_started := 0
+var owner_joins := 0
+var customer_joins := 0
+
+# Food
+var dishes_cooked := 0
+var food_waits: Array = []  # game minutes from ordering a cooked dish to it reaching the table
+
+# The AI
+var ai_calls := 0
+var ai_seconds: Array = []  # real seconds per call, retries included
+var rejected := 0
+var rejections := {}  # kind of problem -> how many times
+## kind of problem -> the different reasons given, with what was being asked for and how
+## often ("order: there's no food... (x3)"), for tuning prompts. Only in the log.
+var rejection_reasons := {}
+const REASONS_PER_KIND := 10
+var gave_up := 0  # calls that never got a usable reply
+
+# Time (real seconds)
+var real_seconds := 0.0
+var seated_seconds := 0.0  # people at the counter, added up over time (for the average)
+var together_seconds := 0.0  # time with two or more at the counter (so they could chat)
+var voice_busy_seconds := 0.0  # the owner's voice was busy (an AI conversation task)
+var waiting_on_voice_seconds := 0.0  # ...while someone was waiting for it (to be greeted, or to pay)
+
+
+## One AI call: how long it took, what was wrong with any replies it rejected, and whether
+## it got a usable reply in the end.
+## purpose: what was being asked for ("order", "line"...).
+func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") -> void:
+	ai_calls += 1
+	ai_seconds.append(seconds)
+	rejected += problems.size()
+	for problem in problems:
+		var kind := Rules.problem_kind(str(problem))
+		rejections[kind] = int(rejections.get(kind, 0)) + 1
+		var reasons: Dictionary = rejection_reasons.get(kind, {})
+		var reason := "%s: %s" % [purpose, problem] if purpose != "" else str(problem)
+		if reasons.has(reason) or reasons.size() < REASONS_PER_KIND:
+			reasons[reason] = int(reasons.get(reason, 0)) + 1
+		rejection_reasons[kind] = reasons
+	if not ok:
+		gave_up += 1
+
+
+static func average(values: Array) -> float:
+	if values.is_empty():
+		return 0.0
+	var total := 0.0
+	for v in values:
+		total += float(v)
+	return total / values.size()
+
+
+static func longest(values: Array) -> float:
+	var most := 0.0
+	for v in values:
+		most = maxf(most, float(v))
+	return most
+
+
+static func shortest(values: Array) -> float:
+	if values.is_empty():
+		return 0.0
+	var least := float(values[0])
+	for v in values:
+		least = minf(least, float(v))
+	return least
+
+
+static func percent(part: float, whole: float) -> int:
+	return roundi(100.0 * part / whole) if whole > 0.0 else 0
+
+
+## How many were at the counter, on average over the night so far.
+func average_seated() -> float:
+	return seated_seconds / real_seconds if real_seconds > 0.0 else 0.0
+
+
+## The rejection kinds, most common first, as "same name 3, food that wasn't ordered 2".
+func rejection_text() -> String:
+	var kinds := rejections.keys()
+	kinds.sort_custom(func(a, b): return rejections[a] > rejections[b])
+	var parts := PackedStringArray()
+	for kind in kinds:
+		parts.append("%s %d" % [kind, rejections[kind]])
+	return ", ".join(parts)
+
+
+## The stats panel's text. seated and cooking are how things stand right now.
+func panel_text(seated: int, cooking: int) -> String:
+	var lines := PackedStringArray()
+	lines.append("[b]PEOPLE[/b]")
+	lines.append("Arrived %d · served %d · walked past %d" % [arrived, served, walked_past])
+	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
+	lines.append("Two or more in: %d%% of the night" % percent(together_seconds, real_seconds))
+	lines.append("Greetings: %d proper, %d quick" % [proper_greetings, quick_greetings])
+	lines.append("Wait to be greeted: avg %d min, longest %d" % [roundi(average(greet_waits)), roundi(longest(greet_waits))])
+	if owner_lines_each.is_empty():
+		lines.append("Lines with the owner each: (nobody's left yet)")
+	else:
+		lines.append("Lines with the owner each: avg %.1f (%d to %d)" % [average(owner_lines_each), roundi(shortest(owner_lines_each)), roundi(longest(owner_lines_each))])
+	lines.append("")
+	lines.append("[b]TALK[/b]")
+	lines.append("Owner conversations: %d lines" % owner_lines)
+	lines.append("Customer chats: %d started, %d lines (%d%% of all lines)" % [chats_started, chat_lines, percent(chat_lines, owner_lines + chat_lines)])
+	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
+	lines.append("")
+	lines.append("[b]FOOD[/b]")
+	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
+	lines.append("Wait for food: avg %d min, longest %d" % [roundi(average(food_waits)), roundi(longest(food_waits))])
+	lines.append("")
+	lines.append("[b]AI[/b]")
+	lines.append("Calls %d · avg %.1fs, longest %.1fs" % [ai_calls, average(ai_seconds), longest(ai_seconds)])
+	lines.append("Voice busy %d%% · someone waiting for it %d%%" % [percent(voice_busy_seconds, real_seconds), percent(waiting_on_voice_seconds, real_seconds)])
+	lines.append("Rejected replies %d%s" % [rejected, (": " + rejection_text()) if rejected > 0 else ""])
+	lines.append("Gave up %d" % gave_up)
+	lines.append("")
+	lines.append("Real time tonight: %d:%02d" % [floori(real_seconds / 60.0), int(real_seconds) % 60])
+	return "\n".join(lines)
+
+
+## Everything, for the log file. context: which bar and night, AI settings and so on.
+func summary(context: Dictionary) -> Dictionary:
+	return {
+		"context": context,
+		"people": {
+			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
+			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
+			"quick_greetings": quick_greetings, "proper_greetings": proper_greetings,
+			"greet_wait_minutes": {"average": average(greet_waits), "longest": longest(greet_waits)},
+			"owner_lines_each": {"average": average(owner_lines_each), "fewest": shortest(owner_lines_each), "most": longest(owner_lines_each)},
+		},
+		"talk": {
+			"owner_lines": owner_lines, "chat_lines": chat_lines, "chats_started": chats_started,
+			"owner_joins": owner_joins, "customer_joins": customer_joins,
+			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
+		},
+		"food": {
+			"dishes_cooked": dishes_cooked,
+			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
+		},
+		"ai": {
+			"calls": ai_calls, "average_seconds": average(ai_seconds), "longest_seconds": longest(ai_seconds),
+			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up,
+			"rejection_reasons": rejection_reasons.duplicate(true),
+		},
+		"time": {
+			"real_seconds": real_seconds,
+			"voice_busy_percent": percent(voice_busy_seconds, real_seconds),
+			"waiting_on_voice_percent": percent(waiting_on_voice_seconds, real_seconds),
+		},
+	}
+
+
+## Writes the night's log: stats/<date>_<bar>_night<N>.json. Returns the file's path, or ""
+## if it couldn't be written.
+func save(context: Dictionary, bar_id: String, night: int) -> String:
+	DirAccess.make_dir_recursive_absolute(folder)
+	var stamp := Time.get_datetime_string_from_system(false, true).replace(":", "").replace(" ", "_").left(15)
+	var path := folder.path_join("%s_%s_night%d.json" % [stamp, bar_id, night])
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return ""
+	file.store_string(JSON.stringify(summary(context), "\t"))
+	file.close()
+	return path
