@@ -17,6 +17,7 @@ const NIGHT_TIMEOUT_MS := 60000
 
 var _real_saves := ""
 var _real_stats := ""
+const TEST_TRANSCRIPTS := "user://test_transcripts_night/"
 const TEST_STATS := "user://test_stats_night/"
 
 
@@ -26,6 +27,8 @@ func before_test() -> void:
 	_real_stats = NightStats.folder
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
 	_clear_folder(TEST_STATS)
+	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
+	_clear_folder(TEST_TRANSCRIPTS)
 	_clear_saves()
 	Game.bar = {}
 	Game.change_scenes = false
@@ -42,6 +45,8 @@ func after_test() -> void:
 	SaveStore.folder = _real_saves
 	_clear_folder(TEST_STATS)
 	NightStats.folder = _real_stats
+	_clear_folder(TEST_TRANSCRIPTS)
+	Visit.transcript_folder = ""
 	Game.bar = {}
 	Game.change_scenes = true
 	Game.requested_scene = ""
@@ -186,6 +191,36 @@ func test_the_night_log_is_written() -> void:
 	var data = JSON.parse_string(FileAccess.get_file_as_string(TEST_STATS.path_join(files[0])))
 	assert_bool(bool(data["context"]["finished"])).is_true()
 	assert_int(int(data["people"]["served"])).is_equal(scene._night_visits)
+
+
+func test_the_night_transcript_is_written() -> void:
+	var runner := await _open_bar()
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var files := DirAccess.get_files_at(TEST_TRANSCRIPTS)
+	assert_int(files.size()).is_equal(1)
+	assert_str(files[0]).ends_with("_night1.txt")
+	var text := FileAccess.get_file_as_string(TEST_TRANSCRIPTS.path_join(files[0]))
+	assert_str(text).starts_with("KTBT transcript: %s, night 1" % Game.bar["name"])
+	assert_str(text).contains("Finished at")
+	assert_str(text).contains("Started ")
+	assert_str(text).contains("Night 1")  # the night's own divider
+	assert_str(text).contains("pulls down the tarp")  # through to closing time
+	assert_str(text).contains("STATS")
+	assert_str(text).not_contains("[b]")
+
+
+func test_the_transcript_is_written_as_the_night_goes() -> void:
+	Visit.run_clock = false  # hold the night, so it's still going when we look
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	var files := DirAccess.get_files_at(TEST_TRANSCRIPTS)
+	assert_int(files.size()).is_equal(1)
+	var text := FileAccess.get_file_as_string(TEST_TRANSCRIPTS.path_join(files[0]))
+	assert_str(text).contains("Someone ducks under the tarp")
+	assert_str(text).contains("heads back out into the night")  # their visit's already in the file
+	assert_str(text).not_contains("STATS")  # the night's not over yet
 
 
 func test_open_for_another_night_starts_night_two() -> void:

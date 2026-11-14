@@ -18,6 +18,7 @@ const OWNER_DATA := {"name": "Kim Sung-ho", "age": 58, "gender": "man", "title":
 
 var _real_saves := ""
 var _real_stats := ""
+const TEST_TRANSCRIPTS := "user://test_transcripts_bars/"
 const TEST_STATS := "user://test_stats_bars/"
 
 
@@ -27,6 +28,8 @@ func before_test() -> void:
 	_real_stats = NightStats.folder
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
 	_clear_folder(TEST_STATS)
+	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
+	_clear_folder(TEST_TRANSCRIPTS)
 	_clear_saves()
 	Game.bar = {}
 	Game.change_scenes = false
@@ -43,6 +46,8 @@ func after_test() -> void:
 	SaveStore.folder = _real_saves
 	_clear_folder(TEST_STATS)
 	NightStats.folder = _real_stats
+	_clear_folder(TEST_TRANSCRIPTS)
+	Visit.transcript_folder = ""
 	Game.bar = {}
 	Game.change_scenes = true
 	Game.requested_scene = ""

@@ -27,6 +27,7 @@ const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mo
 
 var _real_saves := ""
 var _real_stats := ""
+const TEST_TRANSCRIPTS := "user://test_transcripts_visit/"
 const TEST_STATS := "user://test_stats_visit/"
 
 
@@ -36,6 +37,8 @@ func before_test() -> void:
 	_real_stats = NightStats.folder
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
 	_clear_folder(TEST_STATS)
+	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
+	_clear_folder(TEST_TRANSCRIPTS)
 	_clear_saves()
 	Game.bar = {}  # a new bar each test
 	AiSettings.override = {"backend": "canned"}
@@ -50,6 +53,8 @@ func after_test() -> void:
 	SaveStore.folder = _real_saves
 	_clear_folder(TEST_STATS)
 	NightStats.folder = _real_stats
+	_clear_folder(TEST_TRANSCRIPTS)
+	Visit.transcript_folder = ""
 	Game.bar = {}
 	Ai.simulate_unreachable = false
 	AiSettings.override = {}
@@ -621,3 +626,15 @@ func test_the_cat_wanders_by_itself() -> void:
 	var scene = runner.scene()
 	var moved: bool = await _wait_until(func(): return scene._cat_spot != "stove")
 	assert_bool(moved).override_failure_message("the cat never moved").is_true()
+
+
+func test_the_cat_faces_the_way_its_going() -> void:
+	Visit.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var cat := runner.find_child("Cat") as Control
+	scene._move_cat("counter")  # from the stove (left) to the far end of the counter (right)
+	assert_float(cat.scale.x).is_equal(1.0)
+	await get_tree().create_timer(0.1).timeout  # let it get there
+	scene._move_cat("stove")  # and back to the left
+	assert_float(cat.scale.x).is_equal(-1.0)

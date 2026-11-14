@@ -14,3 +14,6 @@ Thumbs.db
 
 # GdUnit4 rewrites this on every test run (it remembers the last run)
 /addons/gdUnit4/GdUnitRunner.cfg
+
+# Night transcripts, written when playing from the editor
+/logs/

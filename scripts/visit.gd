@@ -85,6 +85,10 @@ static var chat_chance_override := -1.0
 static var gender_override := ""
 ## Test hook: false keeps the cat where it is (tests move it with _move_cat).
 static var cat_wanders := true
+## Where night transcripts go (see _start_transcript). "" means the default: logs/transcripts/
+## in the project folder when running from the editor, or the user data folder otherwise.
+## Tests point it at their own folder.
+static var transcript_folder := ""
 
 ## When the owner's free and nothing's urgent: how often customers chat to each other
 ## instead of the owner chatting to someone. Mostly it's customer and owner.
@@ -169,13 +173,16 @@ var _attending: Guest = null  # who the owner saw to last
 var _attention := 0
 var _last_orders := false
 var _leave_requested := false
-var _passers_by := 0
+var _passers_by := 0  # how many have walked past tonight (also names their nodes)
 ## When the last line shown will have been read (Time.get_ticks_msec()). The AI works on the
 ## next line while you read; it's shown once you've had time to read this one.
 var _read_until := 0
 ## Tonight's debug stats (see night_stats.gd), shown in the stats panel and logged at the end.
 var _stats := NightStats.new()
-var _stats_refresh := 0.0  # how many have walked past tonight (also names their nodes)
+var _stats_refresh := 0.0
+## Tonight's transcript file, written line by line as the night goes (see _start_transcript).
+var _transcript_file: FileAccess
+var _tags := RegEx.create_from_string("\\[[^\\]]*\\]")  # BBCode tags, stripped for the file
 var _stopped := false
 ## The most recent customer to pay, and everything they ordered.
 var _customer := {}
@@ -408,7 +415,8 @@ func _start_night() -> void:
 	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
 	_place_cat()
 	_update_clock_label()
-	_log.append_text("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
+	_start_transcript()
+	_show("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
 	_narrate("%s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, Rules.clock_text(Rules.OPEN_MINUTES), Rules.sentence_case(_night_weather)])
 
 
@@ -504,7 +512,6 @@ func _call_last_orders() -> void:
 func _end_night() -> void:
 	_night_open = false
 	_move_owner(OWNER_HOME_X)
-	_save_stats(true)
 	_update_stats_panel()
 	var line := Rules.memorable_line(_night_lines)
 	SaveStore.record_night(Game.bar, {
@@ -516,6 +523,7 @@ func _end_night() -> void:
 	Game.save()
 	_narrate("%s. %s pulls down the tarp and counts the takings." % [Rules.clock_text(int(_clock)), _owner_display()])
 	_update_clock_label()
+	_save_stats(true)  # after the closing line, so the transcript runs right to the end
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s  ·  %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers", Menu.format_won(_night_takings)]
@@ -669,6 +677,55 @@ func _save_stats(finished: bool) -> void:
 	var path := _stats.save(context, str(Game.bar.get("id", "bar")), _night_number)
 	if path != "":
 		print("Night stats saved: ", ProjectSettings.globalize_path(path))
+	_finish_transcript(context)
+
+
+## Adds to the transcript on screen and, during a night, to tonight's transcript file.
+func _show(bbcode: String) -> void:
+	_log.append_text(bbcode)
+	if _transcript_file != null:
+		# As plain text: tags stripped ([lb] is how a "[" in the AI's text is escaped).
+		_transcript_file.store_string(_tags.sub(bbcode.replace("[lb]", "\u0001"), "", true).replace("\u0001", "["))
+		_transcript_file.flush()
+
+
+## Tonight's transcript file, written as the night goes, so it's there even if the game
+## closes mid-night: a header saying which bar and night, and with what AI settings, then
+## everything said and done, and (see _finish_transcript) the night's stats. In the
+## project's logs/transcripts/ folder when running from the editor (handy for reading and
+## sharing; .gitignore keeps them out of commits).
+func _start_transcript() -> void:
+	_transcript_file = null
+	var folder := transcript_folder
+	if folder == "":
+		folder = "res://logs/transcripts/" if OS.has_feature("editor") else "user://logs/transcripts/"
+	DirAccess.make_dir_recursive_absolute(folder)
+	var now := Time.get_datetime_string_from_system(false, true)
+	var stamp := now.replace(":", "").replace(" ", "_").left(15)
+	var path := folder.path_join("%s_%s_night%d.txt" % [stamp, str(Game.bar.get("id", "bar")), _night_number])
+	_transcript_file = FileAccess.open(path, FileAccess.WRITE)
+	if _transcript_file == null:
+		return
+	var model := " / " + str(_ai.settings.get("model", "")) if not _ai.offline else ""
+	_transcript_file.store_string("\n".join(PackedStringArray([
+		"KTBT transcript: %s, night %d" % [Game.bar.get("name", ""), _night_number],
+		"%s, %s. Started %s." % [_night_day, _night_weather, now],
+		"AI: %s%s (%s), reading pauses %s." % [_ai.settings.get("backend", ""), model, "offline" if _ai.offline else "online",
+			"on" if _reading_toggle.button_pressed else "off"],
+		"=".repeat(70),
+	])) + "\n")
+	_transcript_file.flush()
+	print("Night transcript: ", ProjectSettings.globalize_path(path))
+
+
+## The end of the night (or the bar closed early): how it ended, and the night's stats.
+func _finish_transcript(context: Dictionary) -> void:
+	if _transcript_file == null:
+		return
+	var stats := _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size()).replace("[b]", "").replace("[/b]", "")
+	_transcript_file.store_string("\n%s\n%s at %s.\n\nSTATS\n\n%s\n" % ["=".repeat(70), "Finished" if context["finished"] else "Cut short", context["clock"], stats])
+	_transcript_file.close()
+	_transcript_file = null
 
 
 func _on_stats_toggled(_on: bool) -> void:
@@ -712,7 +769,7 @@ func _greet() -> void:
 	guest.seat = _free_seats().pick_random()
 	guest.arrived = Rules.clock_text(int(_clock))
 	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather}
-	_log.append_text("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
+	_show("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
 	_narrate("%s. Someone ducks under the tarp." % guest.arrived)
 
 	# 1. Who is it? First just a name and gender: a quick ask, so if the name's taken, asking
@@ -1125,7 +1182,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	_stats.chat_lines += 1
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
-	_log.append_text("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), _esc(line)])
+	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), _esc(line)])
 	_give_time_to_read(line)
 	return line
 
@@ -1199,6 +1256,9 @@ func _place_cat() -> void:
 		"feet": target = Vector2(SEAT_X[_cat_with.seat] + 18, 348)
 		"food": target = Vector2(SEAT_X[_cat_with.seat] + 48, 318)
 	_cat_node.visible = true
+	# Face the way it's going (the cat's drawn facing right; flipped, it faces left).
+	if absf(target.x - _cat_node.position.x) > 1.0:
+		_cat_node.scale.x = 1.0 if target.x > _cat_node.position.x else -1.0
 	if _cat_tween != null and _cat_tween.is_valid():
 		_cat_tween.kill()
 	_cat_tween = create_tween()
@@ -1214,6 +1274,7 @@ func _build_cat(stage: Control) -> void:
 	_cat_node.position = Vector2(150, 222)
 	_cat_node.size = Vector2(46, 28)
 	_cat_node.z_index = 1  # in front of customers, so it shows on a lap
+	_cat_node.pivot_offset = _cat_node.size / 2  # so flipping it to face left keeps it in place
 	_cat_node.mouse_filter = Control.MOUSE_FILTER_STOP
 	_cat_node.visible = false
 	stage.add_child(_cat_node)
@@ -1373,12 +1434,12 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	_stats.owner_lines += 1
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
-	_log.append_text("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(text)])
+	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(text)])
 	_give_time_to_read(text)
 
 
 func _narrate(text: String) -> void:
-	_log.append_text("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(text)])
+	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(text)])
 
 
 ## After a line is shown, the next one waits until there's been time to read it (longer
