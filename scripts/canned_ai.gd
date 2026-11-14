@@ -38,6 +38,12 @@ const BAR_NAMES := [
 	{"name": "Sarang Pocha", "meaning": "Love Tent"},
 	{"name": "Saebyeok Pocha", "meaning": "Before-Dawn Tent"},
 ]
+## The canned bar names in Hangul, for the sign (others get "포장마차").
+const BAR_HANGUL := {
+	"Haengbok Pocha": "행복 포차", "Byeolbit Pocha": "별빛 포차", "Dalbit Pojangmacha": "달빛 포장마차",
+	"Bitsori Pocha": "빗소리 포차", "Golmok Pocha": "골목 포차", "Uri-jip Pocha": "우리집 포차",
+	"Sarang Pocha": "사랑 포차", "Saebyeok Pocha": "새벽 포차",
+}
 
 const CUSTOMERS := [
 	{"name": "Kim Ji-ho", "gender": "woman", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer and a lanyard she forgot to take off."},
@@ -115,6 +121,14 @@ func reply(request: Dictionary) -> Variant:
 			return {"line": CHAT_OPENERS.pick_random() if bool(request.get("first", false)) else CHAT_LINES.pick_random()}
 		"bar_name":
 			return _bar_name(str(request.get("owner_name", "")))
+		"bar_look":
+			return {
+				"hangul": BAR_HANGUL.get(str(request.get("bar_name", "")), Rules.DEFAULT_HANGUL),
+				"tarp": request.get("tarps", Rules.BAR_TARPS.keys()).pick_random(),
+				"shape": request.get("shapes", Rules.TENT_SHAPES.keys()).pick_random(),
+				"sign": Rules.SIGN_STYLES.keys().pick_random(),
+				"touches": [Rules.BAR_TOUCHES.keys().pick_random()],
+			}
 		"cat_name":
 			return {"name": Rules.fallback_cat_name(randf(), request.get("taken", []))}
 		"order":

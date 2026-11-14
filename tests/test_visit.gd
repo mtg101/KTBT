@@ -20,6 +20,7 @@ const TIMEOUT_MS := 15000
 const ANY_OWNER := {"name": "Han Jeong-hee", "age": 47, "archetype": "former chef who walked out of a hotel kitchen", "appearance": "Sleeves rolled up.", "personality": "proud, funny", "speech_style": "quick and teasing", "secret": "She still gets job offers from the hotel."}
 const A_BAR_NAME := {"name": "Golmok Pocha", "meaning": "Back Alley Tent"}
 const A_CAT_NAME := {"name": "Dubu"}
+const A_LOOK := {"hangul": "골목 포차", "tarp": "blue", "sign": "neon", "shape": "peaked", "touches": ["radio", "lanterns"]}
 ## A customer comes in two steps: their name and gender, then the rest.
 const A_NAME := {"name": "Kim Ji-ho", "gender": "woman"}
 const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer."}
@@ -67,6 +68,8 @@ func after_test() -> void:
 	Visit.chat_chance_override = -1.0
 	Visit.gender_override = ""
 	Visit.cat_wanders = true
+	Visit.strollers = true
+	Visit.offer_every_look = true
 	Ai.canned_think_seconds = 0.0
 
 
@@ -242,7 +245,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 
 func test_cooked_food_waits_at_the_stove() -> void:
 	var order := {"items": ["beer", "tteokbokki"], "line": "A cold beer and the tteokbokki, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
 	await _run_one_visit(runner)
 	var text := _transcript(runner)
@@ -255,7 +258,7 @@ func test_cooked_food_waits_at_the_stove() -> void:
 
 func test_the_ai_hears_what_is_still_cooking() -> void:
 	var order := {"items": ["beer", "dakgalbi"], "line": "A beer and the dakgalbi, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	Visit.pause_scale_override = 1.0  # slow the stove, so the dakgalbi is still cooking for the first line
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -326,7 +329,7 @@ func test_owner_that_cant_be_invented_offers_try_again() -> void:
 
 
 func test_order_falls_back_to_soju_and_odeng_when_the_ai_keeps_failing() -> void:
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	await _run_one_visit(runner)
@@ -400,8 +403,11 @@ func test_customers_chat_to_each_other() -> void:
 	assert_bool(chatting).override_failure_message("the customers never chatted").is_true()
 	var a: String = scene._name_label(scene._guests[0].customer)
 	var b: String = scene._name_label(scene._guests[1].customer)
-	var text := _transcript(runner)
-	assert_bool(text.contains("%s to %s:" % [a, b]) or text.contains("%s to %s:" % [b, a])).override_failure_message("no line from one customer to the other").is_true()
+	# The chat starts before its first line is written, so wait for a line too.
+	var spoke := func() -> bool:
+		var text := _transcript(runner)
+		return text.contains("%s to %s:" % [a, b]) or text.contains("%s to %s:" % [b, a])
+	assert_bool(await _wait_until(spoke)).override_failure_message("no line from one customer to the other").is_true()
 	assert_int(scene._chats.size()).is_equal(1)
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
@@ -429,7 +435,7 @@ func test_no_two_customers_at_the_counter_share_a_name() -> void:
 	# Two arrive together. The AI names the second customer the same as the first:
 	# rejected, and asked again. (The reply in between is the first one's order: with
 	# someone else waiting, the owner greets them quickly, with no chat yet.)
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER,
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER,
 		{"items": ["beer", "odeng"], "line": "A beer and some odeng, please."},
 		A_NAME]
 	var runner := await _open_bar()
@@ -466,7 +472,7 @@ func test_food_is_carried_over_while_the_ai_is_thinking() -> void:
 	Visit.stay_minutes_override = 600
 	Visit.chat_chance_override = 0.0
 	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Ai.canned_think_seconds = 0.3  # a slow AI: the tteokbokki is ready long before the next line
@@ -658,7 +664,7 @@ func test_a_line_written_before_a_dish_arrived_is_asked_for_again() -> void:
 	Visit.stay_minutes_override = 600
 	Visit.chat_chance_override = 0.0
 	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Ai.canned_think_seconds = 0.3  # the tteokbokki's ready while the owner's first line is being written
@@ -786,3 +792,115 @@ func test_tonights_jobs_and_looks_are_remembered() -> void:
 	await _run_one_visit(runner)
 	assert_int(scene._jobs_tonight.size()).is_equal(1)
 	assert_int(scene._looks_tonight.size()).is_equal(1)
+
+
+# --- How the tent and the night look --------------------------------------------------------
+
+func test_a_new_bar_gets_its_own_look() -> void:
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK]
+	var runner := await _open_bar()
+	var look: Dictionary = SaveStore.load_bar(str(Game.bar["id"]))["look"]  # saved with the bar
+	assert_str(str(look["tarp"])).is_equal("blue")
+	assert_str((runner.find_child("SignHangul") as Label).text).is_equal("골목 포차")
+	assert_str((runner.find_child("SignEnglish") as Label).text).is_equal("GOLMOK POCHA")
+	assert_bool((runner.find_child("Sign") as Control).visible).is_true()
+	assert_bool((runner.find_child("Tarp") as Polygon2D).color.is_equal_approx(Color(Rules.BAR_TARPS["blue"][0]))).is_true()
+	assert_int(runner.find_child("DecorCounter").get_child_count()).is_greater(0)  # the radio
+	assert_int(runner.find_child("DecorRoof").get_child_count()).is_greater(0)  # the lanterns
+
+
+func test_rain_falls_when_its_raining() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._show_weather("rain")
+	assert_object(runner.find_child("Rain", true, false)).is_not_null()
+	assert_object(runner.find_child("Drips", true, false)).is_not_null()  # heavy rain drips off the tarp
+	scene._show_weather("snow")
+	await get_tree().process_frame
+	assert_object(runner.find_child("Snow", true, false)).is_not_null()
+	assert_bool(is_instance_valid(runner.find_child("Rain", true, false))).is_false()  # the rain's stopped
+	scene._show_weather("fog")
+	await get_tree().process_frame
+	assert_object(runner.find_child("Fog0", true, false)).is_not_null()
+
+
+func test_the_sky_darkens_as_the_night_goes_on() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var sky := runner.find_child("Sky") as ColorRect
+	scene._clock = 18 * 60.0
+	await get_tree().process_frame
+	var dusk := sky.color.get_luminance()
+	scene._clock = 24 * 60.0
+	await get_tree().process_frame
+	assert_float(sky.color.get_luminance()).is_less(dusk)
+
+
+func test_the_tent_cover_has_the_chosen_shape() -> void:
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK]  # peaked
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var tarp := runner.find_child("Tarp") as Polygon2D
+	assert_int(tarp.polygon.size()).is_equal(5)  # a peak, not the classic four corners
+	var top := 999.0
+	for point in tarp.polygon:
+		top = minf(top, point.y)
+	assert_float(top).is_less(40.0)  # higher in the middle than the classic tarp
+	for shape in Rules.TENT_SHAPES:
+		assert_int(scene._tent_shape(shape).size()).is_greater_equal(4)
+
+
+func test_stripes_are_cut_to_the_shape() -> void:
+	var look := A_LOOK.duplicate()
+	look["tarp"] = "red_stripes"
+	look["shape"] = "rounded"
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, look]
+	var runner := await _open_bar()
+	assert_int(runner.find_child("TarpStripes").get_child_count()).is_greater(0)
+
+
+func test_people_walk_past_without_coming_in() -> void:
+	Visit.run_clock = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._strollers >= 3)).override_failure_message("nobody walked past").is_true()
+	var walker := runner.find_child("Stroller1", true, false) as Control
+	if walker != null:
+		assert_float(walker.position.y).is_greater(Visit.CUSTOMER_Y)  # on the pavement, nearer than the stools
+	assert_int(scene._stats.arrived).is_less(scene._strollers)  # most just walk on by
+
+
+func test_no_template_tent_while_the_ai_thinks() -> void:
+	Ai.canned_think_seconds = 0.3
+	var runner := scene_runner(SCENE)
+	var tarp := runner.find_child("Tarp") as Polygon2D
+	assert_bool(tarp.visible).is_false()
+	assert_bool(await _wait_until(func(): return tarp.visible)).override_failure_message("the tent never went up").is_true()
+
+
+func test_a_new_bar_chooses_from_a_few_colours_and_shapes() -> void:
+	Visit.offer_every_look = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var offer: Dictionary = scene._look_offer
+	assert_int(offer["tarp"].size()).is_equal(Rules.OFFERED_TARPS)
+	assert_array(offer["tarp"]).contains([Game.bar["look"]["tarp"]])
+	assert_array(offer["shape"]).contains([Game.bar["look"]["shape"]])
+
+
+func test_a_loading_screen_covers_a_new_bar_being_set_up() -> void:
+	Ai.canned_think_seconds = 0.3
+	var runner := scene_runner(SCENE)
+	var loading := runner.find_child("Loading") as Control
+	assert_bool(loading.visible).is_true()
+	assert_bool(await _wait_until(func(): return not loading.visible)).override_failure_message("the loading screen never went").is_true()
+	assert_bool((runner.find_child("Tarp") as Polygon2D).visible).is_true()
+
+
+func test_passers_by_carry_umbrellas_in_the_rain() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._weather_kind = "rain"
+	scene._stroll()
+	var walker := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	assert_object(walker.find_child("Umbrella", true, false)).is_not_null()

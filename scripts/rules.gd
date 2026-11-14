@@ -440,6 +440,179 @@ static func joins_chats(company_mood: String) -> bool:
 	return company_mood != "quiet"
 
 
+# --- How the tent looks -------------------------------------------------------------------
+
+## Every bar has its own look, saved with it: the AI chooses from these (to suit the owner
+## and the name), and the game draws it. Tarps: main colour, and stripe colour ("" for none).
+const BAR_TARPS := {
+	"orange": ["e8833a", ""],
+	"red": ["c8443a", ""],
+	"blue": ["3a6ec8", ""],
+	"green": ["3f9e5a", ""],
+	"yellow": ["e8c03a", ""],
+	"teal": ["2f9e9a", ""],
+	"maroon": ["8a2c3e", ""],
+	"striped": ["e8833a", "f2ead8"],
+	"red_stripes": ["c8443a", "f5f2ea"],
+	"blue_stripes": ["3a6ec8", "f5f2ea"],
+}
+## The tent cover's shape, with how the prompt puts it.
+const TENT_SHAPES := {
+	"classic": "the classic sloped tarp",
+	"peaked": "a peaked roof, high in the middle",
+	"scalloped": "a sloped tarp with a scalloped front edge",
+	"awning": "a flat awning with a zigzag valance",
+	"rounded": "a rounded, arched cover",
+}
+## Sign styles: board colour, text colour.
+const SIGN_STYLES := {
+	"wood": ["7a5230", "f2e3c4"],
+	"neon": ["141224", "ff5fa8"],
+	"banner": ["f2d24a", "b8281f"],
+	"lightbox": ["f5f2ea", "2a52a0"],
+}
+## Little touches around the tent (the AI picks one or two), with how the prompt puts them.
+const BAR_TOUCHES := {
+	"string_lights": "string lights along the tarp's edge",
+	"lanterns": "red paper lanterns",
+	"radio": "an old radio on the counter",
+	"plants": "potted plants by the poles",
+	"calendar": "a paper calendar pinned to a pole",
+	"lucky_cat": "a waving lucky-cat figurine",
+	"photos": "old photos taped to a pole",
+	"fishing_net": "a fishing net hung in a corner",
+	"knife_rack": "a neat rack of kitchen knives",
+}
+## Without the AI's choice (an older bar, or the AI couldn't manage it).
+const DEFAULT_HANGUL := "포장마차"
+const MAX_HANGUL_LENGTH := 12
+
+
+## A bar's look: {"hangul": its name in Hangul for the sign, "tarp", "sign", and "touches":
+## one or two of BAR_TOUCHES}.
+## A new bar's choice of colours and shapes: a few of each, picked by the game, so bars
+## differ (left to itself the AI paints nearly every tent the classic orange).
+const OFFERED_TARPS := 4
+const OFFERED_SHAPES := 3
+
+static func look_offer() -> Dictionary:
+	var tarps: Array = BAR_TARPS.keys()
+	var shapes: Array = TENT_SHAPES.keys()
+	tarps.shuffle()
+	shapes.shuffle()
+	return {"tarp": tarps.slice(0, OFFERED_TARPS), "shape": shapes.slice(0, OFFERED_SHAPES)}
+
+
+## offered: the colours and shapes this bar was offered (from look_offer); empty for all of them.
+static func validate_bar_look(data: Variant, offered: Dictionary = {}) -> String:
+	var problem := check_fields(data, ["hangul", "tarp", "sign"])
+	if problem != "":
+		return problem
+	var hangul := tidy_text(data["hangul"])
+	var letters := 0
+	for c in hangul:
+		if c.unicode_at(0) >= 0xAC00 and c.unicode_at(0) <= 0xD7A3:
+			letters += 1
+		elif c != " ":
+			return "\"hangul\" must be the name in Korean letters (Hangul) only"
+	if letters < 2:
+		return "\"hangul\" must be the name in Korean letters (Hangul)"
+	if hangul.length() > MAX_HANGUL_LENGTH:
+		return "\"hangul\" is too long for the sign"
+	var tarp := tidy_text(data["tarp"]).to_lower()
+	var sign := tidy_text(data["sign"]).to_lower()
+	var shape := tidy_text(data.get("shape", "classic")).to_lower()  # older looks have none
+	var shapes: Array = offered.get("shape", TENT_SHAPES.keys())
+	var tarps: Array = offered.get("tarp", BAR_TARPS.keys())
+	if not TENT_SHAPES.has(shape) or (data.has("shape") and not shapes.has(shape)):
+		return "\"shape\" must be one of: %s" % ", ".join(PackedStringArray(shapes))
+	if not BAR_TARPS.has(tarp) or not tarps.has(tarp):
+		return "\"tarp\" must be one of: %s" % ", ".join(PackedStringArray(tarps))
+	if not SIGN_STYLES.has(sign):
+		return "\"sign\" must be one of: %s" % ", ".join(PackedStringArray(SIGN_STYLES.keys()))
+	var touches: Array = []
+	var raw = data.get("touches", [])
+	if typeof(raw) != TYPE_ARRAY or raw.is_empty() or raw.size() > 2:
+		return "\"touches\" must be a list of one or two of: %s" % ", ".join(PackedStringArray(BAR_TOUCHES.keys()))
+	for entry in raw:
+		var touch := str(entry).strip_edges().to_lower()
+		if not BAR_TOUCHES.has(touch):
+			return "\"%s\" isn't one of the touches (%s)" % [touch, ", ".join(PackedStringArray(BAR_TOUCHES.keys()))]
+		if not touches.has(touch):
+			touches.append(touch)
+	data["hangul"] = hangul
+	data["tarp"] = tarp
+	data["sign"] = sign
+	data["shape"] = shape
+	data["touches"] = touches
+	return ""
+
+
+## A plain look, for when there isn't one chosen.
+static func default_bar_look() -> Dictionary:
+	return {"hangul": DEFAULT_HANGUL, "tarp": "orange", "sign": "wood", "shape": "classic", "touches": []}
+
+
+# --- People in the street ------------------------------------------------------------------
+
+## Most people walk past without stopping: a few for every customer, busiest in the evening,
+## few in the small hours. Game minutes until the next passer-by, from a roll between 0 and 1.
+static func stroll_gap(minutes: int, roll: float) -> float:
+	var per_hour := 3.0 * arrivals_per_hour(minutes) + 1.0
+	return maxf(1.0, 60.0 / per_hour * (0.4 + 1.2 * clampf(roll, 0.0, 1.0)))
+
+
+# --- How the night looks -------------------------------------------------------------------
+
+## The sky, the tent's glow and the bulbs through the night (minutes since midnight at the
+## start of the night): dusk at 6pm, dark by 9, deepest in the small hours, the glow warmest
+## mid-evening and a little tired by the end.
+const NIGHT_LIGHT := [
+	[18 * 60, "3c3a72", 0.06, "e0c48a"],
+	[19 * 60 + 30, "24234e", 0.12, "f5d58a"],
+	[21 * 60, "100f24", 0.2, "ffd27f"],
+	[24 * 60, "0a0918", 0.22, "ffcf75"],
+	[26 * 60, "07060f", 0.17, "f0bb66"],
+	[27 * 60, "0b0a16", 0.15, "e8b060"],
+]
+
+
+## {"sky": Color, "glow": alpha of the tent's warm glow, "bulb": Color} at this time.
+static func night_light(minutes: float) -> Dictionary:
+	var points := NIGHT_LIGHT
+	if minutes <= points[0][0]:
+		return {"sky": Color(points[0][1]), "glow": points[0][2], "bulb": Color(points[0][3])}
+	for i in range(1, points.size()):
+		if minutes <= points[i][0]:
+			var a: Array = points[i - 1]
+			var b: Array = points[i]
+			var t: float = (minutes - float(a[0])) / float(b[0] - a[0])
+			return {"sky": Color(a[1]).lerp(Color(b[1]), t), "glow": lerpf(a[2], b[2], t), "bulb": Color(a[3]).lerp(Color(b[3]), t)}
+	var last: Array = points.back()
+	return {"sky": Color(last[1]), "glow": last[2], "bulb": Color(last[3])}
+
+
+## What the night's weather looks like: "drizzle", "rain", "snow", "fog", "cold", "muggy",
+## "breeze" (from the weather text), or "" if it's none of those.
+static func weather_kind(weather: String) -> String:
+	var w := weather.to_lower()
+	if w.contains("heavy rain"):
+		return "rain"
+	if w.contains("drizzle") or w.contains("rain"):
+		return "drizzle"
+	if w.contains("snow"):
+		return "snow"
+	if w.contains("fog"):
+		return "fog"
+	if w.contains("cold"):
+		return "cold"
+	if w.contains("muggy") or w.contains("heat"):
+		return "muggy"
+	if w.contains("breeze") or w.contains("wind"):
+		return "breeze"
+	return ""
+
+
 # --- What conversations turn to ----------------------------------------------------------
 
 ## For each spell of the owner's chat with someone, the game picks what it turns to, so a
@@ -723,6 +896,8 @@ static func problem_kind(problem: String) -> String:
 		return "same name"
 	if p.contains("the cat"):
 		return "the cat"
+	if p.contains("hangul") or p.contains("\"tarp\"") or p.contains("\"sign\"") or p.contains("\"shape\"") or p.contains("touches"):
+		return "the bar's look"
 	if p.contains("in brackets"):
 		return "brackets (translations, asides)"
 	if p.contains("only just met"):

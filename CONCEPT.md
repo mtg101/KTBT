@@ -42,6 +42,10 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 - Every bar has a cat, saved with it: the game picks its coat, personality (lazy, affectionate, greedy, grumpy or curious) and sex (she or he), and the AI names it (no two bars' cats share a name).
 - The game decides where it is all night (asleep by the stove, on someone's lap, out in the street…), by its personality, and everyone talks about it as it really is: nobody strokes it unless it's on their lap.
 
+### The tent's look
+- **Every bar looks like its own:** the AI chooses its look to suit the owner and the name, from options the game offers, and it's saved with the bar. The sign shows the name in Hangul with the romanised name under it, in wood, neon, banner or lightbox style. The tent cover has a shape (classic, peaked, scalloped, awning or rounded) and a colour (ten, three of them striped); each new bar is offered a random shortlist of colours and shapes, so they vary. One or two little touches finish it off (string lights, lanterns, a lucky cat…).
+- **The night around it:** the sky darkens through the night and the tent's glow changes with it; the weather is something you see (rain, snow, fog, haze, a swinging bulb in a breeze); and most people in the street walk past without coming in, busiest in the evening, with umbrellas when it's wet.
+
 ## Saving and loading
 
 Each **save is one bar**: its owner, its regulars, its history. You can have several and come back to any of them.
@@ -59,7 +63,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 
 Included in every AI prompt so all characters feel like they belong to the same show. The AI riffs on these rather than copying them.
 
-**Setting:** orange-tarp tent, plastic stools, green soju bottles, steam off the tteokbokki, a single bulb swinging, rain more often than not.
+**Setting:** a tarp tent (each bar's own shape and colour), plastic stools, green soju bottles, steam off the tteokbokki, a single bulb swinging, rain more often than not.
 
 **Owner archetypes:**
 - The gruff-but-soft ajumma who scolds customers for not eating properly

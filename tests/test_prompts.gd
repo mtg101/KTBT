@@ -310,3 +310,20 @@ func test_everyone_speaks_fluently() -> void:
 	var text := str(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "")[0]["content"])
 	assert_str(text).contains("fluent, natural English in their own voice")
 	assert_str(text).contains("never broken English")
+
+
+func test_bar_look_prompt_offers_the_games_options() -> void:
+	var text := _request(Prompts.bar_look_messages(_owner_data(), "Byeolbit Pocha", "Starlight Tent"))
+	assert_str(text).contains("Byeolbit Pocha (Starlight Tent)")
+	assert_str(text).contains("Hangul")
+	for option in ["striped", "neon", "string_lights", "lucky_cat", "peaked (a peaked roof", "blue_stripes"]:
+		assert_str(text).contains(option)
+
+
+func test_bar_look_prompt_offers_only_the_games_shortlist() -> void:
+	var offer := {"tarp": ["teal", "maroon"], "shape": ["awning"]}
+	var text := _request(Prompts.bar_look_messages(_owner_data(), "Byeolbit Pocha", "Starlight Tent", offer))
+	assert_str(text).contains("teal, maroon")
+	assert_str(text).contains("awning (a flat awning")
+	assert_str(text).not_contains("blue_stripes")
+	assert_str(text).not_contains("peaked (")

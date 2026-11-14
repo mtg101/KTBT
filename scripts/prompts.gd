@@ -4,7 +4,7 @@ extends RefCounted
 
 const Rules = preload("res://scripts/rules.gd")
 
-const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: an orange-tarp street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, a single bulb swinging in the wind.
+const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, a single bulb swinging in the wind.
 
 Everyone you invent belongs in a K-drama. Lean into the familiar tropes, but make each character feel like a real person rather than a cliche.
 
@@ -75,6 +75,35 @@ Name this pojangmacha. Real tents have short, warm Korean names, written here in
 Reply with ONLY a JSON object with exactly these keys:
 - "name": the tent's name in romanised Korean
 - "meaning": what the name means in English, in a few words""" % describe_owner(owner)
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Messages asking the AI how the tent looks, to suit its owner and name: the sign's Hangul,
+## and choices from the game's lists (so the game can draw it).
+## offered: the colours and shapes the game offers this bar (Rules.look_offer); empty for all.
+static func bar_look_messages(owner: Dictionary, bar_name: String, meaning: String, offered: Dictionary = {}) -> Array:
+	var shapes := PackedStringArray()
+	for id in offered.get("shape", Rules.TENT_SHAPES.keys()):
+		shapes.append("%s (%s)" % [id, Rules.TENT_SHAPES[id]])
+	var tarps := PackedStringArray(offered.get("tarp", Rules.BAR_TARPS.keys()))
+	var touches := PackedStringArray()
+	for id in Rules.BAR_TOUCHES:
+		touches.append("%s (%s)" % [id, Rules.BAR_TOUCHES[id]])
+	var request := """%s
+
+The tent is called %s (%s). Choose how it looks, to suit the owner and the name.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "hangul": the tent's name written in Korean letters (Hangul), for the sign, e.g. "별빛 포차" for Byeolbit Pocha
+- "shape": the shape of the tent's cover, one of: %s
+- "tarp": the tarp's colour, one of: %s
+- "sign": the sign's style, one of: %s
+- "touches": a list of one or two little touches around the tent, from: %s""" % [
+		describe_owner(owner), bar_name, meaning, ", ".join(shapes), ", ".join(tarps),
+		", ".join(PackedStringArray(Rules.SIGN_STYLES.keys())), ", ".join(touches)]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

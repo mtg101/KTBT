@@ -864,3 +864,80 @@ func test_every_bars_cat_has_its_own_name() -> void:
 	assert_str(Rules.problem_kind("another bar's cat is already called Ssal: pick a different name")).is_equal("same name")
 	for i in 20:
 		assert_str(Rules.fallback_cat_name(i / 20.0, ["Nabi", "Dubu"])).is_not_equal("Nabi")
+
+
+# --- How the tent and the night look --------------------------------------------------------
+
+func _look(changes: Dictionary = {}) -> Dictionary:
+	var data := {"hangul": "별빛 포차", "tarp": "Blue", "sign": "neon", "touches": ["string_lights", "plants"]}
+	data.merge(changes, true)
+	return data
+
+
+func test_a_bar_look_from_the_options_is_fine() -> void:
+	var data := _look()
+	assert_str(Rules.validate_bar_look(data)).is_empty()
+	assert_str(str(data["tarp"])).is_equal("blue")
+
+
+func test_the_sign_must_be_in_hangul() -> void:
+	assert_str(Rules.validate_bar_look(_look({"hangul": "Byeolbit Pocha"}))).contains("Hangul")
+	assert_str(Rules.validate_bar_look(_look({"hangul": "별"}))).contains("Hangul")  # one letter isn't a name
+	assert_str(Rules.validate_bar_look(_look({"hangul": "별빛 포차 별빛 포차 별빛"}))).contains("too long")
+
+
+func test_a_bar_look_must_use_the_games_options() -> void:
+	assert_str(Rules.validate_bar_look(_look({"tarp": "purple"}))).contains("\"tarp\"")
+	assert_str(Rules.validate_bar_look(_look({"sign": "graffiti"}))).contains("\"sign\"")
+	assert_str(Rules.validate_bar_look(_look({"touches": ["disco ball"]}))).contains("isn't one of the touches")
+	assert_str(Rules.validate_bar_look(_look({"touches": []}))).contains("one or two")
+	assert_str(Rules.validate_bar_look(_look({"touches": ["radio", "plants", "photos"]}))).contains("one or two")
+	assert_str(Rules.problem_kind("\"tarp\" must be one of: orange, red")).is_equal("the bar's look")
+
+
+func test_the_night_darkens_and_the_tent_glows() -> void:
+	var dusk := Rules.night_light(18 * 60)
+	var midnight := Rules.night_light(24 * 60)
+	var late := Rules.night_light(26 * 60 + 30)
+	assert_float((dusk["sky"] as Color).get_luminance()).is_greater((midnight["sky"] as Color).get_luminance())
+	assert_float(float(midnight["glow"])).is_greater(float(dusk["glow"]))
+	assert_float(float(late["glow"])).is_less(float(midnight["glow"]))  # a little tired by the end
+	var between := Rules.night_light(18 * 60 + 45)  # changes gradually
+	assert_float(float(between["glow"])).is_between(float(dusk["glow"]), float(Rules.night_light(19 * 60 + 30)["glow"]))
+
+
+func test_weather_kinds() -> void:
+	assert_str(Rules.weather_kind("heavy rain drumming on the tarp")).is_equal("rain")
+	assert_str(Rules.weather_kind("light drizzle")).is_equal("drizzle")
+	assert_str(Rules.weather_kind("the first snow of winter")).is_equal("snow")
+	assert_str(Rules.weather_kind("thick fog")).is_equal("fog")
+	assert_str(Rules.weather_kind("clear, bitterly cold air")).is_equal("cold")
+	assert_str(Rules.weather_kind("a muggy summer heat")).is_equal("muggy")
+	assert_str(Rules.weather_kind("a warm spring breeze")).is_equal("breeze")
+
+
+func test_tent_shapes_and_colours_come_from_the_games_lists() -> void:
+	var data := _look({"shape": "Scalloped", "tarp": "blue_stripes"})
+	assert_str(Rules.validate_bar_look(data)).is_empty()
+	assert_str(str(data["shape"])).is_equal("scalloped")
+	assert_str(Rules.validate_bar_look(_look({"shape": "geodesic dome"}))).contains("\"shape\"")
+	var old := _look()
+	old.erase("shape")  # looks from before shapes are classic
+	assert_str(Rules.validate_bar_look(old)).is_empty()
+	assert_str(str(old["shape"])).is_equal("classic")
+
+
+func test_more_people_walk_past_in_the_evening_than_the_small_hours() -> void:
+	assert_float(Rules.stroll_gap(22 * 60, 0.5)).is_less(Rules.stroll_gap(26 * 60, 0.5))
+	assert_float(Rules.stroll_gap(22 * 60, 0.5)).is_less(60.0 / Rules.arrivals_per_hour(22 * 60))  # several for each customer
+	assert_float(Rules.stroll_gap(22 * 60, 0.0)).is_greater_equal(1.0)
+
+
+func test_a_new_bar_is_offered_a_few_looks_and_must_pick_from_them() -> void:
+	var offer := Rules.look_offer()
+	assert_int(offer["tarp"].size()).is_equal(Rules.OFFERED_TARPS)
+	assert_int(offer["shape"].size()).is_equal(Rules.OFFERED_SHAPES)
+	var limited := {"tarp": ["teal", "maroon"], "shape": ["awning"]}
+	assert_str(Rules.validate_bar_look(_look({"tarp": "teal", "shape": "awning"}), limited)).is_empty()
+	assert_str(Rules.validate_bar_look(_look({"tarp": "orange", "shape": "awning"}), limited)).contains("teal, maroon")
+	assert_str(Rules.validate_bar_look(_look({"tarp": "teal", "shape": "peaked"}), limited)).contains("\"shape\"")

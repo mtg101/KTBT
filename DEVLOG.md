@@ -4,6 +4,18 @@ A running record of what we've done on KTBT and why, newest first. What's coming
 
 ## 14 November 2026
 
+- **Atmosphere stage done:** the grey-box tent now looks like a night in the street, and every bar looks like its own.
+  - **Each bar's look, chosen by the AI:** when a bar is created, the AI chooses its look to suit the owner and the name, from options the game offers, and it's saved with the bar:
+    - **The sign:** the name in Hangul, big, with the romanised name under it (the mix you see in tourist areas), in one of four styles: wood, neon, banner or lightbox.
+    - **The tent cover:** one of five shapes (classic sloped tarp, peaked, scalloped edge, flat awning with a zigzag valance, rounded arch), in one of ten colours, three of them striped. Stripes are cut to the cover's shape.
+    - **Touches:** one or two of nine little details, such as string lights, red paper lanterns, an old radio, a lucky cat, old photos or a fishing net.
+    - **A shortlist of colours and shapes:** left to choose from everything, the AI painted almost every tent the classic orange. The game now offers each new bar four colours and three shapes, picked at random, and rejects anything not offered (see [LLM-TUNING.md](LLM-TUNING.md)).
+  - **Time of night:** the sky darkens from dusk to the small hours, while the tent's warm glow and the bulbs' colour change with it.
+  - **Weather you can see:** drizzle and rain falling (heavy rain also drips off the tarp), snow falling and settling on the street, drifting fog, a warm haze on muggy nights, and the bulbs swinging harder in a breeze.
+  - **Passers-by:** most people walk past without coming in, along the pavement a little nearer to us than the stools, as dark figures in front of the tent. There are a few for every customer: busiest in the evening, few in the small hours. In drizzle, rain or snow they carry umbrellas (some of them clear, as in Seoul). They aren't narrated, so the transcript stays clean.
+  - **A loading screen:** while a new bar is set up, the game's name appears like a K-drama or variety-show title card (a thick-outlined title, turning rays, a Hangul caption bubble, sparkles and hearts) over a little tent bar glowing in the night, with what the AI is doing along the bottom. No template tent shows while the AI works: the bar appears once its look is known.
+  - **Fixes:** two type-inference parse errors that broke the scene (one made New bar hang, the other crashed Godot through an error every frame), found in Godot's own log; and a customer-chat test that checked for the first line before it had arrived.
+  - **Tests:** 21 new (looks, light and weather kinds, shapes and colours, the shortlist, passers-by and their umbrellas, the loading screen, no template tent), **326** in total.
 - **Night transcripts:** every night writes its transcript to a text file as it goes (a header with the bar, night, weather and AI settings; every line as it appears on screen; and the night's stats at the end), in `logs/transcripts/` in the project when playing from the editor (`logs/` is in `.gitignore`). So transcripts can be read, shared and checked without copying from the screen.
 - **Conversations that flow better (from reading transcripts):**
   - **Topics:** each spell of the owner's chat with someone turns to a topic the game picks (their day, what's on their mind, a story from the owner's life, the weather or the night, a hint at the owner's secret, blunt advice, the cat, or food: likelier just after serving, so some fussing stays in character). Customer chats get topics too. Before, the owner nagged about food line after line.

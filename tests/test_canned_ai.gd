@@ -168,3 +168,9 @@ func test_canned_cat_names_pass_the_rules() -> void:
 	for i in 20:
 		var reply: Dictionary = _canned.reply({"purpose": "cat_name"})
 		assert_str(Rules.validate_cat_name(reply, "Park Mi-sook")).is_empty()
+
+
+func test_canned_bar_looks_pass_the_rules() -> void:
+	for bar in CannedAi.BAR_NAMES + [{"name": "Mi-sook-ne Pocha"}]:
+		var look: Dictionary = _canned.reply({"purpose": "bar_look", "bar_name": bar["name"]})
+		assert_str(Rules.validate_bar_look(look)).override_failure_message(JSON.stringify(look)).is_empty()
