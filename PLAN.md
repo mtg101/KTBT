@@ -8,7 +8,7 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Bars and saves:** title screen (New / Load), AI-invented bar name, owner kept per bar, autosave as it goes, close any time and resume on load. Comes with save/load round-trip tests.
+- **Bars and saves:** title screen (New / Load), an AI-invented **Korean** bar name, owner kept per bar, autosave as it goes, close any time and carry on from the next customer on load (an unfinished visit simply ends when you quit). Comes with save/load round-trip tests.
 - **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
 - **Several at once:** multiple seats and overlapping customers.
 - **Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
@@ -28,6 +28,7 @@ Grouped by type. Within each group, roughly in order of importance.
 
 ### Richer play
 
+- **Resume mid-conversation:** if you quit partway through a visit, loading the bar puts the customer back on their stool and the conversation picks up from the saved transcript (if the AI was halfway through a line, that one line is asked for again). Until then, an unfinished visit ends when you quit.
 - **Calendar, holidays and events:** seasons and Korean occasions (Seollal, Chuseok, Christmas, Pepero Day on 11/11, payday Fridays) and one-off events (a big football match on the overpass screens, a typhoon closing the tent early). Game facts that shape who turns up, what they order and what they talk about.
 - **Drama incidents and story arcs:** K-drama beats across nights: a confession at the counter, a drunk customer the owner sends home in a taxi, a breakup at the next table, the owner's secret slowly coming out, and the classic: redevelopers threatening to tear the tent down. A light **drama director** in the game picks a beat for the night (a game fact), and the AI writes it.
 - **Journal and trope book:** a diary of past nights to reread, and, fitting the name *Korean Tent Bar Tropes*, a **trope book** that fills in as tropes appear ("Chaebol heir in disguise ✓", "Rain-soaked confession ✓"). The game tags tropes as it plans each visit, so collecting them is reliable rather than guessed from the text.
