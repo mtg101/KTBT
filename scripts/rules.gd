@@ -438,6 +438,127 @@ static func joins_chats(company_mood: String) -> bool:
 	return company_mood != "quiet"
 
 
+# --- The cat ------------------------------------------------------------------------------
+
+## Every bar has a cat. The game decides its coat and personality (and, all night, where it
+## is); the AI only names it. Its personality sets how likely each spot is.
+const CAT_COATS := {"ginger": "d9883a", "black": "2b2a33", "white": "eeeae0", "tabby": "9c7a52", "calico": "e8e0d0", "grey": "8a8a96"}
+const CAT_PERSONALITIES := {
+	"lazy": "lazy: sleeps most of the night",
+	"affectionate": "affectionate: always looking for a lap",
+	"greedy": "greedy: a shameless beggar for food",
+	"grumpy": "grumpy: tolerates people, barely",
+	"curious": "curious: into everything, and often off out in the street",
+}
+## Where the cat can be. "lap", "feet" and "food" are with a customer (food: by the stool of
+## someone with food on their table, staring at it).
+const CAT_SPOTS := ["stove", "counter", "stools", "street", "lap", "feet", "food"]
+const CAT_SPOT_WEIGHTS := {
+	"lazy": {"stove": 6.0, "counter": 3.0, "stools": 1.0, "street": 1.0, "lap": 2.0, "feet": 0.5, "food": 0.5},
+	"affectionate": {"stove": 1.0, "counter": 1.0, "stools": 1.0, "street": 0.5, "lap": 5.0, "feet": 3.0, "food": 1.0},
+	"greedy": {"stove": 1.0, "counter": 2.0, "stools": 2.0, "street": 1.0, "lap": 0.5, "feet": 1.0, "food": 5.0},
+	"grumpy": {"stove": 4.0, "counter": 3.0, "stools": 1.0, "street": 2.0, "lap": 0.3, "feet": 0.2, "food": 1.0},
+	"curious": {"stove": 1.0, "counter": 2.0, "stools": 4.0, "street": 4.0, "lap": 1.0, "feet": 2.0, "food": 1.0},
+}
+## Korean pet names, for a bar whose cat the AI couldn't name (or an older bar that had none).
+const CAT_NAMES := ["Nabi", "Dubu", "Gamja", "Mandu", "Bori", "Kongi", "Duri", "Hodu", "Nuri", "Dalgi", "Kkami", "Chorong"]
+const CAT_WORDS := ["cat", "cats", "kitty", "kitten", "goyangi", "puss", "pussycat", "moggy"]
+## Stroking, petting, a lap...: only for a cat that's on the lap of someone in the conversation.
+const CAT_TOUCH_WORDS := ["stroke", "strokes", "stroking", "stroked", "pet", "pets", "petting", "petted", "scratch", "scratches", "scratching", "cuddle", "cuddles", "cuddling", "lap", "laps"]
+const MAX_CAT_NAME_LENGTH := 16
+
+
+## Where the cat goes next, from a random roll between 0 and 1, by its personality. It
+## always moves somewhere new. Spots with a customer need one (lap and feet: anyone at the
+## counter; food: someone with food on their table).
+static func pick_cat_spot(personality: String, has_people: bool, has_food: bool, roll: float, current: String = "") -> String:
+	var weights: Dictionary = CAT_SPOT_WEIGHTS.get(personality, CAT_SPOT_WEIGHTS["lazy"])
+	var choices: Array = []
+	var total := 0.0
+	for spot in CAT_SPOTS:
+		if spot == current or (spot in ["lap", "feet"] and not has_people) or (spot == "food" and not has_food):
+			continue
+		choices.append(spot)
+		total += float(weights[spot])
+	var target := clampf(roll, 0.0, 0.9999) * total
+	for spot in choices:
+		target -= float(weights[spot])
+		if target < 0.0:
+			return spot
+	return choices.back() if not choices.is_empty() else "stove"
+
+
+## Where the cat is, as a sentence: "Nabi is curled up asleep by the stove."
+## with: the customer it's with (for lap, feet and food).
+static func cat_text(cat_name: String, spot: String, with: String = "") -> String:
+	match spot:
+		"stove": return "%s is curled up asleep by the stove." % cat_name
+		"counter": return "%s is washing itself on the end of the counter." % cat_name
+		"stools": return "%s is prowling about under the stools." % cat_name
+		"street": return "%s is out in the street, not in the tent." % cat_name
+		"lap": return "%s is curled up on %s's lap." % [cat_name, with]
+		"feet": return "%s is winding round %s's ankles." % [cat_name, with]
+		"food": return "%s is sitting by %s's stool, staring at their food." % [cat_name, with]
+	return "%s is somewhere about." % cat_name
+
+
+## What it looks like when the cat goes somewhere: "Nabi jumps up onto Kim Ji-ho's lap."
+static func cat_move_text(cat_name: String, spot: String, with: String = "") -> String:
+	match spot:
+		"stove": return "%s curls up by the stove and goes to sleep." % cat_name
+		"counter": return "%s hops up onto the end of the counter for a wash." % cat_name
+		"stools": return "%s goes prowling under the stools." % cat_name
+		"street": return "%s slips out under the tarp into the street." % cat_name
+		"lap": return "%s jumps up onto %s's lap and settles in." % [cat_name, with]
+		"feet": return "%s winds round %s's ankles." % [cat_name, with]
+		"food": return "%s sits down by %s's stool, eyes fixed on their food." % [cat_name, with]
+	return "%s wanders off." % cat_name
+
+
+## The cat must be talked about as it really is: nobody strokes it, or talks of it on a lap,
+## unless it's on the lap of someone in this conversation (people: their names). Returns a
+## problem, or "".
+static func check_cat(line: String, cat_name: String, spot: String, with: String, people: Array) -> String:
+	var said := words(line)
+	var about_cat := false
+	for word in CAT_WORDS + Array(words(cat_name)):
+		if word in said:
+			about_cat = true
+	if not about_cat:
+		return ""
+	var touching := false
+	for word in CAT_TOUCH_WORDS:
+		if word in said:
+			touching = true
+	if not touching or (spot == "lap" and with in people):
+		return ""
+	return "the line has the cat being stroked or on a lap, but that isn't what's happening: %s" % cat_text(cat_name, spot, with)
+
+
+## A cat's name, from the AI: {"name": a short Korean pet name in English letters}.
+static func validate_cat_name(data: Variant, owner_name: String = "") -> String:
+	var problem := check_fields(data, ["name"])
+	if problem != "":
+		return problem
+	var cat_name := unquote(tidy_text(data["name"]))
+	if cat_name.split(" ", false).size() > 2:
+		return "a cat's name is one or two words"
+	if cat_name.length() > MAX_CAT_NAME_LENGTH:
+		return "the name is too long for a cat"
+	for c in cat_name:
+		if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c in [" ", "-", "'"]):
+			return "the name must be in English letters"
+	for part in owner_name.split(" ", false):
+		if cat_name.to_lower() == part.to_lower() or cat_name.to_lower() == owner_name.to_lower():
+			return "the cat can't have the owner's name"
+	data["name"] = cat_name
+	return ""
+
+
+static func fallback_cat_name(roll: float) -> String:
+	return CAT_NAMES[clampi(floori(roll * CAT_NAMES.size()), 0, CAT_NAMES.size() - 1)]
+
+
 # --- How strangers talk -------------------------------------------------------------------
 
 ## Terms for someone you're close to (and depending on who's speaking). Strangers at the
@@ -474,8 +595,9 @@ static func has_main(items: Array) -> bool:
 ## If items (what's on the table) is given, the line mustn't mention other menu items.
 ## A line of dialogue: {"line": "..."}. items: everything ordered by the people talking (a
 ## line can't mention food nobody ordered). names: the people in the conversation (for the
-## check that strangers don't call each other oppa, hyung, nuna or eonni).
-static func validate_line(data: Variant, speaker: String, alias: String, items: Array = [], names: Array = []) -> String:
+## check that strangers don't call each other oppa, hyung, nuna or eonni). cat: where the cat
+## is, {"name", "spot", "with"} (see check_cat), or {} to skip that check.
+static func validate_line(data: Variant, speaker: String, alias: String, items: Array = [], names: Array = [], cat: Dictionary = {}) -> String:
 	if typeof(data) != TYPE_DICTIONARY or not data.has("line"):
 		return "it didn't include \"line\""
 	var line := tidy_text(data["line"])
@@ -499,6 +621,10 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 	var term := close_term(line, names + [speaker])
 	if term != "":
 		return "the line says \"%s\", but these people have only just met: strangers don't use oppa, hyung, nuna or eonni" % term
+	if not cat.is_empty():
+		var cat_problem := check_cat(line, str(cat["name"]), str(cat["spot"]), str(cat["with"]), names + [speaker])
+		if cat_problem != "":
+			return cat_problem
 	data["line"] = line
 	return ""
 
@@ -509,6 +635,8 @@ static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
 	if p.contains("already at the counter"):
 		return "same name"
+	if p.contains("the cat"):
+		return "the cat"
 	if p.contains("only just met"):
 		return "oppa, hyung, nuna or eonni"
 	if p.contains("isn't on the table") or p.contains("isn't in \"items\"") or p.contains("asks for more"):

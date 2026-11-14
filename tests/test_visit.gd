@@ -19,6 +19,7 @@ const TIMEOUT_MS := 15000
 ## A reply that's valid for either gender of owner (the archetype names no gendered term).
 const ANY_OWNER := {"name": "Han Jeong-hee", "age": 47, "archetype": "former chef who walked out of a hotel kitchen", "appearance": "Sleeves rolled up.", "personality": "proud, funny", "speech_style": "quick and teasing", "secret": "She still gets job offers from the hotel."}
 const A_BAR_NAME := {"name": "Golmok Pocha", "meaning": "Back Alley Tent"}
+const A_CAT_NAME := {"name": "Dubu"}
 ## A customer comes in two steps: their name and gender, then the rest.
 const A_NAME := {"name": "Kim Ji-ho", "gender": "woman"}
 const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer."}
@@ -60,6 +61,7 @@ func after_test() -> void:
 	Visit.company_override = ""
 	Visit.chat_chance_override = -1.0
 	Visit.gender_override = ""
+	Visit.cat_wanders = true
 	Ai.canned_think_seconds = 0.0
 
 
@@ -93,6 +95,10 @@ func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
 
 ## Clicks a button the way a player would: move the mouse over it and press.
 func _click(runner: GdUnitSceneRunner, button: Button) -> void:
+	# Let layouts settle first: a button that's only just appeared (like Try again) may not
+	# be in its place yet.
+	for i in 3:
+		await get_tree().process_frame
 	runner.simulate_mouse_move(button.get_global_rect().get_center())
 	await runner.await_input_processed()
 	runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
@@ -160,7 +166,7 @@ func test_clicking_next_customer_plays_a_whole_visit() -> void:
 ## As if this many people turned up at the same moment.
 func _crowd(scene, count: int) -> void:
 	for i in count:
-		scene._waiting.append(scene._clock)
+		scene._arrive(scene._clock)
 
 
 func test_several_customers_sit_at_once() -> void:
@@ -231,7 +237,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 
 func test_cooked_food_waits_at_the_stove() -> void:
 	var order := {"items": ["beer", "tteokbokki"], "line": "A cold beer and the tteokbokki, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
 	await _run_one_visit(runner)
 	var text := _transcript(runner)
@@ -244,7 +250,7 @@ func test_cooked_food_waits_at_the_stove() -> void:
 
 func test_the_ai_hears_what_is_still_cooking() -> void:
 	var order := {"items": ["beer", "dakgalbi"], "line": "A beer and the dakgalbi, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
 	Visit.pause_scale_override = 1.0  # slow the stove, so the dakgalbi is still cooking for the first line
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -315,7 +321,7 @@ func test_owner_that_cant_be_invented_offers_try_again() -> void:
 
 
 func test_order_falls_back_to_soju_and_odeng_when_the_ai_keeps_failing() -> void:
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_NAME, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	await _run_one_visit(runner)
@@ -418,7 +424,7 @@ func test_no_two_customers_at_the_counter_share_a_name() -> void:
 	# Two arrive together. The AI names the second customer the same as the first:
 	# rejected, and asked again. (The reply in between is the first one's order: with
 	# someone else waiting, the owner greets them quickly, with no chat yet.)
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_NAME, A_CUSTOMER,
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER,
 		{"items": ["beer", "odeng"], "line": "A beer and some odeng, please."},
 		A_NAME]
 	var runner := await _open_bar()
@@ -455,7 +461,7 @@ func test_food_is_carried_over_while_the_ai_is_thinking() -> void:
 	Visit.stay_minutes_override = 600
 	Visit.chat_chance_override = 0.0
 	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
-	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_NAME, A_CUSTOMER, order]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Ai.canned_think_seconds = 0.3  # a slow AI: the tteokbokki is ready long before the next line
@@ -567,3 +573,51 @@ func test_time_speeds_up_when_the_tent_is_empty_and_slows_when_busy() -> void:
 	Visit.pause_scale_override = 0.01
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+# --- The cat ----------------------------------------------------------------------------------
+
+func test_a_new_bar_gets_a_cat() -> void:
+	var runner := await _open_bar()
+	var cat: Dictionary = Game.bar["cat"]
+	assert_str(str(cat["name"])).is_not_empty()
+	assert_bool(Rules.CAT_COATS.has(cat["coat"])).is_true()
+	assert_bool(Rules.CAT_PERSONALITIES.has(cat["personality"])).is_true()
+	assert_bool(SaveStore.load_bar(str(Game.bar["id"]))["cat"].has("name")).is_true()  # saved
+	assert_bool((runner.find_child("Cat") as Control).visible).is_true()
+	assert_str((runner.find_child("Info") as RichTextLabel).get_parsed_text()).contains("THE CAT")
+	assert_str(_transcript(runner)).contains("%s, the tent's %s cat" % [cat["name"], cat["coat"]])
+
+
+func test_the_ai_names_the_cat() -> void:
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME]
+	await _open_bar()
+	assert_str(str(Game.bar["cat"]["name"])).is_equal("Dubu")
+
+
+func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	scene._move_cat("lap")
+	var cat_name := str(Game.bar["cat"]["name"])
+	assert_str(_transcript(runner)).contains("%s jumps up onto %s's lap" % [cat_name, guest.customer["name"]])
+	assert_bool(guest.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("lap"))).is_true()
+	assert_str(scene._cat_prompt()).contains("on %s's lap" % guest.customer["name"])
+	# When they leave, the cat jumps down.
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_str(scene._cat_spot).is_not_equal("lap")
+	assert_object(scene._cat_with).is_null()
+
+
+func test_the_cat_wanders_by_itself() -> void:
+	Visit.run_clock = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var moved: bool = await _wait_until(func(): return scene._cat_spot != "stove")
+	assert_bool(moved).override_failure_message("the cat never moved").is_true()

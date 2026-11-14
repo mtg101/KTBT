@@ -36,6 +36,10 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 - **Strangers talk politely:** nobody at the counter knows anyone yet, so terms like oppa, hyung, nuna and eonni (for people who are close) are ruled out, and no two people there share a name.
 - **Later:** regulars who return and remember previous visits, via a short stored summary of each.
 
+### The cat
+- Every bar has a cat, saved with it: the game picks its coat and personality (lazy, affectionate, greedy, grumpy or curious), and the AI names it.
+- The game decides where it is all night (asleep by the stove, on someone's lap, out in the street…), by its personality, and everyone talks about it as it really is: nobody strokes it unless it's on their lap.
+
 ## Saving and loading
 
 Each **save is one bar**: its owner, its regulars, its history. You can have several and come back to any of them.
@@ -44,7 +48,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 - **New bar:** the AI invents the owner and the bar's name (a Korean name, checked by the game like everything else the AI writes), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on with the next customer.
 - **When it saves:** when a bar is created, after every visit, at the end of each night, when you close the bar, and when the window is closed.
-- **What's saved:** the bar's name and its meaning, the owner, the takings, the visit and night counts, a short history of recent visits (who came, what they ordered, the bill), a log of recent nights (day, weather, customers, takings, memorable line), the day of the week it started on, and later the menu and (from the Regulars and relationships stage) regulars and their memory summaries.
+- **What's saved:** the bar's name and its meaning, the owner, the cat, the takings, the visit and night counts, a short history of recent visits (who came, what they ordered, the bill), a log of recent nights (day, weather, customers, takings, memorable line), the day of the week it started on, and later the menu and (from the Regulars and relationships stage) regulars and their memory summaries.
 - **Quitting mid-night:** for now, a night you leave before 3am isn't counted, and opening the bar again starts that night afresh at 6pm; resuming mid-night is a later idea. An unfinished visit simply ends when you quit. Resuming mid-conversation (the customer still on their stool, the chat picking up from the saved transcript) is a later idea in [PLAN.md](PLAN.md).
 - **Safe writes:** each save is written to a temporary file and then swapped in, so a crash mid-save can't corrupt the bar.
 - **Format:** one JSON file per bar in Godot's `user://saves/` folder (on Windows: `%APPDATA%\Godot\app_userdata\KTBT\saves\`). It's human-readable, which is handy for debugging, or for peeking at what the AI invented.

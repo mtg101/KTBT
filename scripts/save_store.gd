@@ -34,6 +34,7 @@ static func new_bar(bar_name: String, meaning: String, owner_data: Dictionary) -
 		"first_day": 4,  # 0 = Monday; the visit scene picks a random one for a new bar
 		"history": [],
 		"night_log": [],
+		"cat": {},  # name, coat and personality (the visit scene gives every bar one)
 		"created": now,
 		"last_played": now,
 	}

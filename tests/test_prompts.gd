@@ -252,3 +252,25 @@ func test_non_binary_customers_are_they_them() -> void:
 	var data := _customer_data()
 	data["gender"] = "non-binary"
 	assert_str(Prompts.describe_person(data)).starts_with("Kim Ji-ho (non-binary, they/them), 34")
+
+
+# --- The cat ----------------------------------------------------------------------------------
+
+func _cat() -> Dictionary:
+	return {"name": "Nabi", "coat": "ginger", "personality": "lazy"}
+
+
+func test_dialogue_prompts_say_where_the_cat_is() -> void:
+	var cat := Prompts.describe_cat(_cat(), "Nabi is curled up asleep by the stove.")
+	assert_str(cat).contains("Nabi, the tent's ginger cat (lazy: sleeps most of the night)")
+	assert_str(cat).contains("nobody strokes it")
+	var line := _request(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "", cat))
+	assert_str(line).contains("Right now: Nabi is curled up asleep by the stove.")
+	var chat := _request(Prompts.counter_chat_messages(_owner_data(), false, [_customer_data()], ["Soju"], _moment(), [], "Kim Ji-ho", "Lee Min-jun", "", cat))
+	assert_str(chat).contains("THE CAT: Nabi")
+
+
+func test_cat_name_prompt_knows_the_cat() -> void:
+	var text := _request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "calico", "greedy"))
+	assert_str(text).contains("a calico cat, greedy")
+	assert_str(text).contains("Korean pet name")

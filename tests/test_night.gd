@@ -143,7 +143,7 @@ func test_someone_turning_up_mid_night_is_served() -> void:
 	Visit.run_clock = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	scene._waiting.append(scene._clock)
+	scene._arrive(scene._clock)
 	assert_bool(scene.busy).override_failure_message("nobody turned up").is_true()
 	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()

@@ -233,6 +233,26 @@ static func gender_phrase(gender: String) -> String:
 	return "a %s" % gender
 
 
+## The bar's cat and where it is right now, for dialogue prompts.
+static func describe_cat(cat: Dictionary, now: String) -> String:
+	return "THE CAT: %s, the tent's %s cat (%s). Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
+		cat["name"], cat["coat"], Rules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
+
+
+## Messages asking the AI to name the bar's cat. The game has decided its coat and personality.
+static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String) -> Array:
+	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s cat, %s.
+
+What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.
+
+Reply with ONLY a JSON object with one key:
+- "name": the cat's name""" % [owner["name"], bar_name, coat, Rules.CAT_PERSONALITIES.get(personality, personality)]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 ## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
 const STRANGERS_RULES := "They're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
 
@@ -241,7 +261,7 @@ const STRANGERS_RULES := "They're strangers who've only just met tonight. They d
 ## (sometimes with the owner joining in). people: the customers in the chat; tables: what's
 ## on each one's table, in the same order. speaker and addressee are names (the owner's
 ## name when they speak or are spoken to).
-static func counter_chat_messages(owner: Dictionary, owner_in: bool, people: Array, tables: Array, moment: Dictionary, transcript: Array, speaker: String, addressee: String, direction: String) -> Array:
+static func counter_chat_messages(owner: Dictionary, owner_in: bool, people: Array, tables: Array, moment: Dictionary, transcript: Array, speaker: String, addressee: String, direction: String, cat: String = "") -> Array:
 	var who := PackedStringArray()
 	for i in people.size():
 		who.append("- %s Their table: %s." % [describe_person(people[i]), tables[i]])
@@ -255,7 +275,7 @@ AT THE COUNTER, talking to each other:
 
 %s
 
-%s
+%s%s
 
 The conversation between them so far:
 %s
@@ -267,7 +287,7 @@ One to three sentences. Speak only as %s: don't write anyone else's reply or any
 
 Reply with ONLY a JSON object with one key:
 - "line": what %s says""" % [
-		describe_moment(moment), "\n".join(who), owner_part, STRANGERS_RULES,
+		describe_moment(moment), "\n".join(who), owner_part, STRANGERS_RULES, ("\n\n" + cat) if cat != "" else "",
 		transcript_text(transcript), what_just_happened(transcript), speaker, addressee, direction, speaker, speaker]
 	return [
 		{"role": "system", "content": STYLE_GUIDE + "\n\n" + DIALOGUE_RULES},
@@ -277,7 +297,8 @@ Reply with ONLY a JSON object with one key:
 
 ## Messages asking the AI for the next line of the conversation.
 ## direction is an optional hint from the game about where the scene is (e.g. "they're about to leave").
-static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, served: String, transcript: Array, owner_speaks: bool, direction: String) -> Array:
+## cat: where the bar's cat is right now (describe_cat), or "".
+static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, served: String, transcript: Array, owner_speaks: bool, direction: String, cat: String = "") -> Array:
 	var speaker := str(owner["name"]) if owner_speaks else str(customer["name"])
 	var role := "the owner" if owner_speaks else "the customer"
 	var request := """%s
@@ -288,7 +309,7 @@ static func dialogue_messages(owner: Dictionary, customer: Dictionary, moment: D
 
 %s
 
-On the table: %s
+On the table: %s%s
 
 The conversation so far:
 %s
@@ -301,7 +322,7 @@ One to three sentences. Speak only as %s: don't write the other person's reply o
 Reply with ONLY a JSON object with one key:
 - "line": what %s says""" % [
 		describe_moment(moment), describe_owner(owner), describe_customer(customer),
-		describe_relationship(owner, customer), served,
+		describe_relationship(owner, customer), served, ("\n\n" + cat) if cat != "" else "",
 		transcript_text(transcript), what_just_happened(transcript), speaker, role, direction, speaker, speaker]
 	return [
 		{"role": "system", "content": STYLE_GUIDE + "\n\n" + DIALOGUE_RULES},

@@ -8,6 +8,7 @@ const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const Menu = preload("res://scripts/menu.gd")
+const Rules = preload("res://scripts/rules.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -125,7 +126,7 @@ func _open_visit() -> GdUnitSceneRunner:
 ## Someone turns up, and this waits for their whole visit to finish.
 func _run_one_visit(runner: GdUnitSceneRunner) -> void:
 	var scene = runner.scene()
-	scene._waiting.append(scene._clock)
+	scene._arrive(scene._clock)
 	assert_bool(scene.busy).override_failure_message("nobody turned up").is_true()
 	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
@@ -264,7 +265,7 @@ func test_close_the_bar_waits_until_the_owner_is_free() -> void:
 	var scene = runner.scene()
 	var id := str(Game.bar["id"])
 	var leave := runner.find_child("LeaveButton") as Button
-	scene._waiting.append(scene._clock)  # someone turns up
+	scene._arrive(scene._clock)  # someone turns up
 	assert_bool(await _wait_until(func(): return scene._owner_working)).is_true()
 	await _click(runner, leave)
 	# Mid-task, the owner finishes what they're doing first...

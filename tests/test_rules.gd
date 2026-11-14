@@ -740,3 +740,72 @@ func test_time_runs_fast_when_the_tent_is_quiet() -> void:
 	assert_float(Rules.time_speed(1)).is_greater(Rules.time_speed(2))  # one: a bit fast
 	assert_float(Rules.time_speed(2)).is_equal(1.0)  # two or more: time to chat
 	assert_float(Rules.time_speed(5)).is_equal(1.0)
+
+
+# --- The cat --------------------------------------------------------------------------------
+
+func test_the_cat_always_moves_somewhere_new() -> void:
+	for personality in Rules.CAT_PERSONALITIES:
+		for i in 20:
+			var spot := Rules.pick_cat_spot(personality, true, true, i / 20.0, "stove")
+			assert_str(spot).is_not_equal("stove")
+			assert_bool(spot in Rules.CAT_SPOTS).is_true()
+
+
+func test_the_cat_needs_someone_for_a_lap_and_food_for_begging() -> void:
+	for i in 50:
+		var spot := Rules.pick_cat_spot("affectionate", false, false, i / 50.0)
+		assert_bool(spot in ["lap", "feet", "food"]).override_failure_message(spot).is_false()
+		var no_food := Rules.pick_cat_spot("greedy", true, false, i / 50.0)
+		assert_str(no_food).is_not_equal("food")
+
+
+func test_personality_shapes_where_the_cat_goes() -> void:
+	var laps := {"affectionate": 0, "grumpy": 0}
+	for personality in laps:
+		for i in 100:
+			if Rules.pick_cat_spot(personality, true, true, i / 100.0) == "lap":
+				laps[personality] += 1
+	assert_int(laps["affectionate"]).is_greater(laps["grumpy"] * 5)
+
+
+func test_cat_text_says_where_it_is() -> void:
+	assert_str(Rules.cat_text("Nabi", "stove")).is_equal("Nabi is curled up asleep by the stove.")
+	assert_str(Rules.cat_text("Nabi", "lap", "Kim Ji-ho")).is_equal("Nabi is curled up on Kim Ji-ho's lap.")
+	assert_str(Rules.cat_move_text("Nabi", "street")).contains("slips out")
+
+
+func test_nobody_strokes_a_cat_that_isnt_on_their_lap() -> void:
+	var people := ["Park Mi-sook", "Kim Ji-ho"]
+	# Asleep by the stove: no stroking, no lap.
+	assert_str(Rules.check_cat("Nabi purrs as I stroke her.", "Nabi", "stove", "", people)).contains("isn't what's happening")
+	assert_str(Rules.check_cat("Look, the cat's on my lap!", "Nabi", "street", "", people)).contains("out in the street")
+	# On someone else's lap, not in this conversation: still no.
+	assert_str(Rules.check_cat("Can I pet the cat?", "Nabi", "lap", "Lee Min-jun", people)).is_not_empty()
+
+
+func test_stroking_a_cat_on_a_lap_in_the_conversation_is_fine() -> void:
+	var people := ["Park Mi-sook", "Kim Ji-ho"]
+	assert_str(Rules.check_cat("She likes it when you stroke Nabi there.", "Nabi", "lap", "Kim Ji-ho", people)).is_empty()
+
+
+func test_mentioning_the_cat_without_touching_is_fine_anywhere() -> void:
+	assert_str(Rules.check_cat("Where's Nabi got to?", "Nabi", "street", "", [])).is_empty()
+	assert_str(Rules.check_cat("I'll pet-sit for my sister next week.", "Nabi", "stove", "", [])).is_empty()  # no cat mentioned
+
+
+func test_cat_checks_are_part_of_line_checks() -> void:
+	var cat := {"name": "Nabi", "spot": "stove", "with": ""}
+	assert_str(Rules.validate_line({"line": "I'll just stroke Nabi a bit."}, "Kim Ji-ho", "", [], ["Park Mi-sook"], cat)).contains("the cat")
+	assert_str(Rules.problem_kind("the line has the cat being stroked or on a lap, but that isn't what's happening: ...")).is_equal("the cat")
+
+
+func test_cat_names() -> void:
+	var data := {"name": " Dubu "}
+	assert_str(Rules.validate_cat_name(data, "Park Mi-sook")).is_empty()
+	assert_str(str(data["name"])).is_equal("Dubu")
+	assert_str(Rules.validate_cat_name({"name": "Mi-sook"}, "Park Mi-sook")).contains("owner's name")
+	assert_str(Rules.validate_cat_name({"name": "The Very Fluffy One"})).contains("one or two words")
+	assert_str(Rules.validate_cat_name({"name": "두부"})).contains("English letters")
+	assert_bool(Rules.fallback_cat_name(0.5) in Rules.CAT_NAMES).is_true()
+	assert_str(Rules.fallback_cat_name(1.0)).is_equal(Rules.CAT_NAMES.back())

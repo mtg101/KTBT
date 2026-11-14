@@ -162,3 +162,9 @@ func test_canned_names_are_non_binary_only_when_the_game_says() -> void:
 	var details: Dictionary = _canned.reply({"purpose": "customer", "name": nb["name"], "gender": "non-binary"})
 	assert_str(str(details["gender"])).is_equal("non-binary")
 	assert_str(Rules.validate_customer_details(details)).is_empty()
+
+
+func test_canned_cat_names_pass_the_rules() -> void:
+	for i in 20:
+		var reply: Dictionary = _canned.reply({"purpose": "cat_name"})
+		assert_str(Rules.validate_cat_name(reply, "Park Mi-sook")).is_empty()

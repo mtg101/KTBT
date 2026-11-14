@@ -10,6 +10,7 @@ extends RefCounted
 ## including deliberately bad ones); while the queue has anything in it, it's used first.
 
 const Menu = preload("res://scripts/menu.gd")
+const Rules = preload("res://scripts/rules.gd")
 
 static var scripted: Array = []
 
@@ -114,6 +115,8 @@ func reply(request: Dictionary) -> Variant:
 			return {"line": CHAT_OPENERS.pick_random() if bool(request.get("first", false)) else CHAT_LINES.pick_random()}
 		"bar_name":
 			return _bar_name(str(request.get("owner_name", "")))
+		"cat_name":
+			return {"name": Rules.CAT_NAMES.pick_random()}
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))
 		"extra_order":
