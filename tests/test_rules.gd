@@ -345,7 +345,7 @@ func test_fried_rice_needs_a_main_on_the_table() -> void:
 
 
 func test_fried_rice_accepted_after_a_main() -> void:
-	var data := _order(["bokkeumbap"], "Fry some rice in this sauce too, please.")
+	var data := _order(["bokkeumbap"], "Fried rice in this sauce too, please.")
 	assert_str(Rules.validate_extra_order(data, ["soju", "dakgalbi"])).is_empty()
 
 
@@ -413,3 +413,40 @@ func test_regression_extra_order_that_sounds_like_a_first_order_is_rejected() ->
 func test_extra_order_with_another_is_accepted() -> void:
 	var data := _order(["odeng"], "Another plate of odeng, Ajumma.")
 	assert_str(Rules.validate_extra_order(data, ["soju", "odeng"])).is_empty()
+
+
+
+# --- Regression, LLM-TUNING.md "Later orders that ask for more than they get" -----------
+
+func test_regression_later_order_asking_for_more_of_a_table_dish_is_rejected() -> void:
+	# "Another tteokbokki" with only makgeolli in the order: tteokbokki never arrived.
+	var data := _order(["makgeolli"], "One more makgeolli and another tteokbokki.")
+	var problem := Rules.validate_extra_order(data, ["makgeolli", "tteokbokki"])
+	assert_str(problem).contains("Tteokbokki")
+	assert_str(problem).contains("this tteokbokki")
+
+
+func test_regression_later_order_asking_for_rice_by_alias_is_rejected() -> void:
+	var data := _order(["soju"], "One more soju and some rice too.")
+	assert_str(Rules.validate_extra_order(data, ["soju", "tteokbokki"])).contains("Gonggibap")
+
+
+func test_first_order_asking_for_rice_by_alias_is_rejected() -> void:
+	var data := _order(["soju", "tteokbokki"], "Soju, tteokbokki and a bowl of rice.")
+	assert_str(Rules.validate_order(data)).contains("Gonggibap")
+
+
+func test_fried_rice_is_not_also_read_as_rice() -> void:
+	var found := Rules.mentions("Fried rice in this sauce, please.", true)
+	assert_int(found.size()).is_equal(1)
+	assert_str(str(found[0]["id"])).is_equal("bokkeumbap")
+
+
+func test_conversation_can_mention_rice_without_ordering_it() -> void:
+	# "Have you eaten rice?" is a greeting, not an order: aliases only count in order lines.
+	assert_str(Rules.validate_line({"line": "Have you eaten rice today?"}, "Kim Sung-ho", "Ajusshi", ["soju", "odeng"])).is_empty()
+
+
+func test_the_and_my_also_refer_to_whats_on_the_table() -> void:
+	var data := _order(["gonggibap"], "The tteokbokki is so good, I need rice too.")
+	assert_str(Rules.validate_extra_order(data, ["soju", "tteokbokki"])).is_empty()

@@ -49,15 +49,16 @@ When we fix a problem, we add a test that would have caught it, so it can't cree
 - **Talking about food that isn't on the table:** the style guide names no menu items, and a conversation line mentioning food that isn't on the table is rejected. `test_rules.gd`, `test_prompts.gd`.
 - **Unrealistic orders:** orders need a drink and a food; two mains or two drinks are rejected unless the customer is hungry or having a rough night; the prompt asks for one drink. `test_rules.gd`, `test_prompts.gd`, `test_menu.gd`.
 - **Everyone orders exactly once / later orders too early / sounding like a first order:** later-order limits, fried rice only after a main, the "more" wording check, the odds, and the turn spacing (never the first reply or last line, two later orders spaced apart). `test_rules.gd`, `test_prompts.gd`.
+- **Later orders that ask for more than they get:** "another tteokbokki" without tteokbokki in the order is rejected, "this/the tteokbokki" is fine, aliases like "rice" are caught in order lines (and "fried rice" isn't also read as "rice"), and conversation can still mention rice. `test_rules.gd`.
 
 ## Coverage so far
 
-All 128 tests pass (13 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 134 tests pass (13 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
 | Menu and prices (`menu.gd`) | `tests/test_menu.gd` | ✅ 16: lookup by id, name or alias, won formatting, every item complete, mains and sides, unique ids | — |
-| Rules and validators (`rules.gd`): customers, owners, orders, later orders, dialogue lines, bills, order odds and timing | `tests/test_rules.gd` | ✅ 71 | — |
+| Rules and validators (`rules.gd`): customers, owners, orders, later orders, dialogue lines, bills, order odds and timing | `tests/test_rules.gd` | ✅ 77 | — |
 | Prompts include the right facts (`prompts.gd`) | `tests/test_prompts.gd` | ✅ 19 | — |
 | One visit (`visit.tscn`) | `tests/test_visit.gd` | — | ✅ 10: the owner arrives; offline badge; a full visit by clicking (transcript, exact takings, customer leaves, counter clears, button re-enabled); button disabled during a visit; takings over four visits (covers later orders); a bad owner reply retried; Try again after the owner fails; soju-and-odeng fallback; Ollama unreachable in `auto` (goes offline); `ollama` backend never falls back |
 | Offline mode (`canned_ai.gd`) and AI settings (`ai_settings.gd`) | `tests/test_canned_ai.gd` | ✅ 12: every canned owner, customer, order, later order and line passes the game's rules; no canned line mentions menu food; replies are copies; scripted replies; settings override and fallback | Covered by `test_visit.gd`, which runs on the canned AI |

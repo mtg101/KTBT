@@ -130,7 +130,7 @@ func _extra_order(title: String, table: Array) -> Dictionary:
 		if Menu.find(id).get("portion", "") == "main":
 			has_main = true
 	if has_main and not table.has("bokkeumbap"):
-		options.append({"items": ["bokkeumbap"], "line": "%s, could you fry some rice in this sauce too?" % title})
+		options.append({"items": ["bokkeumbap"], "line": "%s, could you make fried rice in this sauce too?" % title})
 	return options.pick_random().duplicate(true)
 
 

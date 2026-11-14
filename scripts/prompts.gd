@@ -143,7 +143,7 @@ TONIGHT'S MENU (use these exact ids):
 
 %s
 
-Partway through the conversation, %s orders something more, the way people do at a pojangmacha: one more bottle, a side, or rice to finish the sauce (fried rice is made in the leftover sauce of a main dish, so only if there's a main on the table). Order ONE or TWO items: at most one drink, and no main dishes. This is NOT their first order: their line must make clear they're adding to what they already have ("one more bottle", "can I get some rice too?", "another one of these"). It follows on from the conversation, in their own voice, and only mentions food and drink that's on the table or in "items".
+Partway through the conversation, %s orders something more, the way people do at a pojangmacha: one more bottle, a side, or rice to finish the sauce (fried rice is made in the leftover sauce of a main dish, so only if there's a main on the table). Order ONE or TWO items: at most one drink, and no main dishes. This is NOT their first order: their line must make clear they're adding to what they already have ("one more bottle", "can I get some rice too?", "another one of these"). It follows on from the conversation, in their own voice. Everything they ask for must be in "items": if they say "another tteokbokki", tteokbokki goes in "items". They can mention something already on the table without ordering more by calling it "this" or "the" ("this sauce needs rice").
 
 Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids

@@ -21,6 +21,9 @@ const MAX_EXTRA_ITEMS := 2  # A later order: one more bottle, a side, rice...
 ## the rest order once more, and a few order a third time. Must add up to 1.
 const EXTRA_ORDER_ODDS := [0.5, 0.4, 0.1]
 ## A later order's line must sound like adding to what they have, using one of these words.
+## In a later order, a dish already on the table can be mentioned without ordering more of it
+## only when one of these comes just before it ("this tteokbokki needs rice").
+const REFERRING_WORDS := ["this", "these", "that", "the", "my", "our"]
 const MORE_WORDS := ["more", "another", "also", "too", "again", "extra", "add", "refill", "same", "seconds"]
 const MAX_LINE_LENGTH := 500
 
@@ -92,7 +95,7 @@ static func validate_order(data: Variant, max_mains: int = 1, max_drinks: int = 
 		if Menu.find(id).get("extra_only", false):
 			return "%s is only ordered later, not when you first sit down" % Menu.find(id)["name"]
 	# What they say must match what they get: no mentioning dishes they didn't order.
-	var mention := unordered_mention(line, ids)
+	var mention := unordered_mention(line, ids, true)
 	if mention != "":
 		return "the line mentions %s, but that isn't in \"items\"" % mention
 	data["items"] = ids
@@ -141,10 +144,20 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 			break
 	if not sounds_like_more:
 		return "the line sounds like a first order: make it clear they're adding to what they already have (e.g. \"one more bottle\", \"some rice too\")"
-	# They can mention what's already on the table as well as what they're adding.
-	var mention := unordered_mention(line, table + ids)
-	if mention != "":
-		return "the line mentions %s, but that isn't on the table or in \"items\"" % mention
+	# Everything they ask for must be in "items". Something already on the table can be
+	# mentioned only as "this ..."/"the ...", not asked for again ("another tteokbokki").
+	var allowed := with_somaek_parts(ids)
+	for found in mentions(line, true):
+		var id: String = found["id"]
+		if allowed.has(id):
+			continue
+		var dish := str(Menu.find(id)["name"])
+		if table.has(id):
+			var before: int = found["start"] - 1
+			if before >= 0 and REFERRING_WORDS.has(said[before]):
+				continue
+			return "the line asks for more %s, but that isn't in \"items\" (to talk about the %s already on the table, say \"this %s\")" % [dish, dish, dish.to_lower()]
+		return "the line mentions %s, but that isn't in \"items\"" % dish
 	data["items"] = ids
 	data["line"] = line
 	return ""
@@ -249,17 +262,54 @@ static func check_order_shape(ids: Array, max_mains: int, max_drinks: int = 1) -
 
 
 ## The name of a menu item the line mentions that isn't in items, or "" if there isn't one.
+## with_aliases: also look for other names ("rice", "fried rice"). On for order lines; off for
+## conversation, where "have you eaten rice?" is just a greeting, not an order.
+static func unordered_mention(line: String, items: Array, with_aliases: bool = false) -> String:
+	var allowed := with_somaek_parts(items)
+	for found in mentions(line, with_aliases):
+		if not allowed.has(found["id"]):
+			return str(Menu.find(found["id"])["name"])
+	return ""
+
+
 ## Somaek is soju dropped in beer, so ordering it lets people mention soju and beer too.
-static func unordered_mention(line: String, items: Array) -> String:
+static func with_somaek_parts(items: Array) -> Array:
 	var allowed := items.duplicate()
 	if items.has("somaek"):
 		allowed.append_array(["soju", "beer"])
+	return allowed
+
+
+## Every menu item a line mentions, in order: [{"id", "start"}], where start is the word
+## position. Looks for the first word of each name (and, with_aliases, every alias),
+## longest phrases first, so "fried rice" counts as fried rice and not also as rice.
+static func mentions(line: String, with_aliases: bool) -> Array:
 	var said := words(line)
+	var phrases: Array = []
 	for item in Menu.ITEMS:
-		var item_word: String = words(str(item["name"]))[0]
-		if not allowed.has(item["id"]) and item_word in said:
-			return str(item["name"])
-	return ""
+		phrases.append({"id": item["id"], "words": [words(str(item["name"]))[0]]})
+		if with_aliases:
+			for alias in item.get("aliases", []):
+				phrases.append({"id": item["id"], "words": Array(words(str(alias)))})
+	phrases.sort_custom(func(a, b): return a["words"].size() > b["words"].size())
+	var used := []
+	used.resize(said.size())
+	used.fill(false)
+	var found: Array = []
+	for phrase in phrases:
+		var length: int = phrase["words"].size()
+		for start in range(said.size() - length + 1):
+			var matches := true
+			for k in length:
+				if used[start + k] or said[start + k] != phrase["words"][k]:
+					matches = false
+					break
+			if matches:
+				for k in length:
+					used[start + k] = true
+				found.append({"id": phrase["id"], "start": start})
+	found.sort_custom(func(a, b): return a["start"] < b["start"])
+	return found
 
 
 ## Checks every field is present and that text fields aren't empty. Tidies text in place.
