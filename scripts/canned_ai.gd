@@ -14,6 +14,15 @@ const Rules = preload("res://scripts/rules.gd")
 
 static var scripted: Array = []
 
+## Every pre-written name in Hangul (shown next to the romanised one).
+const HANGUL := {
+	"Park Mi-sook": "박미숙", "Choi Young-ja": "최영자", "Han Jeong-hee": "한정희", "Kim Sung-ho": "김성호",
+	"Lee Dong-wook": "이동욱", "Yoon Jae-seok": "윤재석", "Kim Ji-ho": "김지호", "Park Seo-jun": "박서준",
+	"Lee Min-ji": "이민지", "Jung Woo-jin": "정우진", "Bae Joon-young": "배준영", "Choi Hye-rin": "최혜린",
+	"Han Seol": "한설", "Kang Da-eun": "강다은", "Oh Sang-chul": "오상철", "Seo Yeon-woo": "서연우",
+	"Yoo Ha-neul": "유하늘", "Yoon Na-rae": "윤나래",
+}
+
 const OWNERS := {
 	"woman": [
 		{"name": "Park Mi-sook", "age": 61, "archetype": "gruff-but-soft ajumma", "appearance": "Apron, rubber gloves and reading glasses on a chain.", "personality": "blunt, caring, nosy", "speech_style": "short and scolding", "secret": "She once sang backing vocals for a famous trot singer."},
@@ -110,10 +119,14 @@ func reply(request: Dictionary) -> Variant:
 	match str(request.get("purpose", "")):
 		"owner":
 			var owner: Dictionary = OWNERS[str(request.get("gender", "woman"))].pick_random().duplicate()
+			owner["hangul"] = HANGUL.get(owner["name"], "")
 			return _fit_look(owner, request, 40)
+		"hangul":
+			var person_name := str(request.get("name", ""))
+			return {"hangul": HANGUL.get(person_name, Rules.CAT_HANGUL.get(person_name, ""))}
 		"customer_name":
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
-			return {"name": picked["name"], "gender": picked["gender"]}
+			return {"name": picked["name"], "hangul": HANGUL.get(picked["name"], ""), "gender": picked["gender"]}
 		"customer":
 			return _fit_look(_customer_details(str(request.get("name", "")), str(request.get("gender", ""))), request, Rules.MIN_DRINKING_AGE)
 		"chat_line":
@@ -131,7 +144,8 @@ func reply(request: Dictionary) -> Variant:
 				"touches": [Rules.BAR_TOUCHES.keys().pick_random()],
 			}
 		"cat_name":
-			return {"name": Rules.fallback_cat_name(randf(), request.get("taken", []))}
+			var cat_name := Rules.fallback_cat_name(randf(), request.get("taken", []))
+			return {"name": cat_name, "hangul": Rules.CAT_HANGUL.get(cat_name, "")}
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))
 		"extra_order":

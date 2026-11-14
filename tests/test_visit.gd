@@ -26,8 +26,8 @@ const A_NAME := {"name": "Kim Ji-ho", "gender": "woman"}
 const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer."}
 
 
-var _real_saves := ""
-var _real_stats := ""
+var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
+var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_visit/"
 const TEST_STATS := "user://test_stats_visit/"
 
@@ -546,7 +546,9 @@ func test_names_on_screen_show_gender_symbols() -> void:
 	var guest = scene._guests[0]
 	var symbol: String = Visit.gender_symbol(guest.customer["gender"])
 	assert_str(symbol).is_not_empty()
-	var label := "%s %s" % [guest.customer["name"], symbol]
+	var label: String = scene._name_label(guest.customer)
+	assert_str(label).contains("%s %s" % [guest.customer["name"], symbol])
+	assert_str(label).starts_with(str(guest.customer["hangul"]))  # the Hangul first, like the sign
 	assert_str((guest.node.get_node("Tag") as Label).text).is_equal(label)
 	assert_str(_transcript(runner)).contains(label + ":")
 	assert_str((runner.find_child("Info") as RichTextLabel).get_parsed_text()).contains(label)
@@ -569,7 +571,7 @@ func test_a_non_binary_customer_comes_in() -> void:
 	var scene = runner.scene()
 	await _run_one_visit(runner)
 	assert_str(str(scene._customer["gender"])).is_equal("non-binary")
-	assert_str(_transcript(runner)).contains("%s ⚲:" % scene._customer["name"])
+	assert_str(_transcript(runner)).contains("%s ⚲:" % scene._with_hangul(scene._customer))
 
 
 func test_time_speeds_up_when_the_tent_is_empty_and_slows_when_busy() -> void:
@@ -720,7 +722,7 @@ func test_someone_leaving_a_chat_says_goodbye_to_their_partner() -> void:
 	var leaving = scene._guests[0]
 	var staying = scene._guests[1]
 	leaving.stay_left = 0.0
-	var told: bool = await _wait_until(func(): return staying.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("%s, who they were chatting with, says goodbye" % leaving.customer["name"])))
+	var told: bool = await _wait_until(func(): return staying.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("who they were chatting with, says goodbye")))  # by name only if it was said
 	assert_bool(told).override_failure_message("their chat partner never heard them go").is_true()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
@@ -946,3 +948,12 @@ func test_people_are_drawn_in_their_look() -> void:
 	assert_bool(await _wait_until(func(): return back.visible)).override_failure_message("they never turned to the counter").is_true()
 	assert_bool(front.visible).is_false()
 	assert_bool((runner.find_child("Owner").get_node("Look/Front") as Control).visible).is_true()  # the owner faces us
+
+
+func test_the_cat_has_a_name_tag() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var tag := runner.find_child("Cat").get_node("Tag") as Label
+	assert_str(tag.text).contains(str(scene._cat["name"]))
+	assert_str(tag.text).starts_with(str(Rules.CAT_HANGUL[scene._cat["name"]]))  # Hangul first, like everyone's
+	assert_str(tag.text).ends_with("♀" if scene._cat["sex"] == "she" else "♂")

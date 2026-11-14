@@ -313,11 +313,58 @@ func _open_saved_bar() -> void:
 	_owner_node.visible = true
 	_narrate(Rules.as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
+	_owner_working = true  # busy until it's done (it may ask the AI)
+	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
+	_owner_working = false
+	if _stopped or Game.bar.is_empty():
+		return
 	if not Game.bar.get("cat", {}).is_empty():  # bars saved before cats have none, for now
 		_show_cat()
 	_update_info()
 	_end_loading()
 	_start_night()
+
+
+## The owner's and cat's names in Hangul, if they haven't got one (a bar saved before names had
+## Hangul, or the AI's first try didn't fit): a known cat name from the game's list, or a
+## quick ask of the AI just for that, checked like any other, and saved.
+func _fill_in_hangul() -> void:
+	var people: Array = [Game.bar["owner"]]
+	if not Game.bar.get("cat", {}).is_empty():
+		people.append(Game.bar["cat"])
+	var changed := false
+	for person in people:
+		if str(person.get("hangul", "")) != "":
+			continue
+		var person_name := str(person["name"])
+		var hangul := str(Rules.CAT_HANGUL.get(person_name, ""))
+		if hangul == "":
+			_typing_label.text = "The AI is writing %s in Hangul..." % person_name
+			var reply: Dictionary = await _ai.ask_json(Prompts.hangul_messages(person_name), _validate_hangul.bind(person_name),
+				{"temperature": 0.2}, {"purpose": "hangul", "name": person_name})
+			_typing_label.text = ""
+			if _stopped or Game.bar.is_empty():
+				return  # the bar was closed while the AI was thinking
+			hangul = str(reply.get("hangul", ""))
+			if hangul == "":
+				print("No Hangul for %s: %s" % [person_name, _ai.last_error])
+		person["hangul"] = hangul  # "" if the AI couldn't: it's left off for now
+		changed = changed or hangul != ""
+	if changed:
+		_owner["hangul"] = Game.bar["owner"]["hangul"]
+		_owner_tag.text = _owner_label()
+		Game.save()
+
+
+func _validate_hangul(data: Variant, person_name: String) -> String:
+	var problem := Rules.check_fields(data, ["hangul"])
+	if problem != "":
+		return problem
+	var fitted := Rules.fit_hangul(person_name, data["hangul"])
+	if fitted == "":
+		return "\"hangul\" must be %s written in Korean letters (Hangul)" % person_name
+	data["hangul"] = fitted
+	return ""
 
 
 ## A loading screen over everything while a new bar is invented and the tent goes up.
@@ -459,18 +506,20 @@ func _name_cat() -> void:
 	var named: Dictionary = await _ai.ask_json(Prompts.cat_name_messages(_owner, str(Game.bar["name"]), coat, personality, sex, taken),
 		_validate_cat_name.bind(taken), {"temperature": 0.9}, {"purpose": "cat_name", "taken": taken})
 	_typing_label.text = ""
-	_new_cat(str(named["name"]) if not named.is_empty() else Rules.fallback_cat_name(randf(), taken), coat, personality, sex)
+	var cat_name := str(named["name"]) if not named.is_empty() else Rules.fallback_cat_name(randf(), taken)
+	var cat_hangul := str(named.get("hangul", "")) if not named.is_empty() else str(Rules.CAT_HANGUL.get(cat_name, ""))
+	_new_cat(cat_name, coat, personality, sex, cat_hangul)
 
 
-func _new_cat(cat_name: String, coat: String, personality: String, sex: String) -> void:
-	Game.bar["cat"] = {"name": cat_name, "coat": coat, "personality": personality, "sex": sex}
+func _new_cat(cat_name: String, coat: String, personality: String, sex: String, hangul: String = "") -> void:
+	Game.bar["cat"] = {"name": cat_name, "coat": coat, "personality": personality, "sex": sex, "hangul": hangul}
 	Game.save()
 
 
 func _show_cat() -> void:
 	_cat = Game.bar["cat"].duplicate()
 	_paint_cat()
-	_cat_node.tooltip_text = "%s, the tent's %s cat (%s)" % [_cat["name"], _cat["coat"], Rules.CAT_PERSONALITIES.get(_cat["personality"], "")]
+	_cat_node.tooltip_text = "%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], Rules.CAT_PERSONALITIES.get(_cat["personality"], "")]
 	_narrate("%s, the tent's %s cat, is %s." % [_cat["name"], _cat["coat"], Rules.CAT_PERSONALITIES.get(_cat["personality"], _cat["personality"]).get_slice(":", 0)])
 
 
@@ -983,6 +1032,7 @@ func _greet() -> void:
 		_task_done()
 		return
 	customer["name"] = who["name"]
+	customer["hangul"] = str(who.get("hangul", ""))
 	customer["gender"] = who["gender"]
 	customer["look"] = look
 	_names_tonight.append(str(who["name"]))
@@ -1249,10 +1299,12 @@ func _goodbye(guest: Guest) -> void:
 			guest.line += 1
 	# Someone they were chatting with gets a goodbye too.
 	var chat := _chat_of(guest)
-	var partners: Array = [] if chat == null else chat.people.filter(func(g): return g != guest and _guests.has(g)).map(func(g): return str(g.customer["name"]))
+	var still_here: Array = [] if chat == null else chat.people.filter(func(g): return g != guest and _guests.has(g))
+	var partners: Array = still_here.map(func(g): return str(g.customer["name"]))
 	var direction := "This is the customer's last line: they're paying up and heading back out into the night."
-	if not partners.is_empty():
-		direction += " They also say goodbye to %s, who they were chatting with." % " and ".join(PackedStringArray(partners))
+	if not still_here.is_empty():
+		# By name only if it was said in their chat: otherwise as they look.
+		direction += " They also say goodbye to %s, who they were chatting with." % " and ".join(PackedStringArray(still_here.map(func(g): return _known_as(g, chat))))
 	_typing_label.text = "%s is reaching for their wallet..." % speaker
 	var reply: Dictionary = await _ai.ask_json(
 		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction, _cat_prompt()),
@@ -1264,7 +1316,23 @@ func _goodbye(guest: Guest) -> void:
 		guest.line += 1
 	for other in (chat.people if chat != null else []):
 		if other != guest and _guests.has(other):
-			other.transcript.append({"action": "%s, who they were chatting with, says goodbye and leaves." % speaker})
+			var leaver := _known_as(guest, chat)
+			other.transcript.append({"action": "%s, who they were chatting with, says goodbye and leaves." % (leaver.substr(0, 1).to_upper() + leaver.substr(1))})
+
+
+## How someone in a chat is known to the others: by name if it's been said there (their full
+## name or their given name), otherwise as anyone can see them ("the woman in the beige
+## trench coat"), since nobody knows a stranger's name.
+func _known_as(guest: Guest, chat: Chat) -> String:
+	var full := str(guest.customer["name"])
+	var parts := full.split(" ", false)
+	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
+	if chat != null:
+		for entry in chat.transcript:
+			var text := str(entry.get("text", "")).to_lower()
+			if text.contains(full.to_lower()) or text.contains(given.to_lower()):
+				return full
+	return Rules.seen_as(guest.customer)
 
 
 ## Who spoke last in a transcript ("" if nobody has).
@@ -1376,7 +1444,8 @@ func _counter_chat() -> void:
 		_move_owner(_beside(chat.people[0]))
 	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
 	chat.topic = Rules.pick_chat_topic(randf(), cat_with_them, chat.topic)
-	var said := ""
+	var said := ""  # the last line said in the chat, and who by
+	var said_by := ""
 	var lines_said := 0
 	var lines := randi_range(CHAT_LINES.x, CHAT_LINES.y)
 	while lines > 0 and not _leave_requested:
@@ -1393,7 +1462,8 @@ func _counter_chat() -> void:
 			_narrate("(The conversation at the counter fizzled out: %s.)" % _ai.last_error)
 			_chats.erase(chat)
 			break
-		said = "%s: \"%s\"" % [speaker, line]
+		said = line
+		said_by = speaker
 		lines -= 1
 		lines_said += 1
 		# Something more urgent can cut the chat short, but only once it's had a few lines.
@@ -1402,8 +1472,16 @@ func _counter_chat() -> void:
 	# Each person's own conversation with the owner hears about it, so the owner can pick it up.
 	if said != "":
 		for guest in chat.people:
-			var others: Array = chat.people.filter(func(g): return g != guest).map(func(g): return str(g.customer["name"]))
-			guest.transcript.append({"action": "%s has been chatting with %s at the counter. The last thing said there: %s" % [guest.customer["name"], " and ".join(PackedStringArray(others)), said]})
+			# Named only if names were said in the chat: otherwise as they look.
+			var others: Array = chat.people.filter(func(g): return g != guest).map(func(g): return _known_as(g, chat))
+			var by := "they"
+			if said_by == str(_owner["name"]):
+				by = said_by
+			elif said_by != str(guest.customer["name"]):
+				for g in chat.people:
+					if str(g.customer["name"]) == said_by:
+						by = _known_as(g, chat)
+			guest.transcript.append({"action": "%s has been chatting with %s at the counter. The last thing said there (by %s): \"%s\"" % [guest.customer["name"], " and ".join(PackedStringArray(others)), by, said]})
 	chat.owner_in = false  # the owner goes back to work after the spell
 	_task_done()
 
@@ -1542,6 +1620,7 @@ func _place_cat() -> void:
 	# Face the way it's going (the cat's drawn facing right; flipped, it faces left).
 	if absf(target.x - _cat_node.position.x) > 1.0:
 		_cat_node.scale.x = 1.0 if target.x > _cat_node.position.x else -1.0
+		(_cat_node.get_node("Tag") as Label).scale.x = _cat_node.scale.x  # turned back, so the name still reads
 	if _cat_tween != null and _cat_tween.is_valid():
 		_cat_tween.kill()
 	_cat_tween = create_tween()
@@ -1564,9 +1643,21 @@ func _build_cat(stage: Control) -> void:
 	for part in [["Tail", Vector2(-10, 10), Vector2(12, 4)], ["Body", Vector2(0, 10), Vector2(32, 16)], ["Head", Vector2(28, 2), Vector2(15, 14)],
 			["EarLeft", Vector2(29, -2), Vector2(4, 5)], ["EarRight", Vector2(38, -2), Vector2(4, 5)], ["Patch", Vector2(8, 12), Vector2(10, 7)]]:
 		_rect(_cat_node, part[1], part[2], Color.WHITE).name = part[0]
+	var tag := Label.new()  # its name, above it (centred on the cat, so it stays put when it turns)
+	tag.name = "Tag"
+	tag.position = Vector2(-77, -24)
+	tag.size = Vector2(200, 18)
+	tag.pivot_offset = tag.size / 2
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.add_theme_font_size_override("font_size", 13)
+	tag.add_theme_constant_override("outline_size", 5)
+	tag.add_theme_color_override("font_outline_color", Color.BLACK)
+	_cat_node.add_child(tag)
 
 
 func _paint_cat() -> void:
+	(_cat_node.get_node("Tag") as Label).text = _cat_label()
 	var coat := Color(str(Rules.CAT_COATS.get(_cat["coat"], "9c7a52")))
 	for part in ["Tail", "Body", "Head", "EarLeft", "EarRight"]:
 		(_cat_node.get_node(part) as ColorRect).color = coat
@@ -1771,7 +1862,21 @@ static func gender_symbol(gender: Variant) -> String:
 ## A customer's name as shown on screen: "Kim Ji-ho ♀".
 func _name_label(customer: Dictionary) -> String:
 	var symbol := gender_symbol(customer.get("gender", ""))
-	return str(customer["name"]) if symbol == "" else "%s %s" % [customer["name"], symbol]
+	var named := _with_hangul(customer)
+	return named if symbol == "" else "%s %s" % [named, symbol]
+
+
+## The cat's name as shown on screen, like everyone's: "나비 Nabi ♀".
+func _cat_label() -> String:
+	var symbol := "♀" if str(_cat.get("sex", "")) == "she" else ("♂" if str(_cat.get("sex", "")) == "he" else "")
+	var named := _with_hangul(_cat)
+	return named if symbol == "" else "%s %s" % [named, symbol]
+
+
+## A name with its Hangul first, like the sign: "김지호 Kim Ji-ho" (just the name if there's none).
+func _with_hangul(person: Dictionary) -> String:
+	var hangul := str(person.get("hangul", ""))
+	return str(person["name"]) if hangul == "" else "%s %s" % [hangul, person["name"]]
 
 
 ## The owner's name as shown on screen: "Park Mi-sook ♀ (Ajumma)".
@@ -1781,7 +1886,7 @@ func _owner_label() -> String:
 	var symbol := gender_symbol(_owner.get("gender", ""))
 	if symbol == "":
 		return _owner_display()
-	return "%s %s (%s)" % [_owner["name"], symbol, _owner["title"]]
+	return "%s %s (%s)" % [_with_hangul(_owner), symbol, _owner["title"]]
 
 
 ## Stop anything the AI writes from being read as BBCode formatting.
@@ -1802,7 +1907,7 @@ func _update_info() -> void:
 		t += "[i][color=#%s]Secret: %s[/color][/i]\n" % [muted, _esc(_owner["secret"])]
 	if not _cat.is_empty():
 		t += "\n[color=#%s][b]THE CAT[/b][/color]\n" % accent
-		t += "[b]%s[/b], %s, %s%s\n" % [_esc(_cat["name"]), _cat["coat"], _cat["personality"], (", " + str(_cat["sex"])) if _cat.has("sex") else ""]
+		t += "[b]%s[/b], %s, %s\n" % [_esc(_cat_label()), _cat["coat"], _cat["personality"]]
 		t += "[color=#%s]%s[/color]\n" % [muted, _esc(Rules.cat_text(str(_cat["name"]), _cat_spot, _cat_with_name()))]
 	var seated := _guests.duplicate()
 	seated.sort_custom(func(a, b): return a.seat < b.seat)
@@ -2141,6 +2246,7 @@ func _build_stage(stage: Control) -> void:
 	_owner_node = _person(stage, Vector2(OWNER_HOME_X, OWNER_Y), OWNER_COLOR)
 	_owner_node.name = "Owner"
 	_owner_tag = _owner_node.get_node("Tag") as Label
+	_owner_tag.z_index = 3  # their head is just under the tarp: the name goes in front of it
 	_owner_node.visible = false
 
 	_rect(stage, Vector2(100, 250), Vector2(w - 182, 18), Color("8a5a33"))  # counter top

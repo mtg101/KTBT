@@ -205,7 +205,8 @@ func test_counter_chat_prompt_says_they_are_strangers_who_talk_politely() -> voi
 
 func test_counter_chat_prompt_leaves_the_owner_out_unless_they_join() -> void:
 	assert_str(_chat(false)).contains("isn't part of this conversation")
-	assert_str(_chat(false)).not_contains("Park Mi-sook")
+	assert_str(_chat(false)).not_contains("THE OWNER:")  # just who they are, not their whole profile and secret
+	assert_str(_chat(false)).contains("Park Mi-sook (customers call her")
 	assert_str(_chat(true)).contains("THE OWNER: Park Mi-sook")
 	assert_str(_chat(true)).contains("The owner has joined in")
 
@@ -339,3 +340,25 @@ func test_the_game_decided_look_goes_into_the_prompts() -> void:
 	var owner := _request(Prompts.owner_messages("woman", owner_look))
 	assert_str(owner).contains("greying perm")
 	assert_str(owner).contains("from 60 to 69")
+
+
+func test_regression_chats_know_everyones_sat_down_and_new_here() -> void:
+	var person := {"name": "Han Seol", "gender": "woman", "age": 30, "job": "teacher", "mood": "tired", "reason": "A long day.", "speech_style": "soft"}
+	var text := _request(Prompts.counter_chat_messages(_owner_data(), false, [person, person], ["soju", "beer"], {"day": "Friday", "time": "9:00pm", "weather": "fog"}, [], "Han Seol", "Han Seol", ""))
+	assert_str(text).contains("already sitting")
+	assert_str(text).contains("first time at this tent")
+	assert_str(text).contains("busy elsewhere")
+	assert_str(text).contains(str(_owner_data()["name"]))
+
+
+func test_regression_new_customers_dont_copy_earlier_appearances() -> void:
+	var look := {"age_range": "30s", "hair": "bob", "hair_colour": "black", "clothes": "trench", "colour": "beige"}
+	var text := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Han Seol", "woman", [], ["a dog-eared copy of The Stranger"], look))
+	assert_str(text).not_contains("The Stranger")
+	assert_str(text).contains("not an object")
+
+
+func test_names_are_asked_for_in_hangul_too() -> void:
+	assert_str(_request(Prompts.customer_name_messages("Friday", "9:00pm", "fog"))).contains("\"hangul\"")
+	assert_str(_request(Prompts.customer_name_messages("Friday", "9:00pm", "fog", [], [], "non-binary"))).contains("\"hangul\"")
+	assert_str(_request(Prompts.owner_messages("woman"))).contains("\"hangul\"")

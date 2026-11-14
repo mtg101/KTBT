@@ -15,19 +15,19 @@ const TEST_SAVES := "user://test_saves_night/"
 const TIMEOUT_MS := 15000
 const NIGHT_TIMEOUT_MS := 60000
 
-var _real_saves := ""
-var _real_stats := ""
+var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
+var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_night/"
 const TEST_STATS := "user://test_stats_night/"
 
 
 func before_test() -> void:
-	Ambience.make_sound = false  # quiet tests (and quick ones)
-	Ambience.settings_path = "user://test_settings.cfg"
 	_real_saves = SaveStore.folder
 	SaveStore.folder = TEST_SAVES
 	_real_stats = NightStats.folder
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
+	Ambience.make_sound = false  # quiet tests (and quick ones)
+	Ambience.settings_path = "user://test_settings.cfg"
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
@@ -251,7 +251,7 @@ func test_close_the_bar_saves_and_goes_back_to_the_title() -> void:
 
 
 func test_a_saved_bar_carries_on_from_its_next_night() -> void:
-	var bar := SaveStore.new_bar("Mi-sook-ne Pocha", "Mi-sook's place", {"name": "Park Mi-sook", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."})
+	var bar := SaveStore.new_bar("Mi-sook-ne Pocha", "Mi-sook's place", {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."})
 	bar["nights"] = 3
 	bar["first_day"] = 0  # Monday, so night 4 is a Thursday
 	SaveStore.save_bar(bar)

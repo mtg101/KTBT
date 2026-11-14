@@ -50,6 +50,7 @@ static func validate_owner(data: Variant, gender: String, age_range: String = ""
 	var problem := check_fields(data, OWNER_FIELDS)
 	if problem != "":
 		return problem
+	data["hangul"] = fit_hangul(tidy_text(data["name"]), data.get("hangul", ""))  # shown only if it fits
 	problem = check_age(data, MIN_OWNER_AGE, MAX_OWNER_AGE)
 	if problem != "":
 		return problem
@@ -143,6 +144,7 @@ static func validate_customer_name(data: Variant, taken: Array = [], gender: Str
 			return "someone called %s is already at the counter: pick a different name" % customer_name
 	data["name"] = customer_name
 	data["gender"] = gender
+	data["hangul"] = fit_hangul(customer_name, data.get("hangul", ""))  # shown only if it fits
 	return ""
 
 
@@ -807,6 +809,7 @@ static func validate_cat_name(data: Variant, owner_name: String = "", taken: Arr
 		if cat_name.to_lower() == str(other).to_lower():
 			return "another bar's cat is already called %s: pick a different name" % cat_name
 	data["name"] = cat_name
+	data["hangul"] = fit_hangul(cat_name, data.get("hangul", ""))  # shown only if it fits
 	return ""
 
 
@@ -1250,3 +1253,92 @@ static func look_text(look: Dictionary) -> String:
 	if bag != "":
 		text += " and carrying %s" % BAGS.get(bag, "a bag")
 	return text
+
+
+## Someone as a stranger sees them: "the woman in the beige trench coat".
+static func seen_as(person: Dictionary) -> String:
+	var gender := str(person.get("gender", ""))
+	var who := "woman" if gender == "woman" else ("man" if gender == "man" else "person")
+	var look: Dictionary = person.get("look", {})
+	if look.is_empty():
+		return "the %s next to them" % who
+	var colour: String = CLOTHES_COLOURS.get(look.get("colour", "black"), CLOTHES_COLOURS["black"])[1]
+	var clothes := str(CLOTHES.get(look.get("clothes", "knit"), "a jumper")).trim_prefix("a ")
+	return "the %s in the %s %s" % [who, colour, clothes]
+
+
+# --- Names in Hangul ---------------------------------------------------------------------
+# Everyone's name is shown in Hangul too, next to the romanised one (like the sign), so the
+# player gets used to seeing Korean names. The AI writes it; the game checks it fits the
+# romanised name, and drops it rather than showing a wrong one.
+
+## Common family names: romanised (any common spelling) -> Hangul.
+const SURNAMES := {
+	"kim": ["김"], "gim": ["김"], "lee": ["이"], "yi": ["이"], "rhee": ["이"], "park": ["박"], "bak": ["박"], "pak": ["박"],
+	"choi": ["최"], "choe": ["최"], "jung": ["정"], "jeong": ["정"], "chung": ["정"], "kang": ["강"], "gang": ["강"],
+	"cho": ["조"], "jo": ["조"], "yoon": ["윤"], "yun": ["윤"], "jang": ["장"], "chang": ["장"], "lim": ["임", "림"],
+	"im": ["임"], "rim": ["림", "임"], "han": ["한"], "oh": ["오"], "o": ["오"], "seo": ["서"], "suh": ["서"],
+	"shin": ["신"], "sin": ["신"], "kwon": ["권"], "gwon": ["권"], "hwang": ["황"], "ahn": ["안"], "an": ["안"],
+	"song": ["송"], "yoo": ["유", "류"], "yu": ["유", "류"], "ryu": ["류", "유"], "hong": ["홍"], "jeon": ["전"],
+	"jun": ["전"], "ko": ["고"], "go": ["고"], "moon": ["문"], "mun": ["문"], "yang": ["양"], "son": ["손"],
+	"bae": ["배"], "baek": ["백"], "paik": ["백"], "heo": ["허"], "hur": ["허"], "nam": ["남"], "noh": ["노"],
+	"no": ["노"], "roh": ["노"], "ha": ["하"], "kwak": ["곽"], "sung": ["성"], "seong": ["성"], "cha": ["차"],
+	"joo": ["주"], "ju": ["주"], "woo": ["우"], "min": ["민"], "na": ["나"], "jin": ["진"], "ji": ["지"],
+	"eom": ["엄"], "um": ["엄"], "chae": ["채"], "won": ["원"], "cheon": ["천"], "chun": ["천"], "bang": ["방"],
+	"gong": ["공"], "kong": ["공"], "hyun": ["현"], "hyeon": ["현"], "byun": ["변"], "byeon": ["변"], "yeom": ["염"],
+	"do": ["도"], "seok": ["석"], "sun": ["선"], "ma": ["마"], "gil": ["길"], "pyo": ["표"], "wang": ["왕"],
+	"koo": ["구"], "goo": ["구"], "gu": ["구"], "ku": ["구"], "maeng": ["맹"], "tak": ["탁"], "yeo": ["여"],
+	"ok": ["옥"], "jegal": ["제갈"], "namgung": ["남궁"], "hwangbo": ["황보"], "seonwoo": ["선우"],
+}
+## Hangul syllables start with one of these 19 consonants (ㄱ ㄲ ㄴ ㄷ ㄸ ㄹ ㅁ ㅂ ㅃ ㅅ ㅆ ㅇ ㅈ ㅉ ㅊ ㅋ ㅌ ㅍ ㅎ);
+## which ones each romanised start can be.
+const ROMAN_STARTS := [
+	["kk", [1]], ["tt", [4]], ["pp", [8]], ["ss", [10]], ["jj", [13]], ["ch", [14, 12]], ["sh", [9]],
+	["g", [0, 1]], ["k", [0, 15, 1]], ["n", [2]], ["d", [3, 4]], ["t", [16, 3]], ["r", [5, 2, 11]], ["l", [5, 2, 11]],
+	["m", [6]], ["b", [7, 8]], ["p", [17, 7]], ["s", [9, 10]], ["j", [12, 13]], ["c", [14]], ["h", [18]], ["f", [17]],
+]
+## The fallback cat names in Hangul.
+const CAT_HANGUL := {"Nabi": "나비", "Dubu": "두부", "Gamja": "감자", "Mandu": "만두", "Bori": "보리", "Kongi": "콩이",
+	"Duri": "두리", "Hodu": "호두", "Nuri": "누리", "Dalgi": "딸기", "Kkami": "까미", "Chorong": "초롱"}
+
+
+## A name in Hangul, if it fits the romanised name: Hangul letters only, a sensible length, the
+## family name matching, and each syllable starting with the right consonant (when the
+## syllables can be lined up, as in "Kim Ji-ho" and 김지호). Returns it tidied, or "" if not.
+static func fit_hangul(roman: String, hangul: Variant) -> String:
+	var written := tidy_text(str(hangul if hangul != null else "")).replace(" ", "")
+	if written.length() < 1 or written.length() > 5:
+		return ""
+	for c in written:
+		if c.unicode_at(0) < 0xAC00 or c.unicode_at(0) > 0xD7A3:
+			return ""
+	var parts := roman.to_lower().split(" ", false)
+	if parts.size() >= 2:  # a person: family name first
+		if written.length() < 2:
+			return ""
+		var family: Array = SURNAMES.get(parts[0], [])
+		if not family.is_empty() and not family.any(func(h): return written.begins_with(h)):
+			return ""
+	var syllables := PackedStringArray()
+	for part in parts:
+		for piece in part.split("-", false):
+			syllables.append(piece)
+	if syllables.size() == written.length():
+		for i in syllables.size():
+			if not _starts_alike(syllables[i], written[i]):
+				return ""
+	elif not syllables.is_empty() and not _starts_alike(syllables[0], written[0]):
+		return ""
+	return written
+
+
+## Whether a romanised syllable and a Hangul syllable start with the same sound.
+static func _starts_alike(roman: String, syllable: String) -> bool:
+	var initial := floori((syllable.unicode_at(0) - 0xAC00) / 588.0)
+	var start := roman.to_lower()
+	if start == "" or start[0] in ["a", "e", "i", "o", "u", "y", "w"]:
+		return initial == 11  # ㅇ: a syllable starting with a vowel
+	for entry in ROMAN_STARTS:
+		if start.begins_with(entry[0]):
+			return initial in entry[1]
+	return true  # a letter we don't know: don't hold it against them

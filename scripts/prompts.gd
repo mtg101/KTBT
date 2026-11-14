@@ -60,13 +60,14 @@ static func owner_messages(gender: String, look: Dictionary = {}) -> Array:
 
 Reply with ONLY a JSON object with exactly these keys:
 - "name": their Korean name in English letters, family name first
+- "hangul": the same name in Korean letters (Hangul), e.g. "박미숙" for Park Mi-sook
 - "age": %s
 - "archetype": the K-drama type they are, in a few words
 - "appearance": what they look like behind the counter, in one sentence%s
 - "personality": two or three traits
 - "speech_style": how they talk, in a few words
 - "secret": something about their past they rarely talk about, in one sentence""" % [gender, title, gender, seen, ages,
-		": keep to how they look, in your own words, and add one detail of your own" if not look.is_empty() else ""]
+		": keep to how they look, in your own words, and add how they seem (their expression, or how they carry themselves)" if not look.is_empty() else ""]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -141,13 +142,15 @@ What's their name? Pick a name that real Koreans have, and not always the most c
 	if gender != "":
 		request += """
 
-Reply with ONLY a JSON object with exactly one key:
-- "name": their Korean name in English letters, family name first, then the given name"""
+Reply with ONLY a JSON object with exactly these keys:
+- "name": their Korean name in English letters, family name first, then the given name
+- "hangul": the same name in Korean letters (Hangul), e.g. "김지호" for Kim Ji-ho"""
 	else:
 		request += """
 
 Reply with ONLY a JSON object with exactly these keys:
 - "name": their Korean name in English letters, family name first, then the given name
+- "hangul": the same name in Korean letters (Hangul), e.g. "김지호" for Kim Ji-ho
 - "gender": either woman or man"""
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
@@ -170,7 +173,7 @@ static func customer_messages(day: String, time_text: String, weather: String, i
 			var band: Array = Rules.AGE_RANGES[look["age_range"]]
 			ages = "a whole number from %d to %d" % [maxi(19, int(band[0])), int(band[1])]
 			seen = "\n\nHow they look (the game has decided this, so keep to it): %s. Invent someone who'd look like that." % look_text_for(look)
-			appearance += ": keep to how they look, in your own words, and add one detail of your own (an expression, something they're holding)"
+			appearance += ": keep to how they look, in your own words, and add how they seem (their expression, or how they carry themselves), not an object"
 		var details := """It's %s, %s, with %s.
 
 A customer has just ducked under the tarp: %s (%s). Fill in who they are, so they'd plausibly turn up right now.%s
@@ -184,7 +187,7 @@ Reply with ONLY a JSON object with exactly these keys:
 - "appearance": %s""" % [day, time_text, weather, customer_name, gender_phrase(gender), seen, ages, appearance]
 		if not used_jobs.is_empty():
 			details += "\n\nMake them different from tonight's other customers. Jobs they've had: %s. Pick a different job." % ", ".join(PackedStringArray(used_jobs))
-		if not used_looks.is_empty():
+		if not used_looks.is_empty() and look.is_empty():  # with a game-decided look, not needed (and the AI copied them)
 			details += "\nHow they looked (don't describe this one the same way, e.g. no more dark circles or messy buns if those have come up): %s" % " / ".join(PackedStringArray(used_looks))
 		return [
 			{"role": "system", "content": STYLE_GUIDE},
@@ -306,6 +309,18 @@ static func describe_cat(cat: Dictionary, now: String) -> String:
 
 ## Messages asking the AI to name the bar's cat. The game has decided its coat and personality.
 ## taken: names other bars' cats have, which this one mustn't share.
+## Messages asking the AI to write a name in Hangul (for bars saved before names had it).
+static func hangul_messages(person_name: String) -> Array:
+	var request := """Write this Korean name in Korean letters (Hangul): %s
+
+Reply with ONLY a JSON object with exactly one key:
+- "hangul": the name in Hangul, e.g. "김지호" for Kim Ji-ho, or "나비" for Nabi""" % person_name
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String, sex: String = "she", taken: Array = []) -> Array:
 	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s %s cat, %s.
 
@@ -314,8 +329,9 @@ What's the cat called? A short Korean pet name in English letters, the kind Kore
 		request += " Other tents' cats are called %s, so pick something else." % ", ".join(PackedStringArray(taken))
 	request += """
 
-Reply with ONLY a JSON object with one key:
-- "name": the cat's name"""
+Reply with ONLY a JSON object with exactly these keys:
+- "name": the cat's name, in English letters
+- "hangul": the same name in Korean letters (Hangul), e.g. "나비" for Nabi"""
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -323,7 +339,7 @@ Reply with ONLY a JSON object with one key:
 
 
 ## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
-const STRANGERS_RULES := "They're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
+const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free), and it's everyone's first time at this tent: nobody's been coming for years or knows the owner's cooking. They're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
 
 
 ## Messages asking the AI for the next line of a chat between customers at the counter
@@ -334,7 +350,9 @@ static func counter_chat_messages(owner: Dictionary, owner_in: bool, people: Arr
 	var who := PackedStringArray()
 	for i in people.size():
 		who.append("- %s Their table: %s." % [describe_person(people[i]), tables[i]])
-	var owner_part := "The owner is busy elsewhere and isn't part of this conversation."
+	var owner_gender := str(owner.get("gender", "woman"))
+	var owner_part := "The owner, %s (customers call %s \"%s\"), is busy elsewhere and isn't part of this conversation." % [
+		owner["name"], "her" if owner_gender == "woman" else "him", owner.get("title", "Ajumma")]
 	if owner_in:
 		owner_part = describe_owner(owner) + "\nThe owner has joined in."
 	var request := """%s

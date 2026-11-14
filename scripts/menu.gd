@@ -13,7 +13,7 @@ const ITEMS := [
 	{"id": "makgeolli", "name": "Makgeolli", "desc": "milky rice wine", "price": 6000, "kind": "drink", "color": "e9e4d4"},
 	{"id": "beer", "name": "Beer", "desc": "a cold lager", "price": 5000, "kind": "drink", "color": "e0b23c"},
 	{"id": "somaek", "name": "Somaek", "desc": "a shot of soju dropped into beer", "price": 9000, "kind": "drink", "color": "c9d86a"},
-	{"id": "tteokbokki", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6},
+	{"id": "tteokbokki", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6, "aliases": ["rice cakes", "rice cake", "spicy rice cakes"]},
 	{"id": "odeng", "name": "Odeng", "desc": "fish cake skewers in hot broth", "price": 8000, "kind": "food", "portion": "side", "color": "c9a26b"},
 	{"id": "sundae", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a", "cook": 4},
 	{"id": "dakgalbi", "name": "Dakgalbi", "desc": "spicy stir-fried chicken", "price": 18000, "kind": "food", "portion": "main", "color": "c4572e", "cook": 12},

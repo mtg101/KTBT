@@ -14,21 +14,21 @@ const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
 const TEST_SAVES := "user://test_saves_bars/"
 const TIMEOUT_MS := 15000
-const OWNER_DATA := {"name": "Kim Sung-ho", "age": 58, "gender": "man", "title": "Ajusshi", "archetype": "quiet ajusshi with a mysterious past", "appearance": "A grey cardigan.", "personality": "calm, kind", "speech_style": "few words", "secret": "He was once a bodyguard."}
+const OWNER_DATA := {"name": "Kim Sung-ho", "hangul": "김성호", "age": 58, "gender": "man", "title": "Ajusshi", "archetype": "quiet ajusshi with a mysterious past", "appearance": "A grey cardigan.", "personality": "calm, kind", "speech_style": "few words", "secret": "He was once a bodyguard."}
 
-var _real_saves := ""
-var _real_stats := ""
+var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
+var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_bars/"
 const TEST_STATS := "user://test_stats_bars/"
 
 
 func before_test() -> void:
-	Ambience.make_sound = false  # quiet tests (and quick ones)
-	Ambience.settings_path = "user://test_settings.cfg"
 	_real_saves = SaveStore.folder
 	SaveStore.folder = TEST_SAVES
 	_real_stats = NightStats.folder
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
+	Ambience.make_sound = false  # quiet tests (and quick ones)
+	Ambience.settings_path = "user://test_settings.cfg"
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
@@ -289,3 +289,14 @@ func test_closing_the_window_saves_the_bar() -> void:
 	Game.bar["takings"] = 77000
 	Game.notification(NOTIFICATION_WM_CLOSE_REQUEST)
 	assert_int(SaveStore.load_bar(saved["id"])["takings"]).is_equal(77000)
+
+
+func test_a_bar_saved_before_hangul_names_gets_them() -> void:
+	var owner := OWNER_DATA.duplicate()
+	owner.erase("hangul")
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", owner)
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	await _open_visit()
+	assert_str(str(Game.bar["owner"].get("hangul", ""))).is_equal("김성호")
+	assert_str(str(SaveStore.load_bar(bar["id"])["owner"].get("hangul", ""))).is_equal("김성호")  # saved, so it's only asked once

@@ -183,3 +183,10 @@ func test_canned_people_fit_the_games_look() -> void:
 	assert_str(str(customer["appearance"])).contains(str(Rules.CLOTHES[look["clothes"]]).trim_prefix("a ").split(" ")[0])
 	var owner: Dictionary = _canned.reply({"purpose": "owner", "gender": "woman", "look": Rules.pick_look("woman", "70s", "", true)})
 	assert_str(Rules.validate_owner(owner, "woman", "70s")).is_empty()
+
+
+func test_every_canned_name_has_hangul_that_fits() -> void:
+	for person in CannedAi.HANGUL:
+		assert_str(Rules.fit_hangul(person, CannedAi.HANGUL[person])).override_failure_message(person).is_equal(CannedAi.HANGUL[person])
+	for cat in Rules.CAT_NAMES:
+		assert_str(Rules.fit_hangul(cat, Rules.CAT_HANGUL[cat])).override_failure_message(cat).is_equal(Rules.CAT_HANGUL[cat])

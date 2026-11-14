@@ -1036,3 +1036,39 @@ func test_a_look_in_words() -> void:
 
 func _ages(age: int) -> Dictionary:
 	return {"age": age, "job": "student", "mood": "giddy", "reason": "Exams are over.", "speech_style": "loud", "appearance": "A hoodie."}
+
+
+func test_regression_spicy_rice_cakes_are_tteokbokki_not_rice() -> void:
+	var ids: Array = Rules.mentions("I'll have a soju and the spicy rice cakes, please.", true).map(func(m): return m["id"])
+	assert_array(ids).contains(["tteokbokki"])
+	assert_array(ids).not_contains(["gonggibap"])
+	var both: Array = Rules.mentions("The spicy rice cakes and a bowl of rice.", true).map(func(m): return m["id"])
+	assert_array(both).contains(["tteokbokki", "gonggibap"])
+
+
+func test_strangers_are_known_by_how_they_look() -> void:
+	var look := {"clothes": "trench", "colour": "beige"}
+	assert_str(Rules.seen_as({"gender": "woman", "look": look})).is_equal("the woman in the beige trench coat")
+	assert_str(Rules.seen_as({"gender": "man"})).is_equal("the man next to them")
+
+
+func test_names_in_hangul_are_checked_against_the_romanised_name() -> void:
+	assert_str(Rules.fit_hangul("Kim Ji-ho", "김지호")).is_equal("김지호")
+	assert_str(Rules.fit_hangul("Seo Yeon-woo", " 서연우 ")).is_equal("서연우")
+	assert_str(Rules.fit_hangul("Lee Min-ji", "이민지")).is_equal("이민지")
+	assert_str(Rules.fit_hangul("Jang Ji-Hyun", "장지현")).is_equal("장지현")
+	assert_str(Rules.fit_hangul("Kim Ji-ho", "박지호")).is_empty()  # the wrong family name
+	assert_str(Rules.fit_hangul("Kim Ji-ho", "김미호")).is_empty()  # "Ji" doesn't start with ㅁ
+	assert_str(Rules.fit_hangul("Kim Ji-ho", "Kim Ji-ho")).is_empty()  # not Hangul
+	assert_str(Rules.fit_hangul("Kim Ji-ho", "")).is_empty()
+	assert_str(Rules.fit_hangul("Nabi", "나비")).is_equal("나비")
+	assert_str(Rules.fit_hangul("Nabi", "고비")).is_empty()
+
+
+func test_a_customer_name_keeps_its_hangul_only_if_it_fits() -> void:
+	var good := {"name": "Kim Ji-ho", "hangul": "김지호", "gender": "woman"}
+	assert_str(Rules.validate_customer_name(good)).is_empty()
+	assert_str(str(good["hangul"])).is_equal("김지호")
+	var wrong := {"name": "Kim Ji-ho", "hangul": "박지호", "gender": "woman"}
+	assert_str(Rules.validate_customer_name(wrong)).is_empty()  # the name's still fine...
+	assert_str(str(wrong["hangul"])).is_empty()  # ...but the wrong Hangul isn't shown
