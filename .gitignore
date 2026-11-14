@@ -11,3 +11,6 @@ Thumbs.db
 
 # GdUnit4 test reports (generated on every run)
 /reports/
+
+# GdUnit4 rewrites this on every test run (it remembers the last run)
+/addons/gdUnit4/GdUnitRunner.cfg
