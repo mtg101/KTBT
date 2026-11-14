@@ -28,6 +28,7 @@ func before_test() -> void:
 	CannedAi.scripted = []
 	Visit.pause_scale_override = 0.01
 	Visit.random_seed = 4321
+	Visit.run_clock = false  # no automatic customers: these tests click Next customer themselves
 
 
 func after_test() -> void:
@@ -40,6 +41,7 @@ func after_test() -> void:
 	CannedAi.scripted = []
 	Visit.pause_scale_override = -1.0
 	Visit.random_seed = 0
+	Visit.run_clock = true
 
 
 # --- Helpers ---------------------------------------------------------------------------
@@ -127,6 +129,15 @@ func test_title_lists_saved_bars_newest_first() -> void:
 	assert_str(first.text).contains("Kim Sung-ho (Ajusshi)")
 	assert_str(first.text).contains(Menu.format_won(34000))
 	assert_str(second.text).contains("Golmok Pocha")
+
+
+func test_title_shows_nights_and_visits() -> void:
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 3
+	bar["visits"] = 1
+	SaveStore.save_bar(bar)
+	var runner := scene_runner(TITLE)
+	assert_str((runner.find_child("Bar0") as Button).text).contains("3 nights, 1 visit")
 
 
 func test_new_bar_button_starts_a_new_bar() -> void:

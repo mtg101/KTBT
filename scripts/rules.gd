@@ -237,6 +237,60 @@ static func extra_order_turns(exchanges: int, count: int) -> Array:
 	return pairs.pick_random()
 
 
+# --- The night ----------------------------------------------------------------------------
+
+## The tent opens at 6pm and closes at 3am. Times are minutes since midnight at the start of
+## the night, so 3am is 27 * 60. Nobody new arrives after LAST_ARRIVAL.
+const OPEN_MINUTES := 18 * 60
+const CLOSE_MINUTES := 27 * 60
+const LAST_ARRIVAL_MINUTES := 26 * 60 + 30  # 2:30am
+const DAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+## Roughly how many customers arrive in each hour (keyed by the hour it starts; 24 is midnight):
+## a few after work, busiest from 9 to midnight, then the stragglers.
+const ARRIVALS_PER_HOUR := {18: 2.0, 19: 3.0, 20: 4.0, 21: 5.0, 22: 5.0, 23: 5.0, 24: 4.0, 25: 2.5, 26: 1.5}
+
+
+## 1080 -> "6:00pm", 1445 -> "12:05am"
+static func clock_text(minutes: int) -> String:
+	var m := minutes % (24 * 60)
+	var hour := m / 60
+	var hour_12 := hour % 12
+	if hour_12 == 0:
+		hour_12 = 12
+	return "%d:%02d%s" % [hour_12, m % 60, "am" if hour < 12 else "pm"]
+
+
+## How many customers usually arrive per hour at this time of night.
+static func arrivals_per_hour(minutes: int) -> float:
+	return ARRIVALS_PER_HOUR.get(clampi(minutes / 60, 18, 26), 1.0)
+
+
+## Game minutes until the next customer, from a random roll between 0 and 1: on average
+## 60 / arrivals_per_hour, anywhere from half to one and a half times that, and at least 5.
+static func next_arrival_gap(minutes: int, roll: float) -> int:
+	var average := 60.0 / arrivals_per_hour(minutes)
+	return maxi(5, roundi(average * (0.5 + roll)))
+
+
+## A customer who's been waiting this many game minutes for a free stool gives up.
+const GIVE_UP_MINUTES := 30
+
+
+## Which day night number `night` falls on, for a bar whose first night was first_day (0 = Monday).
+static func night_day(first_day: int, night: int) -> String:
+	return DAYS[posmod(first_day + night - 1, DAYS.size())]
+
+
+## The night's most memorable line, for the summary: the longest thing a customer said.
+## Lines are {"speaker", "text"}. Returns {} if nobody said anything.
+static func memorable_line(lines: Array) -> Dictionary:
+	var best := {}
+	for line in lines:
+		if best.is_empty() or str(line["text"]).length() > str(best["text"]).length():
+			best = line
+	return best
+
+
 static func has_main(items: Array) -> bool:
 	for id in items:
 		if Menu.find(id).get("portion", "") == "main":

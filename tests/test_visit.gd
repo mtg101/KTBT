@@ -33,6 +33,7 @@ func before_test() -> void:
 	CannedAi.scripted = []
 	Visit.pause_scale_override = 0.01
 	Visit.random_seed = 1234
+	Visit.run_clock = false  # no automatic customers: these tests click Next customer themselves
 
 
 func after_test() -> void:
@@ -44,6 +45,7 @@ func after_test() -> void:
 	CannedAi.scripted = []
 	Visit.pause_scale_override = -1.0
 	Visit.random_seed = 0
+	Visit.run_clock = true
 
 
 # --- Helpers ---------------------------------------------------------------------------

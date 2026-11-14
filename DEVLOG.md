@@ -4,6 +4,15 @@ A running record of what we've done on KTBT and why, newest first. What's coming
 
 ## 14 November 2026
 
+- **A full night stage done:** each time a bar opens, it runs a whole night, from **6pm to 3am**.
+  - **The clock:** always runs, in real time, whatever's happening, so a night takes about **5 minutes** (about **1 minute** on Fast). The top of the screen shows the night number, day, time and weather. The first version only moved the clock between customers, adding fixed game time per visit, but that wouldn't work once several customers overlap, so the clock now runs regardless.
+  - **Arrivals:** customers turn up on their own, at times that suit the hour: a few at opening, busiest from 9pm to midnight, thinning out after 1am, nobody new after 2:30am. Each arrival is timed from the last one's arrival, so a long conversation doesn't hold the night up.
+  - **One stool for now:** a customer who's due while the stool is taken waits; after 30 game minutes they give up and walk on (the transcript says so). So until the Several at once stage, how many customers a night gets depends on how fast the AI is.
+  - **Next customer** still works mid-night, for testing (and later it might be you walking in).
+  - **Days and weather:** each new bar starts on a random day of the week and goes round the week night by night; each night picks its weather at 6pm.
+  - **3am:** once the last customer finishes, the owner closes up and a **night summary** appears: customers, the night's takings, the total, and the night's most memorable line (for now, the longest thing a customer said). **Open for another night**, or **Close the bar**.
+  - **Saves:** each bar now counts its nights and keeps a log of recent ones; the title screen shows nights as well as visits. A night you leave before 3am isn't counted, though each visit's takings are saved as before.
+  - **Tests:** 23 new (the clock, arrivals, days of the week and memorable lines; saving nights; and 9 click-through tests for a whole night), **193** in total, all passing. The older click-through tests hold the clock still (`Visit.run_clock = false`) so automatic customers don't interfere.
 - **Bars and saves stage done:** the game now opens on a **title screen**: **New bar**, or a list of saved bars (name and meaning, owner, visits, takings, last played; newest first).
   - **New bars:** the AI invents the owner, then names the tent with a short **Korean** name in English letters plus its meaning ("Byeolbit Pocha", Starlight Tent). If the AI can't, the game names it after the owner ("Mi-sook-ne Pocha"). Offline mode has its own names.
   - **Saves:** one readable JSON file per bar in `saves/` in the user data folder, written safely (temporary file first, then swapped in; a crash leaves a `.tmp` that loading recovers). Each holds the owner, name, takings, visit count and a short history of recent visits.

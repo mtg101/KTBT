@@ -491,3 +491,69 @@ func test_fallback_bar_name_uses_the_owners_given_name() -> void:
 func test_fallback_bar_name_copes_with_odd_names() -> void:
 	assert_str(Rules.validate_bar_name(Rules.fallback_bar_name(""))).is_empty()
 	assert_str(Rules.validate_bar_name(Rules.fallback_bar_name("Kim 지호"))).is_empty()
+
+
+# --- The night's clock ------------------------------------------------------------------
+
+func test_clock_text_reads_like_a_clock() -> void:
+	assert_str(Rules.clock_text(18 * 60)).is_equal("6:00pm")
+	assert_str(Rules.clock_text(23 * 60 + 59)).is_equal("11:59pm")
+	assert_str(Rules.clock_text(24 * 60 + 5)).is_equal("12:05am")
+	assert_str(Rules.clock_text(Rules.CLOSE_MINUTES)).is_equal("3:00am")
+	assert_str(Rules.clock_text(12 * 60)).is_equal("12:00pm")
+
+
+func test_late_evening_is_busier_than_opening_and_closing() -> void:
+	var opening := Rules.arrivals_per_hour(Rules.OPEN_MINUTES)
+	var late := Rules.arrivals_per_hour(Rules.CLOSE_MINUTES - 30)
+	for hour in [21, 22, 23]:
+		assert_float(Rules.arrivals_per_hour(hour * 60)).is_greater(opening)
+		assert_float(Rules.arrivals_per_hour(hour * 60)).is_greater(late)
+
+
+func test_arrivals_have_a_rate_even_outside_opening_hours() -> void:
+	assert_float(Rules.arrivals_per_hour(10 * 60)).is_greater(0.0)
+	assert_float(Rules.arrivals_per_hour(30 * 60)).is_greater(0.0)
+
+
+func test_arrival_gaps_vary_around_the_average() -> void:
+	var average := 60.0 / Rules.arrivals_per_hour(22 * 60)
+	assert_int(Rules.next_arrival_gap(22 * 60, 0.0)).is_equal(maxi(5, roundi(average * 0.5)))
+	assert_int(Rules.next_arrival_gap(22 * 60, 1.0)).is_equal(roundi(average * 1.5))
+	assert_int(Rules.next_arrival_gap(22 * 60, 0.5)).is_equal(roundi(average))
+
+
+func test_arrival_gaps_are_never_tiny() -> void:
+	for minutes in range(Rules.OPEN_MINUTES, Rules.CLOSE_MINUTES, 30):
+		assert_int(Rules.next_arrival_gap(minutes, 0.0)).is_greater_equal(5)
+
+
+func test_a_whole_night_fits_a_sensible_number_of_customers() -> void:
+	# Average gaps across the night: busy enough to be a night, not a stampede.
+	var minutes := Rules.OPEN_MINUTES
+	var arrivals := 0
+	while minutes < Rules.LAST_ARRIVAL_MINUTES:
+		minutes += Rules.next_arrival_gap(minutes, 0.5)
+		arrivals += 1
+	assert_int(arrivals).is_between(20, 45)
+
+
+func test_nights_go_round_the_week() -> void:
+	assert_str(Rules.night_day(4, 1)).is_equal("Friday")
+	assert_str(Rules.night_day(4, 2)).is_equal("Saturday")
+	assert_str(Rules.night_day(4, 4)).is_equal("Monday")
+	assert_str(Rules.night_day(0, 8)).is_equal("Monday")
+	assert_str(Rules.night_day(6, 1)).is_equal("Sunday")
+
+
+func test_memorable_line_is_the_longest() -> void:
+	var lines := [
+		{"speaker": "Kim Ji-ho", "text": "Soju, please."},
+		{"speaker": "Lee Min-ji", "text": "My boss said the same thing three times today, louder each time."},
+		{"speaker": "Kim Ji-ho", "text": "Another one."},
+	]
+	assert_str(str(Rules.memorable_line(lines)["speaker"])).is_equal("Lee Min-ji")
+
+
+func test_memorable_line_is_empty_when_nobody_spoke() -> void:
+	assert_bool(Rules.memorable_line([]).is_empty()).is_true()

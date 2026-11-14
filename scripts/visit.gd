@@ -20,7 +20,6 @@ const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough
 const BANCHAN := "kimchi and pickled radish"
 
 const DAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-const TIMES := ["6:30pm", "7:45pm", "9:00pm", "10:20pm", "11:40pm", "12:50am", "1:40am", "2:30am", "3:15am", "4:05am"]
 const WEATHER := [
 	"light drizzle",
 	"heavy rain drumming on the tarp",
@@ -54,6 +53,13 @@ const OFFSCREEN_RIGHT_X := 1400.0
 ## random_seed != 0 makes every run pick the same moments, customers and orders.
 static var pause_scale_override := -1.0
 static var random_seed := 0
+## Test hook: false stops the night clock, so no customers arrive by themselves and the
+## night never ends (tests that only want to click Next customer turn it off).
+static var run_clock := true
+
+## Real seconds per game minute. The clock always runs, visits or not, so a night (6pm to
+## 3am, 540 game minutes) takes about five minutes; Fast makes it about one.
+const REAL_SECONDS_PER_GAME_MINUTE := 0.56
 
 var _ai: Ai
 var _owner := {}
@@ -64,6 +70,19 @@ var _transcript: Array = []
 var _takings := 0
 var _busy := false
 var _customer_color := Color.WHITE
+
+# The night
+var _night_open := false
+var _night_number := 0
+var _night_day := ""
+var _night_weather := ""
+var _clock := float(Rules.OPEN_MINUTES)  # game minutes since midnight at the start of the night
+var _next_arrival := 0.0
+var _night_visits := 0
+var _night_takings := 0
+var _night_lines: Array = []  # what customers said tonight, for the summary
+var _summary: PanelContainer
+var _summary_text: RichTextLabel
 
 # UI
 var _button: Button
@@ -116,6 +135,7 @@ func _open_saved_bar() -> void:
 	_button.text = "Next customer"
 	_button.disabled = false
 	_leave_button.disabled = false
+	_start_night()
 
 
 ## Ollama couldn't be reached partway through, so the AI switched to canned replies.
@@ -135,7 +155,7 @@ func _on_button_pressed() -> void:
 		return
 	if _owner.is_empty():
 		_invent_owner()
-	else:
+	elif _night_open:
 		_run_visit()
 
 
@@ -170,6 +190,7 @@ func _invent_owner() -> void:
 	_button.disabled = false
 	_leave_button.disabled = false
 	_busy = false
+	_start_night()
 
 
 ## A new bar: the AI names the tent (the game names it if the AI can't), and it's saved.
@@ -181,6 +202,7 @@ func _name_bar() -> void:
 	if named.is_empty():
 		named = Rules.fallback_bar_name(str(_owner["name"]))
 	Game.bar = SaveStore.new_bar(str(named["name"]), str(named["meaning"]), _owner)
+	Game.bar["first_day"] = randi() % Rules.DAYS.size()
 	Game.save()
 	_show_bar_name()
 	_narrate("The sign over the tarp reads %s (%s)." % [named["name"], named["meaning"]])
@@ -200,17 +222,14 @@ func _on_leave_pressed() -> void:
 
 func _run_visit() -> void:
 	_busy = true
+	_schedule_next_arrival()  # the next customer's time, counted from this one's arrival
 	_button.disabled = true
 	_leave_button.disabled = true
 	_transcript.clear()
 	_order.clear()
 	_customer = {}
-	_moment = {
-		"day": DAYS.pick_random(),
-		"time": TIMES.pick_random(),
-		"weather": WEATHER.pick_random(),
-	}
-	_moment_label.text = "%s, %s, %s" % [_moment["day"], _moment["time"], _moment["weather"]]
+	_moment = {"day": _night_day, "time": Rules.clock_text(int(_clock)), "weather": _night_weather}
+	_update_clock_label()
 	_update_info()
 	_log.append_text("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
 	_narrate("%s, %s. %s." % [_moment["day"], _moment["time"], Rules.sentence_case(_moment["weather"])])
@@ -298,6 +317,8 @@ func _run_visit() -> void:
 	Game.save()
 	_takings = int(Game.bar["takings"])
 	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
+	_night_visits += 1
+	_night_takings += bill
 	_narrate("%s pays %s and heads back out into the night." % [_customer["name"], Menu.format_won(bill)])
 	await _walk_out()
 	_clear_items()
@@ -308,7 +329,90 @@ func _finish_visit() -> void:
 	_typing_label.text = ""
 	_button.disabled = false
 	_leave_button.disabled = false
+	if _night_open and _next_arrival <= _clock:
+		# Someone was due while the stool was taken. If they've waited too long, they've gone.
+		if _clock - _next_arrival > Rules.GIVE_UP_MINUTES:
+			_narrate("Someone peeked under the tarp a while ago, saw the stool taken, and walked on.")
+			_schedule_next_arrival()
 	_busy = false
+
+
+# --- The night -------------------------------------------------------------
+
+## The tent opens at 6pm: a new night number, its day and its weather.
+func _start_night() -> void:
+	_night_number = int(Game.bar.get("nights", 0)) + 1
+	_night_day = Rules.night_day(int(Game.bar.get("first_day", 4)), _night_number)
+	_night_weather = WEATHER.pick_random()
+	_clock = float(Rules.OPEN_MINUTES)
+	_night_visits = 0
+	_night_takings = 0
+	_night_lines = []
+	_night_open = true
+	_schedule_next_arrival()
+	_update_clock_label()
+	_log.append_text("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
+	_narrate("%s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, Rules.clock_text(Rules.OPEN_MINUTES), Rules.sentence_case(_night_weather)])
+	_button.disabled = false
+
+
+func _schedule_next_arrival() -> void:
+	_next_arrival = _clock + Rules.next_arrival_gap(int(_clock), randf())
+
+
+## The clock always runs, in real time, whatever's happening. When a customer is due and the
+## stool is free, they arrive (if it's taken, they wait: see _finish_visit). At 3am, once
+## nobody's still drinking, the night ends.
+func _process(delta: float) -> void:
+	if not _night_open:
+		return
+	if run_clock and _clock < Rules.CLOSE_MINUTES:
+		var seconds_per_minute := _scaled(REAL_SECONDS_PER_GAME_MINUTE)
+		if seconds_per_minute > 0.0:
+			_clock = minf(_clock + delta / seconds_per_minute, float(Rules.CLOSE_MINUTES))
+		_update_clock_label()
+	if _busy:
+		return
+	if _clock >= Rules.CLOSE_MINUTES:
+		_end_night()
+	elif run_clock and _clock >= _next_arrival and _clock < Rules.LAST_ARRIVAL_MINUTES:
+		_run_visit()
+
+
+## 3am: the owner closes up, the night is saved, and a summary appears.
+func _end_night() -> void:
+	_night_open = false
+	_button.disabled = true
+	var line := Rules.memorable_line(_night_lines)
+	SaveStore.record_night(Game.bar, {
+		"night": _night_number, "day": _night_day, "weather": _night_weather,
+		"customers": _night_visits, "takings": _night_takings,
+		"line": line.duplicate(),
+		"when": int(Time.get_unix_time_from_system()),
+	})
+	Game.save()
+	_narrate("%s. %s pulls down the tarp and counts the takings." % [Rules.clock_text(Rules.CLOSE_MINUTES), _owner_display()])
+	_update_clock_label()
+	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
+	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
+	t += "%d %s  ·  %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers", Menu.format_won(_night_takings)]
+	t += "[color=#%s]%s in total[/color]" % [MUTED.to_html(false), Menu.format_won(_takings)]
+	if not line.is_empty():
+		t += "\n\n[i][color=#%s]\"%s\"[/color][/i]\n[color=#%s]%s[/color]" % [OWNER_TEXT.to_html(false), _esc(line["text"]), MUTED.to_html(false), _esc(line["speaker"])]
+	t += "[/center]"
+	_summary_text.text = t
+	_summary.visible = true
+
+
+func _on_next_night_pressed() -> void:
+	_summary.visible = false
+	_start_night()
+
+
+func _update_clock_label() -> void:
+	if _night_number == 0:
+		return
+	_moment_label.text = "Night %d  ·  %s  ·  %s  ·  %s" % [_night_number, _night_day, Rules.clock_text(int(_clock)), _night_weather]
 
 
 # --- Things happening in the scene -----------------------------------------
@@ -407,6 +511,8 @@ func _say(owner_speaks: bool, text: String) -> void:
 	var who := _owner_display() if owner_speaks else str(_customer["name"])
 	var colour := OWNER_TEXT if owner_speaks else _customer_color.lightened(0.35)
 	_transcript.append({"speaker": str(_owner["name"]) if owner_speaks else who, "text": text})
+	if not owner_speaks:
+		_night_lines.append({"speaker": who, "text": text})
 	_log.append_text("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(text)])
 	await _pause_for(text)
 
@@ -597,6 +703,40 @@ func _build_ui() -> void:
 	_info.add_theme_font_size_override("bold_font_size", 17)
 	_info.add_theme_font_size_override("italics_font_size", 17)
 	info_panel.add_child(_info)
+
+	# End-of-night summary, shown over everything at 3am.
+	_summary = _panel(Vector2((SCREEN.x - 760) / 2, 180), Vector2(760, 520))
+	_summary.name = "NightSummary"
+	_summary.visible = false
+	add_child(_summary)
+	var summary_col := VBoxContainer.new()
+	summary_col.add_theme_constant_override("separation", 20)
+	_summary.add_child(summary_col)
+	_summary_text = RichTextLabel.new()
+	_summary_text.name = "SummaryText"
+	_summary_text.bbcode_enabled = true
+	_summary_text.fit_content = true
+	_summary_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_summary_text.add_theme_font_size_override("normal_font_size", 22)
+	_summary_text.add_theme_font_size_override("bold_font_size", 22)
+	_summary_text.add_theme_font_size_override("italics_font_size", 22)
+	summary_col.add_child(_summary_text)
+	var summary_buttons := HBoxContainer.new()
+	summary_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	summary_buttons.add_theme_constant_override("separation", 20)
+	summary_col.add_child(summary_buttons)
+	var next_night := Button.new()
+	next_night.name = "NextNightButton"
+	next_night.text = "Open for another night"
+	next_night.custom_minimum_size = Vector2(260, 48)
+	next_night.pressed.connect(_on_next_night_pressed)
+	summary_buttons.add_child(next_night)
+	var summary_leave := Button.new()
+	summary_leave.name = "SummaryLeaveButton"
+	summary_leave.text = "Close the bar"
+	summary_leave.custom_minimum_size = Vector2(200, 48)
+	summary_leave.pressed.connect(_on_leave_pressed)
+	summary_buttons.add_child(summary_leave)
 
 
 func _badge(colour: Color) -> StyleBoxFlat:

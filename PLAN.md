@@ -8,8 +8,7 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **A full night:** a clock from opening to closing, with customers arriving at times that suit the hour.
-- **Several at once:** multiple seats and overlapping customers.
+- **Several at once:** multiple seats and overlapping customers. The clock already runs during visits, so this is also what lets a busy night actually fit everyone who turns up (today, customers who arrive while the stool is taken wait, and give up after 30 game minutes).
 - **Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
 - **Art, sound and polish:** real assets, ambient sound and background animation (see **Ambience** in the later ideas for the full wish list), UI styling. Add visual (screenshot) tests once the art settles.
 - **The game:** the player joins the conversations, probably as the owner.
@@ -27,6 +26,8 @@ Grouped by type. Within each group, roughly in order of importance.
 
 ### Richer play
 
+- **You turn up as a customer:** the **Next customer** button (kept for testing, alongside the automatic arrivals) could become the moment *you* walk in and take a stool, as a way into the game stage.
+- **Resume mid-night:** today, a night you leave before 3am isn't counted, and opening the bar again starts that night afresh at 6pm. Later, the clock, weather and night's takings could be saved, so it carries on where you left.
 - **Resume mid-conversation:** if you quit partway through a visit, loading the bar puts the customer back on their stool and the conversation picks up from the saved transcript (if the AI was halfway through a line, that one line is asked for again). Until then, an unfinished visit ends when you quit.
 - **Calendar, holidays and events:** seasons and Korean occasions (Seollal, Chuseok, Christmas, Pepero Day on 11/11, payday Fridays) and one-off events (a big football match on the overpass screens, a typhoon closing the tent early). Game facts that shape who turns up, what they order and what they talk about.
 - **Drama incidents and story arcs:** K-drama beats across nights: a confession at the counter, a drunk customer the owner sends home in a taxi, a breakup at the next table, the owner's secret slowly coming out, and the classic: redevelopers threatening to tear the tent down. A light **drama director** in the game picks a beat for the night (a game fact), and the AI writes it.
@@ -35,7 +36,9 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Customer-to-customer chat:** customers at nearby seats talking to each other across tables.
 - **Long-term relationships:** the owner and regulars getting closer over many nights.
 - **Economy:** money, menu upgrades, reputation.
-- **Player controls:** speed up time, set the menu, choose the weather or day.
+- **Player controls:** set the night's length (now about 5 minutes, or 1 on Fast), the menu, the weather or day.
+- **Weather that changes:** today each night picks one weather at 6pm; it could change during the night (rain setting in after midnight).
+- **A better memorable line:** the night summary quotes the longest thing a customer said. The AI could pick the line instead, or the game could favour lines with drama.
 
 ### Presentation
 
@@ -53,7 +56,7 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Ambience (sound and animation):** the tent should feel alive even when nobody's talking. Driven by facts the game owns (weather, time of night, what's cooking, how busy it is), so it always matches what's happening, and it needs no AI.
   - **Ambient sound:** layered loops that fade in and out: rain drumming on the tarp (heavier in a downpour), the hush of snow, traffic rumbling over the overpass that thins out in the small hours, a distant subway, sizzling and bubbling while the owner cooks, glasses clinking, low chatter when it's busy. Optional quiet background music (lo-fi or a soft K-drama-style theme) with its own volume setting. CC0 sources: Freesound (filter by licence) and Kenney's audio packs; log everything in `CREDITS.md`.
   - **Background animation:** the bulb swinging gently, steam rising from pots and bowls, rain or snow falling past the tent's opening, drips off the tarp edge, headlights sweeping across the overpass, a flickering sign, silhouettes of passers-by with umbrellas, and the occasional street cat. Godot handles these cheaply with particles, tweens and simple animations, so they run fine on the laptop.
-  - **Weather as a visible fact:** today the weather only appears in the text; ambience makes it something you see and hear, and changes in weather during the night (from the A full night stage) should fade the sound and visuals across smoothly.
+  - **Weather as a visible fact:** today the weather only appears in the text; ambience makes it something you see and hear, and changes in weather during the night (see **Weather that changes**) should fade the sound and visuals across smoothly.
 - **Voices:** characters "speak" their lines, with a setting to choose **off**, **babble**, **system voices** or **AI voices**. The game picks each character's voice from facts it owns (gender, age, mood), never the AI.
   - **Babble:** Animal Crossing-style babble: a short syllable sound per letter or word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous). No AI, works on any machine, and suits the cosy tone. Built in Godot from a few CC0 syllable sounds, pitch-shifted. The first one to build.
   - **System voices:** Godot's built-in text-to-speech, which reads lines aloud with the voices installed in Windows. No setup and no extra software, and it works on the laptop. The voices sound robotic and the choice depends on what Windows has installed, so it's mainly a quick way to test whether spoken lines add anything, and a fallback when no AI voice service is running.

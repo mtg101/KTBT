@@ -6,6 +6,8 @@
 
 A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Over the course of a night, AI-invented customers turn up, order soju and street food, and chat with the tent's owner. Each customer is generated to fit the time of night, so the after-work crowd gives way to night-shift workers and heartbroken stragglers as the hours pass.
 
+**A night** runs from 6pm to 3am on a clock that always runs (about five minutes of real time). Customers arrive at times that suit the hour, busiest from 9pm to midnight, with nobody new after 2:30am. At closing, a summary shows the night's customers, takings and most memorable line, and the bar is ready for another night. Each bar goes round the week, night by night.
+
 **Version one is a simulation, not a game.** The player just watches. Orders are served automatically. Talking to customers yourself (the "game" part) comes later.
 
 ## Core design rule
@@ -33,12 +35,12 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 Each **save is one bar**: its owner, its regulars, its history. You can have several and come back to any of them.
 
-- **Title screen:** *New bar* or *Load bar* (a list of saves showing bar name, owner, nights run and last played).
+- **Title screen:** *New bar* or a list of saved bars (bar name, owner, nights and visits, takings and last played).
 - **New bar:** the AI invents the owner and the bar's name (a Korean name, checked by the game like everything else the AI writes), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on with the next customer.
-- **When it saves:** at natural moments (a customer arrives, orders, says a line, leaves, or the clock ticks over an hour) and again when the window is closed.
-- **What's saved:** the bar's name and its meaning, the owner, the takings, the visit count, a short history of recent visits (who came, what they ordered, the bill), the clock (night number and time), the weather and the menu, and (from the Regulars and relationships stage) regulars and their memory summaries.
-- **Quitting mid-visit:** for now, an unfinished visit simply ends when you quit, and loading starts with the next customer. Resuming mid-conversation (the customer still on their stool, the chat picking up from the saved transcript) is a later idea in [PLAN.md](PLAN.md).
+- **When it saves:** when a bar is created, after every visit, at the end of each night, when you close the bar, and when the window is closed.
+- **What's saved:** the bar's name and its meaning, the owner, the takings, the visit and night counts, a short history of recent visits (who came, what they ordered, the bill), a log of recent nights (day, weather, customers, takings, memorable line), the day of the week it started on, and later the menu and (from the Regulars and relationships stage) regulars and their memory summaries.
+- **Quitting mid-night:** for now, a night you leave before 3am isn't counted, and opening the bar again starts that night afresh at 6pm; resuming mid-night is a later idea. An unfinished visit simply ends when you quit. Resuming mid-conversation (the customer still on their stool, the chat picking up from the saved transcript) is a later idea in [PLAN.md](PLAN.md).
 - **Safe writes:** each save is written to a temporary file and then swapped in, so a crash mid-save can't corrupt the bar.
 - **Format:** one JSON file per bar in Godot's `user://saves/` folder (on Windows: `%APPDATA%\Godot\app_userdata\KTBT\saves\`). It's human-readable, which is handy for debugging, or for peeking at what the AI invented.
 

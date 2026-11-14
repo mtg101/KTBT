@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: bars and saves.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Press **Next customer** and an AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves; the bar saves itself as you go. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 170 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits and bars played by clicking. Next up: a full night. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: a full night.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Each night runs from 6pm to 3am (about 5 minutes, or 1 on Fast): AI-invented customers turn up on their own, busiest late in the evening, order from the menu, are served, chat with the owner, pay and leave. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. One stool for now, grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 193 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits, bars and nights played by clicking. Next up: several customers at once. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -33,7 +33,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 2. Make sure Ollama is running and the model is pulled.
 3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5). Start a **New bar**, or open a saved one.
 
-**Saves** live in `saves/` in Godot's user data folder (in Godot: **Project → Open User Data Folder**), one readable JSON file per bar. Saving is automatic.
+**Saves** live in `saves/` in Godot's user data folder, one readable JSON file per bar. On Windows that's `%APPDATA%\Godot\app_userdata\KTBT\saves\` (paste it into Explorer's address bar), or in Godot use **Project → Open User Data Folder**. Saving is automatic, and each machine keeps its own saves.
 
 **Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
@@ -55,13 +55,13 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/canned_ai.gd` | Offline mode: pre-written owners, customers, orders and lines, built to pass the game's rules; also the tests' fake AI |
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
-| `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, text tidying (no scene or AI, so easy to test) |
+| `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, the night's clock and arrivals, text tidying (no scene or AI, so easy to test) |
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close |
 | `scripts/save_store.gd` | Reads and writes each bar's save file, safely |
 | `scripts/title.gd` | Title screen logic |
-| `scripts/visit.gd` | The bar's logic: new or saved bar, arrival, order, serving, conversation, bill, autosave |
+| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, arrival, order, serving, conversation, bill, the night summary, autosave |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
-| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, and click-through visits and bars (see [TESTS.md](TESTS.md)) |
+| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage

@@ -41,7 +41,7 @@ func _fill_list() -> void:
 		_list.add_child(_bar_button(bars[i], i))
 
 
-## One saved bar: its name and meaning, owner, visits, takings and when it was last played.
+## One saved bar: its name and meaning, owner, nights, visits, takings and when it was last played.
 func _bar_button(bar: Dictionary, index: int) -> Button:
 	var button := Button.new()
 	button.name = "Bar%d" % index
@@ -49,9 +49,11 @@ func _bar_button(bar: Dictionary, index: int) -> Button:
 	button.custom_minimum_size = Vector2(0, 64)
 	var owner_data: Dictionary = bar.get("owner", {})
 	var visits := int(bar.get("visits", 0))
-	button.text = "%s  (%s)\n%s (%s)  ·  %d %s  ·  %s  ·  last played %s" % [
+	var nights := int(bar.get("nights", 0))
+	button.text = "%s  (%s)\n%s (%s)  ·  %d %s, %d %s  ·  %s  ·  last played %s" % [
 		bar.get("name", "?"), bar.get("name_meaning", ""),
 		owner_data.get("name", "?"), owner_data.get("title", ""),
+		nights, "night" if nights == 1 else "nights",
 		visits, "visit" if visits == 1 else "visits",
 		Menu.format_won(int(bar.get("takings", 0))),
 		_when(int(bar.get("last_played", 0)))]

@@ -149,3 +149,37 @@ func test_history_is_kept_to_a_limit() -> void:
 	assert_int(bar["history"].size()).is_equal(SaveStore.HISTORY_LIMIT)
 	assert_str(str(bar["history"][0]["customer"])).is_equal("Customer 5")
 	assert_int(bar["visits"]).is_equal(SaveStore.HISTORY_LIMIT + 5)
+
+
+func test_new_bar_has_had_no_nights() -> void:
+	var bar := _bar()
+	assert_int(bar["nights"]).is_equal(0)
+	assert_array(bar["night_log"]).is_empty()
+
+
+func test_recording_a_night_counts_it_and_logs_it() -> void:
+	var bar := _bar()
+	SaveStore.record_night(bar, {"night": 1, "customers": 7, "takings": 98000})
+	SaveStore.record_night(bar, {"night": 2, "customers": 9, "takings": 121000})
+	assert_int(bar["nights"]).is_equal(2)
+	assert_int(int(bar["night_log"][1]["customers"])).is_equal(9)
+
+
+func test_night_log_is_kept_to_a_limit() -> void:
+	var bar := _bar()
+	for i in SaveStore.NIGHT_LOG_LIMIT + 3:
+		SaveStore.record_night(bar, {"night": i + 1})
+	assert_int(bar["night_log"].size()).is_equal(SaveStore.NIGHT_LOG_LIMIT)
+	assert_int(int(bar["night_log"][0]["night"])).is_equal(4)
+	assert_int(bar["nights"]).is_equal(SaveStore.NIGHT_LOG_LIMIT + 3)
+
+
+func test_nights_come_back_as_whole_numbers() -> void:
+	var bar := _bar()
+	bar["first_day"] = 2
+	SaveStore.record_night(bar, {"night": 1})
+	SaveStore.save_bar(bar)
+	var loaded := SaveStore.load_bar(bar["id"])
+	assert_int(loaded["nights"]).is_equal(1)
+	assert_int(loaded["first_day"]).is_equal(2)
+	assert_int(typeof(loaded["nights"])).is_equal(TYPE_INT)

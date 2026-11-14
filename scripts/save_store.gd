@@ -12,6 +12,7 @@ extends RefCounted
 
 const VERSION := 1
 const HISTORY_LIMIT := 100
+const NIGHT_LOG_LIMIT := 100
 const REQUIRED := ["id", "name", "owner"]
 
 ## Where saves live. Tests point this somewhere else so they never touch real bars.
@@ -29,7 +30,10 @@ static func new_bar(bar_name: String, meaning: String, owner_data: Dictionary) -
 		"owner": owner_data.duplicate(true),
 		"takings": 0,
 		"visits": 0,
+		"nights": 0,
+		"first_day": 4,  # 0 = Monday; the visit scene picks a random one for a new bar
 		"history": [],
+		"night_log": [],
 		"created": now,
 		"last_played": now,
 	}
@@ -113,6 +117,16 @@ static func record_visit(bar: Dictionary, summary: Dictionary) -> void:
 	bar["history"] = history
 
 
+## Adds a finished night to the bar: the night count and a short summary in night_log.
+static func record_night(bar: Dictionary, summary: Dictionary) -> void:
+	bar["nights"] = int(bar.get("nights", 0)) + 1
+	var log: Array = bar.get("night_log", [])
+	log.append(summary.duplicate(true))
+	while log.size() > NIGHT_LOG_LIMIT:
+		log.pop_front()
+	bar["night_log"] = log
+
+
 static func _read(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
@@ -123,7 +137,7 @@ static func _read(path: String) -> Dictionary:
 		if not data.has(key):
 			return {}
 	# JSON has no integers, so whole numbers come back as floats: put them back.
-	for key in ["version", "takings", "visits", "created", "last_played"]:
+	for key in ["version", "takings", "visits", "nights", "first_day", "created", "last_played"]:
 		if data.has(key):
 			data[key] = int(data[key])
 	if data["owner"] is Dictionary and data["owner"].has("age"):
