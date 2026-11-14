@@ -2,6 +2,18 @@
 
 A running record of what we've done on KTBT and why, newest first. What's coming next is in [PLAN.md](PLAN.md), and AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).
 
+## 14 November 2026
+
+- **Bars and saves stage done:** the game now opens on a **title screen**: **New bar**, or a list of saved bars (name and meaning, owner, visits, takings, last played; newest first).
+  - **New bars:** the AI invents the owner, then names the tent with a short **Korean** name in English letters plus its meaning ("Byeolbit Pocha", Starlight Tent). If the AI can't, the game names it after the owner ("Mi-sook-ne Pocha"). Offline mode has its own names.
+  - **Saves:** one readable JSON file per bar in `saves/` in the user data folder, written safely (temporary file first, then swapped in; a crash leaves a `.tmp` that loading recovers). Each holds the owner, name, takings, visit count and a short history of recent visits.
+  - **Autosave:** after creating a bar, after every visit, on **Close the bar** (back to the title) and when the window closes. A visit still going when you quit just ends; resuming mid-conversation is a later idea.
+  - **Under the hood:** a `Game` autoload keeps track of the open bar; `save_store.gd` reads and writes saves.
+  - **Tests:** 36 new (save files, bar names, and 12 click-through tests for the title screen, new and saved bars, and autosave), **170** in total, all passing.
+  - **Gotchas learned:** editing `project.godot` by hand (to add the autoload) needs **Project → Reload Current Project** before Godot sees it; and click-through tests must let container layouts settle for a frame or two before aiming a click.
+- **Tightened a retry test:** the bad-owner test now proves the bad reply was used, rejected and replaced, not just that some owner appeared.
+- **GdUnit4's run file ignored:** `addons/gdUnit4/GdUnitRunner.cfg` changes on every test run, so it's now in `.gitignore` and untracked.
+
 ## 13 November 2026
 
 - **More room for the dialogue:** the game now runs at 1920×1080 in a normal window (was 1280×720). The grey-box tent stays the same size, centred at the top, and the transcript panel gets the rest of the screen, roughly three to four times as many lines, in slightly bigger text. The layout comes from three constants at the top of `visit.gd` (`SCREEN`, `PANELS_TOP`, `INFO_WIDTH`).

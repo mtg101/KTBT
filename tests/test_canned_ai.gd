@@ -110,3 +110,15 @@ func test_settings_always_include_server_and_model() -> void:
 	var settings := AiSettings.load_settings()
 	assert_str(str(settings["server"])).is_not_empty()
 	assert_str(str(settings["model"])).is_not_empty()
+
+
+
+func test_canned_bar_names_pass_the_rules() -> void:
+	for bar_name in CannedAi.BAR_NAMES:
+		assert_str(Rules.validate_bar_name(bar_name.duplicate())).override_failure_message("%s fails" % bar_name["name"]).is_empty()
+	for gender in ["woman", "man"]:
+		for owner_data in CannedAi.OWNERS[gender]:
+			for attempt in 10:
+				var reply: Dictionary = _canned.reply({"purpose": "bar_name", "owner_name": owner_data["name"]})
+				var problem := Rules.validate_bar_name(reply)
+				assert_str(problem).override_failure_message("%s -> %s" % [JSON.stringify(reply), problem]).is_empty()

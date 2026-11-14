@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: one visit.** The AI invents the tent's owner; press **Next customer** and one AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 134 automated tests cover the game's rules, prompts, offline mode and whole visits played by clicking. Next up: bars and saves. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: bars and saves.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Press **Next customer** and an AI-invented customer arrives, orders from the menu, is served, chats with the owner, pays and leaves; the bar saves itself as you go. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 170 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits and bars played by clicking. Next up: a full night. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -31,7 +31,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 1. Set up the toolchain using [TOOLCHAIN.md](TOOLCHAIN.md).
 2. Make sure Ollama is running and the model is pulled.
-3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5).
+3. Open Godot, **Import** `project.godot` from this folder, and press **Play** (F5). Start a **New bar**, or open a saved one.
+
+**Saves** live in `saves/` in Godot's user data folder (in Godot: **Project → Open User Data Folder**), one readable JSON file per bar. Saving is automatic.
 
 **Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
@@ -43,8 +45,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 | Path | What it is |
 |---|---|
-| `project.godot` | Godot project settings (main scene: `scenes/visit.tscn`) |
-| `scenes/visit.tscn` | The one-visit scene (its UI and grey-box tent are built in code) |
+| `project.godot` | Godot project settings (main scene: `scenes/title.tscn`; autoload: `Game`) |
+| `scenes/title.tscn` | The title screen: New bar, or open a saved one |
+| `scenes/visit.tscn` | The bar itself: owner, customers, orders and conversation (its UI and grey-box tent are built in code) |
 | `scenes/pipeline_test.tscn` | The pipeline test, kept as a quick AI check (open it and press F6) |
 | `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
 | `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
@@ -53,9 +56,12 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
 | `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, text tidying (no scene or AI, so easy to test) |
-| `scripts/visit.gd` | One-visit logic: owner, arrival, order, serving, conversation, bill |
+| `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close |
+| `scripts/save_store.gd` | Reads and writes each bar's save file, safely |
+| `scripts/title.gd` | Title screen logic |
+| `scripts/visit.gd` | The bar's logic: new or saved bar, arrival, order, serving, conversation, bill, autosave |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
-| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, and click-through visits (see [TESTS.md](TESTS.md)) |
+| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, and click-through visits and bars (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage

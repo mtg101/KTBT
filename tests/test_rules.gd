@@ -450,3 +450,44 @@ func test_conversation_can_mention_rice_without_ordering_it() -> void:
 func test_the_and_my_also_refer_to_whats_on_the_table() -> void:
 	var data := _order(["gonggibap"], "The tteokbokki is so good, I need rice too.")
 	assert_str(Rules.validate_extra_order(data, ["soju", "tteokbokki"])).is_empty()
+
+
+
+# --- Bar names -------------------------------------------------------------------------
+
+func test_valid_bar_name_is_accepted() -> void:
+	assert_str(Rules.validate_bar_name({"name": "Byeolbit Pocha", "meaning": "Starlight Tent"})).is_empty()
+
+
+func test_bar_name_in_hangul_is_rejected() -> void:
+	assert_str(Rules.validate_bar_name({"name": "별빛 포차", "meaning": "Starlight Tent"})).contains("English letters")
+
+
+func test_bar_name_thats_just_the_english_meaning_is_rejected() -> void:
+	assert_str(Rules.validate_bar_name({"name": "Starlight Tent", "meaning": "Starlight Tent"})).contains("Korean")
+
+
+func test_very_long_bar_name_is_rejected() -> void:
+	assert_str(Rules.validate_bar_name({"name": "Pocha ".repeat(10), "meaning": "Tent"})).contains("too long")
+
+
+func test_bar_name_without_a_meaning_is_rejected() -> void:
+	assert_str(Rules.validate_bar_name({"name": "Sarang Pocha"})).contains("meaning")
+
+
+func test_quotes_around_bar_name_are_removed() -> void:
+	var data := {"name": "\"Golmok Pocha\"", "meaning": "Back Alley Tent"}
+	assert_str(Rules.validate_bar_name(data)).is_empty()
+	assert_str(str(data["name"])).is_equal("Golmok Pocha")
+
+
+
+func test_fallback_bar_name_uses_the_owners_given_name() -> void:
+	var named := Rules.fallback_bar_name("Park Mi-sook")
+	assert_str(str(named["name"])).is_equal("Mi-sook-ne Pocha")
+	assert_str(Rules.validate_bar_name(named)).is_empty()
+
+
+func test_fallback_bar_name_copes_with_odd_names() -> void:
+	assert_str(Rules.validate_bar_name(Rules.fallback_bar_name(""))).is_empty()
+	assert_str(Rules.validate_bar_name(Rules.fallback_bar_name("Kim 지호"))).is_empty()

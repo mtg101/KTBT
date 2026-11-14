@@ -9,16 +9,26 @@ const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const Rules = preload("res://scripts/rules.gd")
 const Menu = preload("res://scripts/menu.gd")
+const SaveStore = preload("res://scripts/save_store.gd")
 
 const SCENE := "res://scenes/visit.tscn"
+const TEST_SAVES := "user://test_saves_visit/"
 const TIMEOUT_MS := 15000
 
 ## A reply that's valid for either gender of owner (the archetype names no gendered term).
 const ANY_OWNER := {"name": "Han Jeong-hee", "age": 47, "archetype": "former chef who walked out of a hotel kitchen", "appearance": "Sleeves rolled up.", "personality": "proud, funny", "speech_style": "quick and teasing", "secret": "She still gets job offers from the hotel."}
+const A_BAR_NAME := {"name": "Golmok Pocha", "meaning": "Back Alley Tent"}
 const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer."}
 
 
+var _real_saves := ""
+
+
 func before_test() -> void:
+	_real_saves = SaveStore.folder
+	SaveStore.folder = TEST_SAVES
+	_clear_saves()
+	Game.bar = {}  # a new bar each test
 	AiSettings.override = {"backend": "canned"}
 	CannedAi.scripted = []
 	Visit.pause_scale_override = 0.01
@@ -26,6 +36,9 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	_clear_saves()
+	SaveStore.folder = _real_saves
+	Game.bar = {}
 	Ai.simulate_unreachable = false
 	AiSettings.override = {}
 	CannedAi.scripted = []
@@ -34,6 +47,14 @@ func after_test() -> void:
 
 
 # --- Helpers ---------------------------------------------------------------------------
+
+func _clear_saves() -> void:
+	var dir := DirAccess.open(TEST_SAVES)
+	if dir == null:
+		return
+	for file_name in dir.get_files():
+		dir.remove(file_name)
+
 
 ## Waits (a frame at a time) until condition() is true. Returns false on timeout.
 func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
@@ -160,7 +181,7 @@ func test_owner_that_cant_be_invented_offers_try_again() -> void:
 
 
 func test_order_falls_back_to_soju_and_odeng_when_the_ai_keeps_failing() -> void:
-	CannedAi.scripted = [ANY_OWNER, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CUSTOMER, {"items": ["pizza"], "line": "Pizza!"}, {"items": []}, {"nope": true}]
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	await _run_one_visit(runner)

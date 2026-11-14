@@ -59,6 +59,22 @@ Reply with ONLY a JSON object with exactly these keys:
 	]
 
 
+## Messages asking the AI to name the owner's tent. The name is Korean, written in English
+## letters, like a real pojangmacha's.
+static func bar_name_messages(owner: Dictionary) -> Array:
+	var request := """%s
+
+Name this pojangmacha. Real tents have short, warm Korean names, written here in English letters (romanised), often ending in "Pocha" or "Pojangmacha". They might be named after the owner (for example with "-ne", meaning "so-and-so's family's"), a feeling, the weather, the night sky, or the street it's on. The name must be Korean, not English words.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "name": the tent's name in romanised Korean
+- "meaning": what the name means in English, in a few words""" % describe_owner(owner)
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 ## Messages asking the AI to invent one customer for the given moment.
 ## The game picks day, time and weather; the AI only invents the person.
 ## include_opening_line: stage 1 shows an opening line on the profile card. In a visit,

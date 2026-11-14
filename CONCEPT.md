@@ -37,7 +37,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 - **New bar:** the AI invents the owner and the bar's name (a Korean name, checked by the game like everything else the AI writes), and a new save is created straight away.
 - **Autosave, always.** The game saves as it goes, with no save button and no "your progress will be lost" prompt. Close the window at any time, and next time you load, it carries on with the next customer.
 - **When it saves:** at natural moments (a customer arrives, orders, says a line, leaves, or the clock ticks over an hour) and again when the window is closed.
-- **What's saved:** the bar's name, the owner, the takings and history, the clock (night number and time), the weather and the menu, and (from the Regulars and relationships stage) regulars and their memory summaries.
+- **What's saved:** the bar's name and its meaning, the owner, the takings, the visit count, a short history of recent visits (who came, what they ordered, the bill), the clock (night number and time), the weather and the menu, and (from the Regulars and relationships stage) regulars and their memory summaries.
 - **Quitting mid-visit:** for now, an unfinished visit simply ends when you quit, and loading starts with the next customer. Resuming mid-conversation (the customer still on their stool, the chat picking up from the saved transcript) is a later idea in [PLAN.md](PLAN.md).
 - **Safe writes:** each save is written to a temporary file and then swapped in, so a crash mid-save can't corrupt the bar.
 - **Format:** one JSON file per bar in Godot's `user://saves/` folder (on Windows: `%APPDATA%\Godot\app_userdata\KTBT\saves\`). It's human-readable, which is handy for debugging, or for peeking at what the AI invented.

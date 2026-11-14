@@ -109,6 +109,7 @@ You should get back a small JSON object describing a customer. If you do, the wh
 - **Task Manager says the GPU is idle:** its GPU graph shows the "3D" engine by default, which games use. Ollama uses CUDA, which doesn't show there. Click the dropdown above one of the small GPU graphs and switch it to **Cuda** or **Compute_0** to see the real load. Dedicated GPU memory is a better quick check: it should go up by roughly 5–6GB when the model is loaded.
 - **"Could not connect" errors:** make sure Ollama is running (tray icon), or start it by running `ollama serve` in a terminal.
 - **Port already in use:** something else has port 11434. Restarting the PC usually fixes it.
+- **"Identifier not declared" or tests going missing after a `project.godot` change:** Godot only reads project settings (autoloads, the main scene, the window size) when the project loads. After editing `project.godot` outside the editor, use **Project → Reload Current Project**.
 
 ---
 

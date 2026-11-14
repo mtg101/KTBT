@@ -12,6 +12,7 @@ const Ai = preload("res://scripts/ai.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Rules = preload("res://scripts/rules.gd")
+const SaveStore = preload("res://scripts/save_store.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -70,6 +71,8 @@ var _fast_toggle: CheckBox
 var _moment_label: Label
 var _mode_label: Label
 var _takings_label: Label
+var _title_label: Label
+var _leave_button: Button
 var _log: RichTextLabel
 var _typing_label: Label
 var _info: RichTextLabel
@@ -93,7 +96,26 @@ func _ready() -> void:
 	_ai.offline_started.connect(_on_offline_started)
 	if _ai.offline:
 		_show_offline_mode()
-	_invent_owner()
+	if Game.bar.is_empty():
+		_invent_owner()  # A new bar: invent the owner, then name the tent and save it.
+	else:
+		_open_saved_bar()
+
+
+## A bar from a save: its owner is back behind the counter, and the takings carry on.
+func _open_saved_bar() -> void:
+	_owner = Game.bar["owner"].duplicate(true)
+	_takings = int(Game.bar.get("takings", 0))
+	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
+	_show_bar_name()
+	_owner_tag.text = _owner_display()
+	_owner_node.visible = true
+	_narrate(Rules.as_sentence(str(_owner["appearance"])))
+	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
+	_update_info()
+	_button.text = "Next customer"
+	_button.disabled = false
+	_leave_button.disabled = false
 
 
 ## Ollama couldn't be reached partway through, so the AI switched to canned replies.
@@ -132,6 +154,7 @@ func _invent_owner() -> void:
 		_narrate("Couldn't invent the owner: %s" % _ai.last_error)
 		_button.text = "Try again"
 		_button.disabled = false
+		_leave_button.disabled = false
 		_busy = false
 		return
 	_owner = result
@@ -140,11 +163,37 @@ func _invent_owner() -> void:
 	_owner_tag.text = _owner_display()
 	_owner_node.visible = true
 	_narrate(Rules.as_sentence(str(_owner["appearance"])))
+	await _name_bar()
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
 	_button.text = "Next customer"
 	_button.disabled = false
+	_leave_button.disabled = false
 	_busy = false
+
+
+## A new bar: the AI names the tent (the game names it if the AI can't), and it's saved.
+func _name_bar() -> void:
+	_typing_label.text = "The AI is painting the sign..."
+	var named: Dictionary = await _ai.ask_json(Prompts.bar_name_messages(_owner), _validate_bar_name, {"temperature": 0.9},
+		{"purpose": "bar_name", "owner_name": _owner["name"]})
+	_typing_label.text = ""
+	if named.is_empty():
+		named = Rules.fallback_bar_name(str(_owner["name"]))
+	Game.bar = SaveStore.new_bar(str(named["name"]), str(named["meaning"]), _owner)
+	Game.save()
+	_show_bar_name()
+	_narrate("The sign over the tarp reads %s (%s)." % [named["name"], named["meaning"]])
+
+
+func _show_bar_name() -> void:
+	_title_label.text = "KTBT  ·  %s" % Game.bar["name"]
+	_title_label.tooltip_text = str(Game.bar.get("name_meaning", ""))
+
+
+func _on_leave_pressed() -> void:
+	if not _busy:
+		Game.back_to_title()
 
 
 # --- One visit, start to finish ---------------------------------------------
@@ -152,6 +201,7 @@ func _invent_owner() -> void:
 func _run_visit() -> void:
 	_busy = true
 	_button.disabled = true
+	_leave_button.disabled = true
 	_transcript.clear()
 	_order.clear()
 	_customer = {}
@@ -237,9 +287,16 @@ func _run_visit() -> void:
 			break
 		await _say(owner_speaks, str(reply["line"]))
 
-	# 5. Pay and leave. The game works out the bill.
+	# 5. Pay and leave. The game works out the bill, and the bar is saved.
 	var bill := Rules.bill(_order)
-	_takings += bill
+	SaveStore.record_visit(Game.bar, {
+		"customer": _customer["name"], "job": _customer["job"],
+		"day": _moment["day"], "time": _moment["time"], "weather": _moment["weather"],
+		"order": _order.duplicate(), "bill": bill,
+		"when": int(Time.get_unix_time_from_system()),
+	})
+	Game.save()
+	_takings = int(Game.bar["takings"])
 	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
 	_narrate("%s pays %s and heads back out into the night." % [_customer["name"], Menu.format_won(bill)])
 	await _walk_out()
@@ -250,6 +307,7 @@ func _run_visit() -> void:
 func _finish_visit() -> void:
 	_typing_label.text = ""
 	_button.disabled = false
+	_leave_button.disabled = false
 	_busy = false
 
 
@@ -407,6 +465,10 @@ func _validate_owner(data: Variant, gender: String) -> String:
 	return Rules.validate_owner(data, gender)
 
 
+func _validate_bar_name(data: Variant) -> String:
+	return Rules.validate_bar_name(data)
+
+
 func _validate_customer(data: Variant) -> String:
 	return Rules.validate_customer(data)
 
@@ -438,12 +500,14 @@ func _build_ui() -> void:
 	bar.add_theme_constant_override("separation", 18)
 	add_child(bar)
 
-	var title := Label.new()
-	title.text = "KTBT  ·  One visit"
-	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", ACCENT)
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.add_child(title)
+	_title_label = Label.new()
+	_title_label.name = "BarName"
+	_title_label.text = "KTBT  ·  A new bar"
+	_title_label.add_theme_font_size_override("font_size", 22)
+	_title_label.add_theme_color_override("font_color", ACCENT)
+	_title_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_title_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	bar.add_child(_title_label)
 
 	# Shown only in offline mode, so canned characters are never mistaken for the AI.
 	_mode_label = Label.new()
@@ -483,6 +547,15 @@ func _build_ui() -> void:
 	_button.disabled = true
 	_button.pressed.connect(_on_button_pressed)
 	bar.add_child(_button)
+
+	_leave_button = Button.new()
+	_leave_button.name = "LeaveButton"
+	_leave_button.text = "Close the bar"
+	_leave_button.tooltip_text = "Saves and goes back to the title screen."
+	_leave_button.custom_minimum_size = Vector2(150, 40)
+	_leave_button.disabled = true
+	_leave_button.pressed.connect(_on_leave_pressed)
+	bar.add_child(_leave_button)
 
 	# The tent
 	var stage := Control.new()

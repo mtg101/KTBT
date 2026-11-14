@@ -158,3 +158,11 @@ func test_extra_order_prompt_sets_the_limits_and_shows_the_table() -> void:
 func test_extra_order_prompt_says_its_not_a_first_order() -> void:
 	var text := _request(Prompts.extra_order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), _served_transcript(), "Beer, Tteokbokki"))
 	assert_str(text).contains("NOT their first order")
+
+
+
+func test_bar_name_prompt_asks_for_romanised_korean_and_knows_the_owner() -> void:
+	var text := _request(Prompts.bar_name_messages(_owner_data()))
+	assert_str(text).contains("Park Mi-sook")
+	assert_str(text).contains("romanised")
+	assert_str(text).contains("not English words")

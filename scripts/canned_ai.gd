@@ -26,6 +26,18 @@ const OWNERS := {
 	],
 }
 
+## Bar names for offline mode: either named after the owner ("Mi-sook-ne Pocha") or one of these.
+const BAR_NAMES := [
+	{"name": "Haengbok Pocha", "meaning": "Happiness Tent"},
+	{"name": "Byeolbit Pocha", "meaning": "Starlight Tent"},
+	{"name": "Dalbit Pojangmacha", "meaning": "Moonlight Tent"},
+	{"name": "Bitsori Pocha", "meaning": "Sound of the Rain Tent"},
+	{"name": "Golmok Pocha", "meaning": "Back Alley Tent"},
+	{"name": "Uri-jip Pocha", "meaning": "Our House Tent"},
+	{"name": "Sarang Pocha", "meaning": "Love Tent"},
+	{"name": "Saebyeok Pocha", "meaning": "Before-Dawn Tent"},
+]
+
 const CUSTOMERS := [
 	{"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer and a lanyard she forgot to take off."},
 	{"name": "Park Seo-jun", "age": 27, "job": "junior salaryman", "mood": "relieved", "reason": "He escaped the company dinner before the third round.", "speech_style": "polite, nervous laughter", "appearance": "A loosened tie and a suit a size too big."},
@@ -91,6 +103,8 @@ func reply(request: Dictionary) -> Variant:
 			return OWNERS[str(request.get("gender", "woman"))].pick_random().duplicate()
 		"customer":
 			return CUSTOMERS.pick_random().duplicate()
+		"bar_name":
+			return _bar_name(str(request.get("owner_name", "")))
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))
 		"extra_order":
@@ -98,6 +112,15 @@ func reply(request: Dictionary) -> Variant:
 		"line":
 			return {"line": _line(title, bool(request.get("owner_speaks", true)), bool(request.get("first", false)), bool(request.get("last", false)))}
 	return {}
+
+
+## Half the time named after the owner's given name ("Park Mi-sook" -> "Mi-sook-ne Pocha").
+func _bar_name(owner_name: String) -> Dictionary:
+	var parts := owner_name.split(" ", false)
+	if parts.size() >= 2 and randf() < 0.5:
+		var given := parts[parts.size() - 1]
+		return {"name": "%s-ne Pocha" % given, "meaning": "%s's family's tent" % given}
+	return BAR_NAMES.pick_random().duplicate()
 
 
 func _order(title: String, max_mains: int, max_drinks: int) -> Dictionary:

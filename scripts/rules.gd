@@ -26,6 +26,8 @@ const EXTRA_ORDER_ODDS := [0.5, 0.4, 0.1]
 const REFERRING_WORDS := ["this", "these", "that", "the", "my", "our"]
 const MORE_WORDS := ["more", "another", "also", "too", "again", "extra", "add", "refill", "same", "seconds"]
 const MAX_LINE_LENGTH := 500
+const MAX_BAR_NAME_LENGTH := 40
+const MAX_BAR_MEANING_LENGTH := 80
 
 const OWNER_FIELDS := ["name", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
 const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance"]
@@ -55,6 +57,44 @@ static func validate_owner(data: Variant, gender: String) -> String:
 		if term in said:
 			return "the owner is a %s, but their archetype uses \"%s\", which is for a %s" % [gender, term, other]
 	return ""
+
+
+## A bar name is {"name": romanised Korean, "meaning": what it means in English}.
+## The name must be in English letters (spaces, hyphens and apostrophes allowed), short,
+## and not just the English meaning again.
+static func validate_bar_name(data: Variant) -> String:
+	var problem := check_fields(data, ["name", "meaning"])
+	if problem != "":
+		return problem
+	var bar_name := unquote(str(data["name"]))
+	var meaning := unquote(str(data["meaning"]))
+	if bar_name.length() > MAX_BAR_NAME_LENGTH:
+		return "the name is too long (at most %d characters)" % MAX_BAR_NAME_LENGTH
+	if meaning.length() > MAX_BAR_MEANING_LENGTH:
+		return "the meaning is too long (at most %d characters)" % MAX_BAR_MEANING_LENGTH
+	for c in bar_name:
+		var ok := (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c in [" ", "-", "'"]
+		if not ok:
+			return "the name must be Korean written in English letters (no Hangul, numbers or symbols like \"%s\")" % c
+	if bar_name.to_lower() == meaning.to_lower():
+		return "the name is just the English meaning: the name should be Korean, written in English letters"
+	data["name"] = bar_name
+	data["meaning"] = meaning
+	return ""
+
+
+## If the AI can't name the bar, the game does: "<given name>-ne Pocha" ("Park Mi-sook" ->
+## "Mi-sook-ne Pocha", Mi-sook's family's tent).
+static func fallback_bar_name(owner_name: String) -> Dictionary:
+	var parts := owner_name.split(" ", false)
+	var last := parts[parts.size() - 1] if parts.size() > 0 else ""
+	var given := ""
+	for c in last:
+		if (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "-":
+			given += c
+	if given == "":
+		given = "Imo"
+	return {"name": "%s-ne Pocha" % given, "meaning": "%s's family's tent" % given}
 
 
 static func validate_customer(data: Variant) -> String:
