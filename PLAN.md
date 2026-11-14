@@ -8,7 +8,6 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Several at once:** multiple seats and overlapping customers. The clock already runs during visits, so this is also what lets a busy night actually fit everyone who turns up (today, customers who arrive while the stool is taken wait, and give up after 30 game minutes).
 - **Regulars and relationships:** returning customers who remember past visits. Every conversation gets *relationship context* from the game: whether this is a first visit or a return, what the owner and customer actually know about each other (names, past conversations, "the usual"), and how often they've met. The AI only uses what the game says they know.
 - **Art, sound and polish:** real assets, ambient sound and background animation (see **Ambience** in the later ideas for the full wish list), UI styling. Add visual (screenshot) tests once the art settles.
 - **The game:** the player joins the conversations, probably as the owner.
@@ -33,7 +32,9 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Drama incidents and story arcs:** K-drama beats across nights: a confession at the counter, a drunk customer the owner sends home in a taxi, a breakup at the next table, the owner's secret slowly coming out, and the classic: redevelopers threatening to tear the tent down. A light **drama director** in the game picks a beat for the night (a game fact), and the AI writes it.
 - **Journal and trope book:** a diary of past nights to reread, and, fitting the name *Korean Tent Bar Tropes*, a **trope book** that fills in as tropes appear ("Chaebol heir in disguise ✓", "Rain-soaked confession ✓"). The game tags tropes as it plans each visit, so collecting them is reliable rather than guessed from the text.
 - **Variety controls:** the game tracks recent names, jobs and archetypes and tells the AI to avoid them, so a small model doesn't send three Ji-hoons in a row. If repetition shows up in practice, log it in [LLM-TUNING.md](LLM-TUNING.md).
-- **Customer-to-customer chat:** customers at nearby seats talking to each other across tables.
+- **How long people stay:** today a customer stays until their conversation with the owner has run its course, so once the tent fills up, people sit there all night waiting for their turn. That's fine while only the owner talks, but must be fixed before **Customer-to-customer chat**, or nobody will ever leave. The game should give each customer a **stay** (a game fact, like hunger): most stay **30–60 game minutes** whether or not they get much of the owner's time, then wrap up, pay and go. A few are there *to talk* (heartbreak, a secret to get off their chest): they stay longer, and need the owner's attention more. A customer whose time is up gets their goodbye line even if their conversation is unfinished.
+- **Customer-to-customer chat:** customers at nearby seats talking to each other across tables. Needs **How long people stay** first.
+- **Groups:** friends or colleagues arriving together, taking neighbouring stools, sharing dishes and splitting (or fighting over) the bill.
 - **Long-term relationships:** the owner and regulars getting closer over many nights.
 - **Economy:** money, menu upgrades, reputation.
 - **Player controls:** set the night's length (now about 5 minutes, or 1 on Fast), the menu, the weather or day.

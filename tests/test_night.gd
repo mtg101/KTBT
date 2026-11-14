@@ -135,13 +135,14 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	assert_bool(await _wait_for_summary(runner)).override_failure_message("the night never ended").is_true()
-	assert_int(int(scene._clock)).is_equal(27 * 60)
+	assert_int(int(scene._clock)).is_greater_equal(27 * 60)  # the last customers may finish after 3am
 	assert_bool(scene._night_open).is_false()
 	assert_bool((runner.find_child("NextButton") as Button).disabled).is_true()
 	var summary := (runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()
 	assert_str(summary).contains("Night 1 at %s" % Game.bar["name"])
 	assert_str(summary).contains("customer")
-	assert_str(_transcript(runner)).contains("3:00am")
+	assert_str(_transcript(runner)).contains("pulls down the tarp")
+	assert_array(scene._guests).is_empty()
 
 
 func test_the_finished_night_is_saved() -> void:

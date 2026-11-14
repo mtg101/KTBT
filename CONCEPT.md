@@ -6,7 +6,9 @@
 
 A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Over the course of a night, AI-invented customers turn up, order soju and street food, and chat with the tent's owner. Each customer is generated to fit the time of night, so the after-work crowd gives way to night-shift workers and heartbroken stragglers as the hours pass.
 
-**A night** runs from 6pm to 3am on a clock that always runs (about five minutes of real time). Customers arrive at times that suit the hour, busiest from 9pm to midnight, with nobody new after 2:30am. At closing, a summary shows the night's customers, takings and most memorable line, and the bar is ready for another night. Each bar goes round the week, night by night.
+**A night** runs from 6pm to 3am on a clock that always runs (about five minutes of real time). Customers arrive at times that suit the hour, busiest from 9pm to midnight, with nobody new after 2:30am. At 3am the owner calls last orders; once the last customer has gone, a summary shows the night's customers, takings and most memorable line, and the bar is ready for another night. Each bar goes round the week, night by night.
+
+**The tent** has five stools and one owner, who is also the only cook. Drinks and banchan come straight away; cooked dishes queue at the stove, and the AI is told what's still cooking. The owner talks to one customer at a time and moves round: greeting newcomers first, then carrying over food that's ready, then settling bills, otherwise chatting with whoever's been left alone longest. When every stool is taken, newcomers wait a while, then walk on.
 
 **Version one is a simulation, not a game.** The player just watches. Orders are served automatically. Talking to customers yourself (the "game" part) comes later.
 

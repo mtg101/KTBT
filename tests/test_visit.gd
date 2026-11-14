@@ -129,19 +129,130 @@ func test_clicking_next_customer_plays_a_whole_visit() -> void:
 	assert_int(scene._takings).is_equal(Rules.bill(scene._order))
 	assert_int(scene._takings).is_greater(0)
 	assert_str((runner.find_child("TakingsLabel") as Label).text).is_equal("Takings: %s" % Menu.format_won(scene._takings))
-	# They've gone, the counter's clear, and the button works again.
-	assert_bool((runner.find_child("Customer") as Control).visible).is_false()
-	assert_int(runner.find_child("Counter").get_child_count()).is_equal(0)
+	# They've gone, the counter's clear, and the button still works.
+	assert_array(scene._guests).is_empty()
+	assert_int(scene._table_item_count()).is_equal(0)
 	assert_bool((runner.find_child("NextButton") as Button).disabled).is_false()
 
 
-func test_button_is_disabled_during_a_visit() -> void:
+func test_next_customer_still_works_during_a_visit() -> void:
 	var runner := await _open_bar()
+	var scene = runner.scene()
 	var button := runner.find_child("NextButton") as Button
 	await _click(runner, button)
-	assert_bool(button.disabled).is_true()
+	assert_bool(button.disabled).is_false()
+	await _click(runner, button)
+	assert_bool(await _wait_until(func(): return not scene._busy)).is_true()
+	assert_int(int(Game.bar["visits"])).is_equal(2)
+
+
+# --- Several at once ---------------------------------------------------------------------
+
+## As if this many people turned up at the same moment.
+func _crowd(scene, count: int) -> void:
+	for i in count:
+		scene._waiting.append(scene._clock)
+
+
+func test_several_customers_sit_at_once() -> void:
+	var runner := await _open_bar()
 	var scene = runner.scene()
-	await _wait_until(func(): return not scene._busy)
+	_crowd(scene, 3)
+	var together: bool = await _wait_until(func(): return scene._guests.size() >= 2)
+	assert_bool(together).override_failure_message("never more than one customer at a time").is_true()
+	assert_bool(await _wait_until(func(): return not scene._busy)).override_failure_message("the customers never all left").is_true()
+	# Everyone paid, and the takings are exactly their bills added up.
+	var saved := SaveStore.load_bar(str(Game.bar["id"]))
+	assert_int(int(saved["visits"])).is_equal(3)
+	var bills := 0
+	for visit in saved["history"]:
+		bills += int(visit["bill"])
+	assert_int(scene._takings).is_equal(bills)
+	assert_int(scene._table_item_count()).is_equal(0)
+
+
+func test_there_are_only_five_stools() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 7)
+	var full: bool = await _wait_until(func(): return scene._guests.size() == 5)
+	assert_bool(full).override_failure_message("the tent never filled up").is_true()
+	assert_int(scene._waiting.size()).is_equal(2)  # the other two wait for a stool
+	var most := [0]
+	var seats_ok := [true]
+	var watch := func() -> bool:
+		most[0] = maxi(most[0], scene._guests.size())
+		var seats := {}
+		for guest in scene._guests:
+			if seats.has(guest.seat):
+				seats_ok[0] = false
+			seats[guest.seat] = true
+		return not scene._busy
+	var done: bool = await _wait_until(watch, 30000)
+	assert_bool(done).is_true()
+	assert_int(most[0]).is_equal(5)
+	assert_bool(seats_ok[0]).override_failure_message("two customers shared a stool").is_true()
+	assert_int(int(Game.bar["visits"])).is_equal(7)
+
+
+func test_someone_who_waits_too_long_walks_past() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 6)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
+	scene._clock += Rules.GIVE_UP_MINUTES + 1  # the one left waiting has waited long enough
+	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).override_failure_message("nobody gave up").is_true()
+	assert_array(scene._waiting).is_empty()
+	assert_str(_transcript(runner)).contains("sees every stool taken, and walks on")
+	# They really walk past: on screen now, gone once they've walked on.
+	var passer := runner.find_child("PasserBy1", true, false) as Control
+	assert_object(passer).is_not_null()
+	assert_bool(await _wait_until(func(): return not is_instance_valid(passer))).override_failure_message("the passer-by never left").is_true()
+	assert_bool(await _wait_until(func(): return not scene._busy, 30000)).is_true()
+	assert_int(int(Game.bar["visits"])).is_equal(5)
+
+
+func test_cooked_food_waits_at_the_stove() -> void:
+	var order := {"items": ["beer", "tteokbokki"], "line": "A cold beer and the tteokbokki, please."}
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CUSTOMER, order]
+	var runner := await _open_bar()
+	await _run_one_visit(runner)
+	var text := _transcript(runner)
+	# The beer comes straight away; the tteokbokki goes on the stove and is carried over later.
+	assert_str(text).contains("Served: Beer, with the free banchan")
+	assert_str(text).contains("On the stove: Tteokbokki")
+	assert_str(text).contains("brings the Tteokbokki over to Kim Ji-ho")
+	assert_int(text.find("On the stove: Tteokbokki")).is_less(text.find("brings the Tteokbokki over"))
+
+
+func test_the_ai_hears_what_is_still_cooking() -> void:
+	var order := {"items": ["beer", "dakgalbi"], "line": "A beer and the dakgalbi, please."}
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CUSTOMER, order]
+	Visit.pause_scale_override = 1.0  # slow the stove, so the dakgalbi is still cooking for the first line
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	var seated: bool = await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line > 0)
+	assert_bool(seated).is_true()
+	var guest = scene._guests[0]
+	assert_str(scene._table_text(guest)).contains("Still cooking")
+	assert_str(scene._table_text(guest)).contains("Dakgalbi")
+	var told := false
+	for entry in guest.transcript:
+		if entry.has("action") and str(entry["action"]).contains("puts Dakgalbi on the stove; it isn't ready yet"):
+			told = true
+	assert_bool(told).is_true()
+
+
+func test_the_owner_moves_between_customers() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return not scene._busy)).is_true()
+	var text := _transcript(runner)
+	assert_str(text).contains("turns back to")
+	# With two in, the owner's lines say who they're talking to.
+	assert_str(text).contains(") to ")
 
 
 func test_takings_add_up_over_several_visits() -> void:

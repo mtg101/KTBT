@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: a full night.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Each night runs from 6pm to 3am (about 5 minutes, or 1 on Fast): AI-invented customers turn up on their own, busiest late in the evening, order from the menu, are served, chat with the owner, pay and leave. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. One stool for now, grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 193 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits, bars and nights played by clicking. Next up: several customers at once. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: several at once.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name) or carry on with a saved one. Each night runs from 6pm to 3am (about 5 minutes, or 1 on Fast): AI-invented customers turn up on their own, busiest late in the evening, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner, who moves round the counter, pay and leave; when it's full, people walk on by. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. Grey-box art. Customers order like at a real pojangmacha: a drink and a food, free banchan, and sometimes one more bottle later. Runs without the AI too, in an offline mode. 207 automated tests cover the game's rules, prompts, offline mode, saves, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -59,7 +59,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close |
 | `scripts/save_store.gd` | Reads and writes each bar's save file, safely |
 | `scripts/title.gd` | Title screen logic |
-| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, arrival, order, serving, conversation, bill, the night summary, autosave |
+| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations, bills, the night summary, autosave |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
 | `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |

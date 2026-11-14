@@ -291,6 +291,40 @@ static func memorable_line(lines: Array) -> Dictionary:
 	return best
 
 
+# --- Seats and the kitchen -----------------------------------------------------------------
+
+## Stools at the counter.
+const SEATS := 5
+
+
+## The items that come straight away (drinks, anything not cooked), in order.
+static func instant_items(items: Array) -> Array:
+	return items.filter(func(id): return Menu.cook_minutes(str(id)) == 0)
+
+
+## The items that go on the stove and wait their turn, in order.
+static func cooked_items(items: Array) -> Array:
+	return items.filter(func(id): return Menu.cook_minutes(str(id)) > 0)
+
+
+## What's on a customer's table, as the AI is told it, including what's still cooking, so
+## nobody eats a dish that hasn't arrived (though they can grumble about waiting for it).
+static func table_text(served: Array, cooking: Array, banchan: String) -> String:
+	var text := "free banchan (%s)" % banchan
+	if not served.is_empty():
+		text = "%s, plus free banchan (%s)" % [item_names(served), banchan]
+	if not cooking.is_empty():
+		text += ". Still cooking, so not on the table yet and nobody can eat it: %s" % item_names(cooking)
+	return text
+
+
+## At 3am the owner calls last orders, and every conversation wraps up: at most the owner's
+## next line and the customer's reply (or just the reply, if it's the customer's turn).
+## Returns the conversation's new length in lines.
+static func last_orders_total(next_line: int, total_lines: int) -> int:
+	return mini(total_lines, next_line + (2 if next_line % 2 == 0 else 1))
+
+
 static func has_main(items: Array) -> bool:
 	for id in items:
 		if Menu.find(id).get("portion", "") == "main":

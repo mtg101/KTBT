@@ -557,3 +557,39 @@ func test_memorable_line_is_the_longest() -> void:
 
 func test_memorable_line_is_empty_when_nobody_spoke() -> void:
 	assert_bool(Rules.memorable_line([]).is_empty()).is_true()
+
+
+# --- Seats and the kitchen ---------------------------------------------------------------
+
+func test_the_tent_has_five_stools() -> void:
+	assert_int(Rules.SEATS).is_equal(5)
+
+
+func test_drinks_come_straight_away_and_cooked_food_waits() -> void:
+	var order := ["beer", "tteokbokki", "odeng", "pajeon"]
+	assert_array(Rules.instant_items(order)).contains_exactly(["beer", "odeng"])
+	assert_array(Rules.cooked_items(order)).contains_exactly(["tteokbokki", "pajeon"])
+
+
+func test_table_text_says_what_is_still_cooking() -> void:
+	var text := Rules.table_text(["beer"], ["tteokbokki"], "kimchi")
+	assert_str(text).starts_with("Beer, plus free banchan (kimchi)")
+	assert_str(text).contains("Still cooking")
+	assert_str(text).contains("nobody can eat it: Tteokbokki")
+
+
+func test_table_text_with_everything_served_mentions_no_cooking() -> void:
+	assert_str(Rules.table_text(["beer", "tteokbokki"], [], "kimchi")).is_equal("Beer, Tteokbokki, plus free banchan (kimchi)")
+
+
+func test_table_text_with_only_banchan() -> void:
+	assert_str(Rules.table_text([], ["bokkeumbap"], "kimchi")).starts_with("free banchan (kimchi). Still cooking")
+
+
+func test_last_orders_wraps_conversations_up() -> void:
+	# The owner's turn next: one more owner line and the customer's reply.
+	assert_int(Rules.last_orders_total(4, 10)).is_equal(6)
+	# The customer's turn next: just their reply.
+	assert_int(Rules.last_orders_total(5, 10)).is_equal(6)
+	# Nearly done anyway: no change.
+	assert_int(Rules.last_orders_total(9, 10)).is_equal(10)

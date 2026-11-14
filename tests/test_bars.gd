@@ -225,15 +225,21 @@ func test_close_the_bar_saves_and_goes_back_to_the_title() -> void:
 	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
 
 
-func test_close_the_bar_is_disabled_during_a_visit() -> void:
+func test_close_the_bar_waits_until_the_owner_is_free() -> void:
 	var runner := await _open_visit()
+	var scene = runner.scene()
+	var id := str(Game.bar["id"])
 	var leave := runner.find_child("LeaveButton") as Button
 	assert_bool(leave.disabled).is_false()
 	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(leave.disabled).is_true()
-	var scene = runner.scene()
-	await _wait_until(func(): return not scene._busy)
-	assert_bool(leave.disabled).is_false()
+	assert_bool(await _wait_until(func(): return scene._owner_working)).is_true()
+	await _click(runner, leave)
+	# Mid-task, the owner finishes what they're doing first...
+	if scene._owner_working:
+		assert_bool(leave.disabled).is_true()
+	# ...then the bar closes and goes back to the title.
+	assert_bool(await _wait_for_scene(TITLE)).override_failure_message("Close the bar never went back to the title").is_true()
+	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
 
 
 func test_closing_the_window_saves_the_bar() -> void:

@@ -95,3 +95,13 @@ func test_prompt_list_marks_mains_and_sides() -> void:
 func test_aliases_resolve_to_menu_ids() -> void:
 	assert_str(Menu.resolve("rice")).is_equal("gonggibap")
 	assert_str(Menu.resolve("Fried rice")).is_equal("bokkeumbap")
+
+
+func test_drinks_and_ready_food_need_no_cooking() -> void:
+	for id in ["soju", "makgeolli", "beer", "somaek", "odeng", "gonggibap"]:
+		assert_int(Menu.cook_minutes(id)).override_failure_message("%s shouldn't need cooking" % id).is_equal(0)
+
+
+func test_cooked_dishes_take_some_minutes() -> void:
+	for id in ["tteokbokki", "dakgalbi", "pajeon", "ramyeon", "gyeran_mari", "bokkeumbap"]:
+		assert_int(Menu.cook_minutes(id)).override_failure_message("%s should need cooking" % id).is_between(1, 20)

@@ -4,21 +4,24 @@ extends RefCounted
 ## Food has a portion: "main" (a proper dish; most people order one) or "side" (a small plate).
 ## Optional: "aliases" (other names the AI might use) and "extra_only" (only ordered later in a
 ## visit, e.g. fried rice made in the leftover sauce of a main dish).
+## "cook" is how many game minutes a dish takes on the stove. There's one cook, so cooked
+## dishes queue; anything without it (drinks, odeng from the simmering pot, a bowl of rice)
+## comes straight away.
 
 const ITEMS := [
 	{"id": "soju", "name": "Soju", "desc": "the classic green bottle", "price": 5000, "kind": "drink", "color": "3fae6a"},
 	{"id": "makgeolli", "name": "Makgeolli", "desc": "milky rice wine", "price": 6000, "kind": "drink", "color": "e9e4d4"},
 	{"id": "beer", "name": "Beer", "desc": "a cold lager", "price": 5000, "kind": "drink", "color": "e0b23c"},
 	{"id": "somaek", "name": "Somaek", "desc": "a shot of soju dropped into beer", "price": 9000, "kind": "drink", "color": "c9d86a"},
-	{"id": "tteokbokki", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f"},
+	{"id": "tteokbokki", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6},
 	{"id": "odeng", "name": "Odeng", "desc": "fish cake skewers in hot broth", "price": 8000, "kind": "food", "portion": "side", "color": "c9a26b"},
-	{"id": "sundae", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a"},
-	{"id": "dakgalbi", "name": "Dakgalbi", "desc": "spicy stir-fried chicken", "price": 18000, "kind": "food", "portion": "main", "color": "c4572e"},
-	{"id": "pajeon", "name": "Pajeon", "desc": "spring onion pancake", "price": 15000, "kind": "food", "portion": "main", "color": "d9b44a"},
-	{"id": "ramyeon", "name": "Ramyeon", "desc": "instant noodles, made to order", "price": 5000, "kind": "food", "portion": "main", "color": "e07a3a"},
-	{"id": "gyeran_mari", "name": "Gyeran-mari", "desc": "rolled omelette", "price": 9000, "kind": "food", "portion": "side", "color": "f2d36b"},
+	{"id": "sundae", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a", "cook": 4},
+	{"id": "dakgalbi", "name": "Dakgalbi", "desc": "spicy stir-fried chicken", "price": 18000, "kind": "food", "portion": "main", "color": "c4572e", "cook": 12},
+	{"id": "pajeon", "name": "Pajeon", "desc": "spring onion pancake", "price": 15000, "kind": "food", "portion": "main", "color": "d9b44a", "cook": 9},
+	{"id": "ramyeon", "name": "Ramyeon", "desc": "instant noodles, made to order", "price": 5000, "kind": "food", "portion": "main", "color": "e07a3a", "cook": 5},
+	{"id": "gyeran_mari", "name": "Gyeran-mari", "desc": "rolled omelette", "price": 9000, "kind": "food", "portion": "side", "color": "f2d36b", "cook": 6},
 	{"id": "gonggibap", "name": "Gonggibap", "desc": "a bowl of steamed rice", "price": 1000, "kind": "food", "portion": "side", "color": "f4f1e8", "aliases": ["rice", "steamed rice", "bowl of rice"]},
-	{"id": "bokkeumbap", "name": "Bokkeumbap", "desc": "fried rice made in the leftover sauce of a main dish; only ordered later, once a main is on the table", "price": 3000, "kind": "food", "portion": "side", "color": "c98a3a", "aliases": ["fried rice"], "extra_only": true},
+	{"id": "bokkeumbap", "name": "Bokkeumbap", "desc": "fried rice made in the leftover sauce of a main dish; only ordered later, once a main is on the table", "price": 3000, "kind": "food", "portion": "side", "color": "c98a3a", "aliases": ["fried rice"], "extra_only": true, "cook": 6},
 ]
 
 
@@ -28,6 +31,11 @@ static func find(id: String) -> Dictionary:
 		if item["id"] == id:
 			return item
 	return {}
+
+
+## Game minutes on the stove (0: served straight away).
+static func cook_minutes(id: String) -> int:
+	return int(find(id).get("cook", 0))
 
 
 ## Matches whatever the AI wrote ("soju", "Gyeran-mari", " Tteokbokki ") to a menu id.
