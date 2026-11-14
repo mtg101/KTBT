@@ -708,14 +708,14 @@ func test_problems_are_grouped_by_kind() -> void:
 
 # --- Non-binary customers -------------------------------------------------------------------
 
-func test_about_one_in_a_hundred_is_non_binary() -> void:
-	assert_str(Rules.game_gender(0.0)).is_equal("non-binary")
-	assert_str(Rules.game_gender(Rules.NON_BINARY_CHANCE + 0.001)).is_empty()  # the AI chooses
-	var count := 0
+func test_the_game_decides_every_gender() -> void:
+	# About one in a hundred non-binary, the rest half women and half men.
+	var counts := {"non-binary": 0, "woman": 0, "man": 0}
 	for i in 1000:
-		if Rules.game_gender(i / 1000.0) == "non-binary":
-			count += 1
-	assert_int(count).is_equal(10)
+		counts[Rules.game_gender(i / 1000.0)] += 1
+	assert_int(counts["non-binary"]).is_equal(10)
+	assert_int(counts["woman"]).is_between(490, 500)
+	assert_int(counts["man"]).is_between(490, 500)
 
 
 func test_a_gender_the_game_decided_needs_only_a_name() -> void:
@@ -809,3 +809,58 @@ func test_cat_names() -> void:
 	assert_str(Rules.validate_cat_name({"name": "두부"})).contains("English letters")
 	assert_bool(Rules.fallback_cat_name(0.5) in Rules.CAT_NAMES).is_true()
 	assert_str(Rules.fallback_cat_name(1.0)).is_equal(Rules.CAT_NAMES.back())
+
+
+# --- What conversations turn to -----------------------------------------------------------
+
+func test_owner_topics_vary_and_never_repeat_straight_away() -> void:
+	var seen := {}
+	for i in 100:
+		var topic := Rules.pick_owner_topic(i / 100.0, false, "tent", "their_day")
+		assert_str(topic).is_not_equal("their_day")
+		seen[topic] = true
+	assert_int(seen.size()).is_greater_equal(6)  # plenty of variety, food among them
+	assert_bool(seen.has("food")).is_true()
+
+
+func test_food_comes_up_more_when_somethings_just_been_served() -> void:
+	var counts := {true: 0, false: 0}
+	for news in [true, false]:
+		for i in 200:
+			if Rules.pick_owner_topic(i / 200.0, news, "tent") == "food":
+				counts[news] += 1
+	assert_int(counts[true]).is_greater(counts[false] * 2)
+
+
+func test_the_cat_comes_up_only_when_its_about() -> void:
+	for i in 100:
+		assert_str(Rules.pick_owner_topic(i / 100.0, false, "none")).is_not_equal("the_cat")
+		assert_str(Rules.pick_chat_topic(i / 100.0, "none")).is_not_equal("the_cat")
+	var with_them := 0
+	var about := 0
+	for i in 200:
+		if Rules.pick_owner_topic(i / 200.0, false, "with_them") == "the_cat":
+			with_them += 1
+		if Rules.pick_owner_topic(i / 200.0, false, "tent") == "the_cat":
+			about += 1
+	assert_int(with_them).is_greater(about * 2)  # a cat on your lap is hard to ignore
+
+
+func test_topic_hints_say_where_to_steer() -> void:
+	assert_str(Rules.topic_hint("their_day")).contains("how their day has gone")
+	assert_str(Rules.topic_hint("life", true)).contains("love, family")
+	assert_str(Rules.topic_hint("nonsense")).is_empty()
+
+
+func test_lines_with_brackets_are_rejected() -> void:
+	var problem := Rules.validate_line({"line": "Ne, soju moksaess-eoyo? (Just got soju, right?)"}, "Kim Ji-ho", "")
+	assert_str(problem).contains("brackets")
+	assert_str(Rules.problem_kind(problem)).is_equal("brackets (translations, asides)")
+	assert_str(Rules.validate_line({"line": "Aigoo, what a night."}, "Kim Ji-ho", "")).is_empty()
+
+
+func test_every_bars_cat_has_its_own_name() -> void:
+	assert_str(Rules.validate_cat_name({"name": "Ssal"}, "Park Mi-sook", ["ssal", "Dubu"])).contains("already called")
+	assert_str(Rules.problem_kind("another bar's cat is already called Ssal: pick a different name")).is_equal("same name")
+	for i in 20:
+		assert_str(Rules.fallback_cat_name(i / 20.0, ["Nabi", "Dubu"])).is_not_equal("Nabi")

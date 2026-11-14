@@ -30,14 +30,16 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 ### Customers
 - Generated per visit, shaped by the time of night, the day and the weather, in two steps: first a name and gender (so a name that's already at the counter can be swapped quickly), then the rest.
 - Profile (JSON): name, gender, age, job, mood, why they're here tonight, how they talk.
-- **Gender:** woman or man, chosen by the AI; about one customer in a hundred is non-binary (they/them), which the game decides. Shown on screen as ♀ ♂ ⚲ next to names, since Korean names don't make it obvious.
+- **Gender:** decided by the game: half women, half men, and about one in a hundred non-binary (they/them). The AI names them. Shown on screen as ♀ ♂ ⚲ next to names, since Korean names don't make it obvious.
 - **Game facts about each customer:** how long they'll stay (30–60 game minutes, longer for someone here to talk), their mood for company (chatty, keeps to themselves, or here to talk to the owner), whether they're hungry or having a rough night, and whether they'll order more later.
 - Visits: arrive, order from the menu, eat and drink, talk with the owner (and maybe other customers), then say goodbye, pay and leave when their time's up.
+- **Nobody knows more than they should:** the AI is told what everyone can see (how someone looks) and that nobody knows another's name, age, job, reason for coming or secret until it's been said. Everyone speaks fluent, natural English (they're speaking Korean), with the odd Korean word a K-drama fan would know.
+- **What conversations turn to:** the game picks a topic for each spell of chat (their day, what's on their mind, a story from the owner's past, the weather, the cat, food…), so talk doesn't get stuck on one thing.
 - **Strangers talk politely:** nobody at the counter knows anyone yet, so terms like oppa, hyung, nuna and eonni (for people who are close) are ruled out, and no two people there share a name.
 - **Later:** regulars who return and remember previous visits, via a short stored summary of each.
 
 ### The cat
-- Every bar has a cat, saved with it: the game picks its coat and personality (lazy, affectionate, greedy, grumpy or curious), and the AI names it.
+- Every bar has a cat, saved with it: the game picks its coat, personality (lazy, affectionate, greedy, grumpy or curious) and sex (she or he), and the AI names it (no two bars' cats share a name).
 - The game decides where it is all night (asleep by the stove, on someone's lap, out in the street…), by its personality, and everyone talks about it as it really is: nobody strokes it unless it's on their lap.
 
 ## Saving and loading

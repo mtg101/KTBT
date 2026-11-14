@@ -55,7 +55,7 @@ func test_panel_shows_every_section() -> void:
 	stats.chat_lines = 10
 	stats.owner_lines = 30
 	var text := stats.panel_text(3, 1)
-	for part in ["PEOPLE", "TALK", "FOOD", "AI", "Arrived 7", "At the counter 3", "on the stove now 1", "2 started, 10 lines (25% of all lines)"]:
+	for part in ["PEOPLE", "TALK", "FOOD", "AI", "Arrived 7", "At the counter 3", "Wait for the owner", "Wait for first drinks", "on the stove now 1", "2 started, 10 lines (25% of all lines)"]:
 		assert_str(text).contains(part)
 
 
@@ -91,3 +91,12 @@ func test_how_full_the_tent_was() -> void:
 	assert_str(text).contains("avg 1.5")
 	assert_str(text).contains("Two or more in: 50% of the night")
 	assert_float(float(stats.summary({})["people"]["average_seated"])).is_equal(1.5)
+
+
+func test_chat_chances_are_counted() -> void:
+	var stats := NightStats.new()
+	stats.chat_chances = 10
+	stats.chats_started = 2
+	stats.chats_continued = 3
+	assert_str(stats.panel_text(2, 0)).contains("Chat chances: 10 · taken 5 (2 new, 3 carried on)")
+	assert_int(int(stats.summary({})["talk"]["chat_chances"])).is_equal(10)

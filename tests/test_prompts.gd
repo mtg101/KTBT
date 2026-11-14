@@ -262,7 +262,7 @@ func _cat() -> Dictionary:
 
 func test_dialogue_prompts_say_where_the_cat_is() -> void:
 	var cat := Prompts.describe_cat(_cat(), "Nabi is curled up asleep by the stove.")
-	assert_str(cat).contains("Nabi, the tent's ginger cat (lazy: sleeps most of the night)")
+	assert_str(cat).contains("Nabi, the tent's ginger cat, lazy: sleeps most of the night")
 	assert_str(cat).contains("nobody strokes it")
 	var line := _request(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "", cat))
 	assert_str(line).contains("Right now: Nabi is curled up asleep by the stove.")
@@ -272,5 +272,41 @@ func test_dialogue_prompts_say_where_the_cat_is() -> void:
 
 func test_cat_name_prompt_knows_the_cat() -> void:
 	var text := _request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "calico", "greedy"))
-	assert_str(text).contains("a calico cat, greedy")
+	assert_str(text).contains("a calico female cat, greedy")
 	assert_str(text).contains("Korean pet name")
+
+
+# --- Speaking English, and knowing only what you've been told --------------------------------
+
+func test_dialogue_is_english_with_the_odd_korean_word() -> void:
+	var text := str(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "")[0]["content"])
+	assert_str(text).contains("Write in English")
+	assert_str(text).contains("Western fans of K-dramas")
+	assert_str(text).contains("never whole sentences in Korean")
+
+
+func test_nobody_knows_what_they_havent_been_told() -> void:
+	assert_str(Prompts.describe_owner(_owner_data())).contains("Customers don't know the owner's past or secret")
+	var person := Prompts.describe_person(_customer_data())
+	assert_str(person).contains("Nobody else knows their name, age, job or why they're here unless they've said it")
+	assert_str(person).contains("What anyone can see: A crumpled blazer.")
+
+
+func test_details_prompt_asks_for_someone_different_from_tonights_others() -> void:
+	var text := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Moon Tae-il", "man", ["nurse", "office worker"], ["Dark circles and a messy bun."]))
+	assert_str(text).contains("Jobs they've had: nurse, office worker. Pick a different job.")
+	assert_str(text).contains("Dark circles and a messy bun.")
+	var first := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Moon Tae-il", "man"))
+	assert_str(first).not_contains("Pick a different job")  # the first customer of the night has nobody to differ from
+
+
+func test_the_cat_is_a_she_or_a_he() -> void:
+	var cat := {"name": "Nabi", "coat": "ginger", "personality": "lazy", "sex": "he"}
+	assert_str(Prompts.describe_cat(cat, "Nabi is asleep.")).contains("(a male: call the cat \"he\")")
+	assert_str(_request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "black", "curious", "he", ["Ssal"]))).contains("Other tents' cats are called Ssal")
+
+
+func test_everyone_speaks_fluently() -> void:
+	var text := str(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "")[0]["content"])
+	assert_str(text).contains("fluent, natural English in their own voice")
+	assert_str(text).contains("never broken English")

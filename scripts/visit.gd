@@ -98,6 +98,8 @@ const BUSY_CHAT_CHANCE := 0.6
 const JOIN_CHANCE := 0.25  # how often another customer joins an ongoing chat
 const OWNER_JOINS_CHANCE := 0.2  # how often the owner joins a customer chat
 const CHAT_LINES := Vector2i(3, 5)  # lines in a spell of customer chat
+const CHAT_MIN_STAY_LEFT := 10.0  # game minutes
+const CHAT_LINES_BEFORE_INTERRUPTING := 3  # a chat gets this many lines before anything can cut in
 const COMPANY_LABEL := {"chatty": "chatty", "quiet": "keeps to themselves", "owner": "here to talk"}
 
 ## Real seconds per game minute at normal speed. The clock always runs, whatever's
@@ -125,6 +127,11 @@ class Guest:
 	var extra_turns: Array = []  # lines that become later orders instead
 	var attended := 0  # when the owner last saw to them (a running count)
 	var company := "chatty"  # their mood for company (see Rules.company)
+	var topic := ""  # what their chat with the owner is turning to (see Rules.pick_owner_topic)
+	var food_news := false  # something's been served since the last topic was picked
+	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
+	## so a line the AI wrote before it happened can be asked for again.
+	var version := 0
 	var quick_greeting := false  # greeted in a rush: the owner's first proper word comes later
 	var stay_left := 0.0  # game minutes until they want to go
 	var node: Control
@@ -143,6 +150,7 @@ class Chat:
 	var owner_in := false
 	var transcript: Array = []  # what's been said in this chat, and what happened
 	var last_speaker := ""  # a name
+	var topic := ""  # what it's turning to this spell (see Rules.pick_chat_topic)
 
 
 var _ai: Ai
@@ -153,6 +161,9 @@ var _takings := 0
 var _guests: Array = []  # Guest: whoever's on a stool
 var _chats: Array = []  # Chat: customer conversations going on at the counter
 var _names_tonight: Array = []
+var _jobs_tonight: Array = []  # tonight's customers' jobs and looks, so newcomers are different
+var _looks_tonight: Array = []
+const VARIETY_LOOKS := 5  # how many recent looks the AI is shown
 # The cat: who it is (saved with the bar) and where it is now.
 var _cat := {}  # name, coat, personality
 var _cat_spot := "stove"
@@ -160,12 +171,16 @@ var _cat_with: Guest = null  # the customer it's on, at the feet of, or begging 
 var _cat_next := 0.0  # game minutes until it moves on
 var _cat_node: Control
 var _cat_tween: Tween
-const CAT_MOVE_MINUTES := Vector2(10, 30)  # every customer's name so far tonight (the AI is asked to avoid them)
+const CAT_MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
+## How often a move that's just the cat pottering about (not with a customer, not in or out
+## of the tent) is narrated, so the transcript isn't a log of the cat's every step.
+const CAT_POTTER_NARRATED := 0.35  # every customer's name so far tonight (the AI is asked to avoid them)
 var _waiting: Array = []  # when each person waiting for a stool (or to be greeted) turned up
 var _kitchen: Array = []  # {"guest", "id", "left"}: the first is on the stove, the rest queue
 var _ready_dishes: Array = []  # {"guest", "id"}: cooked, waiting to be carried over
 ## The owner's voice: one AI call at a time, so one conversation task at a time.
 var _owner_working := false
+var _greeting := false  # the owner's greeting someone who isn't on their stool yet
 ## The owner's hands: carrying a dish over, which happens whatever the voice is doing.
 var _carrying := false
 var _owner_tween: Tween
@@ -334,19 +349,21 @@ func _name_bar() -> void:
 func _name_cat() -> void:
 	var coat: String = Rules.CAT_COATS.keys().pick_random()
 	var personality: String = Rules.CAT_PERSONALITIES.keys().pick_random()
+	var sex: String = Rules.CAT_SEXES.pick_random()
+	var taken: Array = []  # every bar's cat has its own name
+	for bar in SaveStore.list_bars():
+		var name_taken := str(bar.get("cat", {}).get("name", ""))
+		if name_taken != "" and bar.get("id", "") != Game.bar.get("id", ""):
+			taken.append(name_taken)
 	_typing_label.text = "Something furry is watching from under the counter..."
-	var named: Dictionary = await _ai.ask_json(Prompts.cat_name_messages(_owner, str(Game.bar["name"]), coat, personality),
-		_validate_cat_name, {"temperature": 0.9}, {"purpose": "cat_name"})
+	var named: Dictionary = await _ai.ask_json(Prompts.cat_name_messages(_owner, str(Game.bar["name"]), coat, personality, sex, taken),
+		_validate_cat_name.bind(taken), {"temperature": 0.9}, {"purpose": "cat_name", "taken": taken})
 	_typing_label.text = ""
-	_new_cat(str(named["name"]) if not named.is_empty() else Rules.fallback_cat_name(randf()), coat, personality)
+	_new_cat(str(named["name"]) if not named.is_empty() else Rules.fallback_cat_name(randf(), taken), coat, personality, sex)
 
 
-func _new_cat(cat_name: String, coat: String = "", personality: String = "") -> void:
-	Game.bar["cat"] = {
-		"name": cat_name,
-		"coat": coat if coat != "" else Rules.CAT_COATS.keys().pick_random(),
-		"personality": personality if personality != "" else Rules.CAT_PERSONALITIES.keys().pick_random(),
-	}
+func _new_cat(cat_name: String, coat: String, personality: String, sex: String) -> void:
+	Game.bar["cat"] = {"name": cat_name, "coat": coat, "personality": personality, "sex": sex}
 	Game.save()
 
 
@@ -406,6 +423,8 @@ func _start_night() -> void:
 	_waiting.clear()
 	_chats.clear()
 	_names_tonight.clear()
+	_jobs_tonight.clear()
+	_looks_tonight.clear()
 	_last_orders = false
 	_attending = null
 	_night_open = true
@@ -427,7 +446,7 @@ func _process(delta: float) -> void:
 	if not _night_open or _stopped:
 		return
 	var seconds_per_minute := _scaled(REAL_SECONDS_PER_GAME_MINUTE)
-	_time_speed = move_toward(_time_speed, Rules.time_speed(_guests.size() + _waiting.size()), delta * SPEED_CHANGE_RATE)
+	_time_speed = move_toward(_time_speed, Rules.time_speed(_people_in()), delta * SPEED_CHANGE_RATE)
 	var minutes := delta * _time_speed / seconds_per_minute if seconds_per_minute > 0.0 else 60.0
 	_count_time(delta)
 	_cook(minutes)
@@ -458,6 +477,12 @@ func _process(delta: float) -> void:
 		_end_night()
 	else:
 		_next_task()
+
+
+## Everyone in the tent: on a stool, waiting, or being greeted right now (they've left the
+## queue but aren't on their stool until the AI has invented them).
+func _people_in() -> int:
+	return _guests.size() + _waiting.size() + (1 if _greeting else 0)
 
 
 ## Someone turns up, at this time (game minutes), and waits to be greeted. (Tests call this
@@ -565,9 +590,11 @@ func _next_task() -> void:
 	var chance := BUSY_CHAT_CHANCE if _guests.size() >= Rules.BUSY_COUNTER else CHAT_CHANCE
 	if chat_chance_override >= 0.0:
 		chance = chat_chance_override
-	if _chat_possible() and randf() < chance:
-		_counter_chat()
-		return
+	if _chat_possible():
+		_stats.chat_chances += 1
+		if randf() < chance:
+			_counter_chat()
+			return
 	var lonely := _left_alone_longest()
 	if lonely != null:
 		_talk(lonely)
@@ -764,6 +791,8 @@ func _beside(guest: Guest) -> float:
 func _greet() -> void:
 	_owner_working = true
 	var turned_up: float = _waiting.pop_front()
+	_greeting = true
+	_stats.greet_waits.append(_clock - turned_up)  # how long they waited for the owner
 	var guest := Guest.new()
 	guest.quick_greeting = Rules.quick_greeting(_waiting.size(), _guests.size())
 	guest.seat = _free_seats().pick_random()
@@ -788,16 +817,20 @@ func _greet() -> void:
 	if not who.is_empty():
 		_typing_label.text = "%s is coming down the street..." % who["name"]
 		customer = await _ai.ask_json(
-			Prompts.customer_messages(_night_day, guest.arrived, _night_weather, false, str(who["name"]), str(who["gender"])),
+			Prompts.customer_messages(_night_day, guest.arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS)),
 			_validate_customer_details, {"temperature": 0.9}, {"purpose": "customer", "name": who["name"], "gender": who["gender"]})
 	_typing_label.text = ""
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
+		_greeting = false
 		_task_done()
 		return
 	customer["name"] = who["name"]
 	customer["gender"] = who["gender"]
 	_names_tonight.append(str(who["name"]))
+	if not _jobs_tonight.has(str(customer["job"])):
+		_jobs_tonight.append(str(customer["job"]))
+	_looks_tonight.append(str(customer["appearance"]))
 	# The game decides their mood for company and how long they'll stay.
 	guest.company = company_override if company_override != "" else Rules.company(randf())
 	customer["company"] = guest.company
@@ -811,6 +844,7 @@ func _greet() -> void:
 	guest.node.name = "Customer%d" % guest.seat
 	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
 	_guests.append(guest)
+	_greeting = false
 	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
 	_update_info()
 	_narrate(Rules.as_sentence(str(customer["appearance"])))
@@ -835,7 +869,7 @@ func _greet() -> void:
 		await _say(guest, false, str(order["line"]))
 	guest.order = items.duplicate()
 	_serve(guest, items, true)
-	_stats.greet_waits.append(_clock - turned_up)
+	_stats.serve_waits.append(_clock - turned_up)
 	if guest.quick_greeting:
 		_stats.quick_greetings += 1
 	else:
@@ -862,6 +896,8 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	for id in now:
 		_add_dish(guest, id)
 		guest.served.append(id)
+	guest.version += 1
+	guest.food_news = true
 	if first_order:
 		guest.drinks_row.add_child(_banchan_shape())
 	for id in later:
@@ -905,6 +941,8 @@ func _carry_dish() -> void:
 		return
 	_add_dish(guest, id)
 	guest.served.append(id)
+	guest.version += 1
+	guest.food_news = true
 	_stats.dishes_cooked += 1
 	_stats.food_waits.append(_clock - float(dish["ordered"]))
 	var item_name := str(Menu.find(id)["name"])
@@ -956,8 +994,18 @@ func _settle_up(guest: Guest) -> void:
 func _talk(guest: Guest) -> void:
 	_owner_working = true
 	_attend(guest, true)
+	guest.topic = Rules.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic)
+	guest.food_news = false
 	await _converse(guest, randi_range(1, 2), true)
 	_task_done()
+
+
+## Where the cat is, as far as a guest's conversation goes: "none" (no cat, or it's out in
+## the street), "with_them" (on their lap, at their feet, eyeing their food) or "tent".
+func _cat_here(guest: Guest) -> String:
+	if _cat.is_empty() or _cat_spot == "street":
+		return "none"
+	return "with_them" if guest != null and _cat_with == guest else "tent"
 
 
 func _converse(guest: Guest, exchanges: int, interruptible: bool) -> void:
@@ -987,13 +1035,23 @@ func _next_line(guest: Guest) -> void:
 		direction = "They've just been served: what's ready is on the table, and anything else is still cooking."
 	elif guest.stay_left < 10.0:
 		direction = "The customer is nearly ready to leave."
+	elif guest.topic != "":
+		direction = Rules.topic_hint(guest.topic)
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
-	var reply: Dictionary = await _ai.ask_json(
-		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _cat_prompt()),
-		_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _cat_fact()), {"temperature": 0.85},
-		{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": false})
+	var reply := {}
+	for attempt in 2:
+		var version := guest.version
+		reply = await _ai.ask_json(
+			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _cat_prompt()),
+			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _cat_fact()), {"temperature": 0.85},
+			{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": false})
+		# Out of date already (a dish arrived, or the cat came or went, while the AI was
+		# writing it)? Ask again, with things as they are now.
+		if reply.is_empty() or guest.version == version or attempt == 1:
+			break
+		_stats.stale_redone += 1
 	_typing_label.text = ""
 	if reply.is_empty():
 		# Nothing more to say, so they'll finish up and go.
@@ -1008,17 +1066,45 @@ func _next_line(guest: Guest) -> void:
 ## they just pay.
 func _goodbye(guest: Guest) -> void:
 	var speaker := str(guest.customer["name"])
+	var owner_name := str(_owner["name"])
 	guest.moment["time"] = Rules.clock_text(int(_clock))
+	# If they had the last word, the owner sees them off first, so they don't speak twice running.
+	if _last_speaker(guest.transcript) == speaker:
+		_typing_label.text = "%s is thinking..." % _owner_display()
+		var send_off: Dictionary = await _ai.ask_json(
+			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, true,
+				"The customer is getting up to go: see them off.", _cat_prompt()),
+			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _cat_fact()), {"temperature": 0.85},
+			{"purpose": "line", "title": _owner["title"], "owner_speaks": true, "first": false, "last": false})
+		if not send_off.is_empty():
+			await _say(guest, true, str(send_off["line"]))
+			guest.line += 1
+	# Someone they were chatting with gets a goodbye too.
+	var chat := _chat_of(guest)
+	var partners: Array = [] if chat == null else chat.people.filter(func(g): return g != guest and _guests.has(g)).map(func(g): return str(g.customer["name"]))
+	var direction := "This is the customer's last line: they're paying up and heading back out into the night."
+	if not partners.is_empty():
+		direction += " They also say goodbye to %s, who they were chatting with." % " and ".join(PackedStringArray(partners))
 	_typing_label.text = "%s is reaching for their wallet..." % speaker
 	var reply: Dictionary = await _ai.ask_json(
-		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false,
-			"This is the customer's last line: they're paying up and heading back out into the night.", _cat_prompt()),
-		_validate_line.bind(speaker, "", guest.order, [str(_owner["name"]), speaker], _cat_fact()), {"temperature": 0.85},
+		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction, _cat_prompt()),
+		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _cat_fact()), {"temperature": 0.85},
 		{"purpose": "line", "title": _owner["title"], "owner_speaks": false, "first": false, "last": true})
 	_typing_label.text = ""
 	if not reply.is_empty():
 		await _say(guest, false, str(reply["line"]))
 		guest.line += 1
+	for other in (chat.people if chat != null else []):
+		if other != guest and _guests.has(other):
+			other.transcript.append({"action": "%s, who they were chatting with, says goodbye and leaves." % speaker})
+
+
+## Who spoke last in a transcript ("" if nobody has).
+static func _last_speaker(transcript: Array) -> String:
+	for i in range(transcript.size() - 1, -1, -1):
+		if transcript[i].has("text"):
+			return str(transcript[i]["speaker"])
+	return ""
 
 
 ## The customer orders more partway through. Returns false if the AI couldn't manage it,
@@ -1041,10 +1127,10 @@ func _extra_order(guest: Guest) -> bool:
 
 # --- Customers chatting to each other -------------------------------------------
 
-## Someone who can be drawn into a chat right now: not keeping to themselves, not about to
-## leave, and settled in (served).
+## Someone who can be drawn into a chat right now: not keeping to themselves, settled in
+## (served), and not about to leave (nobody starts a chat with ten minutes to go).
 func _can_chat(guest: Guest) -> bool:
-	return Rules.joins_chats(guest.company) and not guest.time_up() and not guest.order.is_empty()
+	return Rules.joins_chats(guest.company) and guest.stay_left >= CHAT_MIN_STAY_LEFT and not guest.order.is_empty()
 
 
 func _chat_of(guest: Guest) -> Chat:
@@ -1090,6 +1176,7 @@ func _counter_chat() -> void:
 	var free := _free_to_chat()
 	if not ongoing.is_empty() and (free.size() < 2 or randf() < 0.6):
 		chat = ongoing.pick_random()
+		_stats.chats_continued += 1
 		if not free.is_empty() and randf() < JOIN_CHANCE:
 			var joiner: Guest = free.pick_random()
 			chat.people.append(joiner)
@@ -1119,7 +1206,10 @@ func _counter_chat() -> void:
 			guest.attended = _attention
 		_attending = chat.people[0]
 		_move_owner(_beside(chat.people[0]))
+	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
+	chat.topic = Rules.pick_chat_topic(randf(), cat_with_them, chat.topic)
 	var said := ""
+	var lines_said := 0
 	var lines := randi_range(CHAT_LINES.x, CHAT_LINES.y)
 	while lines > 0 and not _leave_requested:
 		var voices: Array = _chat_voices(chat).map(func(guest): return str(guest.customer["name"]))
@@ -1137,7 +1227,9 @@ func _counter_chat() -> void:
 			break
 		said = "%s: \"%s\"" % [speaker, line]
 		lines -= 1
-		if _urgent():
+		lines_said += 1
+		# Something more urgent can cut the chat short, but only once it's had a few lines.
+		if _urgent() and lines_said >= CHAT_LINES_BEFORE_INTERRUPTING:
 			break
 	# Each person's own conversation with the owner hears about it, so the owner can pick it up.
 	if said != "":
@@ -1160,13 +1252,20 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		items.append_array(guest.order)
 		names.append(str(guest.customer["name"]))
 	var moment := {"day": _night_day, "time": Rules.clock_text(int(_clock)), "weather": _night_weather}
-	var direction := "This is the first thing they've ever said to each other." if first else ""
+	var direction := "This is the first thing they've ever said to each other." if first else Rules.topic_hint(chat.topic, true)
 	var owner_speaks := speaker == owner_name
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
-	var reply: Dictionary = await _ai.ask_json(
-		Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _cat_prompt()),
-		_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _cat_fact()), {"temperature": 0.85},
-		{"purpose": "chat_line", "owner_speaks": owner_speaks, "first": first})
+	var reply := {}
+	for attempt in 2:
+		var version := _chat_version(chat)
+		tables = chat.people.map(func(person): return _table_text(person))
+		reply = await _ai.ask_json(
+			Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _cat_prompt()),
+			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _cat_fact()), {"temperature": 0.85},
+			{"purpose": "chat_line", "owner_speaks": owner_speaks, "first": first})
+		if reply.is_empty() or _chat_version(chat) == version or attempt == 1:
+			break
+		_stats.stale_redone += 1  # out of date already: ask again
 	_typing_label.text = ""
 	if reply.is_empty():
 		return ""
@@ -1185,6 +1284,14 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), _esc(line)])
 	_give_time_to_read(line)
 	return line
+
+
+## Changes anyone in a chat can see, added up (see Guest.version).
+func _chat_version(chat: Chat) -> int:
+	var total := 0
+	for person in chat.people:
+		total += person.version
+	return total
 
 
 func _guest_named(customer_name: String) -> Guest:
@@ -1215,12 +1322,18 @@ func _move_cat(spot: String = "") -> void:
 	_cat_with = with
 	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
 	var cat_name := str(_cat["name"])
+	var was_out := _cat_node.visible == false
 	if before != null and before != with and _guests.has(before):
 		before.transcript.append({"action": "%s jumps down and wanders off." % cat_name})
+		before.version += 1
 	var text := Rules.cat_move_text(cat_name, spot, _cat_with_name())
-	_narrate(text)
+	# Moves that matter (with a customer, leaving them, going out or coming in) are always
+	# narrated; just pottering about only sometimes.
+	if with != null or before != null or spot == "street" or was_out or randf() < CAT_POTTER_NARRATED:
+		_narrate(text)
 	if with != null:
 		with.transcript.append({"action": text})
+		with.version += 1
 	_place_cat()
 	_update_info()
 
@@ -1516,7 +1629,7 @@ func _update_info() -> void:
 		t += "[i][color=#%s]Secret: %s[/color][/i]\n" % [muted, _esc(_owner["secret"])]
 	if not _cat.is_empty():
 		t += "\n[color=#%s][b]THE CAT[/b][/color]\n" % accent
-		t += "[b]%s[/b], %s, %s\n" % [_esc(_cat["name"]), _cat["coat"], _cat["personality"]]
+		t += "[b]%s[/b], %s, %s%s\n" % [_esc(_cat["name"]), _cat["coat"], _cat["personality"], (", " + str(_cat["sex"])) if _cat.has("sex") else ""]
 		t += "[color=#%s]%s[/color]\n" % [muted, _esc(Rules.cat_text(str(_cat["name"]), _cat_spot, _cat_with_name()))]
 	var seated := _guests.duplicate()
 	seated.sort_custom(func(a, b): return a.seat < b.seat)
@@ -1572,8 +1685,8 @@ func _validate_line(data: Variant, speaker: String, alias: String, items: Array,
 	return Rules.validate_line(data, speaker, alias, items, names, cat)
 
 
-func _validate_cat_name(data: Variant) -> String:
-	return Rules.validate_cat_name(data, str(_owner["name"]))
+func _validate_cat_name(data: Variant, taken: Array) -> String:
+	return Rules.validate_cat_name(data, str(_owner["name"]), taken)
 
 
 # --- Building the screen ------------------------------------------------------

@@ -638,3 +638,151 @@ func test_the_cat_faces_the_way_its_going() -> void:
 	await get_tree().create_timer(0.1).timeout  # let it get there
 	scene._move_cat("stove")  # and back to the left
 	assert_float(cat.scale.x).is_equal(-1.0)
+
+
+# --- How conversations flow -----------------------------------------------------------------
+
+func test_the_owners_chat_turns_to_a_topic() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.chat_chance_override = 0.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].topic != "")).is_true()
+	assert_bool(Rules.OWNER_TOPICS.has(scene._guests[0].topic)).is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_a_line_written_before_a_dish_arrived_is_asked_for_again() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.chat_chance_override = 0.0
+	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_NAME, A_CUSTOMER, order]
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Ai.canned_think_seconds = 0.3  # the tteokbokki's ready while the owner's first line is being written
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._stats.stale_redone >= 1)).override_failure_message("no out-of-date line was redone").is_true()
+	Ai.canned_think_seconds = 0.0
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_nobody_speaks_twice_running_as_they_leave() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.chat_chance_override = 0.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	# A proper hello ends with the customer's reply: they've had the last word.
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	guest.stay_left = 0.0
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	var speakers: Array = guest.transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["speaker"]))
+	for i in range(1, speakers.size()):
+		assert_bool(speakers[i] == speakers[i - 1] and speakers[i] == str(guest.customer["name"])).override_failure_message("the customer spoke twice running: %s" % str(speakers)).is_false()
+
+
+func test_nobody_starts_a_chat_just_before_leaving() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.company_override = "chatty"
+	Visit.chat_chance_override = 0.0  # no chat while they settle in
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests.all(func(g): return not g.order.is_empty()))).is_true()
+	assert_bool(scene._chat_possible()).is_true()  # two chatty, settled-in customers could chat...
+	for guest in scene._guests:
+		guest.stay_left = Visit.CHAT_MIN_STAY_LEFT - 1.0
+	assert_bool(scene._chat_possible()).is_false()  # ...but not with minutes to go
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_someone_leaving_a_chat_says_goodbye_to_their_partner() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.company_override = "chatty"
+	Visit.chat_chance_override = 1.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._stats.chat_lines >= 2 and not scene._chats.is_empty())).is_true()
+	var leaving = scene._guests[0]
+	var staying = scene._guests[1]
+	leaving.stay_left = 0.0
+	var told: bool = await _wait_until(func(): return staying.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("%s, who they were chatting with, says goodbye" % leaving.customer["name"])))
+	assert_bool(told).override_failure_message("their chat partner never heard them go").is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_a_chat_gets_a_few_lines_before_anything_cuts_in() -> void:
+	Visit.stay_minutes_override = 600
+	Visit.company_override = "chatty"
+	Visit.chat_chance_override = 1.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._stats.chats_started >= 1)).is_true()
+	_crowd(scene, 1)  # someone new turns up mid-chat: greeting them is urgent...
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 3)).is_true()
+	assert_int(scene._stats.chat_lines).is_greater_equal(Visit.CHAT_LINES_BEFORE_INTERRUPTING)  # ...but the chat had its say first
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_time_doesnt_race_while_the_first_customer_is_being_greeted() -> void:
+	Visit.stay_minutes_override = 600
+	Ai.canned_think_seconds = 0.2  # inventing them takes a while
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	# While they're being invented they're off the queue but not yet on a stool: still someone in.
+	assert_bool(await _wait_until(func(): return scene._greeting)).is_true()
+	assert_int(scene._people_in()).is_equal(1)
+	Ai.canned_think_seconds = 0.0
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_bool(scene._greeting).is_false()
+
+
+func test_waiting_for_the_owner_and_for_drinks_are_counted_separately() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	await _run_one_visit(runner)
+	assert_int(scene._stats.greet_waits.size()).is_equal(1)
+	assert_int(scene._stats.serve_waits.size()).is_equal(1)
+	assert_float(float(scene._stats.serve_waits[0])).is_greater_equal(float(scene._stats.greet_waits[0]))
+	var panel := runner.find_child("StatsText") as RichTextLabel
+	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Wait for first drinks"), 3000)).is_true()
+
+
+func test_a_new_bars_cat_is_a_she_or_a_he_with_its_own_name() -> void:
+	# Another bar (not called Golmok Pocha, like the new one, or they'd share an id).
+	var other := SaveStore.new_bar("Sarang Pocha", "Love Tent", ANY_OWNER)
+	other["cat"] = {"name": "Dubu", "coat": "black", "personality": "lazy", "sex": "she"}
+	SaveStore.save_bar(other)
+	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME]  # the AI suggests Dubu: taken
+	await _open_bar()
+	var cat: Dictionary = Game.bar["cat"]
+	assert_bool(cat["sex"] in Rules.CAT_SEXES).is_true()
+	assert_str(str(cat["name"])).is_not_equal("Dubu")
+
+
+func test_customers_are_women_and_men_about_equally() -> void:
+	var genders := {}
+	for i in 200:
+		var g: String = Rules.game_gender(randf())
+		genders[g] = int(genders.get(g, 0)) + 1
+	assert_int(int(genders.get("woman", 0))).is_between(70, 130)
+	assert_int(int(genders.get("man", 0))).is_between(70, 130)
+
+
+func test_tonights_jobs_and_looks_are_remembered() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	await _run_one_visit(runner)
+	assert_int(scene._jobs_tonight.size()).is_equal(1)
+	assert_int(scene._looks_tonight.size()).is_equal(1)

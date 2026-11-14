@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: customers talk to each other.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each night runs from 6pm to 3am, with time running faster while the tent's quiet. About twenty AI-invented customers turn up, most in the late-evening rush, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner as they move round the counter, sometimes strike up conversations with each other, and leave when their time's up; when it's full, people walk on by. And the tent has a cat, with a personality, going where it likes; everyone talks about it as it really is. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. A debug stats panel and nightly stats logs help with tuning. Grey-box art. Runs without the AI too, in an offline mode. 279 automated tests cover the game's rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: customers talk to each other.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each night runs from 6pm to 3am, with time running faster while the tent's quiet. About twenty AI-invented customers turn up, most in the late-evening rush, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner as they move round the counter, sometimes strike up conversations with each other, and leave when their time's up; when it's full, people walk on by. And the tent has a cat, with a personality, going where it likes; everyone talks about it as it really is. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. A debug stats panel and nightly stats logs help with tuning. Grey-box art. Runs without the AI too, in an offline mode. 305 automated tests cover the game's rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -37,6 +37,8 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 **Stats:** while we're testing, a debug stats panel shows tonight's numbers (F3 hides it), and each night writes a stats log (JSON) to `stats/` in the same user data folder, to compare runs.
 
+**Transcripts:** each night's transcript is written, as it goes, to `logs/transcripts/` in the project folder when you play from the Godot editor (kept out of git by `.gitignore`), so you can read or share how a night went.
+
 **Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
 **No suitable GPU?** Use offline mode, a small model on the CPU, or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
@@ -64,6 +66,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/title.gd` | Title screen logic |
 | `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
+| `logs/` | Night transcripts, written when playing from the editor (not committed) |
 | `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 

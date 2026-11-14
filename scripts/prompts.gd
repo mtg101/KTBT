@@ -27,7 +27,11 @@ Who turns up should suit the hour: the after-work crowd early in the evening, ni
 
 Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle"."""
 
-const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences."""
+const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences.
+
+They're speaking Korean, which we show in English: everyone speaks fluent, natural English in their own voice (blunt, rambling, slangy, whatever suits them), never broken English.
+
+Write in English. People can drop in the odd Korean word or exclamation that Western fans of K-dramas would know, but never whole sentences in Korean or romanised Korean, and never translations in brackets."""
 
 
 ## How customers address the owner. The game fixes the owner's title by gender (it's a
@@ -116,7 +120,9 @@ Reply with ONLY a JSON object with exactly these keys:
 
 ## Inventing a customer. With a name and gender (the second step, once the game has them),
 ## the AI fills in the rest of that person; without, it invents a whole customer.
-static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "") -> Array:
+## used_jobs and used_looks: tonight's customers so far, so this one's different (small models
+## otherwise send in four nurses with dark circles under their eyes).
+static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = []) -> Array:
 	if customer_name != "":
 		var details := """It's %s, %s, with %s.
 
@@ -129,6 +135,10 @@ Reply with ONLY a JSON object with exactly these keys:
 - "reason": why they're here tonight, in one sentence
 - "speech_style": how they talk, in a few words
 - "appearance": what they look like as they arrive, in one sentence""" % [day, time_text, weather, customer_name, gender_phrase(gender)]
+		if not used_jobs.is_empty():
+			details += "\n\nMake them different from tonight's other customers. Jobs they've had: %s. Pick a different job." % ", ".join(PackedStringArray(used_jobs))
+		if not used_looks.is_empty():
+			details += "\nHow they looked (don't describe this one the same way, e.g. no more dark circles or messy buns if those have come up): %s" % " / ".join(PackedStringArray(used_looks))
 		return [
 			{"role": "system", "content": STYLE_GUIDE},
 			{"role": "user", "content": details},
@@ -235,18 +245,25 @@ static func gender_phrase(gender: String) -> String:
 
 ## The bar's cat and where it is right now, for dialogue prompts.
 static func describe_cat(cat: Dictionary, now: String) -> String:
-	return "THE CAT: %s, the tent's %s cat (%s). Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
-		cat["name"], cat["coat"], Rules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
+	var sex := ""
+	if cat.has("sex"):
+		sex = " (a %s: call the cat \"%s\")" % ["female" if cat["sex"] == "she" else "male", cat["sex"]]
+	return "THE CAT: %s, the tent's %s cat%s, %s. Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
+		cat["name"], cat["coat"], sex, Rules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
 
 
 ## Messages asking the AI to name the bar's cat. The game has decided its coat and personality.
-static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String) -> Array:
-	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s cat, %s.
+## taken: names other bars' cats have, which this one mustn't share.
+static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String, sex: String = "she", taken: Array = []) -> Array:
+	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s %s cat, %s.
 
-What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.
+What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.""" % [owner["name"], bar_name, coat, "female" if sex == "she" else "male", Rules.CAT_PERSONALITIES.get(personality, personality)]
+	if not taken.is_empty():
+		request += " Other tents' cats are called %s, so pick something else." % ", ".join(PackedStringArray(taken))
+	request += """
 
 Reply with ONLY a JSON object with one key:
-- "name": the cat's name""" % [owner["name"], bar_name, coat, Rules.CAT_PERSONALITIES.get(personality, personality)]
+- "name": the cat's name"""
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -337,7 +354,7 @@ static func describe_moment(moment: Dictionary) -> String:
 static func describe_owner(owner: Dictionary) -> String:
 	var gender := str(owner.get("gender", "woman"))
 	var address: Dictionary = OWNER_ADDRESS.get(gender, OWNER_ADDRESS["woman"])
-	return "THE OWNER: %s, a %s-year-old %s. Customers call them \"%s\" (or sometimes %s; never oppa, hyung, nuna or eonni). %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
+	return "THE OWNER: %s, a %s-year-old %s. Customers call them \"%s\" (or sometimes %s; never oppa, hyung, nuna or eonni). %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s (Customers don't know the owner's past or secret: only what they can see, and what the owner has told them.)" % [
 		owner["name"], owner["age"], gender, owner["title"], address["also"], owner["archetype"], owner["appearance"],
 		owner["personality"], owner["speech_style"], owner["secret"]]
 
@@ -357,6 +374,9 @@ static func describe_person(customer: Dictionary) -> String:
 		customer["reason"], customer["speech_style"]]
 	if customer.has("company"):
 		text += " With other customers: %s." % Rules.COMPANY_TEXT.get(customer["company"], "")
+	if customer.has("appearance"):
+		text += " What anyone can see: %s" % Rules.as_sentence(str(customer["appearance"]))
+	text += " (Nobody else knows their name, age, job or why they're here unless they've said it in the conversation: only what they can see.)"
 	return text
 
 

@@ -17,7 +17,8 @@ var walked_past := 0  # gave up waiting for a stool
 var peak_seated := 0
 var quick_greetings := 0
 var proper_greetings := 0
-var greet_waits: Array = []  # game minutes from arriving to being served their order
+var greet_waits: Array = []  # game minutes from arriving to the owner coming to greet them
+var serve_waits: Array = []  # game minutes from arriving to their first drinks on the table (AI thinking included)
 var owner_lines_each: Array = []  # for each customer who paid: lines in their chat with the owner
 
 # Talk
@@ -26,6 +27,8 @@ var chat_lines := 0  # lines in customer chats (owner joining in included)
 var chats_started := 0
 var owner_joins := 0
 var customer_joins := 0
+var chat_chances := 0  # times a customer chat could have started (or carried on) when the owner was free
+var chats_continued := 0  # spells that carried on a chat already going
 
 # Food
 var dishes_cooked := 0
@@ -41,6 +44,7 @@ var rejections := {}  # kind of problem -> how many times
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
 var gave_up := 0  # calls that never got a usable reply
+var stale_redone := 0  # lines asked for again because things changed while the AI wrote them
 
 # Time (real seconds)
 var real_seconds := 0.0
@@ -121,7 +125,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
 	lines.append("Two or more in: %d%% of the night" % percent(together_seconds, real_seconds))
 	lines.append("Greetings: %d proper, %d quick" % [proper_greetings, quick_greetings])
-	lines.append("Wait to be greeted: avg %d min, longest %d" % [roundi(average(greet_waits)), roundi(longest(greet_waits))])
+	lines.append("Wait for the owner: avg %d min, longest %d" % [roundi(average(greet_waits)), roundi(longest(greet_waits))])
+	lines.append("Wait for first drinks: avg %d min, longest %d" % [roundi(average(serve_waits)), roundi(longest(serve_waits))])
 	if owner_lines_each.is_empty():
 		lines.append("Lines with the owner each: (nobody's left yet)")
 	else:
@@ -131,6 +136,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Owner conversations: %d lines" % owner_lines)
 	lines.append("Customer chats: %d started, %d lines (%d%% of all lines)" % [chats_started, chat_lines, percent(chat_lines, owner_lines + chat_lines)])
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
+	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -140,7 +146,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Calls %d · avg %.1fs, longest %.1fs" % [ai_calls, average(ai_seconds), longest(ai_seconds)])
 	lines.append("Voice busy %d%% · someone waiting for it %d%%" % [percent(voice_busy_seconds, real_seconds), percent(waiting_on_voice_seconds, real_seconds)])
 	lines.append("Rejected replies %d%s" % [rejected, (": " + rejection_text()) if rejected > 0 else ""])
-	lines.append("Gave up %d" % gave_up)
+	lines.append("Gave up %d · out-of-date lines redone %d" % [gave_up, stale_redone])
 	lines.append("")
 	lines.append("Real time tonight: %d:%02d" % [floori(real_seconds / 60.0), int(real_seconds) % 60])
 	return "\n".join(lines)
@@ -155,11 +161,13 @@ func summary(context: Dictionary) -> Dictionary:
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
 			"quick_greetings": quick_greetings, "proper_greetings": proper_greetings,
 			"greet_wait_minutes": {"average": average(greet_waits), "longest": longest(greet_waits)},
+			"first_drinks_wait_minutes": {"average": average(serve_waits), "longest": longest(serve_waits)},
 			"owner_lines_each": {"average": average(owner_lines_each), "fewest": shortest(owner_lines_each), "most": longest(owner_lines_each)},
 		},
 		"talk": {
 			"owner_lines": owner_lines, "chat_lines": chat_lines, "chats_started": chats_started,
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
+			"chat_chances": chat_chances, "chats_continued": chats_continued,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
 		},
 		"food": {
@@ -169,7 +177,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"ai": {
 			"calls": ai_calls, "average_seconds": average(ai_seconds), "longest_seconds": longest(ai_seconds),
 			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up,
-			"rejection_reasons": rejection_reasons.duplicate(true),
+			"rejection_reasons": rejection_reasons.duplicate(true), "stale_redone": stale_redone,
 		},
 		"time": {
 			"real_seconds": real_seconds,

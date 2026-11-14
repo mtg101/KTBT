@@ -116,7 +116,7 @@ func reply(request: Dictionary) -> Variant:
 		"bar_name":
 			return _bar_name(str(request.get("owner_name", "")))
 		"cat_name":
-			return {"name": Rules.CAT_NAMES.pick_random()}
+			return {"name": Rules.fallback_cat_name(randf(), request.get("taken", []))}
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))
 		"extra_order":

@@ -99,15 +99,17 @@ static func fallback_bar_name(owner_name: String) -> Dictionary:
 	return {"name": "%s-ne Pocha" % given, "meaning": "%s's family's tent" % given}
 
 
-## About one customer in a hundred is non-binary. The game decides (the AI wouldn't hit 1%
-## reliably); otherwise the AI chooses woman or man along with the name.
+## The game decides every customer's gender (left to choose, the AI picked a woman about
+## three times in four): about one in a hundred is non-binary, and the rest are split evenly
+## between women and men. The AI only names them.
 const NON_BINARY_CHANCE := 0.01
 
 
-## The gender the game has decided for a new customer, from a random roll between 0 and 1:
-## "non-binary", or "" to let the AI choose.
+## A new customer's gender, from a random roll between 0 and 1.
 static func game_gender(roll: float) -> String:
-	return "non-binary" if roll < NON_BINARY_CHANCE else ""
+	if roll < NON_BINARY_CHANCE:
+		return "non-binary"
+	return "woman" if roll < NON_BINARY_CHANCE + (1.0 - NON_BINARY_CHANCE) / 2.0 else "man"
 
 
 ## A new customer's name and gender, the first of two steps (it's quick, so a retry costs
@@ -438,6 +440,76 @@ static func joins_chats(company_mood: String) -> bool:
 	return company_mood != "quiet"
 
 
+# --- What conversations turn to ----------------------------------------------------------
+
+## For each spell of the owner's chat with someone, the game picks what it turns to, so a
+## small model doesn't fuss over the food line after line (a bit of fussing is in character,
+## so food stays one of the topics). Topic -> how the prompt puts it.
+const OWNER_TOPICS := {
+	"food": "what they're eating and drinking (fuss over them a little, as owners do)",
+	"their_day": "how their day has gone",
+	"on_their_mind": "what's really on their mind tonight, and why they came",
+	"owner_story": "a short story from the owner's own life",
+	"the_night": "the weather, the hour, or the street outside",
+	"owner_secret": "something that hints at the owner's secret, without giving it away",
+	"advice": "a bit of the owner's blunt advice about life",
+	"the_cat": "the tent's cat",
+}
+const OWNER_TOPIC_WEIGHTS := {"food": 1.0, "their_day": 2.0, "on_their_mind": 3.0, "owner_story": 1.5, "the_night": 1.0, "owner_secret": 0.5, "advice": 1.5, "the_cat": 1.0}
+## What customers chatting to each other get on to.
+const CHAT_TOPICS := {
+	"why_here": "why they're each here tonight",
+	"work": "work, or the lack of it",
+	"the_night": "the weather, the hour, or the city",
+	"food_drink": "what's good to eat and drink here",
+	"life": "love, family, or where life is heading",
+	"small_talk": "small talk: where they live, what they do for fun",
+	"the_cat": "the tent's cat",
+}
+const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "food_drink": 1.0, "life": 2.0, "small_talk": 1.5, "the_cat": 1.0}
+
+
+## The topic for a spell of the owner's chat, from a random roll between 0 and 1. Food's
+## likelier when something's just been served or is still cooking; the cat when it's with
+## them (and never when there's no cat in the tent). Never the same topic twice running.
+## cat: "none" (no cat, or it's out), "tent" (somewhere about) or "with_them".
+static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: String = "") -> String:
+	var weights := OWNER_TOPIC_WEIGHTS.duplicate()
+	if food_news:
+		weights["food"] = 3.0
+	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
+	return _pick_weighted(weights, roll, last)
+
+
+static func pick_chat_topic(roll: float, cat: String, last: String = "") -> String:
+	var weights := CHAT_TOPIC_WEIGHTS.duplicate()
+	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
+	return _pick_weighted(weights, roll, last)
+
+
+static func _pick_weighted(weights: Dictionary, roll: float, skip: String) -> String:
+	var total := 0.0
+	for key in weights:
+		if key != skip:
+			total += float(weights[key])
+	var target := clampf(roll, 0.0, 0.9999) * total
+	var choice := ""
+	for key in weights:
+		if key == skip or float(weights[key]) <= 0.0:
+			continue
+		choice = key
+		target -= float(weights[key])
+		if target < 0.0:
+			return key
+	return choice
+
+
+## The game's steer for a line: "Let the conversation turn to: how their day has gone."
+static func topic_hint(topic: String, chat: bool = false) -> String:
+	var text: String = (CHAT_TOPICS if chat else OWNER_TOPICS).get(topic, "")
+	return "Let the conversation turn to %s (naturally, following on from what was just said)." % text if text != "" else ""
+
+
 # --- The cat ------------------------------------------------------------------------------
 
 ## Every bar has a cat. The game decides its coat and personality (and, all night, where it
@@ -536,7 +608,8 @@ static func check_cat(line: String, cat_name: String, spot: String, with: String
 
 
 ## A cat's name, from the AI: {"name": a short Korean pet name in English letters}.
-static func validate_cat_name(data: Variant, owner_name: String = "") -> String:
+## taken: names other bars' cats already have (so every bar's cat is its own).
+static func validate_cat_name(data: Variant, owner_name: String = "", taken: Array = []) -> String:
 	var problem := check_fields(data, ["name"])
 	if problem != "":
 		return problem
@@ -551,12 +624,22 @@ static func validate_cat_name(data: Variant, owner_name: String = "") -> String:
 	for part in owner_name.split(" ", false):
 		if cat_name.to_lower() == part.to_lower() or cat_name.to_lower() == owner_name.to_lower():
 			return "the cat can't have the owner's name"
+	for other in taken:
+		if cat_name.to_lower() == str(other).to_lower():
+			return "another bar's cat is already called %s: pick a different name" % cat_name
 	data["name"] = cat_name
 	return ""
 
 
-static func fallback_cat_name(roll: float) -> String:
-	return CAT_NAMES[clampi(floori(roll * CAT_NAMES.size()), 0, CAT_NAMES.size() - 1)]
+static func fallback_cat_name(roll: float, taken: Array = []) -> String:
+	var free := CAT_NAMES.filter(func(n): return not taken.has(n))
+	if free.is_empty():
+		free = CAT_NAMES
+	return free[clampi(floori(roll * free.size()), 0, free.size() - 1)]
+
+
+## Every cat is a she or a he (a game fact, so everyone gets it right).
+const CAT_SEXES := ["she", "he"]
 
 
 # --- How strangers talk -------------------------------------------------------------------
@@ -618,6 +701,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 		var mention := unordered_mention(line, items)
 		if mention != "":
 			return "the line mentions %s, but that isn't on the table (%s)" % [mention, item_names(items)]
+	# No asides in brackets: a small model adds "(translations)" or stage directions there.
+	if line.contains("(") or line.contains(")"):
+		return "the line has something in brackets: write only what's said, in English, with no translations or stage directions"
 	var term := close_term(line, names + [speaker])
 	if term != "":
 		return "the line says \"%s\", but these people have only just met: strangers don't use oppa, hyung, nuna or eonni" % term
@@ -633,10 +719,12 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
-	if p.contains("already at the counter"):
+	if p.contains("already at the counter") or p.contains("already called"):
 		return "same name"
 	if p.contains("the cat"):
 		return "the cat"
+	if p.contains("in brackets"):
+		return "brackets (translations, asides)"
 	if p.contains("only just met"):
 		return "oppa, hyung, nuna or eonni"
 	if p.contains("isn't on the table") or p.contains("isn't in \"items\"") or p.contains("asks for more"):
