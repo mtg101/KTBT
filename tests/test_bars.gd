@@ -98,7 +98,7 @@ func _saved_bar(bar_name: String, takings: int, last_played := 0) -> Dictionary:
 func _open_visit() -> GdUnitSceneRunner:
 	var runner := scene_runner(VISIT)
 	var scene = runner.scene()
-	var bar_open: bool = await _wait_until(func(): return not scene._busy and not scene._owner.is_empty())
+	var bar_open: bool = await _wait_until(func(): return not scene.busy and not scene._owner.is_empty())
 	assert_bool(bar_open).override_failure_message("the bar never opened").is_true()
 	return runner
 
@@ -106,8 +106,8 @@ func _open_visit() -> GdUnitSceneRunner:
 func _run_one_visit(runner: GdUnitSceneRunner) -> void:
 	var scene = runner.scene()
 	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(scene._busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
-	var done: bool = await _wait_until(func(): return not scene._busy)
+	assert_bool(scene.busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
+	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 
 

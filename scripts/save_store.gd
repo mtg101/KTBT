@@ -120,11 +120,11 @@ static func record_visit(bar: Dictionary, summary: Dictionary) -> void:
 ## Adds a finished night to the bar: the night count and a short summary in night_log.
 static func record_night(bar: Dictionary, summary: Dictionary) -> void:
 	bar["nights"] = int(bar.get("nights", 0)) + 1
-	var log: Array = bar.get("night_log", [])
-	log.append(summary.duplicate(true))
-	while log.size() > NIGHT_LOG_LIMIT:
-		log.pop_front()
-	bar["night_log"] = log
+	var nights: Array = bar.get("night_log", [])
+	nights.append(summary.duplicate(true))
+	while nights.size() > NIGHT_LOG_LIMIT:
+		nights.pop_front()
+	bar["night_log"] = nights
 
 
 static func _read(path: String) -> Dictionary:

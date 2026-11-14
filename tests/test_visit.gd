@@ -80,7 +80,7 @@ func _click(runner: GdUnitSceneRunner, button: Button) -> void:
 func _open_bar() -> GdUnitSceneRunner:
 	var runner := scene_runner(SCENE)
 	var scene = runner.scene()
-	var bar_open: bool = await _wait_until(func(): return not scene._busy and not scene._owner.is_empty())
+	var bar_open: bool = await _wait_until(func(): return not scene.busy and not scene._owner.is_empty())
 	assert_bool(bar_open).override_failure_message("the owner never arrived").is_true()
 	return runner
 
@@ -89,8 +89,8 @@ func _open_bar() -> GdUnitSceneRunner:
 func _run_one_visit(runner: GdUnitSceneRunner) -> void:
 	var scene = runner.scene()
 	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(scene._busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
-	var done: bool = await _wait_until(func(): return not scene._busy)
+	assert_bool(scene.busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
+	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 	await get_tree().process_frame  # let freed dishes disappear
 
@@ -142,7 +142,7 @@ func test_next_customer_still_works_during_a_visit() -> void:
 	await _click(runner, button)
 	assert_bool(button.disabled).is_false()
 	await _click(runner, button)
-	assert_bool(await _wait_until(func(): return not scene._busy)).is_true()
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_int(int(Game.bar["visits"])).is_equal(2)
 
 
@@ -160,7 +160,7 @@ func test_several_customers_sit_at_once() -> void:
 	_crowd(scene, 3)
 	var together: bool = await _wait_until(func(): return scene._guests.size() >= 2)
 	assert_bool(together).override_failure_message("never more than one customer at a time").is_true()
-	assert_bool(await _wait_until(func(): return not scene._busy)).override_failure_message("the customers never all left").is_true()
+	assert_bool(await _wait_until(func(): return not scene.busy)).override_failure_message("the customers never all left").is_true()
 	# Everyone paid, and the takings are exactly their bills added up.
 	var saved := SaveStore.load_bar(str(Game.bar["id"]))
 	assert_int(int(saved["visits"])).is_equal(3)
@@ -187,7 +187,7 @@ func test_there_are_only_five_stools() -> void:
 			if seats.has(guest.seat):
 				seats_ok[0] = false
 			seats[guest.seat] = true
-		return not scene._busy
+		return not scene.busy
 	var done: bool = await _wait_until(watch, 30000)
 	assert_bool(done).is_true()
 	assert_int(most[0]).is_equal(5)
@@ -208,7 +208,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	var passer := runner.find_child("PasserBy1", true, false) as Control
 	assert_object(passer).is_not_null()
 	assert_bool(await _wait_until(func(): return not is_instance_valid(passer))).override_failure_message("the passer-by never left").is_true()
-	assert_bool(await _wait_until(func(): return not scene._busy, 30000)).is_true()
+	assert_bool(await _wait_until(func(): return not scene.busy, 30000)).is_true()
 	assert_int(int(Game.bar["visits"])).is_equal(5)
 
 
@@ -248,7 +248,7 @@ func test_the_owner_moves_between_customers() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
-	assert_bool(await _wait_until(func(): return not scene._busy)).is_true()
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	var text := _transcript(runner)
 	assert_str(text).contains("turns back to")
 	# With two in, the owner's lines say who they're talking to.
@@ -288,7 +288,7 @@ func test_owner_that_cant_be_invented_offers_try_again() -> void:
 	assert_bool((runner.find_child("Owner") as Control).visible).is_false()
 	# Trying again (the queue's empty now) brings the owner in.
 	await _click(runner, button)
-	var arrived: bool = await _wait_until(func(): return not scene._busy and not scene._owner.is_empty())
+	var arrived: bool = await _wait_until(func(): return not scene.busy and not scene._owner.is_empty())
 	assert_bool(arrived).is_true()
 	assert_str(button.text).is_equal("Next customer")
 
@@ -309,7 +309,7 @@ func test_unreachable_ollama_switches_to_offline_mode() -> void:
 	Ai.simulate_unreachable = true
 	var runner := scene_runner(SCENE)
 	var scene = runner.scene()
-	var bar_open: bool = await _wait_until(func(): return not scene._busy and not scene._owner.is_empty())
+	var bar_open: bool = await _wait_until(func(): return not scene.busy and not scene._owner.is_empty())
 	assert_bool(bar_open).is_true()
 	assert_bool((runner.find_child("ModeLabel") as Label).visible).is_true()
 	assert_str(_transcript(runner)).contains("switched to offline mode")

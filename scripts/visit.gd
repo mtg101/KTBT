@@ -119,7 +119,8 @@ var _customer := {}
 var _order: Array = []
 
 ## Something's happening: the owner's working, someone's at the counter, or someone's waiting.
-var _busy: bool:
+## (Public, as the tests watch it.)
+var busy: bool:
 	get:
 		return _owner_working or not _guests.is_empty() or not _waiting.is_empty()
 

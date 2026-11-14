@@ -253,7 +253,7 @@ const ARRIVALS_PER_HOUR := {18: 2.0, 19: 3.0, 20: 4.0, 21: 5.0, 22: 5.0, 23: 5.0
 ## 1080 -> "6:00pm", 1445 -> "12:05am"
 static func clock_text(minutes: int) -> String:
 	var m := minutes % (24 * 60)
-	var hour := m / 60
+	var hour := floori(m / 60.0)
 	var hour_12 := hour % 12
 	if hour_12 == 0:
 		hour_12 = 12
@@ -262,7 +262,7 @@ static func clock_text(minutes: int) -> String:
 
 ## How many customers usually arrive per hour at this time of night.
 static func arrivals_per_hour(minutes: int) -> float:
-	return ARRIVALS_PER_HOUR.get(clampi(minutes / 60, 18, 26), 1.0)
+	return ARRIVALS_PER_HOUR.get(clampi(floori(minutes / 60.0), 18, 26), 1.0)
 
 
 ## Game minutes until the next customer, from a random roll between 0 and 1: on average

@@ -125,8 +125,8 @@ func test_next_customer_still_works_mid_night() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	await _click(runner, runner.find_child("NextButton"))
-	assert_bool(scene._busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
-	var done: bool = await _wait_until(func(): return not scene._busy)
+	assert_bool(scene.busy).override_failure_message("clicking Next customer didn't start a visit").is_true()
+	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 	assert_int(scene._night_visits).is_equal(1)
 
