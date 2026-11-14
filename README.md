@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest: sound and music.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each night runs from 6pm to 3am, with time running faster while the tent's quiet. About twenty AI-invented customers turn up, most in the late-evening rush, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner as they move round the counter, sometimes strike up conversations with each other, and leave when their time's up; when it's full, people walk on by. And the tent has a cat, with a personality, going where it likes; everyone talks about it as it really is. Each bar has its own look, chosen by the AI (a Hangul-and-English sign, the tent cover's shape and colour, and a touch or two), under a sky that darkens through the night, with weather you can see and passers-by walking along the street. You can hear it too: rain on the tarp, traffic on the overpass, the odeng pot, the counter filling up, and Arirang now and then (all placeholder sounds made in code, with Sound and Music controls). At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. A debug stats panel, nightly stats logs and night transcripts help with tuning. Simple drawn-in-code art, and a K-drama-style loading screen. Runs without the AI too, in an offline mode. 330 automated tests cover the game's rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+✅ **Latest: people with looks.** Start a **new bar** from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each night runs from 6pm to 3am, with time running faster while the tent's quiet. About twenty AI-invented customers turn up, most in the late-evening rush, and take one of five stools. They order from the menu, get their drinks straight away while cooked dishes queue at the one stove, chat with the owner as they move round the counter, sometimes strike up conversations with each other, and leave when their time's up; when it's full, people walk on by. And the tent has a cat, with a personality, going where it likes; everyone talks about it as it really is. Each bar has its own look, chosen by the AI (a Hangul-and-English sign, the tent cover's shape and colour, and a touch or two), under a sky that darkens through the night, with weather you can see and passers-by walking along the street. You can hear it too: rain on the tarp, traffic on the overpass, the odeng pot, the counter filling up, and Arirang now and then (all placeholder sounds made in code, with Sound and Music controls). Everyone has a look the game decides (age range, hair, clothes, colours, glasses, bags), which the AI writes to and the game draws. At 3am a summary shows the night's customers, takings and most memorable line, and the bar saves itself as you go. A debug stats panel, nightly stats logs and night transcripts help with tuning. Simple drawn-in-code art (people facing us, or from behind at the counter), and a K-drama-style loading screen. Runs without the AI too, in an offline mode. 337 automated tests cover the game's rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking. Next up: regulars and relationships. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -53,7 +53,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 |---|---|
 | `project.godot` | Godot project settings (main scene: `scenes/title.tscn`; autoload: `Game`) |
 | `scenes/title.tscn` | The title screen: New bar, or open a saved one |
-| `scenes/visit.tscn` | The bar itself: owner, customers, orders and conversation (its UI and grey-box tent are built in code) |
+| `scenes/visit.tscn` | The bar itself: owner, customers, orders and conversation (its UI, the tent and the people are drawn in code) |
 | `scenes/pipeline_test.tscn` | The pipeline test, kept as a quick AI check (open it and press F6) |
 | `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
 | `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
@@ -65,11 +65,11 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
 | `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, the night's clock and arrivals, text tidying (no scene or AI, so easy to test) |
-| `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close |
+| `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close, and the music (which carries on between scenes) |
 | `scripts/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
 | `scripts/night_stats.gd` | The debug stats for a night: the stats panel and the nightly stats log |
-| `scripts/title.gd` | Title screen logic |
-| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave |
+| `scripts/title.gd` | Title screen logic (and its Music slider) |
+| `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave; and drawing it all: the tent and its look, the light and weather, passers-by, the cat, and everyone in their look |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
 | `logs/` | Night transcripts, written when playing from the editor (not committed) |
 | `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
@@ -91,8 +91,8 @@ Commits made by Claude are marked with a `Co-Authored-By: Claude` line.
 ### 2. Running it: a local LLM generates the characters
 At runtime the game uses a **local** language model (via Ollama) to:
 
-- invent each bar's owner and name when a new bar is started
-- invent customers suited to the time of night, day and weather
+- invent each bar's owner and name when a new bar is started, and choose its look (sign, tent cover, touches) from options the game offers
+- invent customers suited to the time of night, day and weather, to fit the gender, age range and look the game has decided
 - choose each customer's order from the bar's current menu
 - write the conversation between each customer and the owner
 
@@ -105,7 +105,7 @@ Design guard-rails:
 
 ## Assets and credits
 
-No third-party assets yet. Any art, sound or music added later will be listed with its source and licence in `CREDITS.md`.
+No third-party assets yet: the art, sounds and music are placeholders made in code, original to the project (the music is Arirang, a traditional folk song in the public domain). Any third-party art, sound or music added later will be listed with its source and licence in `CREDITS.md`.
 
 ## Licence
 

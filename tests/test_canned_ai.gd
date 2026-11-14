@@ -174,3 +174,12 @@ func test_canned_bar_looks_pass_the_rules() -> void:
 	for bar in CannedAi.BAR_NAMES + [{"name": "Mi-sook-ne Pocha"}]:
 		var look: Dictionary = _canned.reply({"purpose": "bar_look", "bar_name": bar["name"]})
 		assert_str(Rules.validate_bar_look(look)).override_failure_message(JSON.stringify(look)).is_empty()
+
+
+func test_canned_people_fit_the_games_look() -> void:
+	var look := Rules.pick_look("man", "60s", "")
+	var customer: Dictionary = _canned.reply({"purpose": "customer", "name": "Moon Tae-il", "gender": "man", "look": look})
+	assert_str(Rules.validate_customer_details(customer, "60s")).is_empty()
+	assert_str(str(customer["appearance"])).contains(str(Rules.CLOTHES[look["clothes"]]).trim_prefix("a ").split(" ")[0])
+	var owner: Dictionary = _canned.reply({"purpose": "owner", "gender": "woman", "look": Rules.pick_look("woman", "70s", "", true)})
+	assert_str(Rules.validate_owner(owner, "woman", "70s")).is_empty()

@@ -16,7 +16,7 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 **The game owns the facts; the AI owns the flavour.**
 
-- The game decides the time, weather, menu, prices, seats and when people arrive and leave.
+- The game decides the time, weather, menu, prices, seats, when people arrive and leave, and how everyone looks (gender, age range, hair, clothes).
 - The AI invents people and dialogue *within* those limits.
 - Anything the AI returns that the game depends on (customer profiles, orders) comes back as JSON and is checked by the game. An order for something not on the menu is rejected and retried.
 
@@ -24,12 +24,14 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 ### The owner
 - Invented by the AI **once per bar (save)** and then kept. They're the constant heart of the tent.
+- **How they look:** the game decides (their age range, hair, clothes and colours, always with an apron), and the AI invents someone who'd look like that.
 - Every customer talks to the owner, and sometimes customers talk to each other too.
 - Later, the player can step into the owner's role.
 
 ### Customers
 - Generated per visit, shaped by the time of night, the day and the weather, in two steps: first a name and gender (so a name that's already at the counter can be swapped quickly), then the rest.
-- Profile (JSON): name, gender, age, job, mood, why they're here tonight, how they talk.
+- Profile (JSON): name, gender, age, job, mood, why they're here tonight, how they talk, and their look.
+- **How they look:** decided by the game, like gender: an age range, hair (by gender and age), clothes (by the weather), colours (mostly beige and black, as in Seoul), and sometimes glasses or a bag. The AI invents someone who'd look like that, and the game draws them: facing us as they come and go, and from behind once they're sat at the counter.
 - **Gender:** decided by the game: half women, half men, and about one in a hundred non-binary (they/them). The AI names them. Shown on screen as ♀ ♂ ⚲ next to names, since Korean names don't make it obvious.
 - **Game facts about each customer:** how long they'll stay (30–60 game minutes, longer for someone here to talk), their mood for company (chatty, keeps to themselves, or here to talk to the owner), whether they're hungry or having a rough night, and whether they'll order more later.
 - Visits: arrive, order from the menu, eat and drink, talk with the owner (and maybe other customers), then say goodbye, pay and leave when their time's up.
@@ -64,7 +66,7 @@ Each **save is one bar**: its owner, its regulars, its history. You can have sev
 
 Included in every AI prompt so all characters feel like they belong to the same show. The AI riffs on these rather than copying them.
 
-**Setting:** a tarp tent (each bar's own shape and colour), plastic stools, green soju bottles, steam off the tteokbokki, a single bulb swinging, rain more often than not.
+**Setting:** a tarp tent (each bar's own shape and colour), plastic stools, green soju bottles, steam off the tteokbokki, bare bulbs swinging, rain more often than not.
 
 **Owner archetypes:**
 - The gruff-but-soft ajumma who scolds customers for not eating properly
@@ -104,7 +106,8 @@ The current menu is a fixed placeholder (see bar-specific menus in [PLAN.md](PLA
 | Engine | Godot 4, GDScript |
 | AI | Local model via Ollama (RTX 3080, so 7–9B models; try Llama 3.1 8B, Gemma and Qwen to compare). Per-machine AI settings choose Ollama or an offline mode with pre-written characters |
 | Connection | Godot `HTTPRequest` to Ollama's local API, JSON output mode for structured replies |
-| Art | Placeholder shapes first, then a consistent CC0 pack (e.g. Kenney) |
+| Art | Placeholder shapes drawn in code for now (the tent, the people, the weather), then real art (see **Character art** in [PLAN.md](PLAN.md)) |
+| Sound and music | Made in code for now (`ambience.gd`, `music.gd`), then CC0 recordings and a real arrangement |
 | Assets log | `CREDITS.md`, recording the source and licence of every asset |
 
 Show a "typing…" indicator while the AI replies.

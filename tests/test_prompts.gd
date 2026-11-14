@@ -327,3 +327,15 @@ func test_bar_look_prompt_offers_only_the_games_shortlist() -> void:
 	assert_str(text).contains("awning (a flat awning")
 	assert_str(text).not_contains("blue_stripes")
 	assert_str(text).not_contains("peaked (")
+
+
+func test_the_game_decided_look_goes_into_the_prompts() -> void:
+	var look := {"age_range": "30s", "hair": "bob", "hair_colour": "black", "clothes": "trench", "colour": "beige", "glasses": false, "bag": ""}
+	var details := _request(Prompts.customer_messages("Friday", "9:00pm", "fog", false, "Han Seol", "woman", [], [], look))
+	assert_str(details).contains("black hair in a bob")
+	assert_str(details).contains("beige trench coat")
+	assert_str(details).contains("from 30 to 39")
+	var owner_look := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "camel", "apron": true}
+	var owner := _request(Prompts.owner_messages("woman", owner_look))
+	assert_str(owner).contains("greying perm")
+	assert_str(owner).contains("from 60 to 69")

@@ -109,12 +109,13 @@ func reply(request: Dictionary) -> Variant:
 	var title := str(request.get("title", "Ajumma"))
 	match str(request.get("purpose", "")):
 		"owner":
-			return OWNERS[str(request.get("gender", "woman"))].pick_random().duplicate()
+			var owner: Dictionary = OWNERS[str(request.get("gender", "woman"))].pick_random().duplicate()
+			return _fit_look(owner, request, 40)
 		"customer_name":
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
 			return {"name": picked["name"], "gender": picked["gender"]}
 		"customer":
-			return _customer_details(str(request.get("name", "")), str(request.get("gender", "")))
+			return _fit_look(_customer_details(str(request.get("name", "")), str(request.get("gender", ""))), request, Rules.MIN_DRINKING_AGE)
 		"chat_line":
 			if bool(request.get("owner_speaks", false)):
 				return {"line": OWNER_LINES.pick_random()}
@@ -142,6 +143,18 @@ func reply(request: Dictionary) -> Variant:
 
 ## The details for a customer the game has already named: the canned one with that name,
 ## or (for a name from a scripted reply) one of the same gender, renamed.
+## A pre-written person made to fit the look the game decided (its age range, and how they
+## look), as the AI would.
+func _fit_look(person: Dictionary, request: Dictionary, youngest: int) -> Dictionary:
+	var look: Dictionary = request.get("look", {})
+	if look.is_empty():
+		return person
+	var band: Array = Rules.AGE_RANGES[look["age_range"]]
+	person["age"] = randi_range(maxi(youngest, int(band[0])), int(band[1]))
+	person["appearance"] = Rules.as_sentence("Someone %s" % Rules.look_text(look))
+	return person
+
+
 func _customer_details(customer_name: String, gender: String) -> Dictionary:
 	for c in CUSTOMERS:
 		if c["name"] == customer_name:

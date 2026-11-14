@@ -4,7 +4,7 @@ extends RefCounted
 
 const Rules = preload("res://scripts/rules.gd")
 
-const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, a single bulb swinging in the wind.
+const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
 
 Everyone you invent belongs in a K-drama. Lean into the familiar tropes, but make each character feel like a real person rather than a cliche.
 
@@ -47,18 +47,26 @@ const OWNER_ADDRESS := {
 ## Messages asking the AI to invent the tent's owner.
 ## The game decides whether the owner is a woman or a man (and so their title);
 ## the AI invents the rest.
-static func owner_messages(gender: String) -> Array:
+## look: how the game has decided the owner looks (Rules.pick_look), including their age range.
+static func owner_messages(gender: String, look: Dictionary = {}) -> Array:
 	var title: String = OWNER_ADDRESS[gender]["title"]
-	var request := """Invent the owner of this pojangmacha. The owner is a %s, and customers call them "%s". They've run the tent for years, and every regular knows them. Everything about them (archetype, appearance) must fit a %s.
+	var ages := "a whole number, 40 or older"
+	var seen := ""
+	if not look.is_empty():
+		var band: Array = Rules.AGE_RANGES[look["age_range"]]
+		ages = "a whole number from %d to %d" % [maxi(40, int(band[0])), int(band[1])]
+		seen = "\n\nHow they look (the game has decided this, so keep to it): %s. Let it shape who they are." % look_text_for(look)
+	var request := """Invent the owner of this pojangmacha. The owner is a %s, and customers call them "%s". They've run the tent for years, and every regular knows them. Everything about them (archetype, appearance) must fit a %s.%s
 
 Reply with ONLY a JSON object with exactly these keys:
 - "name": their Korean name in English letters, family name first
-- "age": a whole number, 40 or older
+- "age": %s
 - "archetype": the K-drama type they are, in a few words
-- "appearance": what they look like behind the counter, in one sentence
+- "appearance": what they look like behind the counter, in one sentence%s
 - "personality": two or three traits
 - "speech_style": how they talk, in a few words
-- "secret": something about their past they rarely talk about, in one sentence""" % [gender, title, gender]
+- "secret": something about their past they rarely talk about, in one sentence""" % [gender, title, gender, seen, ages,
+		": keep to how they look, in your own words, and add one detail of your own" if not look.is_empty() else ""]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -151,19 +159,29 @@ Reply with ONLY a JSON object with exactly these keys:
 ## the AI fills in the rest of that person; without, it invents a whole customer.
 ## used_jobs and used_looks: tonight's customers so far, so this one's different (small models
 ## otherwise send in four nurses with dark circles under their eyes).
-static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = []) -> Array:
+## look: how the game has decided the customer looks (Rules.pick_look), including their age
+## range; the AI invents someone who'd look like that.
+static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = [], look: Dictionary = {}) -> Array:
 	if customer_name != "":
+		var ages := "a whole number, 19 or older"
+		var seen := ""
+		var appearance := "what they look like as they arrive, in one sentence"
+		if not look.is_empty():
+			var band: Array = Rules.AGE_RANGES[look["age_range"]]
+			ages = "a whole number from %d to %d" % [maxi(19, int(band[0])), int(band[1])]
+			seen = "\n\nHow they look (the game has decided this, so keep to it): %s. Invent someone who'd look like that." % look_text_for(look)
+			appearance += ": keep to how they look, in your own words, and add one detail of your own (an expression, something they're holding)"
 		var details := """It's %s, %s, with %s.
 
-A customer has just ducked under the tarp: %s (%s). Fill in who they are, so they'd plausibly turn up right now.
+A customer has just ducked under the tarp: %s (%s). Fill in who they are, so they'd plausibly turn up right now.%s
 
 Reply with ONLY a JSON object with exactly these keys:
-- "age": a whole number, 19 or older
+- "age": %s
 - "job": their job, or what they do
 - "mood": a few words
 - "reason": why they're here tonight, in one sentence
 - "speech_style": how they talk, in a few words
-- "appearance": what they look like as they arrive, in one sentence""" % [day, time_text, weather, customer_name, gender_phrase(gender)]
+- "appearance": %s""" % [day, time_text, weather, customer_name, gender_phrase(gender), seen, ages, appearance]
 		if not used_jobs.is_empty():
 			details += "\n\nMake them different from tonight's other customers. Jobs they've had: %s. Pick a different job." % ", ".join(PackedStringArray(used_jobs))
 		if not used_looks.is_empty():
@@ -266,6 +284,11 @@ Reply with ONLY a JSON object with exactly these keys:
 
 
 ## "a woman", "a man", or "non-binary, they/them": how prompts describe someone's gender.
+## A look in words (Rules.look_text), here so prompts and their tests can share it.
+static func look_text_for(look: Dictionary) -> String:
+	return Rules.look_text(look)
+
+
 static func gender_phrase(gender: String) -> String:
 	if gender == "non-binary":
 		return "non-binary, they/them"

@@ -925,3 +925,24 @@ func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
 	music.value = 0.0  # all the way down: no music
 	assert_float(Music.load_volume()).is_equal(0.0)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Ambience.settings_path))
+
+
+func test_people_are_drawn_in_their_look() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(scene._owner.has("look")).is_true()
+	assert_bool(scene._owner["look"]["apron"]).is_true()
+	assert_bool(Game.bar["owner"].has("look")).is_true()  # saved with the bar
+	assert_object(runner.find_child("Owner").find_child("Look", false, false)).is_not_null()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var guest = scene._guests[0]
+	assert_bool(guest.customer.has("look")).is_true()
+	assert_object(guest.node.find_child("Look", false, false)).is_not_null()
+	assert_object(guest.node.find_child("Tag", false, false)).is_not_null()
+	# Facing us as they come in; once they're sat down, facing the counter (their back to us).
+	var front := guest.node.get_node("Look/Front") as Control
+	var back := guest.node.get_node("Look/Back") as Control
+	assert_bool(await _wait_until(func(): return back.visible)).override_failure_message("they never turned to the counter").is_true()
+	assert_bool(front.visible).is_false()
+	assert_bool((runner.find_child("Owner").get_node("Look/Front") as Control).visible).is_true()  # the owner faces us

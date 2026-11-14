@@ -308,6 +308,7 @@ func _open_saved_bar() -> void:
 	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
 	_show_bar_name()
 	_show_look()
+	_dress(_owner_node, _owner_look())
 	_owner_tag.text = _owner_label()
 	_owner_node.visible = true
 	_narrate(Rules.as_sentence(str(_owner["appearance"])))
@@ -369,8 +370,10 @@ func _invent_owner() -> void:
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling a tarp...")
 	_typing_label.text = "The AI is inventing the tent's owner..."
 	var gender: String = ["woman", "man"].pick_random()
-	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender), _validate_owner.bind(gender), {"temperature": 0.9},
-		{"purpose": "owner", "gender": gender})
+	# The game decides their age range and how they look; the AI invents who they are.
+	var look := Rules.pick_look(gender, Rules.pick_age_range(randf(), true), "", true)
+	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender, look), _validate_owner.bind(gender, str(look["age_range"])), {"temperature": 0.9},
+		{"purpose": "owner", "gender": gender, "look": look})
 	_typing_label.text = ""
 	if result.is_empty():
 		_narrate("Couldn't invent the owner: %s" % _ai.last_error)
@@ -381,6 +384,8 @@ func _invent_owner() -> void:
 	_owner = result
 	_owner["gender"] = gender
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
+	_owner["look"] = look
+	_dress(_owner_node, look)
 	_owner_tag.text = _owner_label()
 	_owner_node.visible = true
 	_narrate(Rules.as_sentence(str(_owner["appearance"])))
@@ -619,8 +624,9 @@ func _stroll() -> void:
 	var shade: Color = CUSTOMER_COLORS.pick_random().darkened(0.55)
 	var person := _person(_stage, Vector2(OFFSCREEN_LEFT_X if from_left else OFFSCREEN_RIGHT_X, STROLL_Y), shade)
 	person.name = "Stroller%d" % _strollers
+	_dress(person, _street_look())
 	person.z_index = 1  # in front of the counter and stools
-	person.modulate = Color(1, 1, 1, 0.9)
+	person.modulate = Color(0.42, 0.42, 0.5, 0.92)  # darker: out in the street, in front of the light
 	if _weather_kind in ["drizzle", "rain", "snow"]:
 		_umbrella(person)
 	var tween := person.create_tween()
@@ -656,6 +662,8 @@ func _walk_past(delay: float) -> void:
 	var from_left := randi() % 2 == 0
 	var person := _person(_stage, Vector2(OFFSCREEN_LEFT_X if from_left else OFFSCREEN_RIGHT_X, CUSTOMER_Y), CUSTOMER_COLORS.pick_random().darkened(0.35))
 	person.name = "PasserBy%d" % _passers_by
+	_dress(person, _street_look())
+	person.modulate = Color(0.7, 0.7, 0.78)
 	var tween := create_tween()
 	tween.tween_interval(_scaled(delay))
 	tween.tween_property(person, "position:x", PEEK_X, _scaled(2.2)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -958,11 +966,16 @@ func _greet() -> void:
 		Prompts.customer_name_messages(_night_day, guest.arrived, _night_weather, taken, used, gender),
 		_validate_customer_name.bind(taken, gender), {"temperature": 1.0}, {"purpose": "customer_name", "taken": taken, "gender": gender})
 	var customer := {}
+	var look := {}
 	if not who.is_empty():
 		_typing_label.text = "%s is coming down the street..." % who["name"]
+		# The game decides their age range and look (by the weather); the AI invents someone
+		# who'd look like that.
+		look = Rules.pick_look(str(who["gender"]), Rules.pick_age_range(randf()), _weather_kind)
 		customer = await _ai.ask_json(
-			Prompts.customer_messages(_night_day, guest.arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS)),
-			_validate_customer_details, {"temperature": 0.9}, {"purpose": "customer", "name": who["name"], "gender": who["gender"]})
+			Prompts.customer_messages(_night_day, guest.arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS), look),
+			_validate_customer_details.bind(str(look["age_range"])), {"temperature": 0.9},
+			{"purpose": "customer", "name": who["name"], "gender": who["gender"], "look": look})
 	_typing_label.text = ""
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
@@ -971,6 +984,7 @@ func _greet() -> void:
 		return
 	customer["name"] = who["name"]
 	customer["gender"] = who["gender"]
+	customer["look"] = look
 	_names_tonight.append(str(who["name"]))
 	if not _jobs_tonight.has(str(customer["job"])):
 		_jobs_tonight.append(str(customer["job"]))
@@ -986,6 +1000,7 @@ func _greet() -> void:
 	guest.food_row = _food_rows[guest.seat]
 	guest.node = _person(_stage, Vector2(_random_offscreen_x(), CUSTOMER_Y), guest.color)
 	guest.node.name = "Customer%d" % guest.seat
+	_dress(guest.node, look)
 	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
 	_guests.append(guest)
 	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
@@ -1607,13 +1622,16 @@ func _update_stove() -> void:
 
 ## Walking in and out runs by itself: nobody waits for it.
 func _walk_in(guest: Guest) -> void:
+	_face(guest.node, true)
 	guest.walk = create_tween()
 	guest.walk.tween_property(guest.node, "position:x", SEAT_X[guest.seat] - PERSON_WIDTH / 2, _scaled(1.6)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	guest.walk.tween_callback(_face.bind(guest.node, false))  # sat down: facing the counter
 
 
 func _walk_out(guest: Guest) -> void:
 	if guest.walk != null and guest.walk.is_valid():
 		guest.walk.kill()  # if they hadn't quite sat down yet
+	_face(guest.node, true)  # up, and turning to go
 	guest.walk = create_tween()
 	# ...and leave in whichever direction they're heading home, at random.
 	guest.walk.tween_property(guest.node, "position:x", _random_offscreen_x(), _scaled(1.4)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -1812,8 +1830,8 @@ func _update_info() -> void:
 
 # --- Checking the AI's replies (the rules live in scripts/rules.gd) -----------
 
-func _validate_owner(data: Variant, gender: String) -> String:
-	return Rules.validate_owner(data, gender)
+func _validate_owner(data: Variant, gender: String, age_range: String = "") -> String:
+	return Rules.validate_owner(data, gender, age_range)
 
 
 func _validate_bar_name(data: Variant) -> String:
@@ -1824,8 +1842,8 @@ func _validate_customer_name(data: Variant, taken: Array, gender: String) -> Str
 	return Rules.validate_customer_name(data, taken, gender)
 
 
-func _validate_customer_details(data: Variant) -> String:
-	return Rules.validate_customer_details(data)
+func _validate_customer_details(data: Variant, age_range: String = "") -> String:
+	return Rules.validate_customer_details(data, age_range)
 
 
 func _validate_order(data: Variant, max_mains: int, max_drinks: int) -> String:
@@ -2529,6 +2547,7 @@ func _rect(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) -> 
 
 
 ## A grey-box person: a head, a body and a name tag, grouped so they move together.
+## A plain person: a head and a body (dressed in their look by _dress), and a name tag.
 func _person(parent: Control, pos: Vector2, colour: Color) -> Control:
 	var root := Control.new()
 	root.position = pos
@@ -2548,3 +2567,260 @@ func _person(parent: Control, pos: Vector2, colour: Color) -> Control:
 	tag.add_theme_color_override("font_outline_color", Color.BLACK)
 	root.add_child(tag)
 	return root
+
+
+# --- Drawing people -----------------------------------------------------------------------
+
+## Dresses a person (from _person) in their look: hair, clothes and their colour, glasses,
+## a bag, and the owner's apron. Still simple shapes, layered back to front, in two views:
+## "Front" (facing us: walking along the street, coming in, leaving, and the owner behind the
+## counter) and "Back" (sitting at the counter, facing their food and the owner). _face
+## switches between them.
+func _dress(person: Control, look: Dictionary) -> void:
+	for part in ["Head", "Body", "Look"]:
+		var old := person.get_node_or_null(part)
+		if old != null:
+			person.remove_child(old)
+			old.queue_free()
+	var tag := person.get_node_or_null("Tag")
+	var outfit := _layer_in(person, "Look")
+	var skin := Color(Rules.SKIN_TONES[clampi(int(look.get("skin", 0)), 0, Rules.SKIN_TONES.size() - 1)])
+	var hair_colour := Color(str(Rules.HAIR_COLOURS.get(look.get("hair_colour", "black"), Rules.HAIR_COLOURS["black"])[0]))
+	var cloth := Color(str(Rules.CLOTHES_COLOURS.get(look.get("colour", "black"), Rules.CLOTHES_COLOURS["black"])[0]))
+	var dark := cloth.darkened(0.25)
+	var light := cloth.lightened(0.2)
+	var hair := str(look.get("hair", "short"))
+	var clothes := str(look.get("clothes", "knit"))
+	var bag := str(look.get("bag", ""))
+	var front := _layer_in(outfit, "Front")
+	var back := _layer_in(outfit, "Back")
+	back.visible = false
+
+	# --- Facing us ---
+	match hair:  # hair behind the head
+		"long":
+			_rect(front, Vector2(12, 4), Vector2(56, 66), hair_colour)
+		"ponytail":
+			_rect(front, Vector2(60, 10), Vector2(12, 36), hair_colour)
+		"bun":
+			_blob(front, Vector2(40, -8), 12.0, hair_colour)
+	if clothes == "hoodie":
+		_rect(front, Vector2(10, 22), Vector2(60, 30), dark)  # the hood, behind the head
+	if bag == "backpack":
+		_rect(front, Vector2(-6, 52), Vector2(12, 60), Color("3a3946"))
+	var body := _rect(front, Vector2(0, 44), Vector2(80, 106), cloth)
+	body.name = "Body"
+	match clothes:
+		"suit", "blazer":
+			_poly(front, [Vector2(28, 44), Vector2(52, 44), Vector2(40, 80)], Color("eef0f2") if clothes == "suit" else Color("cfe0ee"))
+			_poly(front, [Vector2(24, 44), Vector2(30, 44), Vector2(40, 86), Vector2(36, 92)], dark)  # lapels
+			_poly(front, [Vector2(50, 44), Vector2(56, 44), Vector2(44, 92), Vector2(40, 86)], dark)
+			if clothes == "suit":
+				_poly(front, [Vector2(38, 48), Vector2(42, 48), Vector2(44, 76), Vector2(40, 82), Vector2(36, 76)], Color("8a2a35"))  # the tie
+		"trench":
+			_poly(front, [Vector2(20, 44), Vector2(40, 44), Vector2(30, 66)], light)  # collar
+			_poly(front, [Vector2(40, 44), Vector2(60, 44), Vector2(50, 66)], light)
+			_rect(front, Vector2(0, 98), Vector2(80, 6), dark)  # belt
+			for y in [60, 76, 112]:
+				_rect(front, Vector2(30, y), Vector2(4, 4), dark)
+				_rect(front, Vector2(46, y), Vector2(4, 4), dark)
+		"padded":
+			_rect(front, Vector2(14, 40), Vector2(52, 10), cloth)  # a high collar
+			for y in range(58, 150, 16):
+				_rect(front, Vector2(0, y), Vector2(80, 2), dark)  # quilting
+			_rect(front, Vector2(39, 50), Vector2(2, 100), dark)  # zip
+		"hoodie":
+			_rect(front, Vector2(16, 104), Vector2(48, 22), dark)  # pocket
+			_rect(front, Vector2(32, 46), Vector2(2, 20), light)  # drawstrings
+			_rect(front, Vector2(46, 46), Vector2(2, 20), light)
+		"cardigan":
+			_rect(front, Vector2(30, 44), Vector2(20, 106), Color("e8e4da") if look.get("colour", "") != "white" else Color("9a9aa4"))
+			for y in [62, 82, 102, 122]:
+				_rect(front, Vector2(26, y), Vector2(3, 3), dark)
+		"scrubs":
+			_poly(front, [Vector2(28, 44), Vector2(52, 44), Vector2(40, 64)], skin.darkened(0.05))
+			_rect(front, Vector2(48, 74), Vector2(16, 14), dark)  # chest pocket
+		"work_jacket":
+			_rect(front, Vector2(0, 100), Vector2(80, 5), Color("e8e8e8", 0.85))  # reflective stripes
+			_rect(front, Vector2(0, 116), Vector2(80, 5), Color("e8e8e8", 0.85))
+			_rect(front, Vector2(16, 44), Vector2(48, 8), dark)  # collar
+		"tshirt":
+			_poly(front, [Vector2(30, 44), Vector2(50, 44), Vector2(40, 52)], skin)
+		"knit":
+			_rect(front, Vector2(26, 44), Vector2(28, 6), dark)  # ribbed neck
+			for x in range(4, 80, 8):
+				_rect(front, Vector2(x, 140), Vector2(3, 10), dark)  # ribbed hem
+	if bool(look.get("apron", false)):  # the owner's apron
+		_rect(front, Vector2(26, 44), Vector2(4, 22), Color("f0e8d8"))
+		_rect(front, Vector2(50, 44), Vector2(4, 22), Color("f0e8d8"))
+		_rect(front, Vector2(18, 64), Vector2(44, 86), Color("f0e8d8"))
+		_rect(front, Vector2(24, 104), Vector2(32, 16), Color("e2d8c4"))  # its pocket
+	var face := _rect(front, Vector2(17, 0), Vector2(46, 44), skin)
+	face.name = "Head"
+	match hair:  # hair on the head, and the fringe
+		"long", "bob":
+			_rect(front, Vector2(14, -6), Vector2(52, 16), hair_colour)
+			_rect(front, Vector2(12, 0), Vector2(9, 60 if hair == "long" else 34), hair_colour)
+			_rect(front, Vector2(59, 0), Vector2(9, 60 if hair == "long" else 34), hair_colour)
+			_rect(front, Vector2(20, 8), Vector2(26, 6), hair_colour)
+		"ponytail", "bun":
+			_rect(front, Vector2(15, -5), Vector2(50, 13), hair_colour)
+			_rect(front, Vector2(15, 4), Vector2(5, 12), hair_colour)
+			_rect(front, Vector2(60, 4), Vector2(5, 12), hair_colour)
+		"pixie":
+			_rect(front, Vector2(15, -4), Vector2(50, 13), hair_colour)
+			_rect(front, Vector2(15, 4), Vector2(7, 16), hair_colour)
+			_rect(front, Vector2(58, 4), Vector2(7, 10), hair_colour)
+		"perm":
+			for x in range(18, 66, 9):
+				_blob(front, Vector2(x, -2 + (x % 2) * 3), 7.0, hair_colour)
+			_blob(front, Vector2(16, 10), 6.0, hair_colour)
+			_blob(front, Vector2(64, 10), 6.0, hair_colour)
+		"short":
+			_rect(front, Vector2(15, -4), Vector2(50, 12), hair_colour)
+			_rect(front, Vector2(15, 4), Vector2(5, 10), hair_colour)
+			_rect(front, Vector2(60, 4), Vector2(5, 10), hair_colour)
+		"side_part":
+			_rect(front, Vector2(15, -5), Vector2(50, 13), hair_colour)
+			_poly(front, [Vector2(30, 8), Vector2(64, 8), Vector2(64, 14)], hair_colour)
+			_rect(front, Vector2(28, -5), Vector2(2, 9), hair_colour.lightened(0.25))  # the parting
+		"buzz":
+			_rect(front, Vector2(17, -2), Vector2(46, 7), Color(hair_colour, 0.8))
+		"two_block":
+			_rect(front, Vector2(14, -7), Vector2(52, 14), hair_colour)
+			_rect(front, Vector2(22, 6), Vector2(30, 9), hair_colour)  # the long fringe
+			_rect(front, Vector2(17, 6), Vector2(4, 10), Color(hair_colour, 0.6))  # shaved sides
+			_rect(front, Vector2(59, 6), Vector2(4, 10), Color(hair_colour, 0.6))
+		"balding":
+			_rect(front, Vector2(15, 8), Vector2(6, 14), hair_colour)
+			_rect(front, Vector2(59, 8), Vector2(6, 14), hair_colour)
+	if bool(look.get("glasses", false)):
+		_frame(front, Vector2(23, 17), Vector2(14, 9), Color("1a1a20"))
+		_frame(front, Vector2(43, 17), Vector2(14, 9), Color("1a1a20"))
+		_rect(front, Vector2(37, 20), Vector2(6, 2), Color("1a1a20"))
+	if bag == "backpack":  # its straps over the shoulders
+		_rect(front, Vector2(14, 44), Vector2(6, 46), Color("3a3946"))
+		_rect(front, Vector2(60, 44), Vector2(6, 46), Color("3a3946"))
+
+	# --- From behind ---
+	_rect(back, Vector2(0, 44), Vector2(80, 106), cloth)
+	match clothes:
+		"trench":
+			_rect(back, Vector2(0, 98), Vector2(80, 6), dark)  # belt
+			_rect(back, Vector2(38, 104), Vector2(4, 46), dark)  # the back vent
+		"padded":
+			_rect(back, Vector2(14, 40), Vector2(52, 10), cloth)
+			for y in range(58, 150, 16):
+				_rect(back, Vector2(0, y), Vector2(80, 2), dark)
+		"suit", "blazer":
+			_rect(back, Vector2(38, 110), Vector2(4, 40), dark)  # the back seam
+			_rect(back, Vector2(28, 40), Vector2(24, 6), Color("eef0f2"))  # shirt collar
+		"work_jacket":
+			_rect(back, Vector2(0, 100), Vector2(80, 5), Color("e8e8e8", 0.85))
+			_rect(back, Vector2(0, 116), Vector2(80, 5), Color("e8e8e8", 0.85))
+		"knit":
+			for x in range(4, 80, 8):
+				_rect(back, Vector2(x, 140), Vector2(3, 10), dark)
+	if bool(look.get("apron", false)):
+		_rect(back, Vector2(0, 96), Vector2(80, 4), Color("f0e8d8"))  # apron strings, tied behind
+	var neck := _rect(back, Vector2(17, 0), Vector2(46, 44), skin)
+	neck.name = "Head"
+	match hair:  # the back of the head
+		"long":
+			_rect(back, Vector2(14, -6), Vector2(52, 50), hair_colour)
+			_rect(back, Vector2(12, 40), Vector2(56, 34), hair_colour)  # down the back
+		"bob":
+			_rect(back, Vector2(13, -6), Vector2(54, 46), hair_colour)
+		"ponytail":
+			_rect(back, Vector2(15, -5), Vector2(50, 40), hair_colour)
+			_rect(back, Vector2(35, 26), Vector2(10, 36), hair_colour)  # the ponytail
+		"bun":
+			_rect(back, Vector2(15, -5), Vector2(50, 40), hair_colour)
+			_blob(back, Vector2(40, 12), 11.0, hair_colour.darkened(0.15))
+		"perm":
+			for x in range(18, 66, 9):
+				for y in [0, 12, 24]:
+					_blob(back, Vector2(x, y + (x % 2) * 3), 7.0, hair_colour)
+		"balding":
+			_rect(back, Vector2(15, 16), Vector2(50, 18), hair_colour)  # a fringe of hair round the back
+		"buzz":
+			_rect(back, Vector2(17, -2), Vector2(46, 34), Color(hair_colour, 0.8))
+		_:  # short, side-parted, two-block, pixie: hair down to the nape
+			_rect(back, Vector2(15, -5), Vector2(50, 36), hair_colour)
+	if clothes == "hoodie":
+		_rect(back, Vector2(14, 40), Vector2(52, 24), dark)  # the hood, hanging down the back
+	match bag:
+		"backpack":
+			_rect(back, Vector2(14, 56), Vector2(52, 56), Color("3a3946"))
+		"tote":
+			_rect(back, Vector2(8, 50), Vector2(3, 46), Color("cdb894").darkened(0.2))
+			_rect(back, Vector2(-10, 92), Vector2(24, 30), Color("e6dcc6"))
+	if bag in ["tote", "briefcase"]:  # carried at their side, either way
+		if bag == "tote":
+			_rect(front, Vector2(70, 50), Vector2(3, 50), Color("cdb894").darkened(0.2))
+			_rect(front, Vector2(66, 96), Vector2(24, 30), Color("e6dcc6"))
+		else:
+			_rect(front, Vector2(70, 120), Vector2(30, 22), Color("4a3020"))
+			_frame(front, Vector2(79, 114), Vector2(12, 7), Color("4a3020"))
+			_rect(back, Vector2(-20, 120), Vector2(30, 22), Color("4a3020"))
+	if tag != null:
+		person.move_child(tag, -1)  # the name stays on top
+
+
+## Which way someone's facing: toward us (walking, coming in, leaving, the owner), or away
+## (sitting at the counter, facing their food and the owner).
+func _face(person: Control, toward_us: bool) -> void:
+	var front := person.get_node_or_null("Look/Front") as Control
+	var back := person.get_node_or_null("Look/Back") as Control
+	if front != null and back != null:
+		front.visible = toward_us
+		back.visible = not toward_us
+
+
+func _layer_in(parent: Control, layer_name: String) -> Control:
+	var layer := Control.new()
+	layer.name = layer_name
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(layer)
+	return layer
+
+
+func _poly(parent: Control, points: Array, colour: Color) -> Polygon2D:
+	var shape := Polygon2D.new()
+	shape.polygon = PackedVector2Array(points)
+	shape.color = colour
+	parent.add_child(shape)
+	return shape
+
+
+func _blob(parent: Control, centre: Vector2, radius: float, colour: Color) -> Polygon2D:
+	var points: Array = []
+	for k in 12:
+		points.append(centre + Vector2.from_angle(TAU * k / 12.0) * radius)
+	return _poly(parent, points, colour)
+
+
+## A rectangle's outline (glasses, a handle).
+func _frame(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) -> void:
+	_rect(parent, pos, Vector2(rect_size.x, 2), colour)
+	_rect(parent, pos + Vector2(0, rect_size.y - 2), Vector2(rect_size.x, 2), colour)
+	_rect(parent, pos, Vector2(2, rect_size.y), colour)
+	_rect(parent, pos + Vector2(rect_size.x - 2, 0), Vector2(2, rect_size.y), colour)
+
+
+## A look for someone the AI never hears about (passers-by): the game picks it all.
+func _street_look() -> Dictionary:
+	var gender := "woman" if randf() < 0.5 else "man"
+	return Rules.pick_look(gender, Rules.pick_age_range(randf()), _weather_kind)
+
+
+## The owner's look: chosen with the bar and saved; bars from before looks get one now,
+## from the owner's age, without asking the AI.
+func _owner_look() -> Dictionary:
+	if not _owner.has("look"):
+		var range_id := Rules.age_range_of(int(_owner.get("age", 55)))
+		_owner["look"] = Rules.pick_look(str(_owner.get("gender", "woman")), range_id, "", true)
+		if not Game.bar.is_empty():
+			Game.bar["owner"]["look"] = _owner["look"]
+			Game.save()
+	return _owner["look"]

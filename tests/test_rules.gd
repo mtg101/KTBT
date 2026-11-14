@@ -978,3 +978,61 @@ func test_arirang_is_in_whole_bars_of_three() -> void:
 		if is_equal_approx(bar, 3.0):
 			bar = 0.0
 	assert_float(beats).is_equal(48.0)  # sixteen bars
+
+
+func test_the_game_picks_how_people_look() -> void:
+	var neutral := 0
+	for i in 300:
+		var look := Rules.pick_look(["woman", "man", "non-binary"][i % 3], Rules.pick_age_range(randf()), "")
+		assert_bool(Rules.AGE_RANGES.has(look["age_range"])).is_true()
+		assert_bool(Rules.HAIR_STYLES.has(look["hair"])).is_true()
+		assert_bool(Rules.HAIR_COLOURS.has(look["hair_colour"])).is_true()
+		assert_bool(Rules.CLOTHES.has(look["clothes"])).is_true()
+		assert_bool(Rules.CLOTHES_COLOURS.has(look["colour"])).is_true()
+		if look["clothes"] == "suit":
+			assert_array(Rules.SUIT_COLOURS).contains([look["colour"]])
+		if look["colour"] in ["beige", "black", "navy", "charcoal", "white", "cream", "camel"]:
+			neutral += 1
+	assert_int(neutral).is_greater(200)  # mostly beige and black (it's Seoul)
+
+
+func test_looks_suit_the_weather_and_the_owner() -> void:
+	for i in 200:
+		assert_str(str(Rules.pick_look("man", "30s", "muggy")["clothes"])).is_not_equal("padded")
+		assert_str(str(Rules.pick_look("woman", "30s", "snow")["clothes"])).is_not_equal("tshirt")
+		var owner := Rules.pick_look("woman", Rules.pick_age_range(randf(), true), "", true)
+		assert_array(["suit", "blazer", "trench", "scrubs"]).not_contains([owner["clothes"]])
+		assert_bool(owner["apron"]).is_true()
+		assert_array(["20s", "30s"]).not_contains([owner["age_range"]])
+		assert_str(str(Rules.pick_look("man", "20s", "")["hair"])).is_not_equal("balding")
+		assert_array(["grey", "white"]).not_contains([Rules.pick_look("woman", "20s", "")["hair_colour"]])
+
+
+func test_ages_keep_to_the_games_range() -> void:
+	var customer := {"age": 45, "job": "nurse", "mood": "tired", "reason": "A long shift.", "speech_style": "quiet", "appearance": "Scrubs."}
+	var fits := customer.duplicate()
+	assert_str(Rules.validate_customer_details(fits, "40s")).is_empty()
+	assert_int(int(fits["age"])).is_equal(45)
+	var too_old := customer.duplicate()
+	assert_str(Rules.validate_customer_details(too_old, "20s")).is_empty()
+	assert_int(int(too_old["age"])).is_equal(29)  # moved into the game's range, not rejected
+	assert_str(Rules.validate_customer_details(customer.duplicate())).is_empty()  # any adult age
+	var owner := _owner({"age": 52})
+	assert_str(Rules.validate_owner(owner, "woman", "60s")).is_empty()
+	assert_int(int(owner["age"])).is_equal(60)
+	assert_str(Rules.validate_customer_details(_ages(15), "20s")).contains("15")  # under age is still rejected
+	assert_str(Rules.age_range_of(58)).is_equal("50s")
+	assert_str(Rules.age_range_of(80)).is_equal("70s")
+
+
+func test_a_look_in_words() -> void:
+	var look := {"age_range": "30s", "hair": "bob", "hair_colour": "black", "clothes": "trench", "colour": "beige", "glasses": true, "bag": "tote"}
+	assert_str(Rules.look_text(look)).is_equal("in their thirties, with black hair in a bob and glasses, wearing a beige trench coat and carrying a tote bag")
+	look.merge({"clothes": "suit", "colour": "navy", "glasses": false, "bag": "", "hair": "side_part"}, true)
+	assert_str(Rules.look_text(look)).is_equal("in their thirties, with neatly side-parted black hair, wearing a navy suit and tie")
+	var owner := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "camel", "apron": true}
+	assert_str(Rules.look_text(owner)).is_equal("in their sixties, with a short, tight greying perm, wearing a camel cardigan under an apron")
+
+
+func _ages(age: int) -> Dictionary:
+	return {"age": age, "job": "student", "mood": "giddy", "reason": "Exams are over.", "speech_style": "loud", "appearance": "A hoodie."}
