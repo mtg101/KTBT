@@ -205,6 +205,11 @@ var _attending: Guest = null  # who the owner saw to last
 var _attention := 0
 var _last_orders := false
 var _leave_requested := false
+## Close the bar, during a night: the owner closes up early (nobody new, everyone settles up),
+## and once the tent's empty the night ends as at 3am, diary and all. (Closing the window
+## just saves and quits, and the night doesn't count.)
+var _closing_early := false
+var _closed_early_at := 0.0  # game minutes
 var _passers_by := 0  # how many have walked past tonight (also names their nodes)
 var _ambience: Ambience  # the tent's background sound
 var _bubble_layer: Control  # speech bubbles, over everything on the stage
@@ -233,7 +238,14 @@ var _reaction_pending := {}
 var _bubbles_toggle: CheckBox
 var _sound_toggle: CheckBox
 var _music: Music  # Arirang, now and then
-var _loading: LoadingScreen  # the loading screen while a new bar is set up
+var _loading: LoadingScreen  # the loading screen while a bar is set up (a new one, or reopened)
+var _loading_note := ""  # what it's waiting on when the typing label says nothing ("Previously on…")
+var _loading_said := ""  # ...and what the status said last, and since when (real seconds)
+var _loading_since := 0.0
+var _loading_opened := 0.0  # real seconds when the loading screen went up (for the stats)
+## How tonight opened (loading time, the recap's style and who wrote it), noted before the
+## night's stats exist, and handed to them when it starts (NightStats.story).
+var _before_night := {}
 var _look_offer: Dictionary = {}  # the colours and shapes a new bar is offered
 var _tent: Array[CanvasItem] = []  # the tent's pieces: hidden until its look is known
 var _strollers := 0  # people walking along the street, not coming in (also names their nodes)
@@ -303,6 +315,10 @@ var _owner_tag: Label
 var _stove_row: HBoxContainer
 # The look of the tent and the night (placeholder art, drawn in code)
 var _sky: ColorRect  # behind everything: dusk to deep night
+## Its own dice for scenery that comes and goes by itself (the neon sign, steam, the cat
+## prowling), so it never shifts the game's own rolls (tests fix those with a seed).
+var _scenery_dice := RandomNumberGenerator.new()
+var _neon: Label  # the karaoke sign on the pillar
 var _glow: ColorRect  # the tent's warm glow
 var _bulbs: Array = []  # the hanging bulbs (they swing)
 var _bulb_lights: Array = []
@@ -371,8 +387,9 @@ func _open_saved_bar() -> void:
 		_show_cat()
 	_update_info()
 	if Hooks.recaps and int(Game.bar.get("nights", 0)) > 0:
-		_loading.status = "Previously on…"
+		_loading_note = "Writing \"Previously on…\""
 		var recap := await _write_recap()
+		_loading_note = ""
 		if _stopped or Game.bar.is_empty():
 			_owner_working = false
 			return
@@ -431,15 +448,39 @@ func _validate_hangul(data: Variant, person_name: String) -> String:
 ## A loading screen over everything while a new bar is invented and the tent goes up.
 func _build_loading() -> void:
 	_loading = LoadingScreen.new()
+	_loading.reopening = not Game.bar.is_empty()  # (its captions tease a new bar, or tonight's episode)
+	_loading_opened = Time.get_ticks_msec() / 1000.0
 	_loading.name = "Loading"
 	_loading.z_index = 10
 	add_child(_loading)
 
 
 ## The bar's ready (or something went wrong): fade the loading screen out.
+## The loading screen's status: what the AI's doing, and, if it's taking a while, for how long,
+## so a slow reply doesn't look like the game's stuck. (Ollama can take up to a minute for the
+## first reply after it's been idle, while it loads the model back into the GPU.)
+func _loading_status() -> String:
+	var text := _typing_label.text if _typing_label.text != "" else _loading_note
+	var now := Time.get_ticks_msec() / 1000.0
+	if text != _loading_said:
+		_loading_said = text
+		_loading_since = now
+	var waited := int(now - _loading_since)
+	if text == "" or waited < LOADING_PATIENCE:
+		return text
+	if waited < LOADING_WAKING:
+		return "%s  (%ds)" % [text, waited]
+	return "%s  (%ds: the AI may be waking up, which can take a minute after it's been idle)" % [text, waited]
+
+
+const LOADING_PATIENCE := 5  # seconds before the status counts them
+const LOADING_WAKING := 15  # ...and before it says why it might be slow
+
+
 func _end_loading() -> void:
 	if _loading == null or not _loading.visible:
 		return
+	_before_night["loading_seconds"] = Time.get_ticks_msec() / 1000.0 - _loading_opened
 	var fade := _loading.create_tween()
 	fade.tween_property(_loading, "modulate:a", 0.0, 0.4)
 	fade.tween_callback(func(): _loading.visible = false)
@@ -447,6 +488,7 @@ func _end_loading() -> void:
 
 ## Back to the loading screen (trying again after the AI failed).
 func _start_loading() -> void:
+	_loading_opened = Time.get_ticks_msec() / 1000.0
 	_loading.modulate.a = 1.0
 	_loading.visible = true
 
@@ -508,6 +550,7 @@ func _invent_owner() -> void:
 	await get_tree().process_frame  # let the tent draw before the loading screen fades
 	_end_loading()
 	if Hooks.recaps:
+		_before_night["recap_by"] = "game"  # (a series opener's always the game's)
 		await _play_recap(Story.series_opener(_recap_facts()), true)  # a new series: its first episode
 		if _stopped or Game.bar.is_empty():
 			return
@@ -596,12 +639,15 @@ func _show_bar_name() -> void:
 	_title_label.tooltip_text = str(Game.bar.get("name_meaning", ""))
 
 
-## Close the bar (the top bar's button, or the night summary's) and go back to the title
-## screen, saved: straight away
-## if the owner's free, otherwise once they've finished what they're doing (an AI call
-## can't be stopped halfway).
+## Close the bar: during a night, the owner closes up early (see _close_early); after it (the
+## night summary's button), back to the title screen, saved: straight away if the owner's
+## free, otherwise once they've finished what they're doing (an AI call can't be stopped
+## halfway).
 func _on_leave_pressed() -> void:
-	if _stopped:
+	if _stopped or _closing_early:
+		return
+	if _night_open:
+		_close_early()
 		return
 	if _owner_working:
 		_leave_requested = true
@@ -615,6 +661,24 @@ func _on_leave_pressed() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and _night_open and not _stopped:
 		_save_stats(false)
+
+
+## Closing up early: no more customers, everyone at the counter told and settling up once their
+## food's out (with their goodbyes, as usual), and once the tent's empty the night ends.
+func _close_early() -> void:
+	_closing_early = true
+	_closed_early_at = _clock
+	_leave_button.disabled = true
+	_leave_button.text = "Closing up..."
+	_last_orders = true  # (nobody new: see _can_greet)
+	_waiting.clear()
+	_waiting_who.clear()
+	_narrate("%s. %s decides to close up early tonight." % [NightRules.clock_text(int(_clock)), _owner_display()])
+	for guest in _guests:
+		guest.stay_left = 0.0
+		guest.transcript.append({"action": "%s is closing up early tonight, and lets everyone know." % _owner["name"]})
+	_event("closed_early", {"at": int(_clock), "seated": _guests.size()}, _owner_node)
+	_update_info()
 
 
 func _leave() -> void:
@@ -645,6 +709,8 @@ func _start_night() -> void:
 	_events.happened.connect(_caption_for_event)
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	_stats.specials = _specials.duplicate()
+	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
+	_before_night = {}
 	_waiting.clear()
 	_waiting_who.clear()
 	_skip_arrivals = 0
@@ -655,6 +721,9 @@ func _start_night() -> void:
 	_jobs_tonight.clear()
 	_looks_tonight.clear()
 	_last_orders = false
+	_closing_early = false
+	_leave_button.disabled = false
+	_leave_button.text = "Close the bar"
 	_rush_shown = false
 	_dawn_shown = false
 	_attending = null
@@ -677,7 +746,7 @@ func _start_night() -> void:
 func _process(delta: float) -> void:
 	_update_light()
 	if _loading != null and _loading.visible:
-		_loading.status = _typing_label.text
+		_loading.status = _loading_status()
 	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
 		"open": _night_open, "minutes": int(_clock)})
 	if not _night_open or _stopped:
@@ -730,7 +799,7 @@ func _process(delta: float) -> void:
 		return
 	if _leave_requested:
 		_leave()
-	elif _clock >= NightRules.CLOSE_MINUTES and _guests.is_empty():
+	elif (_clock >= NightRules.CLOSE_MINUTES or _closing_early) and _guests.is_empty():
 		_end_night()
 	else:
 		_next_task()
@@ -871,6 +940,67 @@ func _umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape": "
 	canopy.color = UMBRELLA_CLEAR if str(gear.get("shape", "")) == "bubble" else UMBRELLA_COLOURS.pick_random()
 	holder.add_child(canopy)
 	holder.add_child(_bar(Vector2(-2, middle.y - high - 4), Vector2(4, 6), metal))  # the tip
+	# The weather lands on it (unlike some K-drama umbrellas): snow builds up on top, and
+	# rain runs off the rim in drops.
+	holder.set_meta("middle", middle)
+	holder.set_meta("across", across)
+	if _weather_kind == "snow":
+		_snow_cap(holder, middle, across, high)
+	elif _weather_kind in ["rain", "drizzle"]:
+		for k in (5 if _weather_kind == "rain" else 3):
+			_drip(holder, middle + Vector2(_scenery_dice.randf_range(-across, across) * 0.95, float(shape["rim"])))
+
+
+## Snow settling on an umbrella: a white cap over the top, building up while they walk.
+func _snow_cap(holder: Node2D, middle: Vector2, across: float, high: float) -> void:
+	var cap := Polygon2D.new()
+	cap.name = "SnowCap"
+	var points := PackedVector2Array()
+	for step in 11:  # along the top, a little above the canopy...
+		var angle: float = PI * 1.12 + PI * 0.76 * step / 10.0
+		points.append(middle + Vector2(cos(angle) * across * 0.98, sin(angle) * (high + 4.0)))
+	for step in range(10, -1, -1):  # ...and back along it, lower in the middle: thicker on top
+		var angle: float = PI * 1.12 + PI * 0.76 * step / 10.0
+		points.append(middle + Vector2(cos(angle) * across * 0.95, sin(angle) * high * 0.82))
+	cap.polygon = points
+	cap.color = Color(1, 1, 1, 0.92)
+	cap.modulate.a = 0.0
+	holder.add_child(cap)
+	cap.create_tween().tween_property(cap, "modulate:a", 1.0, _scaled(5.0))  # building up
+
+
+## A raindrop running off the umbrella's rim, again and again.
+func _drip(holder: Node2D, from: Vector2) -> void:
+	var drop := _bar(Vector2(-1, 0), Vector2(2, 5), Color(0.7, 0.82, 1.0, 0.85))
+	drop.name = "Drip"
+	drop.position = from
+	drop.modulate.a = 0.0
+	holder.add_child(drop)
+	var fall := drop.create_tween().set_loops()
+	fall.tween_interval(_scaled(_scenery_dice.randf_range(0.2, 1.4)))
+	fall.tween_property(drop, "modulate:a", 1.0, 0.01).from(0.0)
+	fall.tween_property(drop, "position", from + Vector2(0, 34), _scaled(0.35)).from(from).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	fall.parallel().tween_property(drop, "modulate:a", 0.0, _scaled(0.35))
+
+
+## Under the tarp, the umbrella gets a shake before it's folded: the snow (or the rain) flies off.
+func _shake_off(person: Control, holder: Node2D) -> void:
+	var snowy := holder.get_node_or_null("SnowCap") != null
+	var wet := holder.get_node_or_null("Drip") != null
+	if not snowy and not wet:
+		return
+	var middle: Vector2 = holder.get_meta("middle", Vector2.ZERO)
+	var across := float(holder.get_meta("across", 50.0))
+	var start := holder.position + middle * holder.scale
+	for k in 7:
+		var bit := _bar(Vector2(-2, -2), Vector2(4, 4) if snowy else Vector2(2, 5), Color(1, 1, 1, 0.9) if snowy else Color(0.7, 0.82, 1.0, 0.8))
+		bit.name = "ShakenOff"
+		bit.position = start + Vector2(_scenery_dice.randf_range(-across, across), _scenery_dice.randf_range(-10.0, 4.0))
+		person.add_child(bit)
+		var fly := bit.create_tween()
+		fly.tween_property(bit, "position", bit.position + Vector2(_scenery_dice.randf_range(-40.0, 40.0), _scenery_dice.randf_range(40.0, 90.0)), _scaled(0.5)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		fly.parallel().tween_property(bit, "modulate:a", 0.0, _scaled(0.5))
+		fly.tween_callback(bit.queue_free)
 
 
 ## A rectangle for something that isn't a Control (the umbrella's shaft and tip).
@@ -960,6 +1090,10 @@ func _end_night() -> void:
 	_summary.visible = true
 	await _write_diary()
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
+	if _closing_early:  # (written up: the button's for leaving again)
+		_closing_early = false
+		_leave_button.disabled = false
+		_leave_button.text = "Close the bar"
 
 
 ## 3am: the owner writes tonight up in their diary (the AI, from the facts the game picks, or
@@ -985,6 +1119,8 @@ func _write_diary() -> void:
 		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system())}
 	SaveStore.record_diary(Game.bar, entry)
 	Game.save()
+	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
+	_stats.story["diary_stamp"] = str(entry["stamp"])
 	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
 	_show("[i][color=#%s]%s's diary, episode %d: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], _night_number, _esc(text)])
 	for button in _summary_buttons:
@@ -1004,6 +1140,7 @@ func _diary_facts() -> Dictionary:
 		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
 		"cat": str(_cat.get("name", "")), "line": NightRules.memorable_line(_night_lines), "specials": _specials.duplicate(),
+		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
 	})
 
 
@@ -1035,6 +1172,7 @@ func _recap_facts() -> Dictionary:
 		"archetype": str(_owner.get("archetype", "")), "owner_data": _owner.duplicate(true), "cat": str(Game.bar.get("cat", {}).get("name", "")),
 		"regulars": regulars.map(func(r): return str(r["name"])), "names": names,
 		"last": last_facts, "last_entry": str(last.get("text", "")), "memories": latest_memories, "hangul": hangul,
+		"teaser_example": Story.RECAP_TEASER_EXAMPLES[_scenery_dice.randi() % Story.RECAP_TEASER_EXAMPLES.size()],
 	}
 
 
@@ -1042,7 +1180,8 @@ func _recap_facts() -> Dictionary:
 func _write_recap() -> Dictionary:
 	var facts := _recap_facts()
 	var reply: Dictionary = await _ai.ask_json(Prompts.recap_messages(facts), _validate_recap.bind(facts), {"temperature": 0.85},
-		{"purpose": "recap", "facts": facts})
+		{"purpose": "recap", "facts": facts, "tries": 2})  # (two goes, then the game's own: it's on the loading screen)
+	_before_night["recap_by"] = "game" if reply.is_empty() else "ai"
 	if reply.is_empty():
 		reply = Story.stitched_recap(facts)
 	return reply
@@ -1062,6 +1201,7 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	# A different K-TV style each time (Story.RECAP_STYLES), from last time's biggest moment.
 	var style := Story.pick_recap_style(facts["last"], str(Game.bar.get("last_recap_style", "")), randf())
 	Game.bar["last_recap_style"] = style
+	_before_night["recap_style"] = style
 	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style}
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
@@ -1112,6 +1252,8 @@ func _next_task() -> void:
 	if payer != null:
 		_settle_up(payer)
 		return
+	if _closing_early:
+		return  # (just seeing everyone off)
 	if not _reaction_pending.is_empty():
 		_ask_pending_reaction()
 		return
@@ -1391,6 +1533,7 @@ func _greet() -> void:
 	_update_info()
 	var friends_in: Array = _guests.filter(func(g): return g != guest and not regular.is_empty() and not _friend(guest, g).is_empty())
 	var sat := {"name": str(customer["name"]), "gender": str(customer.get("gender", "")), "job": str(customer.get("job", "")),
+		"age_range": str(look.get("age_range", "")), "company": guest.company,
 		"seat": guest.seat, "seated": _guests.size(), "minutes": int(_clock),
 		"regular": "" if regular.is_empty() else ("founding" if bool(regular.get("founding", false)) else "regular"),
 		"friend": str(friends_in[0].customer["name"]) if not friends_in.is_empty() else "",
@@ -1555,6 +1698,7 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 			_event("drinks_poured", poured, null, Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60))
 		else:
 			_event("drinks_poured", poured, guest.node)
+		_tipsy(guest)
 	elif not now.is_empty():
 		_ambience.play("clink", 0.55)  # a bowl of odeng or rice set down
 	var was_backed := _kitchen.size() >= Captions.STOVE_BACKED
@@ -1675,6 +1819,10 @@ func _talk(guest: Guest) -> void:
 	_attend(guest, true)
 	var remembered: bool = not guest.customer.get("regular", {}).get("memories", []).is_empty()
 	guest.topic = Talk.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered)
+	# The cat's just come to them (or it's up to something): the talk turns to it. (Given only as
+	# a situation, the AI let it go by every time: 0 of 4 one night.)
+	if guest.cat_moment != "" or _owner_cat_moment != "":
+		guest.topic = "the_cat"
 	guest.food_news = false
 	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
 	# for customers to chat) sooner.
@@ -1941,6 +2089,8 @@ func _counter_chat() -> void:
 		_move_owner(_beside(chat.people[0]))
 	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
 	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic)
+	if chat.people.any(func(g): return g.cat_moment != "") or (chat.owner_in and _owner_cat_moment != ""):
+		chat.topic = "the_cat"  # (the cat's just come to one of them: see _talk)
 	var said := ""  # the last line said in the chat, and who by
 	var said_by := ""
 	var lines_said := 0
@@ -2186,6 +2336,35 @@ func _move_cat(spot: String = "") -> void:
 		"new_lap": spot == "lap" and with != null and with != before, "was_out": was_out}
 	_event("cat_moved", moved, with.node if bool(moved["new_lap"]) else _cat_node)
 	_update_info()
+	# Sat by someone's food, with a fish cake on the table: a greedy cat may help itself.
+	if spot == "food" and with != null and CatRules.steals(str(_cat["personality"]), with.served.has(CatRules.STEALABLE), randf()):
+		_cat_steals(with)
+
+
+## The cat grabs a fish cake skewer off someone's table and bolts into the street. It's gone
+## from their table (still on the bill), and the owner and they each get a moment for their
+## next line.
+func _cat_steals(guest: Guest) -> void:
+	var cat_name := str(_cat["name"])
+	var robbed := str(guest.customer["name"])
+	var dish_name := str(Menu.find(CatRules.STEALABLE)["name"])
+	guest.served.erase(CatRules.STEALABLE)
+	for shape in guest.food_row.get_children():
+		if shape.tooltip_text == dish_name:
+			guest.food_row.remove_child(shape)
+			shape.queue_free()
+			break
+	guest.version += 1
+	var text := "%s snatches an odeng skewer off %s's plate and bolts!" % [cat_name, robbed]
+	_narrate(text)
+	guest.transcript.append({"action": text})
+	_ambience.play("meow")
+	_event("cat_stole", {"cat": cat_name, "name": robbed, "dish": dish_name}, guest.node)
+	_move_cat("street")  # (off with it)
+	_owner_cat_moment = CatRules.THEFT_MOMENT_OWNER.replace("{cat}", cat_name).replace("{name}", robbed)
+	if _guests.has(guest):
+		guest.cat_moment = CatRules.THEFT_MOMENT_ROBBED.replace("{cat}", cat_name)
+	_update_info()
 
 
 ## The cat's name, for counting lines that talk to it (Talk.hint_taken).
@@ -2224,16 +2403,43 @@ func _place_cat() -> void:
 		"feet": target = Vector2(SEAT_X[_cat_with.seat] + 18, 348)
 		"food": target = Vector2(SEAT_X[_cat_with.seat] + 48, 318)
 	_cat_node.visible = true
-	# Face the way it's going (the cat's drawn facing right; flipped, it faces left).
-	if absf(target.x - _cat_node.position.x) > 1.0:
-		_cat_node.scale.x = 1.0 if target.x > _cat_node.position.x else -1.0
-		(_cat_node.get_node("Tag") as Label).scale.x = _cat_node.scale.x  # turned back, so the name still reads
+	_face_cat(target.x)
 	if _cat_tween != null and _cat_tween.is_valid():
 		_cat_tween.kill()
 	_cat_tween = create_tween()
 	_cat_tween.tween_property(_cat_node, "position", target, _scaled(1.0)).set_trans(Tween.TRANS_SINE)
 	if _cat_spot == "street":
 		_cat_tween.tween_callback(func(): _cat_node.visible = _cat_spot != "street")
+	elif _cat_spot in ["stools", "feet"]:
+		_cat_tween.tween_callback(_prowl)  # it doesn't just sit there
+
+
+## Faces the cat the way it's going (it's drawn facing right; flipped, it faces left).
+func _face_cat(to_x: float) -> void:
+	if absf(to_x - _cat_node.position.x) > 1.0:
+		_cat_node.scale.x = 1.0 if to_x > _cat_node.position.x else -1.0
+		(_cat_node.get_node("Tag") as Label).scale.x = _cat_node.scale.x  # turned back, so the name still reads
+
+
+## Prowling under the stools: a pause to sniff about, then padding off somewhere else along
+## the floor, again and again until it goes somewhere new. Winding round someone's ankles,
+## the same but back and forth around their feet. (Scenery dice: see _scenery_dice.)
+func _prowl() -> void:
+	if not is_instance_valid(_cat_node) or not (_cat_spot in ["stools", "feet"]):
+		return
+	var to: Vector2
+	if _cat_spot == "feet" and _cat_with != null:
+		var feet_x: float = SEAT_X[_cat_with.seat] + 18
+		to = Vector2(feet_x + _scenery_dice.randf_range(-34.0, 34.0), 348)
+	else:
+		to = Vector2(_scenery_dice.randf_range(SEAT_X[0] - 120, SEAT_X[NightRules.SEATS - 1] + 60), 348)
+	var pause := _scenery_dice.randf_range(0.6, 2.4) if _cat_spot == "stools" else _scenery_dice.randf_range(0.2, 0.7)
+	var pace := 110.0 if _cat_spot == "stools" else 60.0  # pixels a second: ambling, or slow and close
+	_cat_tween = create_tween()
+	_cat_tween.tween_interval(_scaled(pause))
+	_cat_tween.tween_callback(_face_cat.bind(to.x))
+	_cat_tween.tween_property(_cat_node, "position", to, _scaled(maxf(0.3, _cat_node.position.distance_to(to) / pace))).set_trans(Tween.TRANS_SINE)
+	_cat_tween.tween_callback(_prowl)
 
 
 ## A grey-box cat: body, head, ears and tail, in its coat colour (calico and tabby get patches).
@@ -2346,10 +2552,56 @@ func _walk_out(guest: Guest) -> void:
 	var gear: Dictionary = {}
 	if Looks.wet(_weather_kind):
 		gear = guest.rain_gear if not guest.rain_gear.is_empty() else _pick_rain_gear()
+	_stop_swaying(guest.node)
 	_gear_up(guest.node, gear, guest.node.position.x < away, guest.rain_gear.is_empty())  # (counted only if it's new)
+	# A few drinks in, they wobble home (slower, zigzagging), unless they're running for it.
+	var wobbly := _drinks_had(guest) >= TIPSY_DRINKS and not _is_running(guest.node)
+	if wobbly:
+		guest.node.pivot_offset = Vector2(40, 150)
+		var wobble := guest.node.create_tween().set_loops()
+		wobble.tween_property(guest.node, "rotation", 0.1, _scaled(0.28)).set_trans(Tween.TRANS_SINE)
+		wobble.parallel().tween_property(guest.node, "position:y", CUSTOMER_Y + 5, _scaled(0.28))
+		wobble.tween_property(guest.node, "rotation", -0.08, _scaled(0.32)).set_trans(Tween.TRANS_SINE)
+		wobble.parallel().tween_property(guest.node, "position:y", CUSTOMER_Y - 3, _scaled(0.32))
+		guest.node.set_meta("wobbly", true)
+		_stats.record_street("wobbled home")
 	guest.walk = create_tween()
-	guest.walk.tween_property(guest.node, "position:x", away, _scaled(1.0 if _is_running(guest.node) else 1.4)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	guest.walk.tween_property(guest.node, "position:x", away, _scaled(1.0 if _is_running(guest.node) else (2.2 if wobbly else 1.4))).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	guest.walk.tween_callback(guest.node.queue_free)
+
+
+## A second bottle and they start to sway on their stool, a little more with each one after
+## (facing away from us, so it's in how they sit, not their cheeks).
+const TIPSY_DRINKS := 2
+
+func _tipsy(guest: Guest) -> void:
+	var drinks := _drinks_had(guest)
+	if drinks < TIPSY_DRINKS or not is_instance_valid(guest.node):
+		return
+	var lean := minf(0.022 * (drinks - TIPSY_DRINKS + 1), 0.07)
+	if not guest.node.has_meta("counted_tipsy"):
+		guest.node.set_meta("counted_tipsy", true)
+		_stats.tipsy += 1
+	guest.node.pivot_offset = Vector2(40, 150)  # swaying from where they sit
+	_stop_swaying(guest.node)
+	var sway := guest.node.create_tween().set_loops()
+	sway.tween_property(guest.node, "rotation", lean, _scaled(1.6)).set_trans(Tween.TRANS_SINE)
+	sway.tween_property(guest.node, "rotation", -lean * 0.6, _scaled(1.8)).set_trans(Tween.TRANS_SINE)
+	guest.node.set_meta("sway", sway)
+
+
+func _drinks_had(guest: Guest) -> int:
+	return guest.order.filter(func(id): return Menu.find(id).get("kind", "") == "drink").size()
+
+
+func _stop_swaying(person: Control) -> void:
+	if not person.has_meta("sway"):  # (get_meta with a null default still errors when it's missing)
+		return
+	var sway: Tween = person.get_meta("sway")
+	if sway != null and sway.is_valid():
+		sway.kill()
+	person.remove_meta("sway")
+	person.rotation = 0.0
 
 
 ## Rain gear for someone out in tonight's weather (Looks.rain_gear; {} when it's dry).
@@ -2381,8 +2633,13 @@ func _gear_down(person: Control) -> void:
 	var umbrella := person.get_node_or_null("Umbrella") as Node2D
 	if umbrella != null:
 		umbrella.name = "UmbrellaDown"  # (so it's gone straight away, as far as anyone looking is concerned)
+		_shake_off(person, umbrella)
 		var fold := umbrella.create_tween()
-		fold.tween_property(umbrella, "scale:x", umbrella.scale.x * 0.15, _scaled(0.2)).set_trans(Tween.TRANS_SINE)
+		var tilt := umbrella.rotation
+		fold.tween_property(umbrella, "rotation", tilt + 0.3, _scaled(0.06))  # a shake...
+		fold.tween_property(umbrella, "rotation", tilt - 0.3, _scaled(0.08))
+		fold.tween_property(umbrella, "rotation", tilt, _scaled(0.06))
+		fold.tween_property(umbrella, "scale:x", umbrella.scale.x * 0.15, _scaled(0.2)).set_trans(Tween.TRANS_SINE)  # ...and folded
 		fold.parallel().tween_property(umbrella, "modulate:a", 0.0, _scaled(0.25))
 		fold.tween_callback(umbrella.queue_free)
 	var cover := person.get_node_or_null("OverHead")
@@ -2424,7 +2681,10 @@ func _free_color() -> Color:
 ## Drinks go to the left of the customer, food to the right.
 func _add_dish(guest: Guest, id: String) -> void:
 	var row := guest.drinks_row if Menu.find(id)["kind"] == "drink" else guest.food_row
-	row.add_child(_dish_shape(id))
+	var shape := _dish_shape(id)
+	row.add_child(shape)
+	if HOT_DISHES.has(id):
+		_steam(shape)
 
 
 func _clear_table(guest: Guest) -> void:
@@ -2784,6 +3044,73 @@ func _esc(value: Variant) -> String:
 	return str(value).replace("[", "[lb]")
 
 
+## Hovering over a customer: who they are and how their night's going, from what the game
+## knows (the same as the info panel's), kept up to date. An invisible area over their body
+## (people are drawn ignoring the mouse), short of the drinks and food beside them, which have
+## tooltips of their own.
+func _update_hover(guest: Guest) -> void:
+	if not is_instance_valid(guest.node):
+		return
+	var area := guest.node.get_node_or_null("Hover") as Control
+	if area == null:
+		area = Control.new()
+		area.name = "Hover"
+		area.position = Vector2(4, 0)
+		area.size = Vector2(72, 150)
+		area.mouse_filter = Control.MOUSE_FILTER_STOP
+		guest.node.add_child(area)
+	area.tooltip_text = _hover_text(guest)
+
+
+func _hover_text(guest: Guest) -> String:
+	var c: Dictionary = guest.customer
+	var lines := PackedStringArray()
+	lines.append("%s, %s" % [_name_label(c), c.get("age", "")])
+	var who := str(c.get("job", ""))
+	var known: Dictionary = c.get("regular", {})
+	if not known.is_empty():
+		who += " · %s %s (%s visit)" % [Regulars.closeness_mark(known), Regulars.closeness_word(known), Regulars.ordinal(int(known.get("visits", 0)) + 1)]
+	else:
+		who += " · first time here"
+	lines.append(who)
+	if str(c.get("mood", "")) != "":
+		lines.append("Mood: %s" % c["mood"])
+	lines.append("Company: %s" % COMPANY_LABEL.get(guest.company, guest.company))
+	if not guest.served.is_empty():
+		lines.append("On the table: %s" % Orders.item_names(guest.served))
+	var coming := _food_coming(guest)
+	if not coming.is_empty():
+		lines.append("Cooking: %s" % Orders.item_names(coming))
+	if _drinks_had(guest) >= TIPSY_DRINKS:
+		lines.append("A bit tipsy (%d drinks)" % _drinks_had(guest))
+	if _cat_with == guest:
+		lines.append("%s is %s" % [_cat["name"], {"lap": "on their lap", "feet": "round their ankles", "food": "eyeing their food"}.get(_cat_spot, "with them")])
+	var remembered := _remembered_briefly(known)
+	if remembered != "":
+		lines.append("The owner remembers: %s" % remembered)
+	# (Tooltips don't wrap: a long mood or memory would stretch it across the screen.)
+	return "\n".join(PackedStringArray(Array(lines).map(func(each): return Text.wrap(str(each), HOVER_WIDTH))))
+
+
+const HOVER_WIDTH := 44  # characters per line in a customer's hover
+const HOVER_REMEMBERED := 60  # ...and at most this much of what the owner remembers
+
+
+## One short thing the owner remembers about them, for the hover: a fact that sticks (short by
+## nature: "From: Busan"), or the owner's impression, cut short at a word. (The memories are
+## whole sentences: all of them are in the info panel, over their name.)
+func _remembered_briefly(known: Dictionary) -> String:
+	var facts: Dictionary = known.get("facts", {})
+	var brief := ""
+	for key in Memories.STICKING:
+		if str(facts.get(key, "")) != "":
+			brief = "%s: %s" % [{"job": "Job", "family": "Family", "home": "From", "other": "Also"}[key], facts[key]]
+			break
+	if brief == "":
+		brief = str(known.get("impression", ""))
+	return Text.shorten(brief, HOVER_REMEMBERED)
+
+
 ## The info panel: the owner, then everyone at the counter and what's on their table.
 func _update_info() -> void:
 	var accent := ACCENT.to_html(false)
@@ -2804,6 +3131,7 @@ func _update_info() -> void:
 	if not seated.is_empty():
 		t += "\n[color=#%s][b]AT THE COUNTER[/b][/color]\n" % accent
 	for guest in seated:
+		_update_hover(guest)
 		var c: Dictionary = guest.customer
 		var hover := _remembered_text(c.get("regular", {}))
 		var named := "[b]%s[/b]" % _esc(_name_label(c))
@@ -3015,7 +3343,7 @@ func _build_ui() -> void:
 	_leave_button = Button.new()
 	_leave_button.name = "LeaveButton"
 	_leave_button.text = "Close the bar"
-	_leave_button.tooltip_text = "Saves and goes back to the title screen."
+	_leave_button.tooltip_text = "Closes up early: nobody new comes in, everyone settles up, and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)"
 	_leave_button.custom_minimum_size = Vector2(150, 40)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	bar.add_child(_leave_button)
@@ -3205,6 +3533,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a"))  # the overpass
 	_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36"))  # pillars
 	_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36"))
+	_build_neon(stage)
 	_glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
 	_glow.name = "Glow"
 	_rect(stage, Vector2(0, 372), Vector2(w, 8), Color("2a2840"))  # wet street
@@ -3366,6 +3695,45 @@ func _build_odeng_pot(stage: Control) -> void:
 		rise.tween_interval(k * 0.9)
 		rise.tween_property(puff, "position", Vector2(14 + k * 12, -46), 2.7).from(Vector2(20 + k * 10, 0))
 		rise.parallel().tween_property(puff, "color:a", 0.0, 2.7).from(0.3)
+
+
+## A neon sign on the pillar across from the tent: 노래방, karaoke (a kind of place, not a
+## name: see CONCEPT.md, "Real people, brands and shows"), flickering now and then.
+func _build_neon(stage: Control) -> void:
+	_neon = Ktv.label("노\n래\n방", 22, Color("ff5fa2"), 6, Color("ff5fa2", 0.35))
+	_neon.name = "Neon"
+	_neon.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
+	_neon.tooltip_text = "노래방 noraebang: a karaoke room across the street,\nwhere the night carries on after the pocha."
+	_neon.position = Vector2(STAGE_SIZE.x - 36, 122)
+	_neon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stage.add_child(_neon)
+	_scenery_dice.randomize()
+	_flicker_neon()
+
+
+## Now and then the neon stutters, the way old signs do, then comes back.
+func _flicker_neon() -> void:
+	if not is_instance_valid(_neon):
+		return
+	var stutter := _neon.create_tween()
+	stutter.tween_interval(_scenery_dice.randf_range(4.0, 14.0))
+	for k in _scenery_dice.randi_range(2, 4):
+		stutter.tween_property(_neon, "modulate:a", _scenery_dice.randf_range(0.15, 0.5), 0.05)
+		stutter.tween_property(_neon, "modulate:a", 1.0, _scenery_dice.randf_range(0.04, 0.12))
+	stutter.tween_callback(_flicker_neon)
+
+
+## A little steam off a hot dish just set down, for a while.
+const HOT_DISHES := ["tteokbokki", "odeng", "sundae", "dakgalbi", "pajeon", "ramyeon", "gonggibap", "bokkeumbap"]
+
+func _steam(shape: Control) -> void:
+	for k in 2:
+		var puff := _rect(shape, Vector2(9 + k * 7, 12), Vector2(7, 7), Color(1, 1, 1, 0.0))
+		puff.name = "Steam"
+		var rise := puff.create_tween().set_loops(4)  # (it cools down)
+		rise.tween_interval(k * 0.8 + _scenery_dice.randf_range(0.0, 0.4))
+		rise.tween_property(puff, "position", Vector2(6 + k * 9, -18), 2.2).from(Vector2(9 + k * 7, 12))
+		rise.parallel().tween_property(puff, "color:a", 0.0, 2.2).from(0.28)
 
 
 ## An empty full-stage layer for things added later (weather, the bar's touches).

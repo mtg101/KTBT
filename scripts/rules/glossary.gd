@@ -27,6 +27,7 @@ const WORDS := {
 	"hwaiting": {"spellings": ["hwaiting", "paiting"], "hangul": "화이팅", "means": "go for it! You can do it! (from the English \"fighting\")."},
 	"mashisseoyo": {"spellings": ["mashisseoyo", "masisseoyo", "mashita", "mashisseo"], "hangul": "맛있어요", "means": "it's delicious."},
 	"jal meokgesseumnida": {"spellings": ["jal meokgesseumnida", "jal meokgetseumnida"], "hangul": "잘 먹겠습니다", "means": "\"I'll eat well\": said before eating, as thanks to whoever cooked or is paying."},
+	"noraebang": {"spellings": ["noraebang", "norebang"], "hangul": "노래방", "means": "a karaoke room: a private booth for singing with friends, often where a night out ends up."},
 	"hoesik": {"spellings": ["hoesik"], "hangul": "회식", "means": "a work night out: dinner and drinks with colleagues, often not optional."},
 	"maknae": {"spellings": ["maknae"], "hangul": "막내", "means": "the youngest in a family or group (who pours the drinks)."},
 	"nunchi": {"spellings": ["nunchi"], "hangul": "눈치", "means": "reading the room: knowing what people feel without being told."},

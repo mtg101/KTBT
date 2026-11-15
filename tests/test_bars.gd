@@ -220,29 +220,41 @@ func test_reopening_a_bar_plays_previously_on() -> void:
 
 # --- Leaving and closing --------------------------------------------------------------------
 
-func test_close_the_bar_saves_and_goes_back_to_the_title() -> void:
+func test_close_the_bar_closes_up_early_then_goes_back_to_the_title() -> void:
 	var runner := await _open_visit()
 	var id := str(Game.bar["id"])
-	await _click(runner, runner.find_child("LeaveButton"))
+	var nights := int(Game.bar.get("nights", 0))
+	(runner.find_child("LeaveButton") as Button).pressed.emit()  # (top-bar buttons: see the stats test)
+	# Closing up early: the night ends now, counted, with the diary page.
+	var summary := runner.find_child("NightSummary") as Control
+	assert_bool(await _wait_until(func(): return summary.visible)).override_failure_message("closing early never ended the night").is_true()
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).override_failure_message("no diary entry").is_true()
+	assert_int(int(Game.bar["nights"])).is_equal(nights + 1)
+	var entry: Dictionary = Game.bar["diary"][-1]
+	assert_str(str(entry["facts"]["closed_early"])).is_not_empty()
+	assert_str(str(entry["stamp"])).is_equal("early")
+	assert_str(_transcript(runner)).contains("decides to close up early tonight")
+	# Then Close the bar (on the diary page) goes back to the title, saved.
+	await _click(runner, runner.find_child("SummaryLeaveButton"))
 	assert_bool(await _wait_for_scene(TITLE)).override_failure_message("Close the bar didn't ask for the title scene").is_true()
 	assert_bool(Game.bar.is_empty()).is_true()
 	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
 
 
-func test_close_the_bar_waits_until_the_owner_is_free() -> void:
+func test_closing_early_sees_everyone_off_first() -> void:
 	var runner := await _open_visit()
 	var scene = runner.scene()
-	var id := str(Game.bar["id"])
 	var leave := runner.find_child("LeaveButton") as Button
 	scene._arrive(scene._clock)  # someone turns up
-	assert_bool(await _wait_until(func(): return scene._owner_working)).is_true()
-	await _click(runner, leave)
-	# Mid-task, the owner finishes what they're doing first...
-	if scene._owner_working:
-		assert_bool(leave.disabled).is_true()
-	# ...then the bar closes and goes back to the title.
-	assert_bool(await _wait_for_scene(TITLE)).override_failure_message("Close the bar never went back to the title").is_true()
-	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty())).is_true()
+	leave.pressed.emit()  # (top-bar buttons: a caption can pop up over them, see the stats test)
+	assert_bool(leave.disabled).is_true()  # closing up
+	assert_bool(scene._last_orders).is_true()  # nobody new
+	# They settle up and go, and then the night ends.
+	var summary := runner.find_child("NightSummary") as Control
+	assert_bool(await _wait_until(func(): return summary.visible)).override_failure_message("the night never ended").is_true()
+	assert_array(scene._guests).is_empty()
+	assert_int(int(Game.bar["visits"])).is_greater(0)  # (they paid)
 
 
 func test_closing_the_window_saves_the_bar() -> void:

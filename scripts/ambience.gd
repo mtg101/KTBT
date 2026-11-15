@@ -26,7 +26,7 @@ const SOUNDS := {"car": -17.0, "truck": -15.0, "scooter": -19.0, "subway": -19.0
 	"pour": -22.0, "scrape": -19.0, "cash": -17.0, "meow": -17.0}
 ## The TV captions' stings (Captions.CAPTION_STINGS), louder than the scene, never muffled.
 const STINGS := {"siren": -13.0, "whoosh": -14.0, "ding": -12.0, "sparkle": -14.0, "nyang": -11.0, "pop": -12.0,
-	"dun": -10.0, "sad": -13.0, "boing": -12.0}
+	"dun": -10.0, "sad": -13.0, "boing": -12.0, "thunder": -8.0}
 const FADE_PER_SECOND := 0.5  # how fast a loop moves to its new level
 const LAST_TRAIN := 24 * 60 + 60  # no subway rumbling under the street after 1am
 
@@ -469,6 +469,16 @@ static func make(sound: String) -> AudioStreamWAV:
 					var t := float(i - start) / RATE
 					twinkle[i] += (sin(TAU * float(notes[n_i]) * t) + 0.3 * sin(TAU * float(notes[n_i]) * 2.0 * t)) * exp(-t * 7.0)
 			return _finish(twinkle, false)
+		"thunder":  # a crack, then a long low rumble rolling away
+			var m := roundi(2.8 * RATE)
+			var noise := _white(m, rng)
+			var crack := _band(noise, 900.0, 4000.0)
+			var rumble := _low(_low(noise, 160.0), 120.0)
+			for i in m:
+				var t := float(i) / RATE
+				var roll_away := 0.7 + 0.3 * sin(TAU * 1.7 * t)  # (it rolls)
+				noise[i] = crack[i] * exp(-t * 18.0) * 0.8 + rumble[i] * 6.0 * minf(1.0, t / 0.08) * exp(-t * 1.1) * roll_away
+			return _finish(noise, false)
 		"dun":  # the dramatic "dun dun DUN!" of a shock
 			var m := roundi(1.5 * RATE)
 			var hit := PackedFloat32Array()

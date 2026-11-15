@@ -6,6 +6,7 @@ const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Story = preload("res://scripts/rules/story.gd")
 
 
 func _owner_data() -> Dictionary:
@@ -424,6 +425,11 @@ func test_the_recap_prompt_tells_last_time() -> void:
 	for bit in ["Donghwa Pocha", "Episode 13", "Previously on", "Ji-ho quit. Tae-oh didn't come.", "Hwang Tae-oh, a regular, didn't come in",
 			"nervous about her exam", "present tense", "teaser", "\"beats\"", "no numbers but the ones above"]:
 		assert_str(text).contains(bit)
+	# One example teaser, picked by the game (given just one, the AI copied it).
+	assert_str(text).contains("in the spirit of \"%s\", but your own" % Story.RECAP_TEASER_EXAMPLES[0])
+	facts["teaser_example"] = Story.RECAP_TEASER_EXAMPLES[3]
+	assert_str(_request(Prompts.recap_messages(facts))).contains(Story.RECAP_TEASER_EXAMPLES[3])
+	assert_str(text).not_contains("Will they come back")
 
 
 func test_the_owners_life_is_in_every_prompt() -> void:

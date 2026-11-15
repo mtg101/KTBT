@@ -96,6 +96,22 @@ static func cat_move_text(cat_name: String, spot: String, with: String = "") -> 
 	return "%s wanders off." % cat_name
 
 
+## A greedy cat helps itself now and then: when it's sitting by someone's food and there's
+## a fish cake skewer on their table, it may grab one and bolt (the skewer's gone; it's still
+## on the bill). How likely, by personality: greedy cats mostly, curious ones once in a while.
+const THEFT_CHANCE := {"greedy": 0.4, "curious": 0.1}
+const STEALABLE := "odeng"  # (a skewer's easy to run off with)
+
+
+static func steals(personality: String, stealable_on_table: bool, roll: float) -> bool:
+	return stealable_on_table and roll < float(THEFT_CHANCE.get(personality, 0.0))
+
+
+## The moments after (see CAT_MOMENTS): for the owner, and for whoever it robbed.
+const THEFT_MOMENT_OWNER := "{cat} has just snatched an odeng skewer off {name}'s plate and bolted out into the street with it."
+const THEFT_MOMENT_ROBBED := "{cat} has just snatched one of their odeng skewers and bolted out into the street with it."
+
+
 ## People talk to cats. When the cat goes somewhere, now and then the next line from whoever
 ## it's with gets a moment (a situation, never a line: whether they say anything to it is up
 ## to them). lap, feet and food: the customer it's with; counter, stove and stools: the

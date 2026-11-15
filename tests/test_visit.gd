@@ -625,10 +625,116 @@ func test_people_get_a_moment_to_talk_to_the_cat() -> void:
 			break
 	assert_str(scene._owner_cat_moment).contains("counter")
 	assert_str(guest.cat_moment).is_empty()
+	# With a moment, the owner's talk with them turns to the cat (as a situation alone, the AI
+	# let it go by).
+	scene._owner_cat_moment = ""
+	guest.cat_moment = "%s is winding round their ankles." % cat_name
+	scene._owner_working = true  # (so nothing else gets to them first)
+	scene._talk(guest)
+	assert_str(guest.topic).is_equal("the_cat")
 	# Out in the street: nobody's.
 	scene._move_cat("street")
 	assert_str(scene._owner_cat_moment).is_empty()
 	assert_str(guest.cat_moment).is_empty()
+
+
+func test_the_loading_screen_suits_a_new_bar_or_a_reopened_one() -> void:
+	var reopened: LoadingScreen = auto_free(LoadingScreen.new())
+	reopened.reopening = true
+	add_child(reopened)
+	var reel = reopened.find_child("CaptionReel", true, false)
+	assert_array(reel.lines).is_equal(LoadingScreen.REOPEN_LINES)
+	for line in LoadingScreen.REOPEN_LINES:  # nothing that's only for a new bar
+		for new_only in ["CAT AUDITIONS", "CASTING THE OWNER", "PAINTING THE SIGN", "TONIGHT'S POCHA IS"]:
+			assert_str(str(line[1])).not_contains(new_only)
+	var fresh: LoadingScreen = auto_free(LoadingScreen.new())
+	add_child(fresh)
+	assert_array(fresh.find_child("CaptionReel", true, false).lines).is_equal(LoadingScreen.LINES)
+
+
+func test_a_slow_ai_on_the_loading_screen_shows_its_alive() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._typing_label.text = ""
+	scene._loading_note = "Writing \"Previously on…\""
+	assert_str(scene._loading_status()).is_equal("Writing \"Previously on…\"")  # (it used to be wiped every frame)
+	scene._loading_since -= 8.0
+	assert_str(scene._loading_status()).contains("(8s)")
+	scene._loading_since -= 12.0
+	assert_str(scene._loading_status()).contains("may be waking up")
+	scene._loading_note = ""
+
+
+func test_hovering_over_a_customer_says_who_they_are() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	await get_tree().create_timer(0.1).timeout  # (on their stool)
+	scene._update_info()
+	var hover := guest.node.find_child("Hover", true, false) as Control
+	assert_object(hover).is_not_null()
+	assert_int(hover.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	var tip := hover.tooltip_text
+	assert_str(tip).contains(str(guest.customer["name"]))
+	assert_str(tip).contains("first time here")
+	assert_str(tip).contains("Company:")
+	assert_str(tip).contains("On the table:")
+	assert_str(tip).not_contains("Here because")  # (a quick summary, not their whole story)
+	for line in tip.split("\n"):
+		assert_int(line.length()).is_less_equal(Visit.HOVER_WIDTH + 12)  # wrapped (a long name or word can run over a little)
+	# The dishes beside them keep their own tooltips: the hover area doesn't cover them.
+	assert_bool(hover.get_global_rect().intersects(guest.food_row.get_global_rect())).is_false()
+	assert_bool(hover.get_global_rect().intersects(guest.drinks_row.get_global_rect())).is_false()
+	# Kept up to date: a cat on their lap shows.
+	scene._move_cat("lap")
+	scene._update_info()
+	assert_str(hover.tooltip_text).contains("on their lap")
+
+
+func test_the_cat_steals_a_fish_cake() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	var cat_name := str(Game.bar["cat"]["name"])
+	guest.served.append("odeng")
+	scene._add_dish(guest, "odeng")
+	var on_table: int = guest.food_row.get_child_count()
+	var bill: int = Orders.bill(guest.order)
+	scene._cat_steals(guest)
+	assert_bool(guest.served.has("odeng")).is_false()  # gone from the table...
+	assert_int(guest.food_row.get_child_count()).is_equal(on_table - 1)
+	assert_int(Orders.bill(guest.order)).is_equal(bill)  # ...but still on the bill
+	assert_str(_transcript(runner)).contains("%s snatches an odeng skewer off %s's plate" % [cat_name, guest.customer["name"]])
+	assert_str(scene._cat_spot).is_equal("street")  # off with it
+	assert_str(scene._owner_cat_moment).contains("snatched an odeng skewer")
+	assert_str(guest.cat_moment).contains("snatched one of their odeng skewers")
+	assert_int(int(scene._stats.captions.get("cat_thief", 0))).is_equal(1)
+	assert_int(int(scene._stats.event_counts.get("cat_stole", 0))).is_equal(1)
+
+
+func test_the_night_has_neon_and_steam() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_object(runner.find_child("Neon", true, false)).is_not_null()
+	assert_str((runner.find_child("Neon", true, false) as Label).text).is_equal("노\n래\n방")
+	assert_str((runner.find_child("Neon", true, false) as Label).tooltip_text).contains("karaoke")  # Korean on screen explains itself
+	assert_int((runner.find_child("Neon", true, false) as Label).mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# A hot dish steams; a drink doesn't.
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty())).is_true()
+	var guest = scene._guests[0]
+	scene._add_dish(guest, "tteokbokki")
+	scene._add_dish(guest, "soju")
+	assert_object(guest.food_row.get_child(guest.food_row.get_child_count() - 1).find_child("Steam", true, false)).is_not_null()
+	assert_object(guest.drinks_row.get_child(guest.drinks_row.get_child_count() - 1).find_child("Steam", true, false)).is_null()
 
 
 func test_the_cat_wanders_by_itself() -> void:
@@ -649,6 +755,24 @@ func test_the_cat_faces_the_way_its_going() -> void:
 	await get_tree().create_timer(0.1).timeout  # let it get there
 	scene._move_cat("stove")  # and back to the left
 	assert_float(cat.scale.x).is_equal(-1.0)
+
+
+func test_a_prowling_cat_keeps_moving() -> void:
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var cat := runner.find_child("Cat") as Control
+	scene._move_cat("stools")
+	await get_tree().create_timer(0.1).timeout  # (there by now, at test speed)
+	var first_x := cat.position.x
+	assert_bool(await _wait_until(func(): return absf(cat.position.x - first_x) > 5.0, 5000)).override_failure_message("the cat just sat there").is_true()
+	assert_float(cat.position.y).is_equal(348.0)  # along the floor
+	# Off somewhere else: the prowling stops.
+	scene._move_cat("stove")
+	await get_tree().create_timer(0.1).timeout
+	var at_stove := cat.position
+	await get_tree().create_timer(0.2).timeout
+	assert_vector(cat.position).is_equal(at_stove)
 
 
 # --- How conversations flow -----------------------------------------------------------------
@@ -996,6 +1120,56 @@ func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
 	# A dry night: nobody needs anything.
 	scene._weather_kind = "clear"
 	assert_dict(scene._pick_rain_gear()).is_empty()
+
+
+func test_the_weather_lands_on_umbrellas() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var gear := {"umbrella": true, "shape": "dome", "size": 1.0, "tilt": 0.0}
+	# Snow builds up on top, and gets shaken off under the tarp.
+	scene._weather_kind = "snow"
+	var snowy: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._gear_up(snowy, gear, true)
+	assert_object(snowy.find_child("SnowCap", true, false)).is_not_null()
+	assert_object(snowy.find_child("Drip", true, false)).is_null()
+	scene._gear_down(snowy)
+	assert_object(snowy.find_child("ShakenOff", true, false)).is_not_null()
+	# Rain runs off the rim.
+	scene._weather_kind = "rain"
+	var wet: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._gear_up(wet, gear, true)
+	assert_object(wet.find_child("Drip", true, false)).is_not_null()
+	assert_object(wet.find_child("SnowCap", true, false)).is_null()
+	# A clear night: nothing lands on it.
+	scene._weather_kind = "clear"
+	var dry: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._gear_up(dry, gear, true)
+	assert_object(dry.find_child("Drip", true, false)).is_null()
+	assert_object(dry.find_child("SnowCap", true, false)).is_null()
+
+
+func test_a_couple_of_bottles_and_they_sway() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	scene._stop_swaying(guest.node)
+	guest.order = ["tteokbokki", "soju"]
+	scene._tipsy(guest)
+	assert_bool(guest.node.has_meta("sway")).is_false()  # one bottle: steady
+	guest.order.append("soju")
+	scene._tipsy(guest)
+	assert_bool(guest.node.has_meta("sway")).is_true()  # two: a gentle sway
+	await get_tree().create_timer(0.1).timeout
+	assert_float(absf(guest.node.rotation)).is_greater(0.0)
+	assert_float(absf(guest.node.rotation)).is_less(0.08)  # (gentle)
+	# Going home: the sway stops and the wobble starts.
+	scene._guests.erase(guest)  # (off the counter first, so the night doesn't carry on with them)
+	scene._walk_out(guest)
+	assert_bool(guest.node.has_meta("sway")).is_false()
+	assert_bool(guest.node.get_meta("wobbly", false)).is_true()
 
 
 func test_a_customer_with_no_umbrella_runs_in() -> void:

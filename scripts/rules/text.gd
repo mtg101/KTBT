@@ -148,3 +148,30 @@ static func numbers_in(text: String) -> Array:
 static func hint(tip: String, inner: String) -> String:
 	var safe := tip.replace("[", "(").replace("]", ")").replace("\n", " ").replace("'", "’").replace("\"", "”")
 	return "[hint=%s]%s[/hint]" % [safe, inner]
+
+
+## Text broken onto lines of at most this many characters, at spaces (a word longer than that
+## gets a line of its own). For tooltips, which don't wrap by themselves.
+static func wrap(text: String, width: int) -> String:
+	var lines := PackedStringArray()
+	var line := ""
+	for word in text.split(" ", false):
+		if line != "" and line.length() + 1 + word.length() > width:
+			lines.append(line)
+			line = word
+		else:
+			line = word if line == "" else line + " " + word
+	if line != "":
+		lines.append(line)
+	return "\n".join(lines)
+
+
+## Text cut to at most this many characters, at a word, with "…" if anything went.
+static func shorten(text: String, most: int) -> String:
+	var clean := text.strip_edges()
+	if clean.length() <= most:
+		return clean
+	var cut := clean.left(most - 1)
+	if cut.rfind(" ") > most / 2:
+		cut = cut.left(cut.rfind(" "))
+	return cut.rstrip(" ,.;:·") + "…"

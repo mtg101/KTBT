@@ -21,7 +21,7 @@ How to set up the tools KTBT needs on a Windows PC. Do this once, before any cod
    - Ignore the `_console.exe` file. It's the same editor with a log window attached, which is handy later for debugging.
 5. Run it. You'll see the **Project Manager**. That's enough for now.
 
-**Opening KTBT later:** once the project files exist, click **Import** in the Project Manager and pick `C:\Code\Claude\KTBT\project.godot`. After that, KTBT appears in your project list.
+**Opening KTBT later:** once the project files exist, click **Import** in the Project Manager and pick `project.godot` in the project's folder (wherever you cloned it). After that, KTBT appears in your project list.
 
 ---
 

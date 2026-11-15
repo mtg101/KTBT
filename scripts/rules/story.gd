@@ -37,6 +37,10 @@ const DIARY_STAMPS := {
 	"snow": {"hangul": "눈", "english": "SNOW", "colour": "5a8ae8"},
 	"rain": {"hangul": "비", "english": "RAIN", "colour": "5a8ae8"},
 	"soju": {"hangul": "소주", "english": "ANOTHER NIGHT", "colour": "3f9e5a"},
+	"thief": {"hangul": "도둑냥", "english": "CAT BURGLAR!", "colour": "8a5a33"},
+	"storm": {"hangul": "폭풍", "english": "WHAT A STORM", "colour": "3a4ab8"},
+	"laugh": {"hangul": "빵", "english": "WHAT A LAUGH", "colour": "e8a33a"},
+	"early": {"hangul": "조기 마감", "english": "CLOSED EARLY", "colour": "ff9a4f"},
 }
 
 
@@ -61,17 +65,25 @@ static func takings_word(tonight: int, before: Array) -> String:
 
 ## The stamp for a diary page, from the night's facts: the most notable thing, in this order.
 static func diary_stamp(facts: Dictionary) -> String:
+	if not facts.get("cat_thefts", []).is_empty():
+		return "thief"  # (nothing tops the cat making off with a fish cake)
+	if str(facts.get("closed_early", "")) != "":
+		return "early"
 	if str(facts.get("takings_vs_usual", "")) in ["the best night yet", "better than usual"]:
 		return "well_done"
 	if not facts.get("new_regulars", []).is_empty():
 		return "star"
 	if not facts.get("friendlier", []).is_empty() or facts.get("moments", []).any(func(m): return str(m.get("mood", "")) in ["warm", "sweet"]):
 		return "heart"
+	if facts.get("moments", []).any(func(m): return str(m.get("mood", "")) == "funny"):
+		return "laugh"
 	if int(facts.get("walked_on", 0)) > 0:
 		return "full"
 	if not facts.get("cat_laps", []).is_empty():
 		return "paw"
 	var weather := str(facts.get("weather", "")).to_lower()
+	if weather.contains("heavy rain") or weather.contains("storm"):
+		return "storm"
 	if weather.contains("snow"):
 		return "snow"
 	if weather.contains("rain") or weather.contains("drizzle") or weather.contains("shower"):
@@ -164,6 +176,8 @@ static func stitched_diary(facts: Dictionary) -> String:
 		sentences.append("We were full, and someone had to walk on. I hate that.")
 	var word := str(facts.get("takings_vs_usual", ""))
 	sentences.append("%s, %s." % [str(facts.get("takings", "")), word] if word != "" else "%s in the tin." % str(facts.get("takings", "")))
+	if str(facts.get("closed_early", "")) != "":
+		sentences.append("I closed up early, at %s. Some nights you just know when to stop." % facts["closed_early"])
 	sentences.append("Another night under the overpass. Tomorrow, the same again.")
 	return " ".join(sentences)
 
@@ -176,6 +190,11 @@ const MAX_RECAP_BEAT := 160
 
 
 const MAX_RECAP_TEASER := 120
+## Example teasers for the recap prompt, one picked each time: given just one, Llama 3.1 8B
+## copied it ("Will they come back, now that…"). No names, so none can be copied in.
+const RECAP_TEASER_EXAMPLES := ["Will the empty stool stay empty?", "Who will duck under the tarp tonight?",
+	"Will the rain keep them away?", "Can a secret last one more night?", "Who's buying the next round?",
+	"Is this the night someone finally says it?", "Will the cat behave itself?", "What did that look mean?"]
 
 
 ## Checks the AI's recap {"beats": [two or three sentences], "teaser": "a question"}: the right
@@ -294,6 +313,11 @@ const RECAP_STYLES := {
 	"nostalgic": {"title": "그날 밤 · THAT NIGHT…", "sky": ["1a140c", "3a2a18"], "rays": ["ffc46b", "8a6a3a"], "pill": "e8c88a", "tag": "e8c88a",
 		"teaser_colour": "fff4e0", "ribbons": ["e8c88a", "8a5a33", "fff4e0"], "drift": "dust", "beats": "typewriter", "last": "typewriter",
 		"sting": "sad", "teaser": "heartbeat", "overlay": "sepia"},
+	# Only after a night of heavy rain (never picked at random): a horror-drama storm, with
+	# rain streaking down, lightning and thunder.
+	"stormy": {"title": "폭풍의 밤 · THAT STORMY NIGHT…", "sky": ["020308", "121a2c"], "rays": ["8aa8ff", "0a1020"], "pill": "8aa8ff", "tag": "ffffff",
+		"teaser_colour": "c8d8ff", "ribbons": ["8aa8ff", "1a1a2a", "ffffff"], "drift": "rain", "beats": "slam", "last": "zoom",
+		"sting": "thunder", "teaser": "glitch", "overlay": "storm", "weather": true},
 }
 
 
@@ -311,7 +335,10 @@ static func pick_recap_style(last: Dictionary, previous: String, roll: float) ->
 		wanted = "melodrama"
 	elif int(last.get("customers", 0)) <= 8 and not last.is_empty():
 		wanted = "nostalgic"
-	var styles: Array = RECAP_STYLES.keys()
+	var weather := str(last.get("weather", "")).to_lower()
+	if previous != "stormy" and (weather.contains("heavy rain") or weather.contains("storm") or weather.contains("thunder")):
+		return "stormy"  # (the weather wins: it's only ever for a stormy night)
+	var styles: Array = RECAP_STYLES.keys().filter(func(key): return not bool(RECAP_STYLES[key].get("weather", false)))
 	if wanted == "" or wanted == previous:
 		var others: Array = styles.filter(func(s): return s != previous and s != wanted) if wanted == previous else styles.filter(func(s): return s != previous)
 		wanted = str(others[clampi(floori(roll * others.size()), 0, others.size() - 1)])
@@ -329,6 +356,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 	var friendlier: Array = []
 	var new_regulars: Array = []
 	var laps: Array = []
+	var thefts: Array = []  # whose odeng the cat stole
 	var walked_on := 0
 	var peak := 0
 	var peak_at := -1
@@ -347,6 +375,8 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 				friendlier.append("%s and %s are on \"%s\" terms now" % [event.get("a", ""), event.get("b", ""), event.get("term", "")])
 			"became_regular":
 				new_regulars.append(str(event.get("name", "")))
+			"cat_stole":
+				thefts.append(str(event.get("name", "")))
 			"cat_moved":
 				if str(event.get("spot", "")) == "lap" and bool(event.get("new_lap", false)) and not laps.has(str(event.get("with", ""))):
 					laps.append(str(event.get("with", "")))
@@ -375,8 +405,9 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"busiest": ("%s, with %d at the counter" % [NightRules.clock_text(peak_at), peak]) if peak_at >= 0 else "",
 		"people": people, "missing": missing, "not_here": not_here, "pronouns": _pronouns(context, people),
 		"moments": moments, "friendlier": friendlier, "new_regulars": new_regulars,
-		"cat": str(context.get("cat", "")), "cat_laps": laps, "walked_on": walked_on,
+		"cat": str(context.get("cat", "")), "cat_laps": laps, "cat_thefts": thefts, "walked_on": walked_on,
 		"line": context.get("line", {}).duplicate(), "ordered": ordered, "specials": context.get("specials", []).duplicate(),
+		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
 	}
 
 

@@ -10,6 +10,7 @@ const Memories = preload("res://scripts/rules/memories.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
+const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/regulars.gd")
@@ -39,7 +40,7 @@ Food is love here: Koreans love watching someone enjoy their food, and praising 
 
 Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle".
 
-Never use a real person, brand, product, TV show, film, song or game by name: no celebrities, TV chefs, idols or actors, no soju, beer, coffee or snack brands, no shops or chains. Describe them instead: "a TV chef", "mix coffee from the vending machine", "that cooking show", "the convenience store"."""
+Never use a real person, brand, product, TV show, film, song or game by name: no celebrities, TV chefs, idols or actors, no brands of drink, coffee or snacks, no shops or chains. Describe them instead: "a TV chef", "mix coffee from the vending machine", "that cooking show", "the convenience store"."""
 
 const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences.
 
@@ -701,16 +702,19 @@ Only what was actually said: nothing invented.""" % [transcript_text(lines), Cap
 ## 3am: the owner writes tonight's entry in their diary, from the facts the game picked (see
 ## visit.gd _diary_facts). In their own voice, about what mattered to them, and nothing else.
 static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
+	var closed := str(facts.get("closed_early", ""))
+	# Closing early: the reason's the owner's own (it's their tent), so the AI gives it.
+	var early := "" if closed == "" else "\n\nThey closed up early tonight, at %s, long before the usual 3am. Say why, in a sentence, in their own words: a reason of their own that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, a night that had nothing left in it). It's about them, not anyone else." % closed
 	var request := """%s
 
-It's 3am and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
+It's %s and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
 %s
 
-Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four to six sentences. Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.
+Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four to six sentences. Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.%s
 
 Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
 
-Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", "")]
+Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), closed if closed != "" else "3am", owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", ""), early]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -735,6 +739,8 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	lines.append("- %d customers: %s." % [int(facts.get("customers", people.size())), "; ".join(who) if not who.is_empty() else "nobody"])
 	if str(facts.get("busiest", "")) != "":
 		lines.append("- Busiest at %s." % facts["busiest"])
+	if str(facts.get("closed_early", "")) != "":
+		lines.append("- The owner closed up early, at %s." % facts["closed_early"])
 	if not facts.get("specials", []).is_empty():
 		lines.append("- Tonight's specials: %s." % " and ".join(PackedStringArray(facts["specials"].map(func(id): return str(Menu.find(str(id)).get("name", id))))))
 	for moment in facts.get("moments", []):
@@ -752,6 +758,8 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		lines.append("- The line of the night, from %s: \"%s\"" % [line.get("speaker", ""), line.get("text", "")])
 	if not facts.get("cat_laps", []).is_empty():
 		lines.append("- %s, the cat, sat on %s's lap." % [facts.get("cat", "The cat"), " and ".join(PackedStringArray(facts["cat_laps"]))])
+	for robbed in facts.get("cat_thefts", []):
+		lines.append("- %s, the cat, stole an odeng skewer off %s's plate and ran off with it." % [facts.get("cat", "The cat"), robbed])
 	if int(facts.get("walked_on", 0)) > 0:
 		lines.append("- %d %s had to walk on: every stool was taken." % [int(facts["walked_on"]), "person" if int(facts["walked_on"]) == 1 else "people"])
 	lines.append("- Takings: %s%s." % [facts.get("takings", ""), (", " + str(facts["takings_vs_usual"])) if str(facts.get("takings_vs_usual", "")) != "" else ""])
@@ -782,11 +790,12 @@ You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass.
 Last time:
 %s
 
-Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question that makes the viewer want to watch ("Will they come back?", with the right pronoun).
+Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question about last time's story that makes the viewer want to watch (in the spirit of "%s", but your own, and about these people).
 
 Only what's above: no other names, no numbers but the ones above, nothing invented.
 
-Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?"}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines)]
+Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?"}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
+		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0]))]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

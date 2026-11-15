@@ -17,6 +17,13 @@ static var folder := "user://stats/"
 var event_counts := {}
 
 # People
+var who := {}  # gender ("woman", "man", "non-binary") -> how many came in
+var ages := {}  # age range ("20s"...) -> how many
+var company_mix := {}  # mood for company ("chatty", "quiet", "owner") -> how many
+var tipsy := 0  # customers who had enough to sway
+## The night as a story: how it opened (how long the loading screen took, the recap's style
+## and who wrote it: "ai" or "game") and the diary (its stamp, and who wrote it).
+var story := {}
 var arrived := 0
 var served := 0  # paid and left
 var walked_past := 0  # gave up waiting for a stool
@@ -124,6 +131,10 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 			walked_past += 1
 		"sat_down":
 			peak_seated = maxi(peak_seated, int(facts.get("seated", 0)))
+			for pair in [[who, "gender"], [ages, "age_range"], [company_mix, "company"]]:
+				var value := str(facts.get(pair[1], ""))
+				if value != "":
+					pair[0][value] = int(pair[0].get(value, 0)) + 1
 		"greeted":
 			if bool(facts.get("quick", false)):
 				quick_greetings += 1
@@ -297,6 +308,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Arrived %d · served %d · walked past %d" % [arrived, served, walked_past])
 	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
 	lines.append("Two or more in: %d%% of the night" % percent(together_seconds, real_seconds))
+	if not who.is_empty():
+		lines.append("Who: %s · ages %s" % [counts_text(who), counts_text(ages)])
+		lines.append("Company: %s · tipsy %d" % [counts_text(company_mix), tipsy])
 	if not street.is_empty():
 		lines.append("Street: %s" % counts_text(street))
 	lines.append("Greetings: %d proper, %d quick" % [proper_greetings, quick_greetings])
@@ -323,6 +337,11 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
 	lines.append("Friendlier terms tonight: %d" % friendlier_moments)
 	lines.append("Visits: loved %d · enjoyed %d · fine %d · didn't enjoy %d%s" % [int(verdicts.get("loved", 0)), int(verdicts.get("enjoyed", 0)), int(verdicts.get("fine", 0)), int(verdicts.get("didnt", 0)), (" · memories failed %d" % memories_failed) if memories_failed > 0 else ""])
+	lines.append("")
+	lines.append("[b]THE STORY[/b]")
+	lines.append("Opening: %s · recap %s" % [("loading %ds" % int(story["loading_seconds"])) if story.has("loading_seconds") else "no loading screen",
+		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
+	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
@@ -361,6 +380,8 @@ func summary(context: Dictionary) -> Dictionary:
 		"events": events.duplicate(true),  # the night's timeline, event by event
 		"event_counts": event_counts.duplicate(),
 		"street": street.duplicate(),
+		"story": story.duplicate(),
+		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),

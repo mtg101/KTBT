@@ -308,6 +308,8 @@ func _apply_style(key: String) -> void:
 			var flicker: Tween = scratch.create_tween().set_loops()
 			flicker.tween_callback(_flicker.bind(scratch))
 			flicker.tween_interval(randf_range(0.08, 0.3))
+	if str(_style["overlay"]) == "storm":
+		_lightning()
 	if str(_style["beats"]) == "caption":
 		_subtitle.add_theme_stylebox_override("normal", _pill(Color(str(_style["pill"])).darkened(0.1), 24))
 		_subtitle.add_theme_color_override("font_color", INK)
@@ -457,6 +459,24 @@ func _flash_white() -> void:
 	create_tween().tween_property(_flash, "modulate:a", 0.0, 0.3 * time_scale)
 
 
+## The stormy style's lightning: every few seconds, a double flash, a blue-white glare and a
+## shake, then the thunder.
+func _lightning() -> void:
+	if not is_inside_tree():
+		return
+	var storm := create_tween()
+	storm.tween_interval(randf_range(1.6, 4.0) * time_scale)
+	storm.tween_callback(func():
+		_flash.modulate = Color(0.8, 0.88, 1.0, 0.9)
+		var strike := create_tween()
+		strike.tween_property(_flash, "modulate:a", 0.1, 0.06 * time_scale)
+		strike.tween_property(_flash, "modulate:a", 0.75, 0.05 * time_scale)
+		strike.tween_property(_flash, "modulate:a", 0.0, 0.4 * time_scale)
+		_shake()
+		_sting("thunder"))
+	storm.tween_callback(_lightning)
+
+
 func _shake() -> void:
 	var tween := create_tween()
 	for k in 6:
@@ -469,8 +489,20 @@ func _drift(kind: String) -> void:
 	if kind == "none":
 		return
 	var snow := kind == "snow"
-	for k in 26:
+	var rain := kind == "rain"
+	for k in (60 if rain else 26):
 		var bit := Polygon2D.new()
+		if rain:  # thin streaks, slanting, falling fast
+			bit.polygon = PackedVector2Array([Vector2(0, 0), Vector2(1.5, 0), Vector2(-6.5, 34), Vector2(-8, 34)])
+			bit.color = Color(0.7, 0.8, 1.0, randf_range(0.25, 0.55))
+			bit.position = Vector2(randf() * (SIZE.x + 200), randf_range(-200, SIZE.y))
+			add_child(bit)
+			move_child(bit, 2)
+			var pour := bit.create_tween().set_loops()
+			var fall_seconds := randf_range(0.5, 0.9)
+			pour.tween_property(bit, "position", bit.position + Vector2(-140, SIZE.y + 260), fall_seconds)
+			pour.tween_callback(func(): bit.position = Vector2(randf() * (SIZE.x + 200), -60))
+			continue
 		if kind == "sparks":
 			var star := PackedVector2Array()
 			for step in 8:

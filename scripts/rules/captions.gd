@@ -99,6 +99,13 @@ const CAPTIONS := {
 		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
 	"cat_back": {"words": [["냥이 출근!", "{cat} CLOCKS <IN|BACK IN>"], ["귀가!", "THE CAT'S <BACK|HOME|RETURNED>!"]],
 		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
+	"closing_early": {"words": [["조기 마감!", "JOGI MAGAM! CLOSING EARLY!"], ["오늘은 여기까지", "<THAT'S ALL|THAT'S IT> FOR TONIGHT!"],
+		["영업 종료!", "<TARP DOWN|SHUTTERS DOWN|LIGHTS OUT> EARLY!"]],
+		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false},
+	# (An emergency, Chef-My-Fridge style: the red light and the siren, for a fish cake.)
+	"cat_thief": {"words": [["범인은 고양이!", "THE CULPRIT: {cat}!"], ["도둑냥!", "DODUK-NYANG! <CAT BURGLAR|THIEF CAT|SKEWER HEIST>!"],
+		["어묵 실종?!", "<WHERE'S|WHO TOOK> {name}'S ODENG?!"], ["현행범!", "{cat}, CAUGHT <RED-PAWED|IN THE ACT>!"]],
+		"icon": "🐟", "colour": "ff8f6b", "sound": "siren", "emergency": true},
 }
 
 
@@ -257,9 +264,10 @@ const REACTION_LINES := 6  # how many of the latest lines the AI sees
 
 ## How big a moment has to be (the AI says, 1 to 5) to get a caption. Asked just "was it a big
 ## moment?", Llama 3.1 8B said yes nearly every time; rating it first, it can say "a 2" and
-## mean no. (At 4, it hardly ever said yes: 7 captions in six nights. 3 lets the personal
-## moments in too.)
-const REACTION_MIN_SIZE := 3
+## mean no. At 4 with checks lost while the owner was busy, 7 captions in six nights; at 3,
+## every check said yes, and the captions went soft ("LOOKING OUT FOR YOU"). Back at 4, now
+## that put-off checks wait for the owner instead of being lost.
+const REACTION_MIN_SIZE := 4
 ## How long a reaction check put off while the owner was needed can wait (game minutes):
 ## any later and the moment's gone.
 const REACTION_STALE_MINUTES := 20.0
@@ -374,6 +382,10 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 				return {"kind": "cat_out", "fill": {"cat": facts.get("cat", "")}}
 			if bool(facts.get("was_out", false)) and spot != "street":
 				return {"kind": "cat_back", "fill": {"cat": facts.get("cat", "")}}
+		"closed_early":
+			return {"kind": "closing_early", "fill": {}}
+		"cat_stole":
+			return {"kind": "cat_thief", "fill": {"cat": facts.get("cat", ""), "name": facts.get("name", "")}}
 		"became_regular":
 			return {"kind": "new_regular", "fill": {"gender": facts.get("gender", ""), "name": facts.get("name", "")}}
 		"friendlier":

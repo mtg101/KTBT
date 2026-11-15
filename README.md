@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest:** a playtest review, and what came of it: Korean words explained on hover (the menu, pocha words, terms of address), table customs and sharing as hints, tonight's specials and cravings, orders that don't all sound the same, more TV reactions, and a street of umbrellas, phones and people walking together. Before that: "Previously on…", the owner's diary, and Korean TV captions.
+✅ **Latest:** Close the bar now closes up early (with the owner's reason in the diary), hover over a customer for a quick summary of them, a greedy cat that steals fish cakes (with the red light) and prowls under the stools, a flickering neon sign and steaming dishes, customers who sway after a couple of bottles, snow and rain on umbrellas, and a stormy "Previously on…" after a night of heavy rain. Before that: a playtest review and what came of it (Korean words on hover, tonight's specials and cravings, orders that don't all sound the same, customers invented ahead), and no real people, brands or shows by name.
 
 **Next up:** see [PLAN.md](PLAN.md): the night as a story is done; next could be the refactor, real art and sound, or the game itself. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
@@ -19,11 +19,11 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth.
 - **Korean words:** the menu, pocha words (banchan, jjan, aigoo, daebak…) and terms of address explain themselves on hover, in the transcript and the diary.
 - **The owner:** AI-invented, with a secret and a fixed life (family, what they did before) the AI keeps to.
-- **The cat:** with a personality, going where it likes; everyone talks about it (and now and then to it) as it really is.
+- **The cat:** with a personality, going where it likes, and a greedy one steals fish cakes; everyone talks about it (and now and then to it) as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 458 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 469 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 

@@ -28,6 +28,23 @@ const LINES := [
 	["소주 냉장 중", "SOJU CHILLING…", "🍶", "7fd8ff"],
 ]
 
+## Captions for reopening a bar: tonight's episode, not a new one (no casting the owner or cat
+## auditions: they're already here).
+const REOPEN_LINES := [
+	["지난 이야기", "PREVIOUSLY ON… LOADING", "📺", "ffd27f"],
+	["두근두근", "DUGEUN DUGEUN! HEART POUNDING", "💓", "ff7eb6"],
+	["개봉박두!", "TONIGHT'S EPISODE, COMING UP!", "🎬", "7ee8c8"],
+	["다시 오픈!", "OPENING UP AGAIN!", "⏰", "ff9a4f"],
+	["단골 대기 중", "THE REGULARS ARE ON THEIR WAY…", "⭐", "ffd27f"],
+	["육수 끓이는 중", "THE BROTH'S ON THE BOIL…", "🍲", "ffc46b"],
+	["잠시만요~", "JAMSIMANYO~ ONE MOMENT!", "🙏", "c79bff"],
+	["기대하세요!", "GIDAEHASEYO! GET EXCITED!", "✨", "8cf05a"],
+	["소주 냉장 중", "SOJU CHILLING…", "🍶", "7fd8ff"],
+]
+
+## Reopening a saved bar, not setting up a new one: REOPEN_LINES.
+var reopening := false
+
 ## As the title screen's backdrop: no big title, caption or status (the title screen has
 ## its own), just the night, the tent, the rays and the sparkles, with captions at the sides.
 var backdrop := false
@@ -61,7 +78,7 @@ func _ready() -> void:
 		reel.lines = TITLE_LINES
 		reel.areas = [Rect2(190, 260, 50, 640), Rect2(1680, 260, 50, 640)]  # either side of the menu
 	else:
-		reel.lines = LINES
+		reel.lines = REOPEN_LINES if reopening else LINES
 		reel.areas = [Rect2(80, 520, 420, 380), Rect2(1420, 520, 420, 380), Rect2(560, 470, 800, 60)]
 	_status = Label.new()
 	_status.name = "LoadingStatus"

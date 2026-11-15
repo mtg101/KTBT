@@ -189,6 +189,20 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.opening_text("order")).is_equal("\"ajumma i'll\" 2 of 3")
 	assert_str(stats.opening_text("owner")).is_equal("\"you look\" 1 of 1")
 	assert_str(stats.panel_text(0, 0)).contains("Commonest start: orders \"ajumma i'll\" 2 of 3")
+	# Who came in: genders, ages and moods for company, from their sitting down.
+	events.emit_event("sat_down", 1200.0, {"seated": 1, "gender": "woman", "age_range": "20s", "company": "chatty"})
+	events.emit_event("sat_down", 1210.0, {"seated": 2, "gender": "woman", "age_range": "50s", "company": "quiet"})
+	events.emit_event("sat_down", 1220.0, {"seated": 3, "gender": "non-binary", "age_range": "20s", "company": "chatty"})
+	stats.tipsy = 1
+	assert_int(int(stats.who["woman"])).is_equal(2)
+	assert_str(stats.panel_text(0, 0)).contains("Who: woman 2 · non-binary 1 · ages 20s 2 · 50s 1")
+	assert_str(stats.panel_text(0, 0)).contains("Company: chatty 2 · quiet 1 · tipsy 1")
+	# How the night opened and its diary.
+	stats.story = {"loading_seconds": 12.4, "recap_style": "stormy", "recap_by": "ai", "diary_stamp": "early", "diary_by": "game"}
+	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s · recap stormy (ai)")
+	assert_str(stats.panel_text(0, 0)).contains("Diary: stamp early (game)")
+	assert_int(int(stats.summary({})["who"]["genders"]["non-binary"])).is_equal(1)
+	assert_str(str(stats.summary({})["story"]["recap_style"])).is_equal("stormy")
 	# The street, and the sides added to orders.
 	stats.record_street("in twos")
 	stats.record_street("umbrella: bubble")

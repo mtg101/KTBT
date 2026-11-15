@@ -1356,6 +1356,14 @@ func test_text_helpers_tidy_what_the_ai_sends() -> void:
 	assert_array(Text.numbers_in("no numbers here")).is_empty()
 
 
+func test_wrap_breaks_long_text_at_spaces() -> void:
+	assert_str(Text.wrap("Mood: anxious about tomorrow's big presentation at work", 20)).is_equal("Mood: anxious about\ntomorrow's big\npresentation at work")
+	assert_str(Text.wrap("short", 20)).is_equal("short")
+	assert_str(Text.wrap("averyveryverylongword here", 10)).is_equal("averyveryverylongword\nhere")  # (a long word gets its own line)
+	assert_str(Text.shorten("Worried about her sister's operation, and about the bills", 30)).is_equal("Worried about her sister's…")
+	assert_str(Text.shorten("From: Busan", 30)).is_equal("From: Busan")
+
+
 func test_check_fields_wants_every_field_with_something_in_it() -> void:
 	assert_str(Text.check_fields("not a dict", ["name"])).is_equal("it wasn't a JSON object")
 	assert_str(Text.check_fields({"name": "Kim"}, ["name", "job"])).is_equal("it left out \"job\"")
@@ -1499,6 +1507,36 @@ func test_real_brands_are_never_named() -> void:
 
 func test_the_moment_says_its_tonights_only_weather() -> void:
 	assert_str(Prompts.describe_moment({"day": "Friday", "time": "9:12pm", "weather": "light drizzle"})).contains("light drizzle (tonight's only weather")
+
+
+func test_a_greedy_cat_steals_fish_cakes() -> void:
+	assert_bool(CatRules.steals("greedy", true, 0.2)).is_true()
+	assert_bool(CatRules.steals("greedy", false, 0.0)).is_false()  # nothing to steal
+	assert_bool(CatRules.steals("lazy", true, 0.0)).is_false()  # can't be bothered
+	assert_bool(CatRules.steals("curious", true, 0.5)).is_false()  # only once in a while
+	var caption := Captions.for_event("cat_stole", {"cat": "Garae", "name": "Kim Ji-ho"})
+	assert_str(str(caption["kind"])).is_equal("cat_thief")
+	assert_bool(bool(Captions.CAPTIONS["cat_thief"]["emergency"])).is_true()  # the red light, for a fish cake
+	var facts := Story.diary_facts([{"kind": "cat_stole", "at": 1300, "cat": "Garae", "name": "Kim Ji-ho"}], {"cat": "Garae"})
+	assert_array(facts["cat_thefts"]).is_equal(["Kim Ji-ho"])
+	assert_str(Prompts.diary_facts_text(facts)).contains("Garae, the cat, stole an odeng skewer off Kim Ji-ho's plate")
+
+
+func test_closing_early_goes_in_the_diary() -> void:
+	var facts := Story.diary_facts([], {"day": "Friday", "weather": "rain", "owner": "Park Mi-sook", "customers": 0, "takings": 0, "closed_early": "11:42pm"})
+	assert_str(str(facts["closed_early"])).is_equal("11:42pm")
+	assert_str(Prompts.diary_facts_text(facts)).contains("The owner closed up early, at 11:42pm.")
+	assert_str(Story.diary_stamp(facts)).is_equal("early")
+	var stitched := Story.stitched_diary(facts)
+	assert_str(stitched).contains("I closed up early, at 11:42pm.")
+	assert_str(Story.validate_diary({"entry": stitched}, facts)).is_empty()  # (the time's in the facts, so its numbers are allowed)
+	var asked := str(Prompts.diary_messages({"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "An apron.", "personality": "blunt", "speech_style": "blunt", "secret": "Once sang trot."}, facts)[1]["content"])
+	assert_str(asked).contains("It's 11:42pm and the tarp's down.")
+	assert_str(asked).contains("Say why, in a sentence, in their own words")
+	var usual := str(Prompts.diary_messages({"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "An apron.", "personality": "blunt", "speech_style": "blunt", "secret": "Once sang trot."}, Story.diary_facts([], {"owner": "Park Mi-sook"}))[1]["content"])
+	assert_str(usual).contains("It's 3am")
+	assert_str(usual).not_contains("closed up early")
+	assert_str(str(Captions.for_event("closed_early", {})["kind"])).is_equal("closing_early")
 
 
 func test_hover_tips_never_break_their_tag() -> void:
@@ -1690,6 +1728,12 @@ func test_the_diary_page_gets_a_stamp_and_the_takings_a_word() -> void:
 	assert_str(Story.diary_stamp(facts)).is_equal("paw")
 	facts["new_regulars"] = ["Kim Ji-ho"]
 	assert_str(Story.diary_stamp(facts)).is_equal("star")
+	facts["cat_thefts"] = ["Kim Ji-ho"]
+	assert_str(Story.diary_stamp(facts)).is_equal("thief")  # nothing tops it
+	var stormy := {"weather": "heavy rain drumming on the tarp"}
+	assert_str(Story.diary_stamp(stormy)).is_equal("storm")
+	assert_str(Story.diary_stamp({"weather": "light drizzle"})).is_equal("rain")
+	assert_str(Story.diary_stamp({"weather": "thick fog", "moments": [{"mood": "funny"}]})).is_equal("laugh")
 	for key in Story.DIARY_STAMPS:
 		assert_str(str(Story.DIARY_STAMPS[key]["hangul"])).is_not_empty()
 	assert_str(Story.DAY_HANGUL["Friday"]).is_equal("금요일")
@@ -1765,6 +1809,14 @@ func test_each_recap_gets_a_different_k_tv_style() -> void:
 		var picked := Story.pick_recap_style({"moments": [], "customers": 14}, "variety", roll)
 		assert_bool(Story.RECAP_STYLES.has(picked)).is_true()
 		assert_str(picked).is_not_equal("variety")
+	# A stormy night gets the storm (whatever else happened), but never twice running, and
+	# never otherwise.
+	var stormy := {"moments": [{"mood": "funny"}], "customers": 14, "weather": "heavy rain drumming on the tarp"}
+	assert_str(Story.pick_recap_style(stormy, "", 0.0)).is_equal("stormy")
+	assert_str(Story.pick_recap_style(stormy, "stormy", 0.0)).is_equal("variety")
+	for roll in [0.0, 0.3, 0.6, 0.99]:
+		assert_str(Story.pick_recap_style({"moments": [], "customers": 14, "weather": "thick fog"}, "melodrama", roll)).is_not_equal("stormy")
+	assert_str(str(Story.RECAP_STYLES["stormy"]["drift"])).is_equal("rain")
 	for key in Story.RECAP_STYLES:
 		for field in ["title", "sky", "rays", "pill", "tag", "teaser_colour", "ribbons", "drift", "beats", "last", "sting", "teaser", "overlay"]:
 			assert_bool(Story.RECAP_STYLES[key].has(field)).override_failure_message("%s has no %s" % [key, field]).is_true()
