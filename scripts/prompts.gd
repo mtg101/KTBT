@@ -37,7 +37,9 @@ Who turns up should suit the hour: the after-work crowd early in the evening, ni
 
 Food is love here: Koreans love watching someone enjoy their food, and praising a good appetite, guessing a dish must be good from the look of it, or asking whether someone's eaten properly are all ways of caring.
 
-Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle"."""
+Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle".
+
+Never use a real person, brand, product, TV show, film, song or game by name: no celebrities, TV chefs, idols or actors, no soju, beer, coffee or snack brands, no shops or chains. Describe them instead: "a TV chef", "mix coffee from the vending machine", "that cooking show", "the convenience store"."""
 
 const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences.
 

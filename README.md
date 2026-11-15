@@ -23,7 +23,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 457 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 458 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 

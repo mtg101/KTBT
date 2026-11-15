@@ -92,6 +92,18 @@ Included in every AI prompt so all characters feel like they belong to the same 
 
 **Tone:** warm, melodramatic, a little melancholy. "One more bottle", unspoken feelings, late-night honesty, with humour mixed in.
 
+### Real people, brands and shows
+
+The game is full of Korean references, and should be. But what's in it is written live by an AI nobody reviews, so it never uses real people, brands or shows by name. (Not legal advice: just staying well clear. Korean TV is famously careful about this too, blurring logos and inventing brands.) The joke works without the name.
+
+- **No real people:** no celebrities, TV chefs, idols, actors, athletes or politicians, in dialogue, captions, the diary, recaps, or anything else the game shows. Describe the trope instead: "salts it from shoulder height like a TV chef showing off", not the chef's name.
+- **No brands or products:** "mix coffee" (믹스커피) or "a vending-machine coffee stick", not the brand; "the green bottle" of soju, not its maker; "the convenience store", not the chain. Generic Korean food and drink names are fine (soju, makgeolli, banana milk, ramyeon, mix coffee). No logos in the art, ever.
+- **No real shows, films, songs or games by name:** "that fridge cooking show", "a K-drama", "a variety show", "the game he plays all night".
+- **What's fine:** real places (Seoul, Busan, Hongdae, the Han river), public holidays and customs (Chuseok, Seollal), public-domain music (Arirang and other folk songs, classical pieces), and the tropes themselves.
+- **Our own stand-ins:** when a reference needs a name, the game can own a fictional one (a celebrity chef, a coffee brand, a drama everyone's watching), clearly our own and not a near-copy of a real name.
+- **The same for anything public:** the store page, screenshots, the trailer, the game's own text. (The design docs can mention real games and shows as inspiration, like *Coffee Talk*: that's talking about the game, not what's in it.)
+- **How it's kept:** the AI's style guide says so, and lines, captions, diaries and recaps naming an obvious brand are sent back (`Talk.REAL_BRANDS`). Real people can't be listed reliably, so for them it's the prompt; anything that slips through goes in [LLM-TUNING.md](LLM-TUNING.md).
+
 ## Menu and ordering
 
 The current menu is a fixed placeholder (see bar-specific menus in [PLAN.md](PLAN.md) for where it's heading). Prices live in `scripts/menu.gd`.

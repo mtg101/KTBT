@@ -297,6 +297,8 @@ static func validate_reaction(data: Variant, names: Array, items: Array = []) ->
 		return "the caption has brackets or more than one line"
 	if caption.split(" ", false).size() > REACTION_WORDS or caption.length() > REACTION_CHARS:
 		return "the caption was longer than five words"
+	if Talk.real_brand(caption) != "":
+		return "the caption names a real brand (%s)" % Talk.real_brand(caption)
 	var mention := Orders.unordered_mention(caption, items) if not items.is_empty() else ""
 	if mention != "":
 		return "the caption mentions %s, which nobody ordered" % mention

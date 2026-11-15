@@ -45,6 +45,8 @@ static func problem_kind(problem: String) -> String:
 		return "food that wasn't ordered"
 	if p.contains("isn't on the menu"):
 		return "not on the menu"
+	if p.contains("real brand"):
+		return "real brands"
 	if p.contains("doesn't ask for it"):
 		return "line doesn't match the order"
 	if p.contains("sounds like a first order"):

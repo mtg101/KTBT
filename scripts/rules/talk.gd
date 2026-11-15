@@ -128,6 +128,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 		var mention := Orders.unordered_mention(line, items)
 		if mention != "":
 			return "the line mentions %s, but that isn't on the table (%s)" % [mention, Orders.item_names(items)]
+	var brand := real_brand(line)
+	if brand != "":
+		return "the line names a real brand (%s): describe it instead (\"mix coffee\", \"the green bottle\", \"the convenience store\")" % brand
 	var elsewhere := off_menu_here(line)
 	if elsewhere != "":
 		return "the line talks about %s as if it's served here, but it isn't on the menu: talk about it only as somewhere else's, or someone's cooking at home" % elsewhere
@@ -207,6 +210,27 @@ const ENGLISH_LOOKALIKES := ["people", "someone", "anyone", "everyone", "video",
 	"europe", "european", "queue", "feud", "pseudo", "amateur", "chauffeur", "entrepreneur", "liqueur", "milieu",
 	"adieu", "lieu", "deuce", "sleuth", "euphoria", "eulogy", "michael", "israel", "aerial", "aesthetic", "maestro",
 	"reggae", "theology", "geometry", "leon", "napoleon", "creole", "yeoman", "deodorant", "galleon", "peony", "eon", "eons"]
+
+
+## Brands people might name, which the game never shows (see CONCEPT.md, "Real people, brands
+## and shows"): soju, beer, coffee and snack makers, shops and big companies. Real people can't
+## be listed reliably, so they're kept out by the style guide. Lower case, whole words.
+## (Not ones with digits, "GS25" or "7-Eleven": words lose their digits here, so they'd match
+## "eleven". Not ones that are ordinary words or names too: Orion, Kia.)
+const REAL_BRANDS := ["chamisul", "jinro", "chum churum", "cheoeum cheoreom", "good day soju", "hite", "cass", "terra",
+	"kloud", "maxim", "kanu", "starbucks", "ediya", "mega coffee", "paik's", "emart", "e-mart", "lotte", "olive young",
+	"daiso", "samsung", "hyundai", "lg", "kakao", "kakaotalk", "naver", "coupang", "baemin", "binggrae", "nongshim",
+	"shin ramyun", "choco pie", "pepero", "bacchus", "chilsung", "milkis", "melona", "honey butter chip"]
+
+
+## A brand the text names, or "" (see REAL_BRANDS).
+static func real_brand(text: String) -> String:
+	var lower := " " + " ".join(Text.words(text.replace("'", "").replace("-", " "))) + " "
+	for brand in REAL_BRANDS:
+		var wanted := " " + " ".join(Text.words(str(brand).replace("'", "").replace("-", " "))) + " "
+		if lower.contains(wanted):
+			return str(brand)
+	return ""
 
 
 ## Korean dishes that aren't on the menu (yet: menus will differ by bar). People may talk

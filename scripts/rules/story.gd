@@ -106,6 +106,8 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 	for number in Text.numbers_in(entry):
 		if not allowed.has(number):
 			return "the diary has a number (%s) that isn't in tonight's facts" % number
+	if Talk.real_brand(entry) != "":
+		return "the diary names a real brand (%s): describe it instead" % Talk.real_brand(entry)
 	var mention := Orders.unordered_mention(entry, facts.get("ordered", []) + facts.get("specials", []))  # (specials: on all night)
 	if mention != "":
 		return "the diary mentions %s, but nobody ordered that tonight" % mention
@@ -198,6 +200,8 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 	if not teaser.ends_with("?"):
 		teaser = teaser.trim_suffix(".") + "?"
 	var all := " ".join(PackedStringArray(beats)) + " " + teaser
+	if Talk.real_brand(all) != "":
+		return "the recap names a real brand (%s): describe it instead" % Talk.real_brand(all)
 	var known: Array = facts.get("names", [])
 	var invented := unknown_name(all, known)
 	if invented != "":

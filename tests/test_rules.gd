@@ -1483,6 +1483,20 @@ func test_dishes_not_on_the_menu_cant_be_served_here() -> void:
 	assert_str(Text.problem_kind("the line talks about bibimbap as if it's served here, but it isn't on the menu")).is_equal("not on the menu")
 
 
+func test_real_brands_are_never_named() -> void:
+	# Mix coffee is fine; the brand isn't (see CONCEPT.md, "Real people, brands and shows").
+	assert_str(Talk.real_brand("This tteokbokki's as sweet as Maxim coffee!")).is_equal("maxim")
+	assert_str(Talk.real_brand("Grab me a Choco Pie from the convenience store.")).is_equal("choco pie")
+	assert_str(Talk.real_brand("I'll message you on KakaoTalk.")).is_equal("kakaotalk")
+	assert_str(Talk.real_brand("Sweet as vending-machine mix coffee, this.")).is_empty()
+	assert_str(Talk.real_brand("The green bottle, and banana milk for the walk home.")).is_empty()
+	assert_str(Talk.real_brand("Back at eleven, Imo. Look, you can see Orion tonight.")).is_empty()  # (not brands)
+	assert_str(Talk.validate_line({"line": "Sweet as Maxim coffee, Imo!"}, "Kim Ji-ho", "")).contains("real brand")
+	assert_str(Text.problem_kind("the line names a real brand (maxim)")).is_equal("real brands")
+	assert_str(Captions.validate_reaction({"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "SWEETER THAN MAXIM"}, ["Kim Ji-ho"])).contains("real brand")
+	assert_str(Prompts.STYLE_GUIDE).contains("Never use a real person, brand")
+
+
 func test_the_moment_says_its_tonights_only_weather() -> void:
 	assert_str(Prompts.describe_moment({"day": "Friday", "time": "9:12pm", "weather": "light drizzle"})).contains("light drizzle (tonight's only weather")
 
