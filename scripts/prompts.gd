@@ -340,7 +340,7 @@ Reply with ONLY a JSON object with exactly these keys:
 
 
 ## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
-const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free). Unless it says above that two of them know each other, they're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
+const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free). Unless it says above that two of them know each other, they're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: no oppa, hyung, nuna or eonni (those are for people who are close) unless the note on how they address each other allows it. To get someone's attention they might say \"jeogiyo\" (excuse me)."
 
 
 ## Messages asking the AI for the next line of a chat between customers at the counter

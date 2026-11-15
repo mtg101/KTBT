@@ -200,7 +200,7 @@ func test_counter_chat_prompt_says_they_are_strangers_who_talk_politely() -> voi
 	var text := _chat(false)
 	assert_str(text).contains("strangers who've only just met")
 	assert_str(text).contains("don't know each other's names")
-	assert_str(text).contains("never oppa, hyung, nuna or eonni")
+	assert_str(text).contains("no oppa, hyung, nuna or eonni")
 
 
 func test_counter_chat_prompt_leaves_the_owner_out_unless_they_join() -> void:

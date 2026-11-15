@@ -39,6 +39,7 @@ var became_regulars := 0
 var faded_regulars := 0
 var verdicts := {}  # how each visit went (the AI's verdict, or the game's if it couldn't)
 var memories_failed := 0
+var friendlier_moments := 0  # two regulars on "eonni" (or oppa, hyung, nuna) terms
 
 # Food
 var dishes_cooked := 0
@@ -152,6 +153,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
 	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
+	lines.append("Friendlier terms tonight: %d" % friendlier_moments)
 	lines.append("Visits: loved %d · enjoyed %d · fine %d · didn't enjoy %d%s" % [int(verdicts.get("loved", 0)), int(verdicts.get("enjoyed", 0)), int(verdicts.get("fine", 0)), int(verdicts.get("didnt", 0)), (" · memories failed %d" % memories_failed) if memories_failed > 0 else ""])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
@@ -189,7 +191,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"regulars": {
 			"on_the_books": regular_pulls.size(), "founding": founding_regulars, "in_tonight": regulars_in,
 			"became": became_regulars, "faded": faded_regulars, "pulls": regular_pulls.duplicate(),
-			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed,
+			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
 		"food": {
 			"dishes_cooked": dishes_cooked,

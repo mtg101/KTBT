@@ -1077,6 +1077,7 @@ func _greet() -> void:
 	_dress(guest.node, look)
 	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
 	_guests.append(guest)
+	_refresh_tags()
 	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
 	_greeting = false
 	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
@@ -1261,6 +1262,7 @@ func _settle_up(guest: Guest) -> void:
 	_clear_table(guest)
 	_walk_out(guest)  # off they go; the owner gets on with the next thing
 	_guests.erase(guest)
+	_refresh_tags()
 	_leave_chats(guest)
 	if _attending == guest:
 		_attending = null
@@ -1323,13 +1325,15 @@ func _next_line(guest: Guest) -> void:
 		direction = Rules.topic_hint(guest.topic)
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
+	direction = (direction + " " + _address_note(guest)).strip_edges()
+	var address := _address(null, guest) if owner_speaks else _address(guest, null)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 	var reply := {}
 	for attempt in 2:
 		var version := guest.version
 		reply = await _ai.ask_json(
 			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _cat_prompt()),
-			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _cat_fact()), {"temperature": 0.85},
+			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _cat_fact(), address), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": false})
 		# Out of date already (a dish arrived, or the cat came or went, while the AI was
 		# writing it)? Ask again, with things as they are now.
@@ -1357,8 +1361,8 @@ func _goodbye(guest: Guest) -> void:
 		_typing_label.text = "%s is thinking..." % _owner_display()
 		var send_off: Dictionary = await _ai.ask_json(
 			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, true,
-				"The customer is getting up to go: see them off.", _cat_prompt()),
-			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _cat_fact()), {"temperature": 0.85},
+				"The customer is getting up to go: see them off. " + _address_note(guest), _cat_prompt()),
+			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _cat_fact(), _address(null, guest)), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": true, "first": false, "last": false})
 		if not send_off.is_empty():
 			await _say(guest, true, str(send_off["line"]))
@@ -1373,8 +1377,8 @@ func _goodbye(guest: Guest) -> void:
 		direction += " They also say goodbye to %s, who they were chatting with." % " and ".join(PackedStringArray(still_here.map(func(g): return _known_as(g, chat))))
 	_typing_label.text = "%s is reaching for their wallet..." % speaker
 	var reply: Dictionary = await _ai.ask_json(
-		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction, _cat_prompt()),
-		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _cat_fact()), {"temperature": 0.85},
+		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction + " " + _address_note(guest), _cat_prompt()),
+		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _cat_fact(), _address(guest, null)), {"temperature": 0.85},
 		{"purpose": "line", "title": _owner["title"], "owner_speaks": false, "first": false, "last": true})
 	_typing_label.text = ""
 	if not reply.is_empty():
@@ -1543,6 +1547,8 @@ func _counter_chat() -> void:
 		# Something more urgent can cut the chat short, but only once it's had a few lines.
 		if _urgent() and lines_said >= CHAT_LINES_BEFORE_INTERRUPTING:
 			break
+	if said != "":
+		_remember_chat(chat, said)
 	# Each person's own conversation with the owner hears about it, so the owner can pick it up.
 	if said != "":
 		for guest in chat.people:
@@ -1574,6 +1580,17 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	var moment := {"day": _night_day, "time": Rules.clock_text(int(_clock)), "weather": _night_weather}
 	var direction := "This is the first thing they've ever said to each other." if first else Rules.topic_hint(chat.topic, true)
 	var owner_speaks := speaker == owner_name
+	var speaking: Guest = _guest_named(speaker)
+	var listening: Guest = _guest_named(addressee)
+	if first and speaking != null and listening != null and not _friend(speaking, listening).is_empty():
+		direction = "They've met here before: they pick up where they left off."
+	# Two regulars who've got to know each other: is it time for "can I call you eonni?"
+	var moment_term := _friendly_moment(speaking, listening)
+	if moment_term != "":
+		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s?" % [speaker, addressee, moment_term.capitalize()]
+	var close := moment_term != "" or (speaking != null and listening != null and _close(speaking, listening))
+	direction += " " + _chat_notes(chat) + " " + Rules.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close)
+	var address := _address(speaking, listening, close)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 	var reply := {}
 	for attempt in 2:
@@ -1581,7 +1598,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		tables = chat.people.map(func(person): return _table_text(person))
 		reply = await _ai.ask_json(
 			Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _cat_prompt()),
-			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _cat_fact()), {"temperature": 0.85},
+			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _cat_fact(), address), {"temperature": 0.85},
 			{"purpose": "chat_line", "owner_speaks": owner_speaks, "first": first})
 		if reply.is_empty() or _chat_version(chat) == version or attempt == 1:
 			break
@@ -1601,11 +1618,41 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	_stats.chat_lines += 1
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
-	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), _esc(line)])
+	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Rules.colour_terms(_esc(line), names)])
 	var listener_colour := OWNER_TEXT if addressed == null else addressed.color.lightened(0.35)
 	_give_time_to_read(line, _say_in_bubble(_owner_node if guest == null else guest.node, _owner_node if addressed == null else addressed.node,
-		to, listener_colour, colour, line))
+		_to_label(line, guest, addressed, to), listener_colour, colour, line))
+	if moment_term != "" and guest != null and addressed != null:
+		_make_close(guest, addressed, moment_term)
 	return line
+
+
+## What the game knows about the chatters who've met before, for the chat's prompt.
+func _chat_notes(chat: Chat) -> String:
+	var notes := PackedStringArray()
+	for i in chat.people.size():
+		for j in range(i + 1, chat.people.size()):
+			var friend := _friend(chat.people[i], chat.people[j])
+			if friend.is_empty():
+				continue
+			var note := "%s and %s have chatted here before (%d %s)" % [chat.people[i].customer["name"], chat.people[j].customer["name"],
+				int(friend.get("meetings", 1)), "time" if int(friend.get("meetings", 1)) == 1 else "times"]
+			note += ", and know each other's names." if bool(friend.get("names", false)) else ", but haven't swapped names."
+			if str(friend.get("last", "")) != "":
+				note += " The last thing said between them: \"%s\"" % friend["last"]
+			if bool(friend.get("close", false)):
+				note += " They're close now."
+			notes.append(note)
+	return " ".join(notes)
+
+
+## The bubble's header: the term the line used for its listener, then who they are
+## ("이모 Imo (박미숙 Park Mi-sook ♀ (Ajumma))"), or just who they are.
+func _to_label(line: String, speaker: Guest, listener: Guest, label: String) -> String:
+	var term := _term_used(line, speaker, listener)
+	if term == "":
+		return label
+	return "%s %s (%s)" % [Rules.TERMS[term]["hangul"], term.capitalize(), label]
 
 
 ## Changes anyone in a chat can see, added up (see Guest.version).
@@ -1887,11 +1934,11 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	_stats.owner_lines += 1
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
-	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(text)])
+	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Rules.colour_terms(_esc(text), [_owner["name"], guest.customer["name"]])])
 	if owner_speaks:
-		_give_time_to_read(text, _say_in_bubble(_owner_node, guest.node, _name_label(guest.customer), guest.color.lightened(0.35), colour, text))
+		_give_time_to_read(text, _say_in_bubble(_owner_node, guest.node, _to_label(text, null, guest, _name_label(guest.customer)), guest.color.lightened(0.35), colour, text))
 	else:
-		_give_time_to_read(text, _say_in_bubble(guest.node, _owner_node, _owner_label(), OWNER_TEXT, colour, text))
+		_give_time_to_read(text, _say_in_bubble(guest.node, _owner_node, _to_label(text, guest, null, _owner_label()), OWNER_TEXT, colour, text))
 
 
 func _narrate(text: String) -> void:
@@ -2110,8 +2157,8 @@ func _validate_extra_order(data: Variant, table: Array) -> String:
 	return Rules.validate_extra_order(data, table)
 
 
-func _validate_line(data: Variant, speaker: String, alias: String, items: Array, names: Array, cat: Dictionary) -> String:
-	return Rules.validate_line(data, speaker, alias, items, names, cat)
+func _validate_line(data: Variant, speaker: String, alias: String, items: Array, names: Array, cat: Dictionary, address: Dictionary = {}) -> String:
+	return Rules.validate_line(data, speaker, alias, items, names, cat, address)
 
 
 func _validate_cat_name(data: Variant, taken: Array) -> String:
@@ -3153,6 +3200,13 @@ func _make_founding_regulars() -> void:
 			regular[key] = reply.get(key, "")
 		made.append(regular)
 		taken.append(str(reply["name"]))
+	# Founding regulars have known each other for years (on first-name terms, not yet close).
+	for regular in made:
+		for other in made:
+			if other != regular:
+				var friends: Dictionary = regular.get("friends", {})
+				friends[other["id"]] = {"meetings": 20, "names": true, "close": false, "night": -1, "name": other["name"]}
+				regular["friends"] = friends
 	Game.bar["regulars"] = made
 	Game.save()  # (they're introduced when they first come in: see _back_text)
 
@@ -3191,6 +3245,7 @@ func _regular_facts(regular: Dictionary) -> Dictionary:
 		"usual": Regulars.usual_of(regular), "owner_knows_name": bool(regular.get("owner_knows_name", false)),
 		"knows_owner_name": bool(regular.get("knows_owner_name", false)),
 		"memories": regular.get("memories", []), "impression": regular.get("impression", ""), "facts": regular.get("facts", {}),
+		"warmth": int(regular.get("warmth", 0)),
 	}
 	if int(regular.get("last_night", 0)) > 0:
 		facts["nights_ago"] = _night_number - int(regular["last_night"])
@@ -3357,3 +3412,133 @@ func _remembered_text(known: Dictionary) -> String:
 		parts.append(str(known["owner_knows"]))
 	# (No square brackets: it goes inside a BBCode tag.)
 	return " · ".join(parts).replace("[", "(").replace("]", ")").replace("\n", " ")
+
+
+# --- Who calls whom, and friendliness ------------------------------------------------------
+
+const FRIENDLY_AFTER := 4  # meetings before two regulars might ask "can I call you eonni?"
+
+
+## Someone, as far as address goes (see Rules.allowed_terms). null: the owner.
+func _addressee(guest: Guest) -> Dictionary:
+	if guest == null:
+		return {"gender": str(_owner.get("gender", "woman")), "age": int(_owner.get("age", 55)), "owner": true}
+	return {"gender": str(guest.customer.get("gender", "")), "age": int(guest.customer.get("age", 30)), "owner": false}
+
+
+func _who(guest: Guest) -> String:
+	return str(_owner["name"]) if guest == null else str(guest.customer["name"])
+
+
+## For the checks: who's speaking to whom. null: the owner.
+func _address(speaker: Guest, listener: Guest, close: bool = false) -> Dictionary:
+	return {"speaker": _addressee(speaker), "listener": _addressee(listener), "close": close, "listener_name": _who(listener)}
+
+
+## For the prompts: how the owner and a customer address each other (and, for a regular the
+## owner's got to know, their given name).
+func _address_note(guest: Guest) -> String:
+	var text := "HOW THEY ADDRESS EACH OTHER: %s %s" % [
+		Rules.address_text(_who(guest), _addressee(guest), _who(null), _addressee(null), false),
+		Rules.address_text(_who(null), _addressee(null), _who(guest), _addressee(guest), false)]
+	var known: Dictionary = guest.customer.get("regular", {})
+	if bool(known.get("owner_knows_name", false)):
+		var parts := str(guest.customer["name"]).split(" ", false)
+		var given := " ".join(parts.slice(1)) if parts.size() > 1 else str(guest.customer["name"])
+		if bool(known.get("founding", false)) or int(known.get("warmth", 0)) >= 2 or int(known.get("visits", 0)) >= 6:
+			text += " The owner knows them well, and calls them by their given name, %s." % given
+		else:
+			text += " The owner knows their name, %s." % guest.customer["name"]
+	return text
+
+
+## Two regulars' record of each other (from the first one's side), or {}.
+func _friend(a: Guest, b: Guest) -> Dictionary:
+	var mine := _regular(str(a.customer.get("regular_id", "")))
+	if mine.is_empty() or str(b.customer.get("regular_id", "")) == "":
+		return {}
+	return mine.get("friends", {}).get(str(b.customer["regular_id"]), {})
+
+
+func _close(a: Guest, b: Guest) -> bool:
+	return bool(_friend(a, b).get("close", false))
+
+
+## After a spell of chat: regulars who chatted remember it (once a night per pair): how many
+## times they've met, whether they know each other's names, and the last thing said.
+func _remember_chat(chat: Chat, last: String) -> void:
+	var said := " ".join(PackedStringArray(chat.transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["text"])))).to_lower()
+	for a in chat.people:
+		for b in chat.people:
+			if a == b:
+				continue
+			var mine := _regular(str(a.customer.get("regular_id", "")))
+			var their_id := str(b.customer.get("regular_id", ""))
+			if mine.is_empty() or their_id == "":
+				continue
+			var friends: Dictionary = mine.get("friends", {})
+			var friend: Dictionary = friends.get(their_id, {"meetings": 0, "names": false, "close": false, "night": -1})
+			if int(friend.get("night", -1)) != _night_number:
+				friend["meetings"] = int(friend.get("meetings", 0)) + 1
+				friend["night"] = _night_number
+			if _name_said(str(b.customer["name"]), said):
+				friend["names"] = true
+			friend["name"] = str(b.customer["name"])
+			friend["last"] = last
+			friends[their_id] = friend
+			mine["friends"] = friends
+	_refresh_tags()
+
+
+## The "can I call you eonni?" moment, if it's time: the younger of two regulars who've met
+## enough asks the older; "" if not. Marks them close once asked (the game's call).
+func _friendly_moment(speaker: Guest, addressee: Guest) -> String:
+	if speaker == null or addressee == null:
+		return ""
+	var friend := _friend(speaker, addressee)
+	if friend.is_empty() or bool(friend.get("close", false)) or int(friend.get("meetings", 0)) < FRIENDLY_AFTER:
+		return ""
+	var term := Rules.sibling_term(_addressee(speaker), _addressee(addressee))
+	if term == "":
+		return ""
+	return term
+
+
+func _make_close(a: Guest, b: Guest, term: String) -> void:
+	for pair in [[a, b], [b, a]]:
+		var mine := _regular(str(pair[0].customer.get("regular_id", "")))
+		if mine.is_empty():
+			continue
+		var friends: Dictionary = mine.get("friends", {})
+		var friend: Dictionary = friends.get(str(pair[1].customer["regular_id"]), {})
+		friend["close"] = true
+		friends[str(pair[1].customer["regular_id"])] = friend
+		mine["friends"] = friends
+	_stats.friendlier_moments += 1
+	_narrate("%s and %s are on \"%s\" terms now." % [a.customer["name"], b.customer["name"], term])
+	Game.save()
+
+
+## Name tags: a regular whose friend is at the counter too gets a matching ∞.
+func _refresh_tags() -> void:
+	for guest in _guests:
+		var tag: Label = null
+		if guest.node != null:
+			tag = guest.node.get_node_or_null("Tag") as Label
+		if tag == null:
+			continue
+		var label := _name_label(guest.customer)
+		for other in _guests:
+			if other != guest and not _friend(guest, other).is_empty():
+				label += " ∞"
+				break
+		tag.text = label
+
+
+## The term a line actually used for its listener, for the bubble's header ("" if none).
+func _term_used(line: String, speaker: Guest, listener: Guest) -> String:
+	var allowed := Rules.allowed_terms(_addressee(speaker), _addressee(listener), speaker != null and listener != null and _close(speaker, listener))
+	for term in Rules.terms_in(line, [_who(speaker), _who(listener)]):
+		if allowed.has(term):
+			return term
+	return ""

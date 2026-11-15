@@ -1139,3 +1139,89 @@ func test_last_time_comes_up_only_with_something_to_remember() -> void:
 		if Rules.pick_owner_topic(randf(), false, "none", "", true) == "last_time":
 			asked += 1
 	assert_int(asked).is_greater(20)
+
+
+func _p(gender: String, age: int, owner: bool = false) -> Dictionary:
+	return {"gender": gender, "age": age, "owner": owner}
+
+
+func test_who_may_call_whom_what() -> void:
+	var her25 := _p("woman", 25)
+	var her30 := _p("woman", 30)
+	var him32 := _p("man", 32)
+	var him22 := _p("man", 22)
+	var owner_her := _p("woman", 58, true)
+	var owner_him := _p("man", 58, true)
+	# Big brother and sister words: younger to older, the right genders, and only when close.
+	assert_array(Rules.allowed_terms(her25, him32, true)).contains(["oppa"])
+	assert_array(Rules.allowed_terms(her25, him32, false)).not_contains(["oppa"])  # not close yet
+	assert_array(Rules.allowed_terms(her30, him22, true)).not_contains(["oppa", "nuna"])  # he's younger
+	assert_array(Rules.allowed_terms(him22, him32, true)).contains(["hyung"])
+	assert_array(Rules.allowed_terms(him22, her25, true)).contains(["nuna"])
+	assert_array(Rules.allowed_terms(her25, her30, true)).contains(["eonni"])
+	assert_array(Rules.allowed_terms(him22, her25, true)).not_contains(["eonni", "oppa", "hyung"])
+	assert_array(Rules.allowed_terms(_p("non-binary", 22), him32, true)).not_contains(["oppa", "hyung"])
+	# The owner.
+	assert_array(Rules.allowed_terms(her25, owner_her, false)).contains(["imo", "ajumma", "sajangnim"])
+	assert_array(Rules.allowed_terms(her25, owner_him, false)).contains(["samchon", "ajusshi"])
+	assert_array(Rules.allowed_terms(her25, owner_him, false)).not_contains(["imo", "ajumma"])
+	assert_array(Rules.allowed_terms(_p("man", 70), owner_her, false)).not_contains(["imo"])  # older than her
+	assert_array(Rules.allowed_terms(_p("man", 70), owner_her, false)).contains(["sajangnim"])
+	assert_array(Rules.allowed_terms(her25, owner_her, true)).not_contains(["eonni"])  # never to the owner
+	# Strangers, and the owner to customers.
+	assert_array(Rules.allowed_terms(her25, her30, false)).not_contains(["ajumma"])  # an insult at thirty
+	assert_array(Rules.allowed_terms(her25, _p("woman", 48), false)).contains(["ajumma"])
+	assert_array(Rules.allowed_terms(owner_her, him22, false)).contains(["haksaeng"])
+	assert_array(Rules.allowed_terms(owner_her, him32, false)).not_contains(["haksaeng", "sajangnim"])
+	assert_array(Rules.allowed_terms(owner_her, _p("man", 75), false)).contains(["seonsaengnim"])
+
+
+func test_the_must_never_rules_over_the_whole_grid() -> void:
+	for speaker_gender in ["woman", "man", "non-binary"]:
+		for listener_gender in ["woman", "man", "non-binary"]:
+			for ages in [[22, 35], [35, 22], [30, 30], [45, 60]]:
+				for close in [true, false]:
+					for to_owner in [true, false]:
+						var speaker := _p(speaker_gender, ages[0])
+						var listener := _p(listener_gender, ages[1], to_owner)
+						var allowed := Rules.allowed_terms(speaker, listener, close)
+						var context := "%s %d to %s %d, close %s, owner %s: %s" % [speaker_gender, ages[0], listener_gender, ages[1], close, to_owner, allowed]
+						for sibling in ["oppa", "hyung", "eonni", "nuna"]:
+							if allowed.has(sibling):
+								assert_bool(close and not to_owner and ages[1] > ages[0]).override_failure_message(context).is_true()
+						if allowed.has("ajumma"):
+							assert_bool(listener_gender == "woman" and ages[1] >= Rules.MIDDLE_AGED).override_failure_message(context).is_true()
+						if allowed.has("imo") or allowed.has("samchon"):
+							assert_bool(to_owner and ages[1] > ages[0]).override_failure_message(context).is_true()
+						if allowed.has("oppa") or allowed.has("hyung"):
+							assert_str(listener_gender).override_failure_message(context).is_equal("man")
+						if allowed.has("eonni") or allowed.has("nuna"):
+							assert_str(listener_gender).override_failure_message(context).is_equal("woman")
+
+
+func test_lines_that_break_the_address_rules_are_rejected() -> void:
+	var not_close := {"speaker": _p("woman", 25), "listener": _p("woman", 30), "close": false, "listener_name": "Han Seol"}
+	assert_str(Rules.validate_line({"line": "Eonni, try the tteokbokki."}, "Kim Ji-ho", "", [], [], {}, not_close)).contains("the line calls Han Seol \"eonni\"")
+	assert_str(Rules.problem_kind("the line calls Han Seol \"eonni\", but...")).is_equal("address rules")
+	var close := not_close.duplicate()
+	close["close"] = true
+	assert_str(Rules.validate_line({"line": "Unni, try the tteokbokki."}, "Kim Ji-ho", "", [], [], {}, close)).is_empty()
+	var to_owner := {"speaker": _p("woman", 25), "listener": _p("man", 58, true), "close": false, "listener_name": "Kim Sung-ho"}
+	assert_str(Rules.validate_line({"line": "Ajumma, one more soju."}, "Kim Ji-ho", "", [], [], {}, to_owner)).contains("ajumma")
+	assert_str(Rules.validate_line({"line": "Samchon, one more soju."}, "Kim Ji-ho", "", [], [], {}, to_owner)).is_empty()
+	# A name isn't a term.
+	var to_him := {"speaker": _p("woman", 25), "listener": _p("man", 22), "close": false, "listener_name": "Lee Hyung-jun"}
+	assert_str(Rules.validate_line({"line": "Nice to meet you, Hyung-jun."}, "Kim Ji-ho", "", [], ["Lee Hyung-jun"], {}, to_him)).is_empty()
+
+
+func test_sibling_terms_and_colours() -> void:
+	assert_str(Rules.sibling_term(_p("woman", 25), _p("woman", 30))).is_equal("eonni")
+	assert_str(Rules.sibling_term(_p("man", 25), _p("woman", 30))).is_equal("nuna")
+	assert_str(Rules.sibling_term(_p("woman", 30), _p("woman", 30))).is_empty()  # the same age
+	assert_str(Rules.sibling_term(_p("woman", 30), _p("woman", 25))).is_empty()  # she's the older one
+	var coloured := Rules.colour_terms("Imo, one more! Thanks, Hyung-jun.", ["Lee Hyung-jun"])
+	assert_str(coloured).contains("[color=#%s]Imo[/color]" % Rules.WARMTH_COLOURS["family"])
+	assert_str(coloured).contains("auntie")
+	assert_str(coloured).contains("Hyung-jun.")  # a name, left alone
+	assert_str(coloured).not_contains("[color=#%s]Hyung" % Rules.WARMTH_COLOURS["close"])
+	assert_str(Rules.address_text("Kim Ji-ho", _p("woman", 25), "Park Mi-sook", _p("woman", 58, true), false)).contains("Imo")

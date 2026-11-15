@@ -1156,3 +1156,58 @@ func test_a_visit_they_didnt_enjoy_makes_no_regular() -> void:
 	await scene._after_visit(_a_departing_guest(scene))
 	assert_array(Game.bar["regulars"]).is_empty()
 	assert_int(int(scene._stats.verdicts.get("didnt", 0))).is_equal(1)
+
+
+func test_two_regulars_get_to_know_each_other_and_then_ask() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var younger := _a_regular()
+	younger["age"] = 26
+	var older := _a_regular()
+	older.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
+	Game.bar["regulars"] = [younger, older]
+	Visit.stay_minutes_override = 600
+	scene._arrive(scene._clock, younger["id"])
+	scene._arrive(scene._clock, older["id"])
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).override_failure_message("they never both sat down").is_true()
+	var a = scene._guest_named("Choi Hye-rin")
+	var b = scene._guest_named("Kang Da-eun")
+	assert_object(a).is_not_null()
+	assert_object(b).is_not_null()
+	if a == null or b == null:
+		return
+	var chat := Visit.Chat.new()
+	chat.people = [a, b]
+	chat.transcript = [{"speaker": "Kang Da-eun", "text": "I'm Da-eun, by the way."}]
+	scene._remember_chat(chat, "I'm Da-eun, by the way.")
+	var friend: Dictionary = younger["friends"]["older"]
+	assert_int(int(friend["meetings"])).is_equal(1)
+	assert_bool(friend["names"]).is_true()
+	assert_str((a.node.get_node("Tag") as Label).text).ends_with("∞")  # a friend's here too
+	scene._remember_chat(chat, "Same night again.")
+	assert_int(int(younger["friends"]["older"]["meetings"])).is_equal(1)  # once a night
+	assert_str(scene._friendly_moment(a, b)).is_empty()  # not yet
+	friend["meetings"] = Visit.FRIENDLY_AFTER
+	assert_str(scene._friendly_moment(a, b)).is_equal("eonni")
+	assert_str(scene._friendly_moment(b, a)).is_empty()  # the older one doesn't ask
+	scene._make_close(a, b, "eonni")
+	assert_bool(scene._close(a, b)).is_true()
+	assert_bool(older["friends"]["choi-hye-rin-1"]["close"]).is_true()
+	assert_str(_transcript(runner)).contains("are on \"eonni\" terms now")
+	assert_str(scene._to_label("Eonni, look!", a, b, "label")).starts_with("언니 Eonni")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_the_owner_uses_a_well_known_regulars_given_name() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var regular := _a_regular(true)
+	Game.bar["regulars"] = [regular]
+	scene._arrive(scene._clock, regular["id"])
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var note: String = scene._address_note(scene._guests[0])
+	assert_str(note).contains("given name, Hye-rin")
+	assert_str(note).contains("may call")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
