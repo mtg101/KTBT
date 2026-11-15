@@ -1459,6 +1459,34 @@ func test_people_get_moments_to_talk_to_the_cat() -> void:
 	assert_bool(Talk.hint_taken("cat", "Another soju, please.", ["garae"])).is_false()
 
 
+func test_short_made_up_korean_is_caught_and_real_korean_isnt() -> void:
+	# From a real night: a verb ending no English word has, on a made-up word.
+	assert_array(Talk.romanised_korean("Banchan na, makgeolli haetjuseyo? Not eating?")).contains(["haetjuseyo"])
+	# Real Korean the glossary knows is fine, however it ends.
+	for line in ["Annyeonghaseyo, Imo!", "Gomawoyo, really.", "Gwaenchana? You look tired.", "Mianhaeyo, I'm late.", "Kamsahamnida!"]:
+		assert_array(Talk.romanised_korean(line)).override_failure_message(line).is_empty()
+	# English that ends in "yo" or has "eo" in it is fine too.
+	assert_array(Talk.romanised_korean("I flew in from Tokyo, so extra mayo on everything.")).is_empty()
+	assert_array(Talk.romanised_korean("Someone at the rodeo, of all people.")).is_empty()
+	# (Still missed: a lone made-up word with no telltale ending, "Mandeulso, go na?".)
+
+
+func test_dishes_not_on_the_menu_cant_be_served_here() -> void:
+	assert_str(Talk.off_menu_here("My friend ordered the bibimbap, said it's a game-changer.")).is_equal("bibimbap")
+	assert_str(Talk.off_menu_here("Is the bulgogi good tonight?")).is_equal("bulgogi")
+	assert_str(Talk.off_menu_here("Your japchae smells amazing, Imo.")).is_equal("japchae")
+	# Somewhere else's, or someone's cooking at home: fine.
+	assert_str(Talk.off_menu_here("My mum's kimchi jjigae is the best thing in the world.")).is_empty()
+	assert_str(Talk.off_menu_here("I had bibimbap at my desk for lunch.")).is_empty()
+	assert_str(Talk.off_menu_here("Mandu's asleep by the stove again.")).is_empty()  # (a cat's name)
+	assert_str(Talk.validate_line({"line": "Can I get the bibimbap?"}, "Kim Ji-ho", "")).contains("isn't on the menu")
+	assert_str(Text.problem_kind("the line talks about bibimbap as if it's served here, but it isn't on the menu")).is_equal("not on the menu")
+
+
+func test_the_moment_says_its_tonights_only_weather() -> void:
+	assert_str(Prompts.describe_moment({"day": "Friday", "time": "9:12pm", "weather": "light drizzle"})).contains("light drizzle (tonight's only weather")
+
+
 func test_hover_tips_never_break_their_tag() -> void:
 	# "ma'am" in ajumma's tip showed the whole tag as raw text in the transcript.
 	var coloured := Glossary.explain("Thanks, Ajumma. Seonsaengnim, you too.")

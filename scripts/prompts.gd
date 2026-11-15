@@ -438,7 +438,9 @@ Reply with ONLY a JSON object with one key:
 
 
 static func describe_moment(moment: Dictionary) -> String:
-	return "TONIGHT: %s, %s, with %s." % [moment["day"], moment["time"], moment["weather"]]
+	# (The only weather tonight: memories and last night's recap can carry the night before's,
+	# and the owner said "Fog's coming in" on a drizzly night.)
+	return "TONIGHT: %s, %s, with %s (tonight's only weather, whatever it was before)." % [moment["day"], moment["time"], moment["weather"]]
 
 
 static func describe_owner(owner: Dictionary) -> String:

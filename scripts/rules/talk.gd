@@ -9,6 +9,7 @@ const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
 
 
 const MAX_LINE_LENGTH := 500
@@ -127,6 +128,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 		var mention := Orders.unordered_mention(line, items)
 		if mention != "":
 			return "the line mentions %s, but that isn't on the table (%s)" % [mention, Orders.item_names(items)]
+	var elsewhere := off_menu_here(line)
+	if elsewhere != "":
+		return "the line talks about %s as if it's served here, but it isn't on the menu: talk about it only as somewhere else's, or someone's cooking at home" % elsewhere
 	# No asides in brackets: a small model adds "(translations)" or stage directions there.
 	if line.contains("(") or line.contains(")"):
 		return "the line has something in brackets: write only what's said, in English, with no translations or stage directions"
@@ -205,7 +209,32 @@ const ENGLISH_LOOKALIKES := ["people", "someone", "anyone", "everyone", "video",
 	"reggae", "theology", "geometry", "leon", "napoleon", "creole", "yeoman", "deodorant", "galleon", "peony", "eon", "eons"]
 
 
+## Korean dishes that aren't on the menu (yet: menus will differ by bar). People may talk
+## about them (their mum's kimchi jjigae, lunch at work), but not as if they're served here.
+## (Not mandu or hotteok: they're favourite names for cats.)
+const OFF_MENU_DISHES := ["bibimbap", "bulgogi", "samgyeopsal", "galbi", "kalbi", "kimbap", "gimbap", "japchae", "jjigae",
+	"naengmyeon", "jjajangmyeon", "jajangmyeon", "jjamppong", "chimaek", "budae", "samgyetang",
+	"gopchang", "makchang", "jokbal", "bossam", "sundubu", "haejangguk", "gukbap", "tangsuyuk", "dakbal"]
+## Words that put a dish here: ordering it, the menu, serving it, or "the"/"your" one.
+const SERVED_HERE_WORDS := ["order", "ordered", "ordering", "orders", "menu", "serve", "serves", "served", "special"]
+const HERE_BEFORE_DISH := ["the", "your", "this", "that", "another", "more"]
+
+
+## A dish that isn't on the menu, talked about as if it's served here ("My friend ordered
+## the bibimbap"), or "".
+static func off_menu_here(line: String) -> String:
+	var said := Text.words(line)
+	var served_here := SERVED_HERE_WORDS.any(func(word): return word in said)
+	for i in said.size():
+		if OFF_MENU_DISHES.has(said[i]) and (served_here or (i > 0 and HERE_BEFORE_DISH.has(said[i - 1]))):
+			return said[i]
+	return ""
+
+
 const MADE_UP_KOREAN_WORDS := 3  # this many romanised-looking words in a line, and it's made-up Korean
+## ...or one that ends like a Korean verb, which no English word does ("haetjuseyo"). A real
+## one ("annyeonghaseyo", "gomawoyo") is in the glossary, so it's fine.
+const KOREAN_ENDINGS := ["seyo", "nida", "haeyo", "jiyo", "eoyo", "deyo"]
 
 
 ## The romanised-Korean-looking words in a line, if there are enough to be made-up Korean
@@ -220,13 +249,21 @@ static func romanised_korean(line: String, names: Array = []) -> Array:
 	for item in Menu.ITEMS:
 		for part in Text.words(str(item["name"])):
 			allowed[part] = true
+	for spelling in Glossary.lookup():  # every Korean word the game knows is real
+		for part in Text.words(str(spelling)):
+			allowed[part] = true
 	var found: Array = []
+	var verb_ending := false
 	for word in Text.words(line):
 		if allowed.has(word) or word.length() < 3:
 			continue
 		if word.contains("eo") or word.contains("eu") or word.contains("ae") or (word.ends_with("yo") and word.length() > 3):
 			found.append(word)
-	return found if found.size() >= MADE_UP_KOREAN_WORDS else []
+		if word.length() >= 6 and KOREAN_ENDINGS.any(func(ending): return word.ends_with(ending)):
+			if not found.has(word):
+				found.append(word)
+			verb_ending = true
+	return found if found.size() >= MADE_UP_KOREAN_WORDS or verb_ending else []
 
 
 ## Food is love: now and then, when a dish has just arrived, the next line of the owner's

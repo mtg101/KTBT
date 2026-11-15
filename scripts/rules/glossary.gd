@@ -30,6 +30,18 @@ const WORDS := {
 	"hoesik": {"spellings": ["hoesik"], "hangul": "회식", "means": "a work night out: dinner and drinks with colleagues, often not optional."},
 	"maknae": {"spellings": ["maknae"], "hangul": "막내", "means": "the youngest in a family or group (who pours the drinks)."},
 	"nunchi": {"spellings": ["nunchi"], "hangul": "눈치", "means": "reading the room: knowing what people feel without being told."},
+	"annyeong": {"spellings": ["annyeong", "annyeonghaseyo", "annyeonghasimnikka"], "hangul": "안녕(하세요)", "means": "hello (annyeong to a friend; annyeonghaseyo politely)."},
+	"gamsahamnida": {"spellings": ["gamsahamnida", "kamsahamnida", "gamsahaeyo"], "hangul": "감사합니다", "means": "thank you (polite)."},
+	"gomawo": {"spellings": ["gomawo", "gomawoyo", "gomapseumnida"], "hangul": "고마워", "means": "thanks (gomawo to a friend; gomawoyo a little politer)."},
+	"mianhae": {"spellings": ["mianhae", "mianhaeyo", "mianhamnida", "joesonghamnida"], "hangul": "미안해", "means": "sorry (mianhae to a friend; joesonghamnida very politely)."},
+	"gwaenchana": {"spellings": ["gwaenchana", "gwaenchanayo", "gwenchana", "kwenchana"], "hangul": "괜찮아", "means": "it's okay / are you okay?"},
+	"saranghae": {"spellings": ["saranghae", "saranghaeyo"], "hangul": "사랑해", "means": "I love you."},
+	"jebal": {"spellings": ["jebal"], "hangul": "제발", "means": "please! (begging)."},
+	"eotteoke": {"spellings": ["eotteoke", "eotteokhae", "otteoke"], "hangul": "어떡해", "means": "what do I do?! (panicking)."},
+	"jeogiyo": {"spellings": ["jeogiyo", "yeogiyo"], "hangul": "저기요", "means": "excuse me! (calling someone over)."},
+	"eomma": {"spellings": ["eomma", "umma"], "hangul": "엄마", "means": "mum."},
+	"appa": {"spellings": ["appa"], "hangul": "아빠", "means": "dad."},
+	"sunbae": {"spellings": ["sunbae", "seonbae", "sunbaenim"], "hangul": "선배", "means": "someone senior at work or school, said with respect."},
 }
 
 ## Menu words that are also spelt other ways (the menu's own name is always included).
