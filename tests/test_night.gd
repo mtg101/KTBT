@@ -8,6 +8,7 @@ const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
+const Rules = preload("res://scripts/rules.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -33,6 +34,7 @@ func before_test() -> void:
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
+	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
@@ -173,6 +175,40 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	assert_str(summary).contains("customer")
 	assert_str(_transcript(runner)).contains("pulls down the tarp")
 	assert_array(scene._guests).is_empty()
+
+
+func test_the_night_ends_with_the_owners_diary() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var page = runner.find_child("DiaryPage")  # (untyped: it has its own methods)
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).override_failure_message("no diary entry").is_true()
+	assert_bool(page.visible).is_true()
+	assert_str((page.find_child("Episode", true, false) as Label).text).is_equal("EP. 1")
+	var entry: Dictionary = Game.bar["diary"][0]
+	assert_str(page.entry_text()).is_equal(str(entry["text"]))
+	assert_str(str(entry["by"])).is_equal("game")  # (diaries off: the game writes it)
+	assert_int(int(entry["facts"]["customers"])).is_equal(scene._night_visits)  # kept for "Previously on…"
+	assert_bool(Rules.DIARY_STAMPS.has(str(entry["stamp"]))).is_true()
+	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
+	# The numbers are behind the Stats button.
+	var numbers := runner.find_child("SummaryText") as Control
+	assert_bool(numbers.visible).is_false()
+	await _click(runner, runner.find_child("SummaryStatsButton"))
+	assert_bool(numbers.visible).is_true()
+	assert_bool(page.visible).is_false()
+	assert_float((runner.find_child("NightSummary") as Control).size.y).is_less(1080.0)  # the buttons still on screen
+	await _click(runner, runner.find_child("SummaryStatsButton"))  # now says "Diary": back to the page
+	assert_bool(page.visible).is_true()
+	assert_bool(numbers.visible).is_false()
+
+
+func test_the_ai_writes_the_diary_when_it_can() -> void:
+	Visit.diaries = true
+	var runner := await _open_bar()
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).is_true()
+	assert_str(str(Game.bar["diary"][0]["by"])).is_equal("owner")  # (the canned AI, here)
 
 
 func test_the_finished_night_is_saved() -> void:

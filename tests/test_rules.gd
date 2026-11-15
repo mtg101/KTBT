@@ -1348,3 +1348,83 @@ func test_names_in_western_order_are_turned_round() -> void:
 	var data := {"name": "Ji-ho Kim", "gender": "woman"}
 	assert_str(Rules.validate_customer_name(data)).is_empty()
 	assert_str(str(data["name"])).is_equal("Kim Ji-ho")
+
+
+func _diary_facts() -> Dictionary:
+	return {"episode": 12, "day": "Friday", "weather": "the first snow of winter", "owner": "Park Mi-sook",
+		"customers": 14, "takings": "₩412,000", "takings_vs_usual": "better than usual", "busiest": "10:40pm, with 5 at the counter",
+		"people": [{"name": "Kim Ji-ho", "job": "nurse", "regular": "a regular", "ordered": "Soju, Tteokbokki", "order_ids": ["soju", "tteokbokki"]}],
+		"missing": ["Hwang Tae-oh"], "not_here": ["Lee Da-eun"],
+		"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT HER JOB?!", "said": "I quit today."}],
+		"friendlier": [], "new_regulars": [], "cat": "Mandu", "cat_laps": [], "walked_on": 0,
+		"line": {"speaker": "Kim Ji-ho", "text": "I quit today."}, "ordered": ["soju", "tteokbokki"]}
+
+
+func test_the_diary_keeps_to_the_nights_facts() -> void:
+	var facts := _diary_facts()
+	var good := {"entry": "\"First snow, and the stools full by 10:40pm. Ji-ho finally said it: she quit. I gave her extra tteokbokki and pretended not to see her face. Tae-oh didn't come, the old goat. ₩412,000, a good Friday.\""}
+	assert_str(Rules.validate_diary(good, facts)).is_empty()
+	assert_bool(str(good["entry"]).begins_with("First snow")).is_true()  # quotes tidied off
+	assert_str(Rules.validate_diary({"entry": "Too short."}, facts)).contains("too short")
+	assert_str(Rules.validate_diary({"entry": "x".repeat(Rules.MAX_DIARY + 1)}, facts)).contains("too long")
+	var stranger := {"entry": "Da-eun came in again and sat with Ji-ho for hours, laughing about the snow and the soju and the cold, cold night outside."}
+	assert_str(Rules.validate_diary(stranger, facts)).contains("Lee Da-eun")
+	var counted := {"entry": "We had 30 customers tonight, which is madness for a snowy Friday. Ji-ho quit her job and I gave her soju until she smiled again."}
+	assert_str(Rules.validate_diary(counted, facts)).contains("number (30)")
+	var fed := {"entry": "Ji-ho quit her job, so I made her some odeng and sat with her a while. Snow on the tarp all night, and a good Friday at the tin."}
+	assert_str(Rules.validate_diary(fed, facts)).contains("nobody ordered")
+	# The game's own entry passes its own checks.
+	assert_str(Rules.validate_diary({"entry": Rules.stitched_diary(facts)}, facts)).is_empty()
+	var quiet := facts.duplicate(true)
+	quiet["people"] = []
+	quiet["moments"] = []
+	quiet["customers"] = 0
+	quiet["takings"] = "₩0"
+	assert_str(Rules.validate_diary({"entry": Rules.stitched_diary(quiet)}, quiet)).is_empty()
+
+
+func test_the_diary_page_gets_a_stamp_and_the_takings_a_word() -> void:
+	assert_str(Rules.takings_word(100, [])).is_empty()  # the first night: nothing to compare
+	assert_str(Rules.takings_word(100, [100, 100, 100])).is_equal("about usual")
+	assert_str(Rules.takings_word(130, [100, 100])).is_equal("better than usual")
+	assert_str(Rules.takings_word(200, [100, 100, 120])).is_equal("the best night yet")
+	assert_str(Rules.takings_word(50, [100, 100])).is_equal("quieter than usual")
+	var facts := _diary_facts()
+	assert_str(Rules.diary_stamp(facts)).is_equal("well_done")
+	facts["takings_vs_usual"] = "about usual"
+	assert_str(Rules.diary_stamp(facts)).is_equal("snow")
+	facts["cat_laps"] = ["Kim Ji-ho"]
+	assert_str(Rules.diary_stamp(facts)).is_equal("paw")
+	facts["new_regulars"] = ["Kim Ji-ho"]
+	assert_str(Rules.diary_stamp(facts)).is_equal("star")
+	for key in Rules.DIARY_STAMPS:
+		assert_str(str(Rules.DIARY_STAMPS[key]["hangul"])).is_not_empty()
+	assert_str(Rules.DAY_HANGUL["Friday"]).is_equal("금요일")
+
+
+func test_food_moments_are_situations_not_lines() -> void:
+	assert_bool(Rules.FOOD_MOMENTS.size() >= 4).is_true()  # enough to rotate
+	for moment in Rules.FOOD_MOMENTS:
+		assert_str(str(moment)).not_contains("\"")  # never a phrase for the AI to repeat
+	assert_float(Rules.FOOD_MOMENT_CHANCE).is_less(0.5)  # now and then, not every dish
+	assert_str(Rules.caption_words("eating", {}, 0.0)["hangul"]).is_equal("맛있겠다~")
+
+
+func test_a_diary_entry_starts_straight_in() -> void:
+	var facts := _diary_facts()
+	for opening in ["Wrote tonight's entry in the diary.", "Dear diary, what a night.", "Tonight's entry: snow."]:
+		var entry := {"entry": opening + " Ji-ho quit her job, and I gave her extra tteokbokki and pretended not to see her face. A good Friday."}
+		assert_str(Rules.validate_diary(entry, facts)).contains("start straight in")
+
+
+func test_names_are_cased_the_usual_way() -> void:
+	assert_str(Rules.name_case("Kim Jae-Ho")).is_equal("Kim Jae-ho")
+	assert_str(Rules.name_case("KIM JI-HO")).is_equal("Kim Ji-ho")
+	assert_str(Rules.name_case("park mi-sook")).is_equal("Park Mi-sook")
+	var data := {"name": "Yoon Tae-Oh", "gender": "man"}
+	assert_str(Rules.validate_customer_name(data)).is_empty()
+	assert_str(str(data["name"])).is_equal("Yoon Tae-oh")
+	for kind in Rules.CAPTIONS:
+		var chance := float(Rules.CAPTIONS[kind].get("chance", 1.0))
+		assert_bool(chance > 0.0 and chance <= 1.0).is_true()
+	assert_float(float(Rules.CAPTIONS["late_guest"]["chance"])).is_less(1.0)  # not every late arrival

@@ -192,3 +192,14 @@ func test_a_bar_can_be_deleted() -> void:
 	assert_bool(SaveStore.load_bar(bar["id"]).is_empty()).is_true()
 	assert_array(SaveStore.list_bars()).is_empty()
 	assert_bool(SaveStore.delete_bar(bar["id"])).is_false()  # nothing left to delete
+
+
+func test_diary_entries_are_kept_one_per_night() -> void:
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	SaveStore.record_diary(bar, {"night": 1, "text": "First night."})
+	SaveStore.record_diary(bar, {"night": 2, "text": "Second night."})
+	SaveStore.record_diary(bar, {"night": 2, "text": "Second night, rewritten."})
+	assert_int(bar["diary"].size()).is_equal(2)
+	assert_str(str(bar["diary"][1]["text"])).is_equal("Second night, rewritten.")
+	SaveStore.save_bar(bar)
+	assert_int(SaveStore.load_bar(bar["id"])["diary"].size()).is_equal(2)

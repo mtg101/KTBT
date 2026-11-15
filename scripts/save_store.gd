@@ -137,6 +137,15 @@ static func record_night(bar: Dictionary, summary: Dictionary) -> void:
 	bar["night_log"] = nights
 
 
+## Adds the owner's diary entry for a night (see Rules: the owner's diary). Kept in full, for
+## the diary book and "Previously on…"; a newer entry for the same night replaces it.
+static func record_diary(bar: Dictionary, entry: Dictionary) -> void:
+	var diary: Array = bar.get("diary", [])
+	diary = diary.filter(func(e): return int(e.get("night", 0)) != int(entry.get("night", 0)))
+	diary.append(entry.duplicate(true))
+	bar["diary"] = diary
+
+
 static func _read(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}

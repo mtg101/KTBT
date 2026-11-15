@@ -27,6 +27,7 @@ const Regulars = preload("res://scripts/regulars.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const CaptionPopup = preload("res://scripts/caption.gd")
+const DiaryPage = preload("res://scripts/diary_page.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -107,6 +108,9 @@ static var bubbles := true
 static var captions := true
 static var caption_pacing := true
 static var reactions := true
+## Test hook: false has the game write the 3am diary itself (no AI call, which would use up
+## scripted replies); diary tests turn it on.
+static var diaries := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
 static var offer_every_look := false
 
@@ -150,6 +154,7 @@ class Guest:
 	var company := "chatty"  # their mood for company (see Rules.company)
 	var topic := ""  # what their chat with the owner is turning to (see Rules.pick_owner_topic)
 	var food_news := false  # something's been served since the last topic was picked
+	var food_moment := ""  # a Rules.FOOD_MOMENTS direction for their next line, now and then after a dish arrives
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
@@ -272,6 +277,17 @@ var _next_arrival := 0.0
 var _night_visits := 0
 var _night_takings := 0
 var _night_lines: Array = []  # what customers said tonight, for the summary
+## Tonight, for the owner's diary (see _diary_facts): who came (as they paid), the big moments
+## (TV reactions), friendlier terms, whose lap the cat sat on, new regulars, the busiest time.
+var _night_people: Array = []
+var _night_moments: Array = []
+var _night_friendlier: Array = []
+var _night_laps: Array = []
+var _night_new_regulars: Array = []
+var _peak_time := ""
+var _diary_page: Control  # the 3am diary page (see diary_page.gd)
+var _summary_buttons: Array = []  # disabled while the owner writes
+var _stats_button: Button
 var _summary: PanelContainer
 var _summary_text: RichTextLabel
 
@@ -600,6 +616,8 @@ func _notification(what: int) -> void:
 func _leave() -> void:
 	if _night_open:
 		_save_stats(false)  # a night cut short still gets a log
+	elif _transcript_file != null and _transcript_file.is_open():
+		_save_stats(true)  # closed while the owner was still writing the diary
 	_stopped = true
 	_night_open = false
 	Game.back_to_title()
@@ -616,6 +634,12 @@ func _start_night() -> void:
 	_night_visits = 0
 	_night_takings = 0
 	_night_lines = []
+	_night_people = []
+	_night_moments = []
+	_night_friendlier = []
+	_night_laps = []
+	_night_new_regulars = []
+	_peak_time = ""
 	_stats = NightStats.new()
 	_waiting.clear()
 	_waiting_who.clear()
@@ -819,16 +843,90 @@ func _end_night() -> void:
 	Game.save()
 	_narrate("%s. %s pulls down the tarp and counts the takings." % [Rules.clock_text(int(_clock)), _owner_display()])
 	_update_clock_label()
-	_save_stats(true)  # after the closing line, so the transcript runs right to the end
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s  ·  %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers", Menu.format_won(_night_takings)]
 	t += "[color=#%s]%s in total[/color]" % [MUTED.to_html(false), Menu.format_won(_takings)]
 	if not line.is_empty():
 		t += "\n\n[i][color=#%s]\"%s\"[/color][/i]\n[color=#%s]%s[/color]" % [OWNER_TEXT.to_html(false), _esc(line["text"]), MUTED.to_html(false), _esc(line["speaker"])]
-	t += "[/center]"
+	t += "[/center]\n\n" + _stats.panel_text(0, 0)
 	_summary_text.text = t
+	_summary_text.visible = false  # the numbers are behind the Stats button: the diary's the thing
+	_stats_button.button_pressed = false
 	_summary.visible = true
+	await _write_diary()
+	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
+
+
+## 3am: the owner writes tonight up in their diary (the AI, from the facts the game picks, or
+## the game itself if it can't), shown as the end-of-night page and kept with the bar.
+func _write_diary() -> void:
+	for button in _summary_buttons:
+		button.disabled = true
+	var facts := _diary_facts()
+	_diary_page.visible = true
+	_diary_page.show_writing(_night_number, _night_day, _night_weather, _owner_display())
+	var text := ""
+	var by := "game"
+	if diaries:
+		var reply: Dictionary = await _ai.ask_json(Prompts.diary_messages(_owner, facts), _validate_diary.bind(facts), {"temperature": 0.8},
+			{"purpose": "diary", "facts": facts})
+		if _stopped or Game.bar.is_empty():
+			return
+		text = str(reply.get("entry", ""))
+		by = "owner" if text != "" else "game"
+	if text == "":
+		text = Rules.stitched_diary(facts)
+	var entry := {"episode": _night_number, "night": _night_number, "day": _night_day, "weather": _night_weather,
+		"text": text, "stamp": Rules.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system())}
+	SaveStore.record_diary(Game.bar, entry)
+	Game.save()
+	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
+	_show("[i][color=#%s]%s's diary, episode %d: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], _night_number, _esc(text)])
+	for button in _summary_buttons:
+		button.disabled = false
+
+
+func _validate_diary(data: Variant, facts: Dictionary) -> String:
+	return Rules.validate_diary(data, facts)
+
+
+## What the owner's diary is written from: the game's facts about tonight. Kept with the entry,
+## for the diary book and "Previously on…".
+func _diary_facts() -> Dictionary:
+	var here: Array = _night_people.map(func(p): return str(p["name"]))
+	var missing: Array = []
+	var not_here: Array = []
+	for regular in _regulars():
+		var regular_name := str(regular["name"])
+		if here.has(regular_name):
+			continue
+		not_here.append(regular_name)
+		if bool(regular.get("founding", false)):
+			missing.append(regular_name)  # the old regulars are missed when they don't come
+	not_here = not_here.filter(func(n): return not missing.has(n))
+	var before: Array = Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0)))
+	var ordered: Array = []
+	for person in _night_people:
+		for id in person.get("order_ids", []):
+			if not ordered.has(id):
+				ordered.append(id)
+	return {
+		"episode": _night_number, "day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]),
+		"customers": _night_visits, "takings": Menu.format_won(_night_takings), "takings_vs_usual": Rules.takings_word(_night_takings, before.slice(-7)),
+		"busiest": ("%s, with %d at the counter" % [_peak_time, _stats.peak_seated]) if _peak_time != "" else "",
+		"people": _night_people.duplicate(true), "missing": missing, "not_here": not_here,
+		"moments": _night_moments.duplicate(true), "friendlier": _night_friendlier.duplicate(), "new_regulars": _night_new_regulars.duplicate(),
+		"cat": str(_cat.get("name", "")), "cat_laps": _night_laps.duplicate(), "walked_on": _stats.walked_past,
+		"line": Rules.memorable_line(_night_lines).duplicate(), "ordered": ordered,
+	}
+
+
+## The end-of-night Stats button: the numbers instead of the diary page, and back.
+func _on_summary_stats_toggled(on: bool) -> void:
+	_summary_text.visible = on
+	_diary_page.visible = not on
+	_stats_button.text = "Diary" if on else "Stats"  # (and back)
 
 
 func _on_next_night_pressed() -> void:
@@ -1114,6 +1212,8 @@ func _greet() -> void:
 	_refresh_tags()
 	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
 	_greeting = false
+	if _guests.size() > _stats.peak_seated:
+		_peak_time = Rules.clock_text(int(_clock))
 	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
 	_update_info()
 	var at_stool := Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60)  # (they're still walking to it)
@@ -1285,7 +1385,13 @@ func _carry_dish() -> void:
 	_stats.food_waits.append(_clock - float(dish["ordered"]))
 	var item_name := str(Menu.find(id)["name"])
 	_narrate("%s brings the %s over to %s." % [_owner_display(), item_name, guest.customer["name"]])
-	_caption("order_up", guest.node, {"dish": item_name})
+	if randf() < Rules.FOOD_MOMENT_CHANCE:
+		guest.food_moment = Rules.FOOD_MOMENTS.pick_random()
+	var food_served := guest.served.filter(func(served_id): return Menu.find(served_id).get("kind", "") == "food").size()
+	if food_served == 2:  # their second dish: they're clearly tucking in
+		_caption("eating", guest.node, {"name": guest.customer["name"]})
+	else:
+		_caption("order_up", guest.node, {"dish": item_name})
 	guest.transcript.append({"action": "%s brings over the %s, hot from the stove. It's on the table now." % [_owner["name"], item_name]})
 	_update_info()
 	if _attending != null and _attending != guest and _guests.has(_attending):
@@ -1313,6 +1419,12 @@ func _settle_up(guest: Guest) -> void:
 	_night_visits += 1
 	_night_takings += bill
 	_stats.served += 1
+	var standing := ""
+	var known := _regular(str(guest.customer.get("regular_id", "")))
+	if not known.is_empty():
+		standing = "a founding regular" if bool(known.get("founding", false)) else "a regular"
+	_night_people.append({"name": str(guest.customer["name"]), "job": str(guest.customer.get("job", "")), "regular": standing,
+		"ordered": ", ".join(PackedStringArray(guest.order.map(func(id): return str(Menu.find(id).get("name", id))))), "order_ids": guest.order.duplicate()})
 	_stats.owner_lines_each.append(guest.transcript.filter(func(e): return e.has("text")).size())
 	_customer = guest.customer
 	_order = guest.order.duplicate()
@@ -1391,6 +1503,9 @@ func _next_line(guest: Guest) -> void:
 		direction = "The customer is nearly ready to leave."
 	elif guest.topic != "":
 		direction = Rules.topic_hint(guest.topic)
+	if i > 0 and guest.food_moment != "":
+		direction = (guest.food_moment + " " + direction).strip_edges()
+		guest.food_moment = ""  # once
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
 	direction = (direction + " " + _address_note(guest)).strip_edges()
@@ -1789,6 +1904,8 @@ func _move_cat(spot: String = "") -> void:
 	_place_cat()
 	if spot == "lap" and with != null and with != before:
 		_caption("cat_lap", with.node, {"cat": cat_name, "name": with.customer["name"]})
+		if not _night_laps.has(str(with.customer["name"])):
+			_night_laps.append(str(with.customer["name"]))
 	elif spot == "street" and not was_out:
 		_caption("cat_out", _cat_node, {"cat": cat_name})
 	elif was_out and spot != "street":
@@ -2057,6 +2174,8 @@ func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
 func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
 	if not captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
 		return
+	if caption_pacing and randf() >= float(Rules.CAPTIONS[kind].get("chance", 1.0)):
+		return  # a kind that comes up all night: only now and then
 	var now := Time.get_ticks_msec() / 1000.0
 	var reaction_up := now < _reaction_until and not bool(Rules.CAPTIONS[kind]["emergency"])  # a reaction's up: routine ones wait
 	if caption_pacing and (reaction_up or not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP))):
@@ -2137,6 +2256,9 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	_caption_last = now  # (routine captions wait their usual gap after it)
 	_stats.reactions_shown[mood] = int(_stats.reactions_shown.get(mood, 0)) + 1
 	var who := str(reply["who"])
+	var theirs: Array = lines.filter(func(e): return str(e.get("speaker", "")) == who)
+	_night_moments.append({"who": who, "mood": mood, "caption": str(reply["caption"]),
+		"said": str(theirs[-1]["text"]) if not theirs.is_empty() else ""})
 	var about: Variant = _owner_node  # (untyped: someone's node may be gone by now)
 	if who != str(_owner["name"]):
 		var guest: Guest = _guest_named(who)
@@ -2577,13 +2699,19 @@ func _build_ui() -> void:
 	_layout_panels()
 
 	# End-of-night summary, shown over everything at 3am.
-	_summary = _panel(Vector2((SCREEN.x - 760) / 2, 180), Vector2(760, 520))
+	_summary = _panel(Vector2((SCREEN.x - 880) / 2, 110), Vector2(880, 0))
 	_summary.name = "NightSummary"
+	_summary.z_index = 25  # over everything on the stage (the cat, name tags, bubbles, captions), under Options
 	_summary.visible = false
 	add_child(_summary)
 	var summary_col := VBoxContainer.new()
 	summary_col.add_theme_constant_override("separation", 20)
 	_summary.add_child(summary_col)
+	# The owner's diary is the end of the night; the numbers are behind the Stats button.
+	_diary_page = DiaryPage.new()
+	_diary_page.name = "DiaryPage"
+	_diary_page.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	summary_col.add_child(_diary_page)
 	_summary_text = RichTextLabel.new()
 	_summary_text.name = "SummaryText"
 	_summary_text.bbcode_enabled = true
@@ -2593,6 +2721,11 @@ func _build_ui() -> void:
 	_summary_text.add_theme_font_size_override("bold_font_size", 22)
 	_summary_text.add_theme_font_size_override("italics_font_size", 22)
 	summary_col.add_child(_summary_text)
+	# The same size as the diary page, scrolling (there are lots of numbers), so the buttons
+	# underneath stay where they are.
+	_summary_text.custom_minimum_size = Vector2(780, 600)
+	_summary_text.fit_content = false
+	_summary_text.scroll_active = true
 	var summary_buttons := HBoxContainer.new()
 	summary_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	summary_buttons.add_theme_constant_override("separation", 20)
@@ -2602,7 +2735,16 @@ func _build_ui() -> void:
 	next_night.text = "Open for another night"
 	next_night.custom_minimum_size = Vector2(260, 48)
 	next_night.pressed.connect(_on_next_night_pressed)
+	_stats_button = Button.new()
+	_stats_button.name = "SummaryStatsButton"
+	_stats_button.text = "Stats"
+	_stats_button.toggle_mode = true
+	_stats_button.custom_minimum_size = Vector2(140, 48)
+	_stats_button.tooltip_text = "Tonight's numbers, instead of the diary."
+	_stats_button.toggled.connect(_on_summary_stats_toggled)
+	summary_buttons.add_child(_stats_button)
 	summary_buttons.add_child(next_night)
+	_summary_buttons = [next_night]
 	var summary_leave := Button.new()
 	summary_leave.name = "SummaryLeaveButton"
 	summary_leave.text = "Close the bar"
@@ -3600,6 +3742,7 @@ func _after_visit(guest: Guest) -> void:
 		regular = Regulars.new_regular(guest.customer, guest.customer.get("look", {}), guest.first_order, _night_number, _day_index(), guest.arrived_minutes, randf())
 		_regulars().append(regular)
 		_stats.became_regulars += 1
+		_night_new_regulars.append(str(guest.customer["name"]))
 		if str(memory.get("towards_owner", "")) == "warmer":
 			regular["warmth"] = 1
 		var they: String = {"woman": "she'll", "man": "he'll"}.get(str(guest.customer.get("gender", "")), "they'll")
@@ -3788,6 +3931,7 @@ func _make_close(a: Guest, b: Guest, term: String) -> void:
 		friends[str(pair[1].customer["regular_id"])] = friend
 		mine["friends"] = friends
 	_stats.friendlier_moments += 1
+	_night_friendlier.append("%s and %s are on \"%s\" terms now" % [a.customer["name"], b.customer["name"], term])
 	_narrate("%s and %s are on \"%s\" terms now." % [a.customer["name"], b.customer["name"], term])
 	_caption("friendlier", a.node, {"term": term})
 	Game.save()

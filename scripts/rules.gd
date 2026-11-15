@@ -85,7 +85,8 @@ static func validate_owner(data: Variant, gender: String, age_range: String = ""
 	var problem := check_fields(data, OWNER_FIELDS)
 	if problem != "":
 		return problem
-	data["hangul"] = fit_hangul(tidy_text(data["name"]), data.get("hangul", ""))  # shown only if it fits
+	data["name"] = name_case(family_name_first(tidy_text(data["name"])))
+	data["hangul"] = fit_hangul(str(data["name"]), data.get("hangul", ""))  # shown only if it fits
 	problem = check_age(data, MIN_OWNER_AGE, MAX_OWNER_AGE)
 	if problem != "":
 		return problem
@@ -169,7 +170,7 @@ static func validate_customer_name(data: Variant, taken: Array = [], gender: Str
 			return "\"gender\" must be \"woman\" or \"man\""
 	if customer_name.split(" ", false).size() < 2:
 		return "the name needs a family name and a given name, family name first"
-	customer_name = family_name_first(customer_name)
+	customer_name = name_case(family_name_first(customer_name))
 	if customer_name.length() > MAX_NAME_LENGTH:
 		return "the name was far too long"
 	for c in customer_name:
@@ -1329,6 +1330,18 @@ static func seen_as(person: Dictionary) -> String:
 
 ## Western order ("Min-jae Lee") turned round to Korean order ("Lee Min-jae"), when the
 ## first part isn't a family name and the last is. Small models do this now and then.
+## Korean names as they're usually romanised: "Kim Jae-Ho" -> "Kim Jae-ho", "KIM JI-HO" -> "Kim Ji-ho".
+static func name_case(full: String) -> String:
+	var parts := PackedStringArray()
+	for part in full.split(" ", false):
+		var pieces := part.split("-", false)
+		var tidy := PackedStringArray()
+		for k in pieces.size():
+			tidy.append(pieces[k].to_lower().capitalize() if k == 0 else pieces[k].to_lower())
+		parts.append("-".join(tidy))
+	return " ".join(parts)
+
+
 static func family_name_first(full: String) -> String:
 	var parts := full.split(" ", false)
 	if parts.size() == 2 and not SURNAMES.has(parts[0].to_lower()) and SURNAMES.has(parts[1].to_lower()):
@@ -1768,9 +1781,9 @@ const CAPTIONS := {
 	# People coming in
 	"new_face": {"words": [["손님 등장!", "A NEW <FACE|CHALLENGER|CUSTOMER>!"], ["누구세요?", "NUGUSEYO? <WHO'S THIS|WHO ARE YOU|AND YOU ARE>?"],
 		["손님 등장!", "A WILD {job} APPEARS!"], ["직업 공개", "TONIGHT'S <GUEST|CHALLENGER|MYSTERY GUEST>: {job}"], ["손님 등장!", "{job}, <OFF THE CLOCK|CLOCKED OUT|AFTER HOURS>"]],
-		"icon": "👀", "colour": "7fe0c0", "sound": "pop", "emergency": false},
+		"chance": 0.6, "icon": "👀", "colour": "7fe0c0", "sound": "pop", "emergency": false},
 	"late_guest": {"words": [["야밤 손님!", "A LATE-NIGHT <GUEST|STRAY|WANDERER>!"], ["이 시간에?!", "AT THIS <HOUR|TIME>?!"], ["야밤 손님!", "{job}, <AFTER MIDNIGHT|STILL UP|NOT SLEEPING>?!"]],
-		"icon": "🌙", "colour": "a8b0ff", "sound": "pop", "emergency": false},
+		"chance": 0.5, "icon": "🌙", "colour": "a8b0ff", "sound": "pop", "emergency": false},
 	"solo": {"words": [["혼술!", "HONSUL: <DRINKING SOLO|PARTY OF ONE|ME, MYSELF, SOJU>"], ["혼술 시작", "<SOLO|LONE|PARTY-OF-ONE> <DINER|DRINKER|WOLF|SOUL>"],
 		["혼술 시작", "A TABLE FOR ONE<!|…|, PLEASE>"], ["비 오는 날 혼술…", "HONSUL IN THE {weather}<…|!>"]],
 		"icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
@@ -1786,14 +1799,17 @@ const CAPTIONS := {
 	# At the counter
 	"cheers": {"words": [["짠!", "JJAN! <CHEERS|BOTTOMS UP|HERE WE GO>!"], ["건배!", "GEONBAE! <CHEERS|TO TONIGHT|TO SURVIVING MONDAY>!"], ["원샷!", "ONE SHOT<!|!!|, NO SIPPING!>"],
 		["짠!", "{drink} <TIME|O'CLOCK|FIRST>!"]],
-		"icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
+		"chance": 0.7, "icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
 	"another_round": {"words": [["한 잔 더!", "<ONE MORE|ANOTHER|AND ANOTHER><!|?!|…>"], ["한 잔 더!", "ROUND {drinks}<!|?!|, FIGHT!>"], ["달린다!", "DALLINDA! <ON A ROLL|FULL SPEED|NO BRAKES>!"],
 		["간 건강 주의", "<LIVER|HANGOVER|TOMORROW> WARNING"]],
-		"icon": "🍻", "colour": "7fd8ff", "sound": "pop", "emergency": false},
+		"chance": 0.7, "icon": "🍻", "colour": "7fd8ff", "sound": "pop", "emergency": false},
 	"order_up": {"words": [["나왔습니다~", "ORDER UP<!|~|, HOT!>"], ["먹방 시작!", "MUKBANG <TIME|MODE: ON|BEGINS>!"], ["폭풍 흡입!", "<INHALING IT|NO CHEWING|GONE IN SECONDS>!"],
 		["꿀맛!", "GGULMAT! <HONEY-TASTY|SO GOOD|CHEF'S KISS>!"], ["폭풍 흡입!", "{dish}, <INHALED|DEMOLISHED|VANISHED|ANNIHILATED>!"],
 		["비주얼 실화?!", "THAT {dish}, <FOR REAL|IS THAT LEGAL|LOOK AT IT>?!"], ["나왔습니다~", "ONE {dish}, <HOT|STEAMING|STRAIGHT FROM THE FIRE>!"]],
-		"icon": "🍲", "colour": "ff9a4f", "sound": "ding", "emergency": false},
+		"chance": 0.7, "icon": "🍲", "colour": "ff9a4f", "sound": "ding", "emergency": false},
+	"eating": {"words": [["맛있겠다~", "MASITGETDA~ <IT MUST BE GOOD|LOOKS AMAZING|I'M HUNGRY NOW>!"], ["잘 먹네!", "JAL MEONGNE! <YOU EAT WELL|WHAT AN APPETITE|EATING LIKE A CHAMP>!"],
+		["먹을 줄 아네", "<KNOWS HOW TO EAT|A PRO EATER|EATS LIKE THEY MEAN IT>!"], ["잘 먹네!", "{name} <EATS WELL|CLEARS THE PLATE|ISN'T SHARING>!"]],
+		"icon": "😋", "colour": "ff9a4f", "sound": "ding", "emergency": false},
 	"multitask": {"words": [["사장님 멀티태스킹!", "THE OWNER <MULTITASKS|HAS SIX HANDS|DOES IT ALL>!"], ["초스피드!", "<SUPER|LIGHTNING|INHUMAN> SPEED!"],
 		["사장님 멀티태스킹!", "{seated} CUSTOMERS, ONE {owner}"]],
 		"icon": "⚡", "colour": "ffd23f", "sound": "whoosh", "emergency": false},
@@ -1807,7 +1823,7 @@ const CAPTIONS := {
 		"icon": "💕", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
 	# Paying and going
 	"bill": {"words": [["계산!", "<PAID UP|SETTLED|ALL SQUARE>!"], ["계산!", "{amount}"], ["잘 먹었습니다!", "JAL MEOGEOTSEUMNIDA! <THANKS FOR THE FOOD|THAT WAS GOOD>!"]],
-		"icon": "💸", "colour": "8cf05a", "sound": "pop", "emergency": false},
+		"chance": 0.5, "icon": "💸", "colour": "8cf05a", "sound": "pop", "emergency": false},
 	"big_spender": {"words": [["통 큰 손님!", "BIG <SPENDER|WALLET|NIGHT>!"], ["통 큰 손님!", "BIG SPENDER! {amount}"], ["플렉스!", "FLEX! {amount}"], ["플렉스!", "{amount}?! <PAYDAY|RICH|SPLASHING OUT>!"]],
 		"icon": "💰", "colour": "ffd23f", "sound": "ding", "emergency": false},
 	"new_regular": {"words": [["단골 탄생?!", "A NEW REGULAR<?!|!!> ★"], ["단골 탄생?!", "{name}, A REGULAR <NOW|IN THE MAKING>?! ★"], ["또 올 것 같은 예감", "{they} <COMING BACK|HOOKED|ONE OF US>… ★"]],
@@ -1821,6 +1837,8 @@ const CAPTIONS := {
 	"cat_back": {"words": [["냥이 출근!", "{cat} CLOCKS <IN|BACK IN>"], ["귀가!", "THE CAT'S <BACK|HOME|RETURNED>!"]],
 		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
 }
+## A kind with a "chance" (the ones that come up all night: a new face, a bill) is shown only
+## that often, so they don't crowd out the rest ("AT THIS TIME?!" four times after midnight).
 const CAPTION_STINGS := ["siren", "whoosh", "ding", "sparkle", "nyang", "pop"]
 const CAPTION_GAP := 3.0  # real seconds at least between captions (emergencies don't wait)...
 const CAPTION_SAME_GAP := 12.0  # ...and between two of the same kind, so none repeats on and on
@@ -1946,6 +1964,18 @@ const REACTION_GAP := 20.0  # real seconds at least between reactions
 const REACTION_SECONDS := 3.6  # a reaction stays up a little longer than a routine caption
 const REACT_EVERY := 4  # lines of a conversation with the owner between asks
 const REACTION_LINES := 6  # how many of the latest lines the AI sees
+
+## Food is love: now and then, when a dish has just arrived, the next line of the owner's
+## conversation gets one of these as a direction (the situation, never a phrase to say, so the
+## AI finds its own words: "Look at you, eating properly for once!").
+const FOOD_MOMENTS := [
+	"The owner's watching them take the first bite.",
+	"They're clearly enjoying the food, and it shows.",
+	"They're eating like they haven't eaten all day.",
+	"The owner can tell from their face how the food is.",
+	"Feeding people is how the owner shows they care.",
+]
+const FOOD_MOMENT_CHANCE := 0.33
 ## How big a moment has to be (the AI says, 1 to 5) to get a caption. Asked just "was it a big
 ## moment?", Llama 3.1 8B said yes nearly every time; rating it first, it can say "a 3" and
 ## mean no.
@@ -2001,3 +2031,169 @@ static func reaction_words(mood: String, caption: String, roll: float = 0.0) -> 
 		return {}
 	var choices: Array = REACTIONS[mood]["hangul"]
 	return {"hangul": str(choices[clampi(floori(roll * choices.size()), 0, choices.size() - 1)]), "english": caption.to_upper()}
+
+
+# --- The owner's diary (the night as a story) -------------------------------------------
+
+## Each night is an episode; at 3am the owner writes it up in their diary, from facts the game
+## picks (see visit.gd _diary_facts): the AI writes the entry, the game checks it keeps to them,
+## and stitches one together itself if it can't. Entries are kept with the bar, with the facts
+## they were written from, for the diary book and "Previously on…".
+const DAY_HANGUL := {"Monday": "월요일", "Tuesday": "화요일", "Wednesday": "수요일", "Thursday": "목요일",
+	"Friday": "금요일", "Saturday": "토요일", "Sunday": "일요일"}
+const MIN_DIARY := 120  # characters: a few sentences...
+const MAX_DIARY := 900  # ...but not a page and a half
+## The stamp in the corner of a diary page, from what happened: the teacher's "참 잘했어요"
+## (well done!) for a good night, the cat's paw print, a star for a new regular, and so on.
+const DIARY_STAMPS := {
+	"well_done": {"hangul": "참 잘했어요", "english": "WELL DONE!", "colour": "e8263a"},
+	"star": {"hangul": "단골", "english": "A NEW REGULAR", "colour": "e8a33a"},
+	"paw": {"hangul": "냥", "english": "THE CAT WAS HERE", "colour": "8a5a33"},
+	"heart": {"hangul": "정", "english": "JEONG: WARM HEARTS", "colour": "e85a8a"},
+	"full": {"hangul": "만석", "english": "FULL HOUSE", "colour": "e8263a"},
+	"snow": {"hangul": "눈", "english": "SNOW", "colour": "5a8ae8"},
+	"rain": {"hangul": "비", "english": "RAIN", "colour": "5a8ae8"},
+	"soju": {"hangul": "소주", "english": "ANOTHER NIGHT", "colour": "3f9e5a"},
+}
+
+
+## How tonight's takings compare with the bar's last few nights: "" for its first night.
+static func takings_word(tonight: int, before: Array) -> String:
+	if before.is_empty():
+		return ""
+	var total := 0
+	var best := 0
+	for amount in before:
+		total += int(amount)
+		best = maxi(best, int(amount))
+	var usual := float(total) / before.size()
+	if tonight > best and before.size() >= 3:
+		return "the best night yet"
+	if tonight > usual * 1.2:
+		return "better than usual"
+	if tonight < usual * 0.8:
+		return "quieter than usual"
+	return "about usual"
+
+
+## The stamp for a diary page, from the night's facts: the most notable thing, in this order.
+static func diary_stamp(facts: Dictionary) -> String:
+	if str(facts.get("takings_vs_usual", "")) in ["the best night yet", "better than usual"]:
+		return "well_done"
+	if not facts.get("new_regulars", []).is_empty():
+		return "star"
+	if not facts.get("friendlier", []).is_empty() or facts.get("moments", []).any(func(m): return str(m.get("mood", "")) in ["warm", "sweet"]):
+		return "heart"
+	if int(facts.get("walked_on", 0)) > 0:
+		return "full"
+	if not facts.get("cat_laps", []).is_empty():
+		return "paw"
+	var weather := str(facts.get("weather", "")).to_lower()
+	if weather.contains("snow"):
+		return "snow"
+	if weather.contains("rain") or weather.contains("drizzle") or weather.contains("shower"):
+		return "rain"
+	return "soju"
+
+
+## Checks the AI's diary entry {"entry"} against the night's facts: the right length, nobody
+## named who wasn't there (of the people the game knows: tonight's customers, the regulars, and
+## any it says didn't come), no number the facts don't have, no food nobody ordered, no made-up
+## Korean. Tidies it.
+static func validate_diary(data: Variant, facts: Dictionary) -> String:
+	var problem := check_fields(data, ["entry"])
+	if problem != "":
+		return problem
+	var entry := unquote(tidy_text(data["entry"]))
+	if entry.length() < MIN_DIARY:
+		return "the diary entry is too short: write four to six sentences"
+	if entry.length() > MAX_DIARY:
+		return "the diary entry is too long: four to six sentences"
+	var opening := entry.left(70).to_lower()
+	if opening.contains("diary") or opening.contains("entry") or opening.begins_with("wrote") or opening.begins_with("writing"):
+		return "the diary entry talks about writing the diary: start straight in with the night itself"
+	var here: Array = facts.get("people", []).map(func(p): return str(p["name"])) + facts.get("missing", [])
+	here.append(str(facts.get("owner", "")))
+	for person in facts.get("not_here", []):
+		if _names_person(entry, str(person)) and not here.has(person):
+			return "the diary mentions %s, who wasn't at the tent tonight" % person
+	var allowed := {}
+	for number in _numbers_in(JSON.stringify(facts)):
+		allowed[number] = true
+	for number in _numbers_in(entry):
+		if not allowed.has(number):
+			return "the diary has a number (%s) that isn't in tonight's facts" % number
+	var mention := unordered_mention(entry, facts.get("ordered", []))
+	if mention != "":
+		return "the diary mentions %s, but nobody ordered that tonight" % mention
+	var names: Array = here.duplicate()
+	names.append(str(facts.get("cat", "")))
+	if not romanised_korean(entry, names).is_empty():
+		return "the diary has made-up Korean words in it: write it in English, with at most the odd Korean word"
+	data["entry"] = entry
+	return ""
+
+
+## Whether text names someone (their full name, or their given name on its own).
+static func _names_person(text: String, full: String) -> bool:
+	var lower := text.to_lower()
+	if lower.contains(full.to_lower()):
+		return true
+	var given := given_name(full).to_lower()
+	if given == "" or given == full.to_lower():
+		return false
+	var at := lower.find(given)
+	while at != -1:
+		var before := lower.substr(at - 1, 1) if at > 0 else " "
+		var after := lower.substr(at + given.length(), 1)
+		if not (before >= "a" and before <= "z") and before != "-" and not (after >= "a" and after <= "z") and after != "-":
+			return true
+		at = lower.find(given, at + 1)
+	return false
+
+
+## The numbers written in digits in text, without their commas ("₩412,000" -> "412000").
+static func _numbers_in(text: String) -> Array:
+	var found: Array = []
+	var digits := ""
+	for c in text + " ":
+		if c >= "0" and c <= "9":
+			digits += c
+		elif c == "," and digits != "":
+			continue
+		else:
+			if digits != "":
+				found.append(digits)
+			digits = ""
+	return found
+
+
+## A diary entry the game writes itself (offline mode, or when the AI's won't do), from the same
+## facts: plain, but in the owner's voice and true.
+static func stitched_diary(facts: Dictionary) -> String:
+	var sentences := PackedStringArray()
+	var weather := str(facts.get("weather", "")).strip_edges()
+	sentences.append("%s, and %s." % [str(facts.get("day", "Tonight")), weather if weather != "" else "a quiet sky"])
+	var people: Array = facts.get("people", [])
+	if people.is_empty():
+		sentences.append("Nobody came in at all. I cleaned the pots twice.")
+	else:
+		var busiest := str(facts.get("busiest", ""))
+		var count := int(facts.get("customers", people.size()))
+		sentences.append("%d %s came in%s." % [count, "customer" if count == 1 else "customers", (", busiest " + busiest) if busiest != "" else ""])
+	for moment in facts.get("moments", []).slice(0, 2):
+		var said := str(moment.get("said", ""))
+		sentences.append("%s%s" % [given_name(str(moment["who"])), (" said \"%s\", and I haven't stopped thinking about it." % said) if said != "" else " gave me something to think about."])
+	for pair in facts.get("friendlier", []).slice(0, 1):
+		sentences.append("%s. About time." % str(pair))
+	for name in facts.get("new_regulars", []).slice(0, 1):
+		sentences.append("I think %s will be back." % given_name(str(name)))
+	var laps: Array = facts.get("cat_laps", [])
+	if not laps.is_empty():
+		sentences.append("%s spent a while on %s's lap." % [str(facts.get("cat", "The cat")), given_name(str(laps[0]))])
+	if int(facts.get("walked_on", 0)) > 0:
+		sentences.append("We were full, and someone had to walk on. I hate that.")
+	var word := str(facts.get("takings_vs_usual", ""))
+	sentences.append("%s, %s." % [str(facts.get("takings", "")), word] if word != "" else "%s in the tin." % str(facts.get("takings", "")))
+	sentences.append("Another night under the overpass. Tomorrow, the same again.")
+	return " ".join(sentences)

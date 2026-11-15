@@ -26,6 +26,8 @@ Customer types that fit (riff on these, don't copy them):
 
 Who turns up should suit the hour: the after-work crowd early in the evening, night-shift workers and lonely stragglers in the small hours.
 
+Food is love here: Koreans love watching someone enjoy their food, and praising a good appetite, guessing a dish must be good from the look of it, or asking whether someone's eaten properly are all ways of caring.
+
 Tone: warm, melodramatic, a little melancholy, with humour mixed in. Late-night honesty, unspoken feelings, "just one more bottle"."""
 
 const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene at the tent. Stay in character. Show feelings through what people say and small actions, not by explaining them. Keep it natural: people at a tent bar talk in short, plain sentences.
@@ -680,3 +682,59 @@ Only what was actually said: nothing invented.""" % [transcript_text(lines), ", 
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
 	]
+
+
+## 3am: the owner writes tonight's entry in their diary, from the facts the game picked (see
+## visit.gd _diary_facts). In their own voice, about what mattered to them, and nothing else.
+static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
+	var request := """%s
+
+It's 3am and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
+%s
+
+Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four to six sentences. Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.
+
+Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
+
+Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", "")]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## The night's facts as lines for a prompt.
+static func diary_facts_text(facts: Dictionary) -> String:
+	var lines := PackedStringArray()
+	lines.append("- %s, %s." % [facts.get("day", ""), facts.get("weather", "")])
+	var people: Array = facts.get("people", [])
+	var who := PackedStringArray()
+	for person in people:
+		var bits := str(person["name"])
+		var about := PackedStringArray([str(person.get("job", ""))])
+		if str(person.get("regular", "")) != "":
+			about.append(str(person["regular"]))
+		if str(person.get("ordered", "")) != "":
+			about.append("had " + str(person["ordered"]))
+		who.append("%s (%s)" % [bits, ", ".join(about)])
+	lines.append("- %d customers: %s." % [int(facts.get("customers", people.size())), "; ".join(who) if not who.is_empty() else "nobody"])
+	if str(facts.get("busiest", "")) != "":
+		lines.append("- Busiest at %s." % facts["busiest"])
+	for moment in facts.get("moments", []):
+		lines.append("- A big moment (%s): %s, \"%s\"%s." % [moment.get("mood", ""), moment.get("who", ""), moment.get("caption", ""),
+			(" (they said: \"%s\")" % moment["said"]) if str(moment.get("said", "")) != "" else ""])
+	for pair in facts.get("friendlier", []):
+		lines.append("- %s." % pair)
+	for name in facts.get("new_regulars", []):
+		lines.append("- %s looks like becoming a regular." % name)
+	for name in facts.get("missing", []):
+		lines.append("- %s, a regular, didn't come in tonight." % name)
+	var line: Dictionary = facts.get("line", {})
+	if not line.is_empty():
+		lines.append("- The line of the night, from %s: \"%s\"" % [line.get("speaker", ""), line.get("text", "")])
+	if not facts.get("cat_laps", []).is_empty():
+		lines.append("- %s, the cat, sat on %s's lap." % [facts.get("cat", "The cat"), " and ".join(PackedStringArray(facts["cat_laps"]))])
+	if int(facts.get("walked_on", 0)) > 0:
+		lines.append("- %d %s had to walk on: every stool was taken." % [int(facts["walked_on"]), "person" if int(facts["walked_on"]) == 1 else "people"])
+	lines.append("- Takings: %s%s." % [facts.get("takings", ""), (", " + str(facts["takings_vs_usual"])) if str(facts.get("takings_vs_usual", "")) != "" else ""])
+	return "\n".join(lines)

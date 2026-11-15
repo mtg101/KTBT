@@ -140,6 +140,8 @@ func reply(request: Dictionary) -> Variant:
 		"regular_tonight":
 			var mood_from: Dictionary = CUSTOMERS.pick_random()
 			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
+		"diary":
+			return {"entry": Rules.stitched_diary(request.get("facts", {}))}
 		"reaction":
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])

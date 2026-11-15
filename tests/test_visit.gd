@@ -77,6 +77,7 @@ func after_test() -> void:
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
+	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
 	Visit.captions = true
 	Visit.caption_pacing = false  # every caption shows, so tests can look for them (pacing has its own rule tests)
 	Ambience.make_sound = false  # quiet tests (and quick ones)

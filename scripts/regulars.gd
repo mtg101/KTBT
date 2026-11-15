@@ -86,8 +86,10 @@ static func arrival_time(usual_hour: int, roll: float) -> float:
 	return clampf(when, float(Rules.OPEN_MINUTES + 5), float(Rules.LAST_ARRIVAL_MINUTES - 5))
 
 
-## For now, the game judges a visit from what happened (step 2: the AI, from the dialogue).
-static func game_verdict(owner_lines: int, chatted: bool, quick: bool, company: String) -> String:
+## The game's own verdict on a visit, from what happened: the fallback when the AI's verdict
+## (from the dialogue, with the memory) can't be had. _quick: a quick greeting (not used now:
+## rushed visits are handled by Regulars.rushed).
+static func game_verdict(owner_lines: int, chatted: bool, _quick: bool, company: String) -> String:
 	# (Tuned from a night's stats: with about ten lines each, the first thresholds made most
 	# visits "loved", and three new regulars in a night.)
 	if owner_lines >= 14 or (company == "owner" and owner_lines >= 10):

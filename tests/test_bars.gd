@@ -34,6 +34,7 @@ func before_test() -> void:
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
+	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
