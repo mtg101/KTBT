@@ -222,6 +222,8 @@ var _bubble_layer: Control  # speech bubbles, over everything on the stage
 var _bubbles_shown: Array = []  # Bubble: the newest last
 var _caption_layer: Control  # TV captions, over everything
 var _captions_toggle: CheckBox
+var _options_button: Button  # the top bar's Options button...
+var _options_panel: PanelContainer  # ...and the panel it drops down
 var _caption_shown: Control  # the one up now (a new one replaces it)
 var _red_frame: Panel  # flashes round the tent for an emergency
 var _caption_last := -1.0  # real seconds when the last caption showed (-1: none yet)
@@ -352,6 +354,9 @@ func _open_saved_bar() -> void:
 	_narrate(Rules.as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
 	_owner_working = true  # busy until it's done (it may ask the AI)
+	if Rules.fill_owner_life(Game.bar["owner"], randf()):  # a bar saved before owners had a fixed life: the game picks one, once
+		_owner = Game.bar["owner"].duplicate(true)
+		Game.save()
 	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
 	if founding_regulars and not Game.bar.has("regulars") and not _stopped:
 		await _make_founding_regulars()  # a bar saved before regulars: its two, once
@@ -472,6 +477,7 @@ func _invent_owner() -> void:
 	_owner["gender"] = gender
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
 	_owner["look"] = look
+	Rules.fill_owner_life(_owner, randf())  # (anything the AI left out)
 	_dress(_owner_node, look)
 	_owner_tag.text = _owner_label()
 	_owner_node.visible = true
@@ -1031,6 +1037,8 @@ func _on_stats_toggled(_on: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
 		_stats_toggle.button_pressed = not _stats_toggle.button_pressed
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_options_button.button_pressed = not _options_button.button_pressed
 
 
 ## The panels under the tent: the transcript, then the stats (when shown), then the info.
@@ -2044,7 +2052,9 @@ func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
 ## flashing. Paced so they stay a treat (Rules.caption_allowed); each one shown goes in the
 ## transcript and the stats. fill: the words' blanks (gender, term, cat).
 ## spot: where to put it instead (stage coordinates), e.g. the stool someone's walking to.
-func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
+## about is untyped: whoever it's about may have walked off (and their node been freed) by
+## the time it's called, and then it goes in the middle.
+func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
 	if not captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
 		return
 	var now := Time.get_ticks_msec() / 1000.0
@@ -2071,7 +2081,7 @@ func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: 
 
 ## Puts a caption up (see _caption and _react): in the transcript, popped up on the stage
 ## (replacing the last), with its sting, and the red light for an emergency.
-func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Control, spot: Vector2, hold: float) -> void:
+func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Variant, spot: Vector2, hold: float) -> void:
 	_show("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [colour, _esc("[TV] %s %s" % [words["hangul"], words["english"]])])
 	if is_instance_valid(_caption_shown):
 		_caption_shown.name = "OldCaption"  # (so it's never mistaken for the new one while it goes)
@@ -2082,8 +2092,8 @@ func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String
 	caption.stage_width = STAGE_SIZE.x
 	if spot.x >= 0.0:
 		caption.at = spot
-	elif about != null and is_instance_valid(about):
-		caption.at = about.position + Vector2(40, -60)
+	elif is_instance_valid(about):
+		caption.at = (about as Control).position + Vector2(40, -60)
 	else:
 		caption.at = Vector2(STAGE_SIZE.x / 2, 150)
 	caption.setup(words, icon, Color(colour))
@@ -2127,7 +2137,7 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	_caption_last = now  # (routine captions wait their usual gap after it)
 	_stats.reactions_shown[mood] = int(_stats.reactions_shown.get(mood, 0)) + 1
 	var who := str(reply["who"])
-	var about: Control = _owner_node
+	var about: Variant = _owner_node  # (untyped: someone's node may be gone by now)
 	if who != str(_owner["name"]):
 		var guest: Guest = _guest_named(who)
 		about = guest.node if guest != null else null
@@ -2404,12 +2414,16 @@ func _build_ui() -> void:
 	_takings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(_takings_label)
 
+	# The settings live in an Options panel that drops down from the top bar, so they don't
+	# crowd it (see _build_options_panel; more settings will go there).
+	var opts := _build_options_panel()
+
 	_reading_toggle = CheckBox.new()
 	_reading_toggle.name = "ReadingToggle"
 	_reading_toggle.text = "Reading pauses"
 	_reading_toggle.button_pressed = false  # Off while we try the bar without them.
 	_reading_toggle.tooltip_text = "Wait after each line so there's time to read it. Off: lines come as fast as the AI writes them."
-	bar.add_child(_reading_toggle)
+	opts.add_child(_reading_toggle)
 
 	_stats_toggle = CheckBox.new()
 	_stats_toggle.name = "StatsToggle"
@@ -2417,21 +2431,21 @@ func _build_ui() -> void:
 	_stats_toggle.button_pressed = true  # Shown by default while we're testing.
 	_stats_toggle.tooltip_text = "Debug stats for tonight (F3). A log of them is saved at the end of each night."
 	_stats_toggle.toggled.connect(_on_stats_toggled)
-	bar.add_child(_stats_toggle)
+	opts.add_child(_stats_toggle)
 
 	_bubbles_toggle = CheckBox.new()
 	_bubbles_toggle.name = "BubblesToggle"
 	_bubbles_toggle.text = "Bubbles"
 	_bubbles_toggle.button_pressed = true
 	_bubbles_toggle.tooltip_text = "Speech bubbles over whoever's talking, with a line to who they're talking to."
-	bar.add_child(_bubbles_toggle)
+	opts.add_child(_bubbles_toggle)
 
 	_captions_toggle = CheckBox.new()
 	_captions_toggle.name = "CaptionsToggle"
 	_captions_toggle.text = "Captions"
 	_captions_toggle.button_pressed = true
 	_captions_toggle.tooltip_text = "Korean TV-style captions when something noteworthy happens."
-	bar.add_child(_captions_toggle)
+	opts.add_child(_captions_toggle)
 
 	_sound_toggle = CheckBox.new()
 	_sound_toggle.name = "SoundToggle"
@@ -2439,7 +2453,11 @@ func _build_ui() -> void:
 	_sound_toggle.button_pressed = _ambience.enabled  # on unless it was turned off last time
 	_sound_toggle.tooltip_text = "The tent's background sound: the street, the weather, the stove and the counter."
 	_sound_toggle.toggled.connect(_ambience.set_enabled)
-	bar.add_child(_sound_toggle)
+	var sound_row := HBoxContainer.new()
+	sound_row.add_theme_constant_override("separation", 12)
+	opts.add_child(sound_row)
+	_sound_toggle.custom_minimum_size = Vector2(150, 0)
+	sound_row.add_child(_sound_toggle)
 	var volume := HSlider.new()
 	volume.name = "SoundVolume"
 	volume.min_value = 0.0
@@ -2450,11 +2468,16 @@ func _build_ui() -> void:
 	volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	volume.tooltip_text = "How loud the background sound is."
 	volume.value_changed.connect(_ambience.set_volume)
-	bar.add_child(volume)
+	volume.custom_minimum_size = Vector2(180, 0)
+	sound_row.add_child(volume)
+	var music_row := HBoxContainer.new()
+	music_row.add_theme_constant_override("separation", 12)
+	opts.add_child(music_row)
 	var music_label := Label.new()
-	music_label.text = "Music"
+	music_label.text = "    Music"  # (lined up with the sound slider, past the tick box)
+	music_label.custom_minimum_size = Vector2(150, 0)
 	music_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.add_child(music_label)
+	music_row.add_child(music_label)
 	var music := HSlider.new()
 	music.name = "MusicVolume"
 	music.min_value = 0.0
@@ -2465,7 +2488,8 @@ func _build_ui() -> void:
 	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	music.tooltip_text = "Arirang, now and then through the night (all the way down for none)."
 	music.value_changed.connect(_music.set_volume)
-	bar.add_child(music)
+	music.custom_minimum_size = Vector2(180, 0)
+	music_row.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
 	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _bubbles_toggle, _captions_toggle]:
@@ -2488,6 +2512,15 @@ func _build_ui() -> void:
 	_leave_button.custom_minimum_size = Vector2(150, 40)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	bar.add_child(_leave_button)
+
+	_options_button = Button.new()
+	_options_button.name = "OptionsButton"
+	_options_button.text = "⚙ Options"
+	_options_button.tooltip_text = "Sound, music, speech bubbles, TV captions, reading pauses and the stats panel (Esc)."
+	_options_button.toggle_mode = true
+	_options_button.custom_minimum_size = Vector2(140, 40)
+	_options_button.toggled.connect(func(on): _options_panel.visible = on)
+	bar.add_child(_options_button)
 
 	# The tent: nearly the full width, with five stools.
 	_stage = Control.new()
@@ -2605,6 +2638,34 @@ func _badge(colour: Color) -> StyleBoxFlat:
 	box.set_corner_radius_all(6)
 	box.set_content_margin_all(6)
 	return box
+
+
+## The Options panel: dropping down under the top bar's Options button, over the tent.
+## Returns the column the settings go in.
+func _build_options_panel() -> VBoxContainer:
+	_options_panel = _panel(Vector2(SCREEN.x - 24 - 400, 58), Vector2(400, 0))
+	_options_panel.name = "OptionsPanel"
+	_options_panel.z_index = 20  # over the tent, the bubbles and the captions
+	_options_panel.visible = false
+	var style := _options_panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	style.border_color = ACCENT
+	style.set_border_width_all(2)
+	style.shadow_color = Color(0, 0, 0, 0.5)
+	style.shadow_size = 12
+	_options_panel.add_theme_stylebox_override("panel", style)
+	add_child(_options_panel)
+	# Clicks go to whatever's last in the tree, whatever's drawn on top: the panel's built
+	# before the tent and the other panels, so it's moved to the end once they're all in.
+	(func(): move_child(_options_panel, get_child_count() - 1)).call_deferred()
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	_options_panel.add_child(column)
+	var heading := Label.new()
+	heading.text = "Options"
+	heading.add_theme_font_size_override("font_size", 22)
+	heading.add_theme_color_override("font_color", ACCENT)
+	column.add_child(heading)
+	return column
 
 
 func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:
@@ -3490,14 +3551,14 @@ func _back_text(regular: Dictionary) -> String:
 	var her: String = {"woman": "her", "man": "his"}.get(str(regular.get("gender", "")), "their")
 	var she: String = {"woman": "she's", "man": "he's"}.get(str(regular.get("gender", "")), "they've")
 	if bool(regular.get("founding", false)):
-		var text := "%s ducks in and takes %s usual stool: %s been coming %s, %s." % [regular["name"], her, she, regular.get("since", ""), regular.get("habit", "")]
+		var arrives := "%s ducks in and takes %s usual stool: %s been coming %s, %s." % [regular["name"], her, she, regular.get("since", ""), regular.get("habit", "")]
 		if not bool(regular.get("introduced", false)):
 			# The first time we see them: who they are to the tent.
 			regular["introduced"] = true
 			Game.save()
 			var who: String = {"woman": "She's", "man": "He's"}.get(str(regular.get("gender", "")), "They're")
-			text += " %s %s. %s" % [who, str(Regulars.ROLES.get(regular.get("role", ""), "a regular")).get_slice(":", 0), Rules.as_sentence(str(regular.get("history", "")))]
-		return text
+			arrives += " %s %s. %s" % [who, str(Regulars.ROLES.get(regular.get("role", ""), "a regular")).get_slice(":", 0), Rules.as_sentence(str(regular.get("history", "")))]
+		return arrives
 	var text := "%s is back, for %s %s visit" % [regular["name"], her, Regulars.ordinal(int(regular.get("visits", 0)) + 1)]
 	if int(regular.get("last_night", 0)) > 0:
 		text += " (last time: %s)" % Regulars.nights_ago_text(_night_number - int(regular["last_night"]))

@@ -307,6 +307,22 @@ func test_a_bar_saved_before_hangul_names_gets_them() -> void:
 	assert_str(str(SaveStore.load_bar(bar["id"])["owner"].get("hangul", ""))).is_equal("김성호")  # saved, so it's only asked once
 
 
+func test_a_bar_saved_before_owners_had_a_life_gets_one_once() -> void:
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA.duplicate())
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	CannedAi.scripted = [{"should": "never be used"}]  # the game picks it: no AI
+	await _open_visit()
+	var saved: Dictionary = SaveStore.load_bar(bar["id"])["owner"]
+	assert_str(str(saved.get("family", ""))).is_not_empty()
+	assert_str(str(saved.get("before", ""))).is_not_empty()
+	var family := str(saved["family"])
+	Game.bar = SaveStore.load_bar(bar["id"])
+	await _open_visit()
+	assert_str(str(SaveStore.load_bar(bar["id"])["owner"]["family"])).is_equal(family)  # kept, not picked again
+	CannedAi.scripted = []
+
+
 func test_a_bar_saved_before_regulars_gets_its_two_once() -> void:
 	Visit.founding_regulars = true
 	var bar := _saved_bar("Golmok Pocha", 0)

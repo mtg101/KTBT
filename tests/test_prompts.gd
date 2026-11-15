@@ -393,15 +393,31 @@ func test_founding_regular_prompt_has_the_games_facts() -> void:
 	assert_str(text).contains("never the owner's secret")
 
 
+func test_the_owners_life_is_in_every_prompt() -> void:
+	var owner := _owner_data()
+	owner["family"] = "widowed young; a grown daughter in Daejeon"
+	owner["before"] = "a fish stall at Jagalchi market"
+	var text := Prompts.describe_owner(owner)
+	assert_str(text).contains("widowed young; a grown daughter in Daejeon")
+	assert_str(text).contains("a fish stall at Jagalchi market")
+	assert_str(text).contains("never changes")
+	assert_str(Prompts.describe_owner(_owner_data())).not_contains("never changes")  # an older owner, before it's filled in
+	var asked := _request(Prompts.owner_messages("woman"))
+	assert_str(asked).contains("\"family\"")
+	assert_str(asked).contains("\"before\"")
+
+
 func test_the_tv_reaction_prompt() -> void:
 	var text := _request(Prompts.reaction_messages([{"speaker": "Kim Ji-ho", "text": "I quit my job today."}], ["Kim Ji-ho", "Park Mi-sook"]))
 	assert_str(text).contains("I quit my job today.")
 	assert_str(text).contains("Kim Ji-ho, Park Mi-sook")
 	assert_str(text).contains("\"none\"")
-	assert_str(text).contains("Most of the time nothing is")
+	assert_str(text).contains("Most lines are this")
 	for mood in Rules.REACTIONS:
 		assert_str(text).contains("\"%s\"" % mood)
 	assert_str(text).contains("at most five words")
+	assert_str(text).contains("\"size\"")
+	assert_str(text).contains("Only a 4 or 5 gets a caption")
 
 
 func test_the_memory_prompt_and_a_regulars_memories() -> void:

@@ -509,8 +509,13 @@ func test_stats_are_shown_by_default_and_can_be_hidden() -> void:
 	var transcript_panel := (runner.find_child("Transcript") as Control).get_parent().get_parent() as Control
 	assert_bool(panel.visible).is_true()
 	var narrow := transcript_panel.size.x
+	var options := runner.find_child("OptionsButton") as Button  # the settings are in the Options panel
+	options.button_pressed = true
+	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_true()
 	await _click(runner, runner.find_child("StatsToggle"))
 	assert_bool(await _wait_until(func(): return not panel.visible)).is_true()
+	options.button_pressed = false
+	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_false()
 	assert_float(transcript_panel.size.x).is_greater(narrow)  # the transcript gets the room back
 
 
@@ -925,6 +930,7 @@ func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
 	var runner := await _open_bar()
 	var toggle := runner.find_child("SoundToggle") as CheckBox
 	assert_bool(toggle.button_pressed).is_true()
+	(runner.find_child("OptionsButton") as Button).button_pressed = true  # it's in the Options panel
 	await _click(runner, toggle)
 	assert_bool(toggle.button_pressed).is_false()
 	assert_bool(Ambience.load_enabled()).is_false()  # remembered for next time
@@ -1268,7 +1274,7 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	var owner_name := str(Game.bar["owner"]["name"])
 	var names := ["Kim Ji-ho", owner_name]
 	var lines := [{"speaker": "Kim Ji-ho", "text": "I quit my job today."}, {"speaker": owner_name, "text": "You did what?"}]
-	CannedAi.scripted = [{"mood": "shock", "who": "Ji-ho", "caption": "she quit her job?!"}]
+	CannedAi.scripted = [{"size": 5, "mood": "shock", "who": "Ji-ho", "caption": "she quit her job?!"}]
 	await scene._react(lines, names, [])
 	assert_str(_transcript(runner)).contains("SHE QUIT HER JOB?!")
 	assert_int(int(scene._stats.reactions_shown.get("shock", 0))).is_equal(1)
@@ -1277,7 +1283,7 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	CannedAi.scripted = [{"mood": "none"}]
 	await scene._react(lines, names, [])
 	assert_int(scene._stats.reactions_none).is_equal(1)
-	CannedAi.scripted = [{"mood": "angry", "who": "Kim Ji-ho", "caption": "GRR"}, {"mood": "funny", "who": "Kim Ji-ho", "caption": "NOT ASKED"}]
+	CannedAi.scripted = [{"size": 4, "mood": "angry", "who": "Kim Ji-ho", "caption": "GRR"}, {"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "NOT ASKED"}]
 	await scene._react(lines, names, [])
 	assert_int(scene._stats.reactions_dropped).is_equal(1)
 	assert_int(CannedAi.scripted.size()).is_equal(1)  # only one try

@@ -144,9 +144,9 @@ func reply(request: Dictionary) -> Variant:
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])
 			if names.is_empty() or randf() < 0.75:
-				return {"mood": "none"}
+				return {"size": randi_range(1, 3), "mood": "none"}
 			var mood: String = REACTION_CAPTIONS.keys().pick_random()
-			return {"mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood]}
+			return {"size": 4, "mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood]}
 		"memory":
 			var night: String = {"loved": "loved it", "enjoyed": "enjoyed it", "fine": "it was fine", "didnt": "didn't enjoy it"}.get(str(request.get("verdict", "fine")), "it was fine")
 			return {"owner_remembers": "Quiet at first, then talked about work.", "they_remember": "The owner fussed over them, and the food was good.",

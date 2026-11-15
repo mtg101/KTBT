@@ -63,6 +63,7 @@ var rejections := {}  # kind of problem -> how many times
 ## often ("order: there's no food... (x3)"), for tuning prompts. Only in the log.
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
+var gave_up_by := {}  # what the AI was being asked for -> how many times it gave up
 var gave_up := 0  # calls that never got a usable reply
 var stale_redone := 0  # lines asked for again because things changed while the AI wrote them
 
@@ -91,6 +92,8 @@ func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") 
 		rejection_reasons[kind] = reasons
 	if not ok:
 		gave_up += 1
+		var asked := purpose if purpose != "" else "other"
+		gave_up_by[asked] = int(gave_up_by.get(asked, 0)) + 1
 
 
 static func average(values: Array) -> float:
@@ -197,7 +200,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Calls %d · avg %.1fs, longest %.1fs" % [ai_calls, average(ai_seconds), longest(ai_seconds)])
 	lines.append("Voice busy %d%% · someone waiting for it %d%%" % [percent(voice_busy_seconds, real_seconds), percent(waiting_on_voice_seconds, real_seconds)])
 	lines.append("Rejected replies %d%s" % [rejected, (": " + rejection_text()) if rejected > 0 else ""])
-	lines.append("Gave up %d · out-of-date lines redone %d" % [gave_up, stale_redone])
+	lines.append("Gave up %d%s · out-of-date lines redone %d" % [gave_up,
+		(" (" + ", ".join(PackedStringArray(gave_up_by.keys().map(func(k): return "%s %d" % [k, int(gave_up_by[k])]))) + ")") if not gave_up_by.is_empty() else "", stale_redone])
 	lines.append("")
 	lines.append("Real time tonight: %d:%02d" % [floori(real_seconds / 60.0), int(real_seconds) % 60])
 	return "\n".join(lines)
@@ -234,7 +238,7 @@ func summary(context: Dictionary) -> Dictionary:
 		},
 		"ai": {
 			"calls": ai_calls, "average_seconds": average(ai_seconds), "longest_seconds": longest(ai_seconds),
-			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up,
+			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up, "gave_up_by": gave_up_by.duplicate(),
 			"rejection_reasons": rejection_reasons.duplicate(true), "stale_redone": stale_redone,
 		},
 		"time": {

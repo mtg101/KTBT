@@ -1300,18 +1300,24 @@ func test_tv_reactions_are_checked() -> void:
 	var nothing := {"mood": "Nothing"}
 	assert_str(Rules.validate_reaction(nothing, names)).is_empty()
 	assert_str(str(nothing["mood"])).is_equal("none")
-	var good := {"mood": "Shock", "who": "Ji-ho", "caption": "\"she quit her job?!\""}
+	var small := {"size": 3, "mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
+	assert_str(Rules.validate_reaction(small, names)).is_empty()
+	assert_str(str(small["mood"])).is_equal("none")  # a 3: not big enough for a caption
+	var unsized := {"mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
+	assert_str(Rules.validate_reaction(unsized, names)).is_empty()
+	assert_str(str(unsized["mood"])).is_equal("none")
+	var good := {"size": 5, "mood": "Shock", "who": "Ji-ho", "caption": "\"she quit her job?!\""}
 	assert_str(Rules.validate_reaction(good, names, ["soju"])).is_empty()
 	assert_str(str(good["mood"])).is_equal("shock")
 	assert_str(str(good["who"])).is_equal("Kim Ji-ho")  # a given name will do
 	assert_str(str(good["caption"])).is_equal("SHE QUIT HER JOB?!")
-	assert_str(Rules.validate_reaction({"mood": "angry", "who": "Kim Ji-ho", "caption": "WOW"}, names)).contains("isn't one of")
-	assert_str(Rules.validate_reaction({"mood": "sad", "who": "Lee Min-ho", "caption": "WOW"}, names)).contains("isn't one of the people talking")
-	assert_str(Rules.validate_reaction({"mood": "sad", "who": "Kim Ji-ho", "caption": ""}, names)).contains("empty")
-	assert_str(Rules.validate_reaction({"mood": "funny", "who": "Kim Ji-ho", "caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}, names)).contains("longer than five words")
-	assert_str(Rules.validate_reaction({"mood": "funny", "who": "Kim Ji-ho", "caption": "LOL (LAUGHS)"}, names)).contains("brackets")
-	assert_str(Rules.validate_reaction({"mood": "warm", "who": "Kim Ji-ho", "caption": "FREE TTEOKBOKKI FOR HER"}, names, ["soju"])).contains("nobody ordered")
-	assert_str(Rules.problem_kind(Rules.validate_reaction({"mood": "warm", "who": "x", "caption": "HI"}, names))).is_equal("TV reactions")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "angry", "who": "Kim Ji-ho", "caption": "WOW"}, names)).contains("isn't one of")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "sad", "who": "Lee Min-ho", "caption": "WOW"}, names)).contains("isn't one of the people talking")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "sad", "who": "Kim Ji-ho", "caption": ""}, names)).contains("empty")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}, names)).contains("longer than five words")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "LOL (LAUGHS)"}, names)).contains("brackets")
+	assert_str(Rules.validate_reaction({"size": 4, "mood": "warm", "who": "Kim Ji-ho", "caption": "FREE TTEOKBOKKI FOR HER"}, names, ["soju"])).contains("nobody ordered")
+	assert_str(Rules.problem_kind(Rules.validate_reaction({"size": 4, "mood": "warm", "who": "x", "caption": "HI"}, names))).is_equal("TV reactions")
 	# The game's Korean, the AI's English.
 	var words := Rules.reaction_words("shock", "she quit her job?!", 0.0)
 	assert_str(words["hangul"]).is_equal("충격!")
@@ -1319,3 +1325,26 @@ func test_tv_reactions_are_checked() -> void:
 	for mood in Rules.REACTIONS:
 		assert_array(Rules.REACTION_STINGS).contains([Rules.REACTIONS[mood]["sound"]])
 		assert_bool(Ambience.STINGS.has(str(Rules.REACTIONS[mood]["sound"]))).override_failure_message("no sting for %s" % mood).is_true()
+
+
+func test_the_owners_life_is_fixed() -> void:
+	var owner := {"name": "Kim Sung-ho", "gender": "man", "family": "\"widowed; a son in Busan\""}
+	assert_bool(Rules.fill_owner_life(owner, 0.0)).is_true()
+	assert_str(str(owner["family"])).is_equal("widowed; a son in Busan")  # the AI's, tidied
+	assert_str(str(owner["before"])).is_equal(Rules.OWNER_BEFORES[0])  # left out: the game's
+	assert_bool(Rules.fill_owner_life(owner, 0.9)).is_false()  # already there: kept
+	var her := {"name": "Park Mi-sook", "gender": "woman"}
+	Rules.fill_owner_life(her, 0.0)
+	assert_str(str(her["family"])).is_equal(Rules.OWNER_FAMILIES["woman"][0])
+	var rambling := {"gender": "woman", "family": "x".repeat(Rules.MAX_OWNER_LIFE + 1), "before": "a bakery"}
+	Rules.fill_owner_life(rambling, 0.0)
+	assert_str(str(rambling["family"])).is_equal(Rules.OWNER_FAMILIES["woman"][0])  # too long: the game's instead
+
+
+func test_names_in_western_order_are_turned_round() -> void:
+	assert_str(Rules.family_name_first("Min-jae Lee")).is_equal("Lee Min-jae")
+	assert_str(Rules.family_name_first("Lee Min-jae")).is_equal("Lee Min-jae")
+	assert_str(Rules.family_name_first("Kim Min")).is_equal("Kim Min")  # both could be family names: left alone
+	var data := {"name": "Ji-ho Kim", "gender": "woman"}
+	assert_str(Rules.validate_customer_name(data)).is_empty()
+	assert_str(str(data["name"])).is_equal("Kim Ji-ho")

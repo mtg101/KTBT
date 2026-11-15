@@ -67,7 +67,10 @@ Reply with ONLY a JSON object with exactly these keys:
 - "appearance": what they look like behind the counter, in one sentence%s
 - "personality": two or three traits
 - "speech_style": how they talk, in a few words
-- "secret": something about their past they rarely talk about, in one sentence""" % [gender, title, gender, seen, ages,
+- "secret": something about their past they rarely talk about, in one sentence
+- "family": their family now, in a few words (married, widowed, divorced or single; children, parents), e.g. "widowed young; a grown daughter in Daejeon"
+- "before": what they did before the tent, in a few words, e.g. "a fish stall at Jagalchi market"
+""" % [gender, title, gender, seen, ages,
 		": keep to how they look, in your own words, and add how they seem (their expression, or how they carry themselves)" if not look.is_empty() else ""]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
@@ -429,9 +432,12 @@ static func describe_moment(moment: Dictionary) -> String:
 static func describe_owner(owner: Dictionary) -> String:
 	var gender := str(owner.get("gender", "woman"))
 	var address: Dictionary = OWNER_ADDRESS.get(gender, OWNER_ADDRESS["woman"])
-	return "THE OWNER: %s, a %s-year-old %s. Customers call them \"%s\" (or sometimes %s; never oppa, hyung, nuna or eonni). %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s (Customers don't know the owner's past or secret: only what they can see, and what the owner has told them.)" % [
+	var text := "THE OWNER: %s, a %s-year-old %s. Customers call them \"%s\" (or sometimes %s; never oppa, hyung, nuna or eonni). %s. %s Personality: %s. Talks: %s. A secret they rarely share, and only ever hint at: %s" % [
 		owner["name"], owner["age"], gender, owner["title"], address["also"], owner["archetype"], owner["appearance"],
 		owner["personality"], owner["speech_style"], owner["secret"]]
+	if str(owner.get("family", "")) != "" or str(owner.get("before", "")) != "":
+		text += " Their life, which never changes (it needn't come up, but anything the owner says about it must fit): family: %s; before the tent: %s." % [owner.get("family", ""), owner.get("before", "")]
+	return text + " (Customers don't know the owner's past or secret: only what they can see, and what the owner has told them.)"
 
 
 static func describe_customer(customer: Dictionary) -> String:
@@ -656,12 +662,18 @@ static func reaction_messages(lines: Array, names: Array) -> Array:
 	var request := """You're the caption editor on a Korean variety show, watching a conversation at a street tent bar:
 %s
 
-Was anything in these lines a big moment, the kind the editors would pop a caption up for? Most of the time nothing is: ordinary chat gets no caption.
+How big a moment was the biggest thing in these lines, from 1 to 5?
+1 or 2: ordinary chat, small talk, orders, a tired sigh. Most lines are this.
+3: a bit personal: a hard day at work, missing someone. Still no caption.
+4: a real moment: a confession, a secret out, a big laugh, two people clicking.
+5: huge: a breakup, a proposal, a death, someone in tears, a scene.
+Only a 4 or 5 gets a caption: editors save them for the best bits.
 
 Reply with ONLY a JSON object:
-- "mood": "none" if nothing stands out; otherwise one of: %s
-- "who": who it's about, one of: %s (leave it out for "none")
-- "caption": the caption, at most five words, in English capitals, punchy and a bit cheeky, like "SHE QUIT HER JOB?!" or "HE REMEMBERED HER BIRTHDAY" (leave it out for "none")
+- "size": the number, 1 to 5
+- "mood": "none" if it's a 3 or less; otherwise one of: %s
+- "who": who it's about, one of: %s
+- "caption": at most five words, in English capitals. Variety show editors tease: playful and cheeky even about sad things, never solemn or a summary. Like "SHE QUIT HER JOB?!", "HE'S NOT CRYING, IT'S THE ONIONS", "SOMEONE GET HIM A TISSUE", "SMOOTH, VERY SMOOTH"
 
 Only what was actually said: nothing invented.""" % [transcript_text(lines), ", ".join(moods), ", ".join(PackedStringArray(names))]
 	return [

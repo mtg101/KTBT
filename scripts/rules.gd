@@ -30,6 +30,41 @@ const MAX_BAR_NAME_LENGTH := 40
 const MAX_BAR_MEANING_LENGTH := 80
 
 const OWNER_FIELDS := ["name", "age", "archetype", "appearance", "personality", "speech_style", "secret"]
+## The owner's life: facts the game keeps so they never change from line to line or night to
+## night (without them, an owner's wife "passed away" one minute and "left" the next). The AI
+## writes them with the owner; if it leaves one out, or the bar is older than them, the game
+## picks one from these (fitting the owner's gender).
+const OWNER_LIFE := ["family", "before"]
+const MAX_OWNER_LIFE := 160
+const OWNER_FAMILIES := {
+	"woman": ["widowed young; a grown daughter in Daejeon who wants her to retire", "married to a night-shift taxi driver; two sons, one in the army",
+		"divorced long ago; raised her son alone, and he works in an office in Gangnam now", "never married; looks after her old mother in the flat upstairs",
+		"married thirty years; her husband does the market run every morning and naps all afternoon"],
+	"man": ["widowed; a son in Busan who rarely calls", "married to a hairdresser who thinks the tent is a terrible idea; one daughter at university",
+		"divorced; sees his two grandchildren on Sundays", "never married; there was someone once, a long time ago",
+		"married, with three grown children who all left Seoul"],
+}
+const OWNER_BEFORES := ["a factory line in Ulsan", "a fish stall at Jagalchi market in Busan", "a bank clerk until the crisis in '97",
+	"a cook in the army, then in a hotel kitchen", "long-distance trucking", "a dry-cleaning shop that closed", "a primary school dinner hall",
+	"a noodle stand at a bus terminal"]
+
+
+## The owner's life facts, filled in where missing (from the tables, by roll), tidied and
+## kept short. Returns true if it changed anything.
+static func fill_owner_life(owner: Dictionary, roll: float) -> bool:
+	var changed := false
+	var gender := str(owner.get("gender", "woman"))
+	for key in OWNER_LIFE:
+		var value := unquote(tidy_text(owner.get(key, "")))
+		if value.length() > MAX_OWNER_LIFE:
+			value = ""
+		if value == "":
+			var choices: Array = OWNER_FAMILIES.get(gender, OWNER_FAMILIES["woman"]) if key == "family" else OWNER_BEFORES
+			value = str(choices[clampi(floori(roll * choices.size()), 0, choices.size() - 1)])
+		if str(owner.get(key, "")) != value:
+			owner[key] = value
+			changed = true
+	return changed
 const CUSTOMER_FIELDS := ["name", "age", "job", "mood", "reason", "speech_style", "appearance"]
 const CUSTOMER_DETAIL_FIELDS := ["age", "job", "mood", "reason", "speech_style", "appearance"]
 const MAX_NAME_LENGTH := 30
@@ -134,6 +169,7 @@ static func validate_customer_name(data: Variant, taken: Array = [], gender: Str
 			return "\"gender\" must be \"woman\" or \"man\""
 	if customer_name.split(" ", false).size() < 2:
 		return "the name needs a family name and a given name, family name first"
+	customer_name = family_name_first(customer_name)
 	if customer_name.length() > MAX_NAME_LENGTH:
 		return "the name was far too long"
 	for c in customer_name:
@@ -1291,6 +1327,15 @@ static func seen_as(person: Dictionary) -> String:
 # player gets used to seeing Korean names. The AI writes it; the game checks it fits the
 # romanised name, and drops it rather than showing a wrong one.
 
+## Western order ("Min-jae Lee") turned round to Korean order ("Lee Min-jae"), when the
+## first part isn't a family name and the last is. Small models do this now and then.
+static func family_name_first(full: String) -> String:
+	var parts := full.split(" ", false)
+	if parts.size() == 2 and not SURNAMES.has(parts[0].to_lower()) and SURNAMES.has(parts[1].to_lower()):
+		return "%s %s" % [parts[1], parts[0]]
+	return full
+
+
 ## Common family names: romanised (any common spelling) -> Hangul.
 const SURNAMES := {
 	"kim": ["김"], "gim": ["김"], "lee": ["이"], "yi": ["이"], "rhee": ["이"], "park": ["박"], "bak": ["박"], "pak": ["박"],
@@ -1901,6 +1946,10 @@ const REACTION_GAP := 20.0  # real seconds at least between reactions
 const REACTION_SECONDS := 3.6  # a reaction stays up a little longer than a routine caption
 const REACT_EVERY := 4  # lines of a conversation with the owner between asks
 const REACTION_LINES := 6  # how many of the latest lines the AI sees
+## How big a moment has to be (the AI says, 1 to 5) to get a caption. Asked just "was it a big
+## moment?", Llama 3.1 8B said yes nearly every time; rating it first, it can say "a 3" and
+## mean no.
+const REACTION_MIN_SIZE := 4
 
 
 ## Checks the AI's answer to "was that a big moment?": {"mood": "none"}, or a mood from
@@ -1912,6 +1961,11 @@ static func validate_reaction(data: Variant, names: Array, items: Array = []) ->
 	var mood := str(data["mood"]).strip_edges().to_lower()
 	if mood in ["", "none", "no", "nothing", "null"]:
 		data["mood"] = "none"
+		return ""
+	var size := int(data.get("size", 0)) if typeof(data.get("size", 0)) in [TYPE_INT, TYPE_FLOAT, TYPE_STRING] else 0
+	if size < REACTION_MIN_SIZE:
+		data["mood"] = "none"  # (not big enough: no caption)
+		data["size"] = size
 		return ""
 	if not REACTIONS.has(mood):
 		return "the caption's \"mood\" was \"%s\", which isn't one of %s or \"none\"" % [mood, ", ".join(PackedStringArray(REACTIONS.keys()))]
