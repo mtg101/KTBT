@@ -52,7 +52,9 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 - **Speech bubbles:** each line also pops up over whoever's speaking, with who it's to and a line to the listener; the transcript keeps everything.
 - **Korean TV captions:** the night is edited like a variety show. When something noteworthy happens, a caption pops up in Hangul and English with a sound sting ("짠! JJAN! CHEERS!", "폭풍 흡입! INHALING IT!", and for emergencies a flashing red light and siren). The game decides when and owns the words, and for the big moments in a conversation the AI writes the caption while the game keeps the Korean ("충격! SHE QUIT HER JOB?!").
 - **What you hear:** the street, the weather and the tent (rain on the tarp, traffic on the overpass, the odeng pot, sizzling while something cooks, the counter's murmur, glasses and stools), all following what the game knows is happening, and Arirang now and then.
-- **The night around it:** the sky darkens through the night and the tent's glow changes with it; the weather is something you see (rain, snow, fog, haze, a swinging bulb in a breeze); and most people in the street walk past without coming in, busiest in the evening, with umbrellas when it's wet.
+- **The night around it:** the sky darkens through the night and the tent's glow changes with it; the weather is something you see (rain, snow, fog, haze, a swinging bulb in a breeze); and most people in the street walk past without coming in, busiest in the evening: alone, in twos and threes, on their phones, under umbrellas of all shapes when it's wet (customers fold theirs down under the tarp), or now and then running for it.
+- **Korean words explained:** the menu, the words people say at a pocha (banchan, jjan, aigoo, hwaiting…) and the terms of address are coloured, and explain themselves on hover.
+- **Conditions, not scripts:** the game never hands the AI a line to say. Now and then it sets a scene instead, only when it's true: how someone orders tonight, a craving ("rain like this always makes them crave pajeon and makgeolli"), a table custom (nobody pours their own glass), a chance to share. The AI decides whether anything comes of it.
 
 ## Saving and loading
 
@@ -98,9 +100,11 @@ The current menu is a fixed placeholder (see bar-specific menus in [PLAN.md](PLA
 - **Mains:** tteokbokki, sundae, dakgalbi, pajeon, ramyeon
 - **Sides:** odeng (fish cake skewers), gyeran-mari, gonggibap (a bowl of rice), bokkeumbap (fried rice made in the leftover sauce; only ordered later, after a main)
 - **Free banchan** (kimchi and pickled radish) comes with every order and isn't on the bill.
+- **Tonight's specials:** the game picks one or two from the weather (rain is always pajeon and makgeolli; odeng or dakgalbi on a cold night), marked on the menu customers see.
 
 **How people order** (game rules, checked on every AI order):
 
+- **What they say is what they get:** an order line that names a different drink or main is asked for again; a side it asks for but the AI left out is added.
 - **First order:** at least one drink and one food, because nobody drinks on an empty stomach. Usually one main and one drink, maybe a side. The game decides who's **hungry** (may order two mains) or having a **rough night** (may order two drinks).
 - **Later orders:** half of customers order once; the rest order more partway through the conversation (one more bottle, a side, rice), and a few order a third time. Never a new main, at most one more drink each time, and it has to sound like ordering more.
 

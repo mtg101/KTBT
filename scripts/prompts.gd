@@ -7,6 +7,7 @@ const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
+const Menu = preload("res://scripts/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
@@ -231,7 +232,8 @@ Reply with ONLY a JSON object with exactly these keys:
 ## Messages asking the AI what the customer orders, from the game's menu.
 ## hungry and rough_night are decided by the game: a hungry customer may order two main
 ## dishes, and one having a rough night may order two drinks.
-static func order_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, menu_text: String, transcript: Array, hungry: bool = false, rough_night: bool = false) -> Array:
+## situation: now and then, how they order tonight (Talk.order_moment), or "".
+static func order_messages(owner: Dictionary, customer: Dictionary, moment: Dictionary, menu_text: String, transcript: Array, hungry: bool = false, rough_night: bool = false, situation: String = "") -> Array:
 	var appetite := "%s is starving tonight, so they may order up to two main dishes." % customer["name"] if hungry else "%s isn't especially hungry: at most one main dish." % customer["name"]
 	var thirst := "It's a rough night for them, so they may order two drinks." if rough_night else "They'll order just one drink."
 	var request := """%s
@@ -248,7 +250,7 @@ What's been said so far:
 TONIGHT'S MENU (use these exact ids):
 %s
 
-What does %s order? Think about who they are and why they're here tonight. Order between 2 and 4 items. Repeat an id to order more than one of something.
+What does %s order? Think about who they are and why they're here tonight.%s Order between 2 and 4 items. Repeat an id to order more than one of something.
 
 HOW PEOPLE ORDER HERE: everyone orders at least one drink and at least one food, because nobody drinks on an empty stomach. Most people order ONE main dish (marked "main" on the menu), maybe with a side (marked "side"), and ONE drink (one bottle goes a long way). Ordering two of the same main dish, or two drinks, is unusual. %s %s
 
@@ -258,7 +260,7 @@ Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids
 - "line": what they say as they sit down and order: one or two short sentences""" % [
 		describe_moment(moment), describe_owner(owner), describe_customer(customer),
-		describe_relationship(owner, customer), transcript_text(transcript), menu_text, customer["name"], appetite, thirst]
+		describe_relationship(owner, customer), transcript_text(transcript), menu_text, customer["name"], (" " + situation) if situation != "" else "", appetite, thirst]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -674,18 +676,18 @@ static func reaction_messages(lines: Array, names: Array) -> Array:
 
 How big a moment was the biggest thing in these lines, from 1 to 5?
 1 or 2: ordinary chat, small talk, orders, a tired sigh. Most lines are this.
-3: a bit personal: a hard day at work, missing someone. Still no caption.
+3: a bit personal or a bit funny: a hard day at work, missing someone, a good joke, a small confession.
 4: a real moment: a confession, a secret out, a big laugh, two people clicking.
 5: huge: a breakup, a proposal, a death, someone in tears, a scene.
-Only a 4 or 5 gets a caption: editors save them for the best bits.
+Only a %d or more gets a caption: editors save them for the best bits.
 
 Reply with ONLY a JSON object:
 - "size": the number, 1 to 5
-- "mood": "none" if it's a 3 or less; otherwise one of: %s
+- "mood": "none" if it's %d or less; otherwise one of: %s
 - "who": who it's about, one of: %s
 - "caption": at most five words, in English capitals. Variety show editors tease: playful and cheeky even about sad things, never solemn or a summary. Like "SHE QUIT HER JOB?!", "HE'S NOT CRYING, IT'S THE ONIONS", "SOMEONE GET HIM A TISSUE", "SMOOTH, VERY SMOOTH"
 
-Only what was actually said: nothing invented.""" % [transcript_text(lines), ", ".join(moods), ", ".join(PackedStringArray(names))]
+Only what was actually said: nothing invented.""" % [transcript_text(lines), Captions.REACTION_MIN_SIZE, Captions.REACTION_MIN_SIZE - 1, ", ".join(moods), ", ".join(PackedStringArray(names))]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -719,7 +721,8 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	var who := PackedStringArray()
 	for person in people:
 		var bits := str(person["name"])
-		var about := PackedStringArray([str(person.get("job", ""))])
+		var about := PackedStringArray([str(person["pronoun"])] if person.has("pronoun") else [])
+		about.append(str(person.get("job", "")))
 		if str(person.get("regular", "")) != "":
 			about.append(str(person["regular"]))
 		if str(person.get("ordered", "")) != "":
@@ -728,6 +731,8 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	lines.append("- %d customers: %s." % [int(facts.get("customers", people.size())), "; ".join(who) if not who.is_empty() else "nobody"])
 	if str(facts.get("busiest", "")) != "":
 		lines.append("- Busiest at %s." % facts["busiest"])
+	if not facts.get("specials", []).is_empty():
+		lines.append("- Tonight's specials: %s." % " and ".join(PackedStringArray(facts["specials"].map(func(id): return str(Menu.find(str(id)).get("name", id))))))
 	for moment in facts.get("moments", []):
 		lines.append("- A big moment (%s): %s, \"%s\"%s." % [moment.get("mood", ""), moment.get("who", ""), moment.get("caption", ""),
 			(" (they said: \"%s\")" % moment["said"]) if str(moment.get("said", "")) != "" else ""])
@@ -735,8 +740,9 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		lines.append("- %s." % pair)
 	for name in facts.get("new_regulars", []):
 		lines.append("- %s looks like becoming a regular." % name)
+	var pronouns: Dictionary = facts.get("pronouns", {})
 	for name in facts.get("missing", []):
-		lines.append("- %s, a regular, didn't come in tonight." % name)
+		lines.append("- %s%s, a regular, didn't come in tonight." % [name, (" (%s)" % pronouns[name]) if pronouns.has(name) else ""])
 	var line: Dictionary = facts.get("line", {})
 	if not line.is_empty():
 		lines.append("- The line of the night, from %s: \"%s\"" % [line.get("speaker", ""), line.get("text", "")])
@@ -745,6 +751,12 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	if int(facts.get("walked_on", 0)) > 0:
 		lines.append("- %d %s had to walk on: every stool was taken." % [int(facts["walked_on"]), "person" if int(facts["walked_on"]) == 1 else "people"])
 	lines.append("- Takings: %s%s." % [facts.get("takings", ""), (", " + str(facts["takings_vs_usual"])) if str(facts.get("takings_vs_usual", "")) != "" else ""])
+	if not pronouns.is_empty():
+		# (Without these, a small model guesses, and gets women's names wrong: "Jin-sook... he".)
+		var each := PackedStringArray()
+		for name in pronouns:
+			each.append("%s: %s" % [name, pronouns[name]])
+		lines.append("- Use these pronouns: %s." % ", ".join(each))
 	return "\n".join(lines)
 
 
@@ -766,7 +778,7 @@ You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass.
 Last time:
 %s
 
-Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question that makes the viewer want to watch ("Will he come back?").
+Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question that makes the viewer want to watch ("Will they come back?", with the right pronoun).
 
 Only what's above: no other names, no numbers but the ones above, nothing invented.
 

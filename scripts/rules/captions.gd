@@ -256,9 +256,13 @@ const REACTION_LINES := 6  # how many of the latest lines the AI sees
 
 
 ## How big a moment has to be (the AI says, 1 to 5) to get a caption. Asked just "was it a big
-## moment?", Llama 3.1 8B said yes nearly every time; rating it first, it can say "a 3" and
-## mean no.
-const REACTION_MIN_SIZE := 4
+## moment?", Llama 3.1 8B said yes nearly every time; rating it first, it can say "a 2" and
+## mean no. (At 4, it hardly ever said yes: 7 captions in six nights. 3 lets the personal
+## moments in too.)
+const REACTION_MIN_SIZE := 3
+## How long a reaction check put off while the owner was needed can wait (game minutes):
+## any later and the moment's gone.
+const REACTION_STALE_MINUTES := 20.0
 
 
 ## Checks the AI's answer to "was that a big moment?": {"mood": "none"}, or a mood from
@@ -310,3 +314,66 @@ static func reaction_words(mood: String, caption: String, roll: float = 0.0) -> 
 		return {}
 	var choices: Array = REACTIONS[mood]["hangul"]
 	return {"hangul": str(choices[clampi(floori(roll * choices.size()), 0, choices.size() - 1)]), "english": caption.to_upper()}
+
+
+## Which caption a night event gets, if any (see night_events.gd): {"kind", "fill"}, or {}.
+## facts: the event's own, plus, for "sat_down", "rush_open" (the after-work rush hasn't had
+## its caption yet tonight).
+static func for_event(event: String, facts: Dictionary) -> Dictionary:
+	match event:
+		"walked_on":
+			if bool(facts.get("first", false)):  # several giving up at once: one caption
+				return {"kind": "full_house", "fill": {}}
+		"dawn":
+			return {"kind": "dawn", "fill": {}}
+		"last_orders":
+			return {"kind": "last_orders", "fill": {}}
+		"sat_down":
+			var regular := str(facts.get("regular", ""))
+			if regular != "":
+				if str(facts.get("friend", "")) != "":
+					return {"kind": "jjin_chin", "fill": {"name": facts.get("name", ""), "friend": facts["friend"]}}
+				return {"kind": "founding" if regular == "founding" else "regular_back",
+					"fill": {"gender": facts.get("gender", ""), "name": facts.get("name", ""), "visit": facts.get("visit", 0), "years": facts.get("years", "")}}
+			if bool(facts.get("rush_open", false)) and int(facts.get("seated", 0)) >= RUSH_SEATED:
+				return {"kind": "rush", "fill": {}}
+			if int(facts.get("seated", 0)) == 1:
+				return {"kind": "solo", "fill": {}}
+			return {"kind": "late_guest" if int(facts.get("minutes", 0)) >= LATE_GUEST_AFTER else "new_face", "fill": {"job": facts.get("job", "")}}
+		"greeted":
+			if bool(facts.get("quick", false)):
+				return {"kind": "multitask", "fill": {}}
+		"drinks_poured":
+			if bool(facts.get("first", false)):
+				return {"kind": "cheers", "fill": {"drink": facts.get("drink", "")}}
+			return {"kind": "another_round", "fill": {"drinks": facts.get("drinks", 0)}}
+		"stove_backed":
+			return {"kind": "stove", "fill": {"dishes": facts.get("dishes", 0)}}
+		"dish_served":
+			if int(facts.get("food_served", 0)) == 2:  # their second dish: they're clearly tucking in
+				return {"kind": "eating", "fill": {"name": facts.get("name", "")}}
+			return {"kind": "order_up", "fill": {"dish": facts.get("dish", "")}}
+		"paid":
+			return {"kind": "big_spender" if int(facts.get("bill", 0)) >= BIG_SPENDER else "bill", "fill": {"amount": facts.get("amount", "")}}
+		"left":
+			if int(facts.get("seated", 1)) == 0 and int(facts.get("waiting", 1)) == 0 and not bool(facts.get("last_orders", false)) and int(facts.get("minutes", 0)) >= QUIET_AFTER:
+				return {"kind": "quiet", "fill": {}}
+		"chat_started":
+			return {"kind": "chat_start", "fill": {"name": facts.get("name", ""), "friend": facts.get("friend", "")}}
+		"joined_chat":
+			return {"kind": "joins", "fill": {"gender": facts.get("gender", ""), "name": facts.get("name", "")}}
+		"owner_joined":
+			return {"kind": "owner_joins", "fill": {}}
+		"cat_moved":
+			var spot := str(facts.get("spot", ""))
+			if spot == "lap" and bool(facts.get("new_lap", false)):
+				return {"kind": "cat_lap", "fill": {"cat": facts.get("cat", ""), "name": facts.get("with", "")}}
+			if spot == "street" and not bool(facts.get("was_out", false)):
+				return {"kind": "cat_out", "fill": {"cat": facts.get("cat", "")}}
+			if bool(facts.get("was_out", false)) and spot != "street":
+				return {"kind": "cat_back", "fill": {"cat": facts.get("cat", "")}}
+		"became_regular":
+			return {"kind": "new_regular", "fill": {"gender": facts.get("gender", ""), "name": facts.get("name", "")}}
+		"friendlier":
+			return {"kind": "friendlier", "fill": {"term": facts.get("term", "")}}
+	return {}

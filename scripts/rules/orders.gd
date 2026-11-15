@@ -58,10 +58,15 @@ static func validate_order(data: Variant, max_mains: int = 1, max_drinks: int = 
 	for id in ids:
 		if Menu.find(id).get("extra_only", false):
 			return "%s is only ordered later, not when you first sit down" % Menu.find(id)["name"]
-	# What they say must match what they get: no mentioning dishes they didn't order.
+	# What they say must match what they get: no mentioning dishes they didn't order. A side
+	# they ask for but left out of "items" ("...and a bowl of rice") is added: the line wins.
+	add_mentioned_sides(line, ids, MAX_ORDER_ITEMS, func(more: Array): return check_order_shape(more, max_mains, max_drinks) == "")
 	var mention := unordered_mention(line, ids, true)
 	if mention != "":
 		return "the line mentions %s, but that isn't in \"items\"" % mention
+	var unsaid := somaek_unsaid(line, ids)
+	if unsaid != "":
+		return unsaid
 	data["items"] = ids
 	data["line"] = line
 	return ""
@@ -108,8 +113,10 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 			break
 	if not sounds_like_more:
 		return "the line sounds like a first order: make it clear they're adding to what they already have (e.g. \"one more bottle\", \"some rice too\")"
-	# Everything they ask for must be in "items". Something already on the table can be
-	# mentioned only as "this ..."/"the ...", not asked for again ("another tteokbokki").
+	# Everything they ask for must be in "items" (a side left out of it is added, as for a
+	# first order). Something already on the table can be mentioned only as "this ..."/"the
+	# ...", not asked for again ("another tteokbokki").
+	add_mentioned_sides(line, ids, MAX_EXTRA_ITEMS, func(more: Array): return not more.has("bokkeumbap") or has_main(table), table)
 	var allowed := with_somaek_parts(ids)
 	for found in mentions(line, true):
 		var id: String = found["id"]
@@ -122,9 +129,41 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 				continue
 			return "the line asks for more %s, but that isn't in \"items\" (to talk about the %s already on the table, say \"this %s\")" % [dish, dish, dish.to_lower()]
 		return "the line mentions %s, but that isn't in \"items\"" % dish
+	var unsaid := somaek_unsaid(line, ids)
+	if unsaid != "":
+		return unsaid
 	data["items"] = ids
 	data["line"] = line
 	return ""
+
+
+## Tonight's specials, by the weather (NightRules.weather_kind): what the owner's pushing
+## tonight, the way any pocha does. Rain is always pajeon and makgeolli (everyone in Korea
+## craves them when it rains); otherwise one dish from the weather's list and, now and then, a
+## drink. Customers see them marked on the menu: nobody's told to order them.
+const RAINY_SPECIALS := ["pajeon", "makgeolli"]
+const SPECIAL_DISHES := {
+	"snow": ["odeng", "ramyeon", "dakgalbi"],
+	"cold": ["odeng", "dakgalbi", "sundae"],
+	"muggy": ["gyeran_mari", "pajeon"],
+	"breeze": ["dakgalbi", "pajeon", "gyeran_mari"],
+	"fog": ["sundae", "ramyeon", "odeng"],
+	"": ["dakgalbi", "sundae", "pajeon", "gyeran_mari"],
+}
+const SPECIAL_DRINKS := {"snow": "soju", "cold": "soju", "muggy": "somaek", "breeze": "beer", "fog": "makgeolli", "": "somaek"}
+const SPECIAL_DRINK_CHANCE := 0.5
+
+
+## Tonight's specials (menu ids). weather: NightRules.weather_kind. dish_roll: which dish;
+## drink_roll: whether there's a drink special too.
+static func pick_specials(weather: String, dish_roll: float, drink_roll: float) -> Array:
+	if weather in ["rain", "drizzle"]:
+		return RAINY_SPECIALS.duplicate()
+	var dishes: Array = SPECIAL_DISHES.get(weather, SPECIAL_DISHES[""])
+	var specials: Array = [dishes[mini(int(dish_roll * dishes.size()), dishes.size() - 1)]]
+	if drink_roll < SPECIAL_DRINK_CHANCE:
+		specials.append(SPECIAL_DRINKS.get(weather, SPECIAL_DRINKS[""]))
+	return specials
 
 
 ## How many later orders a customer makes, from a random roll between 0 and 1 (see EXTRA_ORDER_ODDS).
@@ -227,6 +266,41 @@ static func unordered_mention(line: String, items: Array, with_aliases: bool = f
 		if not allowed.has(found["id"]):
 			return str(Menu.find(found["id"])["name"])
 	return ""
+
+
+## Sides the line asks for that the AI left out of the items ("tteokbokki and a bowl of rice",
+## items: just tteokbokki) go into ids, so the order matches what was said, as long as there's
+## room (most items) and fits(ids with it added) says the order's still allowed. Drinks and
+## mains aren't added: a line naming a different one is a real mix-up. table: what's already
+## been ordered (a side on it that's only mentioned isn't asked for again).
+static func add_mentioned_sides(line: String, ids: Array, most: int, fits: Callable, table: Array = []) -> void:
+	var said := Text.words(line)
+	for found in mentions(line, true):
+		var id: String = found["id"]
+		var item := Menu.find(id)
+		if with_somaek_parts(ids).has(id) or item.get("portion", "") != "side" or ids.size() >= most:
+			continue
+		var before: int = found["start"] - 1
+		if table.has(id) and before >= 0 and REFERRING_WORDS.has(said[before]):
+			continue  # "this rice": talking about it, not asking for more
+		if bool(item.get("extra_only", false)) and table.is_empty():
+			continue  # (fried rice: not with a first order)
+		var more := ids + [id]
+		if fits.call(more):
+			ids.append(id)
+
+
+## Somaek ordered, but the line doesn't ask for it: "" if it does (or there's no somaek).
+## Saying somaek, or soju and beer together ("a soju dropped into this beer"), or "the usual"
+## counts. (Somaek lets a line mention soju, so without this "one more soju" or "one more
+## bottle" came out as somaek.)
+static func somaek_unsaid(line: String, ids: Array) -> String:
+	if not ids.has("somaek"):
+		return ""
+	var said: Array = mentions(line, true).map(func(found): return str(found["id"]))
+	if said.has("somaek") or (said.has("soju") and said.has("beer")) or "usual" in Text.words(line):
+		return ""
+	return "they ordered Somaek, but the line doesn't ask for it (say \"somaek\", or order what the line asks for)"
 
 
 ## Somaek is soju dropped in beer, so ordering it lets people mention soju and beer too.

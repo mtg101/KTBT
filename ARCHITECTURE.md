@@ -10,6 +10,7 @@ The game's one big rule is **the game owns the facts, the AI owns the flavour**:
 2. **Prompts and the AI** (`prompts.gd`, `ai.gd`, `ollama_client.gd`, `canned_ai.gd`, `ai_settings.gd`): what the AI is asked, sending it to Ollama (or offline mode's canned replies), and retrying a reply the rules reject.
 3. **Saves and logs** (`save_store.gd`, `night_stats.gd`, `game.gd`): each bar's save file, the night's stats, and the `Game` autoload that holds the open bar.
 4. **The bar** (`visit.gd`, with `scenes/visit.tscn`): runs a night, using everything above. Still one big script; splitting it is step 4 of the refactor.
+   - **The night's events** (`night_events.gd`): everything noteworthy is announced once (someone walks on, sits down, pays, a dish is served, a chat starts, the cat moves, a big moment...), as plain data. Listening: the stats count them (`NightStats.record_event`), the TV captions pick theirs (`Captions.for_event`), and tonight's list of them becomes the diary's facts (`Story.diary_facts`) and goes in the night's log. Something new that wants to know what happened is another listener, not more lines through the bar.
 5. **On screen** (the look in `ktv_style.gd`: the K-TV palette, outlined labels, pills and title-card text, which everything on screen builds from; then `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `title.gd`) and **sound** (`ambience.gd`, `music.gd`): pieces the bar and title screen show. All drawn and made in code for now.
 
 Higher layers use lower ones, never the other way round: the rules don't know about scenes, and nothing below the bar knows about it.
@@ -21,14 +22,15 @@ Each file starts with what it's for. They preload each other as needed (never in
 | File | What's in it |
 |---|---|
 | `rules/text.gd` | Tidying the AI's text, splitting words, checking a reply has its fields, picking by weight, sorting rejected replies into kinds |
-| `rules/people.gd` | Owners and customers (checked), ages and genders, stays and moods for company, founding regulars, the owner's fixed life |
+| `rules/people.gd` | Owners and customers (checked), ages and genders, pronouns, stays and moods for company, founding regulars, the owner's fixed life |
 | `rules/names.gd` | Names: Korean order and the usual casing, given names, and Hangul (checked against the romanised name) |
-| `rules/looks.gd` | How people look (age range, hair, clothes, colours), and how strangers are known by their looks |
+| `rules/looks.gd` | How people look (age range, hair, clothes, colours), how strangers are known by their looks, and the street: rain gear, who walks together, phones |
 | `rules/bar_look.gd` | Each bar's name and look, from the options the game offers, and the fallbacks |
 | `rules/night_rules.gd` | The clock, arrivals, how fast time runs, the days, passers-by, the sky's light and the weather |
-| `rules/orders.gd` | Orders and later orders (checked), which food a line mentions, what's served straight away and what's cooked, the bill |
-| `rules/talk.gd` | The checks every line of dialogue passes, what conversations turn to, speech bubble pages, made-up Korean, food moments |
+| `rules/orders.gd` | Orders and later orders (checked; a side the line asks for is added), which food a line mentions, what's served straight away and what's cooked, tonight's specials, the bill |
+| `rules/talk.gd` | The checks every line of dialogue passes, what conversations turn to, speech bubble pages, made-up Korean, and the situations a line is given now and then (food moments, table customs, sharing, how someone orders, cravings, how the owner opens) |
 | `rules/address.gd` | Who calls whom what (oppa, imo, sajangnim...), and their colours on screen |
+| `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), and counting which are said |
 | `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about, its name |
 | `rules/memories.gd` | What's remembered after a visit, and the things that stick |
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
@@ -36,7 +38,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 
 ## Tests
 
-See [TESTS.md](TESTS.md). Every test hook is in `scripts/test_hooks.gd` (the game reads them as `Hooks.<name>`, and only tests set them); scene tests share `tests/support/bar_test.gd`.
+See [TESTS.md](TESTS.md). Every test hook is in `scripts/test_hooks.gd` (the game reads them as `Hooks.<name>`, and only tests set them); scene tests share `tests/support/bar_test.gd`, and `tests/support/fake_ollama.gd` stands in for Ollama to test `ai.gd`.
 
 ## Where new things go
 

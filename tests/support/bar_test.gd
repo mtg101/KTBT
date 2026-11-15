@@ -67,15 +67,31 @@ func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
 	return true
 
 
-## Clicks a button the way a player would: move the mouse over it and press. Layouts settle
-## first: a button that's only just appeared may not be in its place yet.
-func _click(runner: GdUnitSceneRunner, button: Button) -> void:
+## Clicks a button the way a player would: the mouse over it, pressed and let go, sent into
+## the game's viewport, which picks what's under the mouse just as it does for a real click
+## (so a panel over the button still gets in the way). Layouts settle first: a button that's
+## only just appeared may not be in its place yet.
+## (Not gdUnit's simulate_mouse_*: they move the real mouse pointer, which grabs it while
+## the tests run, and in headless runs on Windows the clicks never arrive at all.)
+func _click(_runner: GdUnitSceneRunner, button: Button) -> void:
 	for i in 3:
 		await get_tree().process_frame
-	runner.simulate_mouse_move(button.get_global_rect().get_center())
-	await runner.await_input_processed()
-	runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	await runner.await_input_processed()
+	var at := button.get_global_rect().get_center()
+	var viewport := button.get_viewport()
+	var move := InputEventMouseMotion.new()
+	move.position = at
+	move.global_position = at
+	viewport.push_input(move, true)
+	await get_tree().process_frame
+	for down in [true, false]:
+		var press := InputEventMouseButton.new()
+		press.button_index = MOUSE_BUTTON_LEFT
+		press.pressed = down
+		press.button_mask = MOUSE_BUTTON_MASK_LEFT if down else 0
+		press.position = at
+		press.global_position = at
+		viewport.push_input(press, true)
+		await get_tree().process_frame
 
 
 func _transcript(runner: GdUnitSceneRunner) -> String:

@@ -37,6 +37,9 @@ static var strollers := true
 static var offer_every_look := false
 ## false keeps the cat where it is (tests move it themselves).
 static var cat_wanders := true
+## Rain gear for every customer coming and going in the rain or snow, instead of the dice
+## (Looks.rain_gear: {"umbrella": false} runs for it). {}: the dice.
+static var rain_gear := {}
 
 # --- Things that would use up scripted AI replies -------------------------------------------
 ## false: a new (or older) bar gets no founding regulars.
@@ -61,6 +64,8 @@ static var captions := true
 static var caption_pacing := true
 
 # --- Files -----------------------------------------------------------------------------------
+## false: don't print where each night's transcript and stats went (tests: less noise).
+static var print_paths := true
 ## Where night transcripts go: "" for the default (logs/transcripts/ in the project folder
 ## when running from the editor, or the user data folder otherwise).
 static var transcript_folder := ""
@@ -84,6 +89,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
 	transcript_folder = transcripts
+	print_paths = false
 	SaveStore.folder = saves
 	NightStats.folder = stats
 	AiSettings.override = {"backend": "canned"}
@@ -106,6 +112,7 @@ static func restore() -> void:
 	strollers = true
 	offer_every_look = false
 	cat_wanders = true
+	rain_gear = {}
 	founding_regulars = true
 	regular_roll_override = -1.0
 	memories = true
@@ -116,6 +123,7 @@ static func restore() -> void:
 	captions = true
 	caption_pacing = true
 	transcript_folder = ""
+	print_paths = true
 	SaveStore.folder = "user://saves/"
 	NightStats.folder = "user://stats/"
 	AiSettings.override = {}

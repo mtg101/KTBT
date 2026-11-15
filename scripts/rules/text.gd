@@ -121,11 +121,6 @@ static func sentence_case(text: String) -> String:
 	return text.substr(0, 1).to_upper() + text.substr(1)
 
 
-# --- How people look ---------------------------------------------------------------------
-# The game decides each person's age range and look (like their gender), the AI is told it
-# and invents someone who'd look like that, and the game draws it.
-
-
 ## The numbers written in digits in text, without their commas ("₩412,000" -> "412000").
 static func numbers_in(text: String) -> Array:
 	var found: Array = []
@@ -140,3 +135,12 @@ static func numbers_in(text: String) -> Array:
 				found.append(digits)
 			digits = ""
 	return found
+
+
+## A BBCode hover tip around some (already BBCode) text. The tip is made safe to sit inside
+## the tag: no square brackets, no newlines, and curly quotes in place of straight ones
+## (a straight ' in "ma'am" made Godot read the rest as a quoted value, and the whole tag
+## showed as raw text).
+static func hint(tip: String, inner: String) -> String:
+	var safe := tip.replace("[", "(").replace("]", ")").replace("\n", " ").replace("'", "’").replace("\"", "”")
+	return "[hint=%s]%s[/hint]" % [safe, inner]

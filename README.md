@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest:** "Previously on…": opening a bar plays a K-drama recap of last time, in a different over-the-top K-TV style each time. Before that: the owner's diary, at 3am and as a book, the owner's life made fixed, and Korean TV captions that react to what's said.
+✅ **Latest:** a playtest review, and what came of it: Korean words explained on hover (the menu, pocha words, terms of address), table customs and sharing as hints, tonight's specials and cravings, orders that don't all sound the same, more TV reactions, and a street of umbrellas, phones and people walking together. Before that: "Previously on…", the owner's diary, and Korean TV captions.
 
 **Next up:** see [PLAN.md](PLAN.md): the night as a story is done; next could be the refactor, real art and sound, or the game itself. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
@@ -16,13 +16,14 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Nights:** 6pm to 3am, with time running faster while the tent's quiet. About twenty customers turn up, most in the late-evening rush, for five stools; when it's full, people walk on by. Each night is an episode: at 3am the owner writes it up in their diary (with the numbers behind a Stats button), and you can flip back through the diary any time. Opening a bar plays "Previously on…", a K-drama recap of last time.
 - **Customers:** invented by the AI, each with a look the game decides (age range, hair, clothes, colours) and a name in Hangul too ("김지호 Kim Ji-ho"). They order from the menu, get drinks straight away while cooked dishes queue at the one stove, chat with the owner, sometimes talk to each other, and leave when their time's up.
 - **Regulars:** two founding regulars per bar, and new customers can become regulars: they come back as themselves (★), remember what was said last time, get to know each other (∞), and fade away if they stop coming.
-- **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth, with their meaning on hover.
+- **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth.
+- **Korean words:** the menu, pocha words (banchan, jjan, aigoo, daebak…) and terms of address explain themselves on hover, in the transcript and the diary.
 - **The owner:** AI-invented, with a secret and a fixed life (family, what they did before) the AI keeps to.
 - **The cat:** with a personality, going where it likes; everyone talks about it as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
-- **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by, speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
+- **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 419 automated tests (rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 451 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -62,7 +63,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 **No suitable GPU?** Use offline mode, a small model on the CPU, or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
 
-**Tests:** open the **GdUnit** panel in Godot and click **Run All** (they don't need Ollama). See [TESTS.md](TESTS.md).
+**Tests:** open the **GdUnit** panel in Godot and click **Run All**, or run them headless with gdUnit's command-line runner so nothing takes the mouse (they don't need Ollama). See [TESTS.md](TESTS.md).
 
 ## Project layout
 
@@ -79,13 +80,14 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/loading_screen.gd` | The loading screen shown while a new bar is set up |
 | `scripts/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
+| `scripts/night_events.gd` | The night's events, announced once each, for the stats, captions and diary |
 | `scripts/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
 | `scripts/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
 | `scripts/bubble.gd` | A speech bubble: over the speaker, who it's to, a line to the listener, and long lines a page at a time |
 | `scripts/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
 | `scripts/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
-| `scripts/menu.gd` | The menu and prices (the game's facts) |
+| `scripts/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |
 | `scripts/rules/` | The game's rules, one file per area (see [ARCHITECTURE.md](ARCHITECTURE.md)): pure functions and their tables, no scene or AI, so easy to test |
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close, and the music (which carries on between scenes) |
 | `scripts/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |

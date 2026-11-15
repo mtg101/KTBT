@@ -148,6 +148,10 @@ func test_the_night_log_is_written() -> void:
 	var data = JSON.parse_string(FileAccess.get_file_as_string(TEST_STATS.path_join(files[0])))
 	assert_bool(bool(data["context"]["finished"])).is_true()
 	assert_int(int(data["people"]["served"])).is_equal(scene._night_visits)
+	# The night's timeline, event by event, for looking back over a night.
+	var paid: Array = data["events"].filter(func(e): return str(e["kind"]) == "paid")
+	assert_int(paid.size()).is_equal(scene._night_visits)
+	assert_bool(data["events"].any(func(e): return str(e["kind"]) == "sat_down" and e.has("at"))).is_true()
 
 
 func test_the_night_transcript_is_written() -> void:

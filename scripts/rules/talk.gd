@@ -242,3 +242,201 @@ const FOOD_MOMENTS := [
 
 
 const FOOD_MOMENT_CHANCE := 0.33
+
+
+## How someone orders, now and then, as a situation (never a line to say): left to itself, a
+## small model opened most orders the same way ("Ajumma, I'll have a..." 67 times in 115). Each
+## has "when" it can happen, so it's only ever true: "any", "usual" (a regular who has a
+## usual), "first" (their first time here), "late" (after midnight).
+const ORDER_MOMENTS := [
+	{"when": "any", "text": "They know exactly what they want: they've been thinking about it all the way here."},
+	{"when": "any", "text": "They're torn between two dishes, and might ask the owner to choose."},
+	{"when": "any", "text": "They ask what's good tonight before deciding."},
+	{"when": "any", "text": "They're so tired they barely look at the menu."},
+	{"when": "any", "text": "They're in a good mood tonight, and it shows in how they order."},
+	{"when": "any", "text": "Money's a bit tight this week, so they keep it simple."},
+	{"when": "any", "text": "They're still half in their own thoughts as they order."},
+	{"when": "usual", "text": "They're a regular with a usual, and the owner may already be reaching for it."},
+	{"when": "usual", "text": "They're a regular, and fancy trying something other than their usual tonight."},
+	{"when": "first", "text": "It's their first time here: they read the menu properly before ordering."},
+	{"when": "late", "text": "It's late, and they just want something hot and quick."},
+]
+const ORDER_MOMENT_CHANCE := 0.5  # (half the time: the AI's own way of ordering stays in the mix)
+
+
+## Now and then, a situation for someone's order, or "". usual: they're a regular with a
+## usual; first: their first visit; late: after midnight. roll: whether there's one; which:
+## which of those that fit.
+static func order_moment(usual: bool, first: bool, late: bool, roll: float, which: float) -> String:
+	if roll >= ORDER_MOMENT_CHANCE:
+		return ""
+	var fits := ORDER_MOMENTS.filter(func(m): return m["when"] == "any" or (m["when"] == "usual" and usual) \
+		or (m["when"] == "first" and first) or (m["when"] == "late" and late))
+	return str(fits[mini(int(which * fits.size()), fits.size() - 1)]["text"])
+
+
+## A craving, now and then, for someone's order (a K-drama favourite: rain means pajeon, a bad
+## day means something fiery). "when": "any", "rough" (a rough night for them), "cold" (a cold
+## or snowy night), "rain", "warm" (a muggy or breezy one), "company" (they're up for company).
+const CRAVINGS := [
+	{"when": "any", "text": "They've been craving something spicy all day."},
+	{"when": "any", "text": "They want something that tastes like home cooking."},
+	{"when": "any", "text": "They fancy something crispy."},
+	{"when": "any", "text": "They only want something small to go with their drink."},
+	{"when": "rough", "text": "After the day they've had, they want something fiery enough to sweat it out."},
+	{"when": "rough", "text": "Tonight they want comfort food, nothing fancy."},
+	{"when": "cold", "text": "They're chilled through and want something hot."},
+	{"when": "rain", "text": "Rain like this always makes them crave pajeon and makgeolli."},
+	{"when": "warm", "text": "It's too warm for anything heavy."},
+	{"when": "company", "text": "They're in the mood for something to share."},
+]
+const CRAVING_CHANCE := 0.35
+
+
+## Now and then, a craving for someone's order, or "" (see CRAVINGS). weather: NightRules.weather_kind.
+static func craving(weather: String, rough: bool, company: bool, roll: float, which: float) -> String:
+	if roll >= CRAVING_CHANCE:
+		return ""
+	var cold := weather in ["cold", "snow"]
+	var rain := weather in ["rain", "drizzle"]
+	var warm := weather in ["muggy", "breeze"]
+	var fits := CRAVINGS.filter(func(c): return c["when"] == "any" or (c["when"] == "rough" and rough) or (c["when"] == "cold" and cold) \
+		or (c["when"] == "rain" and rain) or (c["when"] == "warm" and warm) or (c["when"] == "company" and company))
+	return str(fits[mini(int(which * fits.size()), fits.size() - 1)]["text"])
+
+
+## How the owner opens, now and then, once someone's drinks are down (situations again: the owner
+## said "You look like you've been..." 18 times in six nights). "when" as for ORDER_MOMENTS,
+## plus "rain" (it's wet out) and "regular" (anyone the owner knows).
+const OPENER_MOMENTS := [
+	{"when": "any", "text": "The owner sets the banchan down first and lets them settle before saying anything much."},
+	{"when": "any", "text": "The owner notices something about them: what they're carrying, what they're wearing, how they sat down."},
+	{"when": "any", "text": "The owner's in the middle of something at the stove and talks over their shoulder."},
+	{"when": "any", "text": "The owner says something about what they ordered."},
+	{"when": "rain", "text": "They've come in out of the wet, and the owner can see it."},
+	{"when": "late", "text": "It's late, and the owner wonders out loud what's kept them out."},
+	{"when": "regular", "text": "The owner picks up from something they remember about them from before."},
+	{"when": "first", "text": "A new face: the owner's curious about them."},
+]
+const OPENER_MOMENT_CHANCE := 0.6
+
+
+## Now and then, a situation for the owner's first proper word with someone, or "".
+static func opener_moment(regular: bool, first: bool, late: bool, wet: bool, roll: float, which: float) -> String:
+	if roll >= OPENER_MOMENT_CHANCE:
+		return ""
+	var fits := OPENER_MOMENTS.filter(func(m): return m["when"] == "any" or (m["when"] == "regular" and regular) \
+		or (m["when"] == "first" and first) or (m["when"] == "late" and late) or (m["when"] == "rain" and wet))
+	return str(fits[mini(int(which * fits.size()), fits.size() - 1)]["text"])
+
+
+## Things that go with a particular dish or drink, as situations: never a line to say
+## (asked to say "make ssam" outright, a small model says it in every line). They hand the
+## AI the table customs (pouring for each other, mixing somaek, wrapping ssam) and leave
+## whether anyone mentions them up to the conversation.
+const SERVED_MOMENTS := {
+	"soju": [
+		"Here nobody pours their own glass: you fill other people's, and they fill yours.",
+		"The soju's ice cold: the first glass of the night always goes down well.",
+	],
+	"somaek": [
+		"Somaek gets mixed at the table: a shot of soju dropped into the beer, and some people make a little show of it.",
+		"Everyone has their own idea of the perfect soju-to-beer ratio for somaek.",
+	],
+	"beer": ["The beer's cold enough to fog the glass."],
+	"makgeolli": [
+		"Makgeolli settles in the bottle, so it gets a gentle swirl before it's poured.",
+		"Makgeolli and pajeon go together, especially when it's raining.",
+	],
+	"dakgalbi": ["The dakgalbi comes with lettuce leaves on the side, for wrapping each bite into ssam."],
+	"sundae": ["The sundae comes with a little dish of salt to dip it in."],
+	"ramyeon": ["The ramyeon comes in the pot it was cooked in: people here eat it off the pot lid."],
+	"pajeon": ["The pajeon gets torn apart with chopsticks and shared: the crispy edges go first."],
+	"tteokbokki": ["The tteokbokki is properly spicy, and the sauce is good for dipping other things in."],
+	"odeng": ["The odeng broth gets topped up for free, and it warms you right through."],
+}
+
+
+## Now and then (FOOD_MOMENT_CHANCE), a situation for the line after something's served:
+## mostly one about what just arrived, otherwise (for food) a general one. roll decides
+## whether there is one, which decides which.
+static func served_moment(ids: Array, roll: float, which: float) -> String:
+	if roll >= FOOD_MOMENT_CHANCE:
+		return ""
+	var specific: Array = []
+	var any_food := false
+	for id in ids:
+		specific.append_array(SERVED_MOMENTS.get(id, []))
+		any_food = any_food or Menu.find(id).get("kind", "") == "food"
+	var general: Array = FOOD_MOMENTS if any_food else []
+	var pool: Array = specific if not specific.is_empty() and (which < 0.65 or general.is_empty()) else general
+	if pool.is_empty():
+		return ""
+	return str(pool[mini(int(which * pool.size()), pool.size() - 1)])
+
+
+## What kind of hint a served or sharing moment is, for the stats: the menu id it's about,
+## "food" (a general food moment), "more_food", "pour" or "close"; "" if it's neither.
+static func moment_kind(moment: String) -> String:
+	for id in SERVED_MOMENTS:
+		if SERVED_MOMENTS[id].has(moment):
+			return id
+	if FOOD_MOMENTS.has(moment):
+		return "food"
+	for kind in SHARING_KINDS:
+		if _matches_template(moment, SHARING_KINDS[kind]):
+			return kind
+	return ""
+
+
+## Words that show a line took a hint up (rough: for the stats, not a check). A kind with
+## none (the general food moments) is never counted as taken or not.
+const HINT_TELLS := {
+	"soju": ["pour", "glass", "cold"], "somaek": ["somaek", "mix", "ratio", "drop"], "beer": ["cold", "fog"],
+	"makgeolli": ["swirl", "shake", "pajeon", "rain"], "dakgalbi": ["ssam", "lettuce", "wrap"],
+	"sundae": ["salt"], "ramyeon": ["lid"], "pajeon": ["crisp", "edge", "tear"], "tteokbokki": ["spicy", "sauce", "dip"],
+	"odeng": ["broth", "warm"], "more_food": ["share", "have some", "try", "take some", "help yourself"],
+	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
+}
+
+
+## Whether a line seems to have taken up a hint of this kind (see HINT_TELLS).
+static func hint_taken(kind: String, line: String) -> bool:
+	var lower := line.to_lower()
+	for tell in HINT_TELLS.get(kind, []):
+		if lower.contains(str(tell)):
+			return true
+	return false
+
+
+static func _matches_template(moment: String, template: String) -> bool:
+	var pattern := "^" + template.replace(".", "\\.").replace("{giver}", ".+").replace("{other}", ".+") + "$"
+	return RegEx.create_from_string(pattern).search(moment) != null
+
+
+## Sharing between customers chatting at the counter, as situations ({giver} and {other}
+## are filled with names). Each is only offered when the game knows it's true.
+const SHARING_MORE_FOOD := "{giver} has more food on the table than {other} has."
+const SHARING_POUR := "Here people fill each other's glasses rather than their own: {giver} could top up {other}'s."
+const SHARING_CLOSE := "{giver} and {other} are close now: close friends here feed each other a bite, or pick out the best piece for the other."
+const SHARING_CHANCE := 0.25
+const SHARING_KINDS := {"more_food": SHARING_MORE_FOOD, "pour": SHARING_POUR, "close": SHARING_CLOSE}
+
+
+## Now and then, a sharing situation for a chat line, or "". giver: the speaker (who has food
+## on their table); other: who they're talking to. more_food: the giver has more food served
+## than the other; both_drinking: both have a drink on the table.
+static func sharing_moment(giver: String, other: String, close: bool, more_food: bool, both_drinking: bool, roll: float, which: float) -> String:
+	if roll >= SHARING_CHANCE:
+		return ""
+	var pool: Array = []
+	if more_food:
+		pool.append(SHARING_MORE_FOOD)
+	if both_drinking:
+		pool.append(SHARING_POUR)
+	if close:
+		pool.append(SHARING_CLOSE)
+	if pool.is_empty():
+		return ""
+	var moment := str(pool[mini(int(which * pool.size()), pool.size() - 1)])
+	return moment.replace("{giver}", giver).replace("{other}", other)

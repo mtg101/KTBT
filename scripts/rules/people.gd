@@ -110,6 +110,17 @@ const NON_BINARY_CHANCE := 0.01
 
 
 ## A new customer's gender, from a random roll between 0 and 1.
+## How to refer to someone, from their gender ("woman": she, "man": he, anyone else: they),
+## so the diary and the recap don't guess.
+static func pronoun(gender: String) -> String:
+	match gender:
+		"woman":
+			return "she"
+		"man":
+			return "he"
+	return "they"
+
+
 static func game_gender(roll: float) -> String:
 	if roll < NON_BINARY_CHANCE:
 		return "non-binary"

@@ -143,29 +143,5 @@ static func address_text(speaker_name: String, speaker: Dictionary, listener_nam
 	return "%s may call %s %s (only these terms of address), but most lines need none at all: just now and then." % [speaker_name, listener_name, " or ".join(named)]
 
 
-## Colours for the honorifics in the transcript, by warmth.
+## Colours for the honorifics in the transcript, by warmth (see Glossary.explain).
 const WARMTH_COLOURS := {"polite": "8fb8ff", "family": "ffc46b", "close": "ff8fc0"}
-
-
-## A line (already escaped for BBCode) with its terms of address coloured by warmth, and
-## what they mean on hover. names: people's names, which are left alone.
-static func colour_terms(bbcode: String, names: Array = []) -> String:
-	var out := bbcode
-	var skip := PackedStringArray()
-	for person in names:
-		skip.append_array(str(person).to_lower().split(" ", false))
-	for id in TERMS:
-		for spelling in TERMS[id]["spellings"]:
-			var pattern := RegEx.create_from_string("(?i)(?<![\\w-])(" + spelling + ")(?![\\w-])")
-			var result := ""
-			var at := 0
-			for found in pattern.search_all(out):
-				result += out.substr(at, found.get_start() - at)
-				var word := found.get_string(1)
-				if skip.has(word.to_lower()):
-					result += word
-				else:
-					result += "[hint=%s %s: %s][color=#%s]%s[/color][/hint]" % [TERMS[id]["hangul"], str(id).capitalize(), TERMS[id]["means"], WARMTH_COLOURS[TERMS[id]["warmth"]], word]
-				at = found.get_end()
-			out = result + out.substr(at)
-	return out

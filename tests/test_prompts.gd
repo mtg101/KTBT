@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
 
 
 func _owner_data() -> Dictionary:
@@ -127,6 +128,14 @@ func test_order_prompt_explains_how_people_order() -> void:
 	var text := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), []))
 	assert_str(text).contains("at least one drink and at least one food")
 	assert_str(text).contains("at most one main dish")
+
+
+func test_order_prompt_can_set_the_scene_for_how_they_order() -> void:
+	var situation := str(Talk.ORDER_MOMENTS[1]["text"])
+	var text := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), [], false, false, situation))
+	assert_str(text).contains("why they're here tonight. " + situation + " Order between 2 and 4")
+	var plain := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), []))
+	assert_str(plain).contains("why they're here tonight. Order between 2 and 4")
 
 
 func test_order_prompt_lets_hungry_customers_order_two_mains() -> void:
@@ -441,7 +450,8 @@ func test_the_tv_reaction_prompt() -> void:
 		assert_str(text).contains("\"%s\"" % mood)
 	assert_str(text).contains("at most five words")
 	assert_str(text).contains("\"size\"")
-	assert_str(text).contains("Only a 4 or 5 gets a caption")
+	assert_str(text).contains("Only a %d or more gets a caption" % Captions.REACTION_MIN_SIZE)
+	assert_str(text).contains("\"none\" if it's %d or less" % (Captions.REACTION_MIN_SIZE - 1))
 
 
 func test_the_memory_prompt_and_a_regulars_memories() -> void:

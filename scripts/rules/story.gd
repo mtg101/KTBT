@@ -3,7 +3,10 @@ extends RefCounted
 ## (Part of the game's rules: pure functions and the tables they use, with any dice rolls
 ## passed in, so they can be tested on their own. See ARCHITECTURE.md.)
 
+const Menu = preload("res://scripts/menu.gd")
 const Names = preload("res://scripts/rules/names.gd")
+const People = preload("res://scripts/rules/people.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
@@ -103,7 +106,7 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 	for number in Text.numbers_in(entry):
 		if not allowed.has(number):
 			return "the diary has a number (%s) that isn't in tonight's facts" % number
-	var mention := Orders.unordered_mention(entry, facts.get("ordered", []))
+	var mention := Orders.unordered_mention(entry, facts.get("ordered", []) + facts.get("specials", []))  # (specials: on all night)
 	if mention != "":
 		return "the diary mentions %s, but nobody ordered that tonight" % mention
 	var names: Array = here.duplicate()
@@ -309,3 +312,77 @@ static func pick_recap_style(last: Dictionary, previous: String, roll: float) ->
 		var others: Array = styles.filter(func(s): return s != previous and s != wanted) if wanted == previous else styles.filter(func(s): return s != previous)
 		wanted = str(others[clampi(floori(roll * others.size()), 0, others.size() - 1)])
 	return wanted
+
+
+## The facts the owner's diary is written from, from tonight's events (NightEvents.timeline) and
+## what else the game knows (context: "episode", "day", "weather", "owner", "customers",
+## "takings" (won), "before" (the last nights' takings), "regulars" ({"name", "founding"}),
+## "cat", "line"). Kept with the entry, for the diary book and "Previously on…".
+static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
+	var people: Array = []
+	var ordered: Array = []
+	var moments: Array = []
+	var friendlier: Array = []
+	var new_regulars: Array = []
+	var laps: Array = []
+	var walked_on := 0
+	var peak := 0
+	var peak_at := -1
+	for event in events:
+		match str(event["kind"]):
+			"paid":
+				people.append({"name": str(event.get("name", "")), "hangul": str(event.get("hangul", "")), "job": str(event.get("job", "")),
+					"regular": str(event.get("regular", "")), "ordered": str(event.get("ordered", "")), "order_ids": event.get("order_ids", []).duplicate(),
+					"pronoun": People.pronoun(str(event.get("gender", "")))})
+				for id in event.get("order_ids", []):
+					if not ordered.has(id):
+						ordered.append(id)
+			"big_moment":
+				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("mood", "")), "caption": str(event.get("caption", "")), "said": str(event.get("said", ""))})
+			"friendlier":
+				friendlier.append("%s and %s are on \"%s\" terms now" % [event.get("a", ""), event.get("b", ""), event.get("term", "")])
+			"became_regular":
+				new_regulars.append(str(event.get("name", "")))
+			"cat_moved":
+				if str(event.get("spot", "")) == "lap" and bool(event.get("new_lap", false)) and not laps.has(str(event.get("with", ""))):
+					laps.append(str(event.get("with", "")))
+			"walked_on":
+				walked_on += 1
+			"sat_down":
+				if int(event.get("seated", 0)) > peak:
+					peak = int(event["seated"])
+					peak_at = int(event.get("at", 0))
+	var here: Array = people.map(func(p): return str(p["name"]))
+	var missing: Array = []
+	var not_here: Array = []
+	for regular in context.get("regulars", []):
+		var regular_name := str(regular["name"])
+		if here.has(regular_name):
+			continue
+		if bool(regular.get("founding", false)):
+			missing.append(regular_name)  # the old regulars are missed when they don't come
+		else:
+			not_here.append(regular_name)
+	var before: Array = context.get("before", [])
+	return {
+		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
+		"customers": int(context.get("customers", 0)), "takings": Menu.format_won(int(context.get("takings", 0))),
+		"takings_vs_usual": takings_word(int(context.get("takings", 0)), before.slice(-7)),
+		"busiest": ("%s, with %d at the counter" % [NightRules.clock_text(peak_at), peak]) if peak_at >= 0 else "",
+		"people": people, "missing": missing, "not_here": not_here, "pronouns": _pronouns(context, people),
+		"moments": moments, "friendlier": friendlier, "new_regulars": new_regulars,
+		"cat": str(context.get("cat", "")), "cat_laps": laps, "walked_on": walked_on,
+		"line": context.get("line", {}).duplicate(), "ordered": ordered, "specials": context.get("specials", []).duplicate(),
+	}
+
+
+## Everyone the diary or recap might mention, and how to refer to them: {name: "she"}.
+static func _pronouns(context: Dictionary, people: Array) -> Dictionary:
+	var found := {}
+	if str(context.get("owner", "")) != "":
+		found[str(context["owner"])] = People.pronoun(str(context.get("owner_gender", "")))
+	for regular in context.get("regulars", []):
+		found[str(regular["name"])] = People.pronoun(str(regular.get("gender", "")))
+	for person in people:
+		found[str(person["name"])] = str(person.get("pronoun", "they"))
+	return found

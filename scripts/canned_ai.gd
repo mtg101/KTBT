@@ -11,6 +11,7 @@ extends RefCounted
 
 const Menu = preload("res://scripts/menu.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const Names = preload("res://scripts/rules/names.gd")
@@ -154,7 +155,7 @@ func reply(request: Dictionary) -> Variant:
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])
 			if names.is_empty() or randf() < 0.75:
-				return {"size": randi_range(1, 3), "mood": "none"}
+				return {"size": randi_range(1, Captions.REACTION_MIN_SIZE - 1), "mood": "none"}
 			var mood: String = REACTION_CAPTIONS.keys().pick_random()
 			return {"size": 4, "mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood]}
 		"memory":

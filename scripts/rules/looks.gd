@@ -174,3 +174,58 @@ static func seen_as(person: Dictionary) -> String:
 # Everyone's name is shown in Hangul too, next to the romanised one (like the sign), so the
 # player gets used to seeing Korean names. The AI writes it; the game checks it fits the
 # romanised name, and drops it rather than showing a wrong one.
+
+
+## What someone in the street has for the rain or snow: an umbrella, of one of a few shapes
+## and a size and tilt of its own (so a rainy street isn't one umbrella over and over), or
+## now and then none, so they run for it. {} when the weather needs nothing.
+## "dome": the everyday one; "wide": a big, flatter golf umbrella; "bubble": a deep clear
+## dome down round the head (Seoul's convenience-store ones); "compact": a small folding one.
+const UMBRELLA_SHAPES := {"dome": 0.4, "wide": 0.2, "bubble": 0.25, "compact": 0.15}
+const NO_UMBRELLA_CHANCE := {"drizzle": 0.25, "rain": 0.07, "snow": 0.15}  # (drizzle: plenty don't bother)
+
+
+## Whether anyone out in this weather needs an umbrella (or to run for it).
+static func wet(weather: String) -> bool:
+	return NO_UMBRELLA_CHANCE.has(weather)
+
+
+## roll: umbrella or not; shape_roll: which shape (and its tilt); size_roll: how big.
+static func rain_gear(weather: String, roll: float, shape_roll: float, size_roll: float) -> Dictionary:
+	if not wet(weather):
+		return {}
+	if roll < float(NO_UMBRELLA_CHANCE[weather]):
+		return {"umbrella": false}
+	var shape := "dome"
+	var upto := 0.0
+	for each in UMBRELLA_SHAPES:
+		upto += float(UMBRELLA_SHAPES[each])
+		if shape_roll < upto:
+			shape = each
+			break
+	var size := lerpf(0.75, 0.9, size_roll) if shape == "compact" else lerpf(0.88, 1.12, size_roll)
+	var tilt := (fmod(shape_roll * 7.0, 1.0) - 0.5) * 0.24  # a little either way
+	return {"umbrella": true, "shape": shape, "size": size, "tilt": tilt}
+
+
+## Who's out in the street together: most people alone, some in twos, a few in threes.
+const STREET_COMPANY := {1: 0.62, 2: 0.28, 3: 0.1}
+## How many are looking at their phones as they walk (it's 2026): plenty of those on their
+## own, a few of those with friends.
+const PHONE_CHANCE := {"alone": 0.45, "together": 0.12}
+## A pair in the rain sharing one umbrella (a K-drama favourite).
+const SHARED_UMBRELLA_CHANCE := 0.35
+
+
+static func street_company(roll: float) -> int:
+	var upto := 0.0
+	for count in STREET_COMPANY:
+		upto += float(STREET_COMPANY[count])
+		if roll < upto:
+			return int(count)
+	return 1
+
+
+## Whether someone's walking along on their phone. Nobody running for it is.
+static func on_phone(alone: bool, running: bool, roll: float) -> bool:
+	return not running and roll < float(PHONE_CHANCE["alone" if alone else "together"])

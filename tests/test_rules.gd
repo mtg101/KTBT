@@ -12,8 +12,11 @@ const Names = preload("res://scripts/rules/names.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
+const Prompts = preload("res://scripts/prompts.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Menu = preload("res://scripts/menu.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 
@@ -159,6 +162,19 @@ func test_regression_line_mentioning_unordered_item_is_rejected() -> void:
 
 func test_somaek_order_may_mention_soju_and_beer() -> void:
 	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "A somaek: soju dropped in beer, the way I like it."))).is_empty()
+
+
+func test_somaek_has_to_be_asked_for() -> void:
+	# From real nights: "One more soju" and "One more bottle" were both served as somaek.
+	assert_str(Orders.validate_extra_order(_order(["somaek"], "One more soju, and an omelette."), ["soju"])).contains("doesn't ask for it")
+	assert_str(Orders.validate_extra_order(_order(["somaek"], "One more bottle, please."), ["soju"])).contains("doesn't ask for it")
+	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Ajumma, a soju and the odeng."))).contains("doesn't ask for it")
+	# Asking for it any of these ways is fine.
+	assert_str(Orders.validate_extra_order(_order(["somaek"], "One more somaek, please."), ["soju"])).is_empty()
+	assert_str(Orders.validate_extra_order(_order(["somaek"], "Can I get another soju dropped into this beer?"), ["beer"])).is_empty()
+	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Ajumma, the usual, and odeng."))).is_empty()
+	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Just a somaeck and odeng, please."))).is_empty()  # (a common misspelling)
+	assert_str(Menu.resolve("somac")).is_equal("somaek")
 
 
 func test_quotes_around_order_line_are_removed() -> void:
@@ -438,14 +454,33 @@ func test_regression_later_order_asking_for_more_of_a_table_dish_is_rejected() -
 	assert_str(problem).contains("this tteokbokki")
 
 
-func test_regression_later_order_asking_for_rice_by_alias_is_rejected() -> void:
+func test_later_order_asking_for_rice_gets_rice() -> void:
+	# The line wins for a side the AI left out of "items" (it used to be rejected, and 9 orders
+	# in a run of six nights fell back to the game's own soju and odeng because of it).
 	var data := _order(["soju"], "One more soju and some rice too.")
-	assert_str(Orders.validate_extra_order(data, ["soju", "tteokbokki"])).contains("Gonggibap")
+	assert_str(Orders.validate_extra_order(data, ["soju", "tteokbokki"])).is_empty()
+	assert_array(data["items"]).is_equal(["soju", "gonggibap"])
 
 
-func test_first_order_asking_for_rice_by_alias_is_rejected() -> void:
+func test_first_order_asking_for_rice_gets_rice() -> void:
 	var data := _order(["soju", "tteokbokki"], "Soju, tteokbokki and a bowl of rice.")
-	assert_str(Orders.validate_order(data)).contains("Gonggibap")
+	assert_str(Orders.validate_order(data)).is_empty()
+	assert_array(data["items"]).is_equal(["soju", "tteokbokki", "gonggibap"])
+
+
+func test_only_sides_are_added_and_only_if_they_fit() -> void:
+	# A main or a drink the line names but "items" doesn't is a real mix-up: still rejected.
+	assert_str(Orders.validate_order(_order(["soju", "odeng"], "Soju, odeng and the pajeon."))).contains("Pajeon")
+	assert_str(Orders.validate_order(_order(["beer", "odeng"], "Soju and odeng."))).contains("Soju")
+	# No room: a later order is at most two things.
+	var full := _order(["soju", "odeng"], "One more soju, more odeng, and some rice too.")
+	assert_str(Orders.validate_extra_order(full, ["soju", "odeng"])).contains("Gonggibap")
+	# Fried rice with a first order: still only later.
+	assert_str(Orders.validate_order(_order(["soju", "tteokbokki"], "Soju, tteokbokki and fried rice."))).contains("Bokkeumbap")
+	# Talking about the rice already on the table isn't asking for more.
+	var talk := _order(["soju"], "One more soju to go with this rice.")
+	assert_str(Orders.validate_extra_order(talk, ["soju", "gonggibap"])).is_empty()
+	assert_array(talk["items"]).is_equal(["soju"])
 
 
 func test_fried_rice_is_not_also_read_as_rice() -> void:
@@ -1231,12 +1266,197 @@ func test_sibling_terms_and_colours() -> void:
 	assert_str(Address.sibling_term(_p("man", 25), _p("woman", 30))).is_equal("nuna")
 	assert_str(Address.sibling_term(_p("woman", 30), _p("woman", 30))).is_empty()  # the same age
 	assert_str(Address.sibling_term(_p("woman", 30), _p("woman", 25))).is_empty()  # she's the older one
-	var coloured := Address.colour_terms("Imo, one more! Thanks, Hyung-jun.", ["Lee Hyung-jun"])
+	var coloured := Glossary.explain("Imo, one more! Thanks, Hyung-jun.", ["Lee Hyung-jun"])
 	assert_str(coloured).contains("[color=#%s]Imo[/color]" % Address.WARMTH_COLOURS["family"])
 	assert_str(coloured).contains("auntie")
 	assert_str(coloured).contains("Hyung-jun.")  # a name, left alone
 	assert_str(coloured).not_contains("[color=#%s]Hyung" % Address.WARMTH_COLOURS["close"])
 	assert_str(Address.address_text("Kim Ji-ho", _p("woman", 25), "Park Mi-sook", _p("woman", 58, true), false)).contains("Imo")
+
+
+func test_served_moments_are_situations_for_real_menu_items() -> void:
+	for id in Talk.SERVED_MOMENTS:
+		assert_dict(Menu.find(id)).is_not_empty()  # only things on the menu
+		for moment in Talk.SERVED_MOMENTS[id]:
+			assert_str(str(moment)).not_contains("\"")  # never a phrase for the AI to repeat
+	assert_str(Talk.served_moment(["somaek"], 0.9, 0.0)).is_empty()  # now and then, not every time
+	assert_str(Talk.served_moment(["somaek"], 0.0, 0.0)).contains("soju dropped into the beer")
+	assert_str(Talk.served_moment(["dakgalbi"], 0.0, 0.0)).contains("ssam")
+	assert_bool(Talk.FOOD_MOMENTS.has(Talk.served_moment(["dakgalbi"], 0.0, 0.9))).is_true()  # sometimes a general food one
+	assert_bool(Talk.SERVED_MOMENTS["soju"].has(Talk.served_moment(["soju"], 0.0, 0.9))).is_true()  # drinks: never a food one
+	assert_str(Talk.served_moment(["gyeran_mari"], 0.0, 0.0)).is_not_empty()  # no special one: a general food moment
+	assert_str(Talk.served_moment(["gonggibap", "beer"], 0.0, 0.0)).is_not_empty()
+
+
+func test_sharing_moments_only_say_what_is_true() -> void:
+	assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", true, true, true, 0.9, 0.0)).is_empty()
+	assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", false, false, false, 0.0, 0.0)).is_empty()  # nothing true to offer
+	assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", false, true, false, 0.0, 0.5)).is_equal(
+		"Kim Ji-ho has more food on the table than Lee Min-jun has.")
+	assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", false, false, true, 0.0, 0.5)).contains("top up Lee Min-jun's")
+	assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", true, false, false, 0.0, 0.5)).contains("feed each other a bite")
+	for which in [0.0, 0.4, 0.8]:  # strangers never get the close one
+		assert_str(Talk.sharing_moment("Kim Ji-ho", "Lee Min-jun", false, true, true, 0.0, which)).not_contains("feed each other")
+
+
+func test_korean_words_are_explained_once() -> void:
+	var line := Glossary.explain("Jjan! Somaek and tteokbokki, Imo. Aigoo, ramen with banchan, Mr Jeong? Beer too.", ["Jeong Min-ho"])
+	for word in ["Jjan", "Somaek", "tteokbokki", "Imo", "Aigoo", "ramen", "banchan"]:
+		assert_str(line).contains("]%s[/color][/hint]" % word)
+	assert_str(line).contains("떡볶이 Tteokbokki: spicy rice cakes")  # the menu's own Hangul and description
+	assert_str(line).contains("[color=#%s]Imo" % Address.WARMTH_COLOURS["family"])  # terms keep their warmth colours
+	assert_str(line).contains("Mr Jeong?")  # a person, not a word
+	assert_str(line).contains(" Beer too.")  # not a Korean word
+	# Somaek's tip mentions soju: hinted once, never a hint inside a hint.
+	assert_int(line.count("[hint=")).is_equal(7)
+	var label: RichTextLabel = auto_free(RichTextLabel.new())
+	label.bbcode_enabled = true
+	label.text = line
+	assert_str(label.get_parsed_text()).is_equal("Jjan! Somaek and tteokbokki, Imo. Aigoo, ramen with banchan, Mr Jeong? Beer too.")
+	assert_str(Glossary.explain("They were fighting about the sundae.")).contains("]sundae[/color]")
+	assert_str(Glossary.explain("They were fighting about it.")).is_equal("They were fighting about it.")  # English stays English
+	for item in Menu.ITEMS:
+		assert_str(str(item.get("hangul", ""))).is_not_empty()
+
+
+func test_rain_gear_varies_and_some_people_run_for_it() -> void:
+	assert_dict(Looks.rain_gear("clear", 0.0, 0.0, 0.0)).is_empty()
+	assert_bool(bool(Looks.rain_gear("rain", 0.0, 0.5, 0.5)["umbrella"])).is_false()  # no umbrella: rare
+	assert_bool(bool(Looks.rain_gear("rain", 0.5, 0.5, 0.5)["umbrella"])).is_true()
+	assert_float(float(Looks.NO_UMBRELLA_CHANCE["rain"])).is_less(0.15)
+	var shapes := {}
+	for i in 20:
+		var gear := Looks.rain_gear("snow", 0.9, i / 20.0, i / 20.0)
+		shapes[gear["shape"]] = true
+		assert_float(float(gear["size"])).is_between(0.7, 1.15)  # nothing major
+		assert_float(absf(float(gear["tilt"]))).is_less_equal(0.12)
+	assert_int(shapes.size()).is_equal(Looks.UMBRELLA_SHAPES.size())  # every shape turns up
+	var total := 0.0
+	for shape in Looks.UMBRELLA_SHAPES:
+		total += float(Looks.UMBRELLA_SHAPES[shape])
+	assert_float(total).is_equal_approx(1.0, 0.001)
+
+
+func test_text_helpers_tidy_what_the_ai_sends() -> void:
+	assert_str(Text.tidy_text(["  kimchi", "radish  "])).is_equal("kimchi, radish")  # a list where text was wanted
+	assert_str(Text.tidy_text("  plain  ")).is_equal("plain")
+	assert_str(Text.tidy_text(42)).is_equal("42")
+	for quoted in ["\"Hello\"", "“Hello”", "'Hello'", "\" Hello \""]:
+		assert_str(Text.unquote(quoted)).is_equal("Hello")
+	assert_str(Text.unquote("\"Hello")).is_equal("\"Hello")  # only a matching pair comes off
+	assert_str(Text.unquote("\"")).is_equal("\"")
+	assert_str(Text.sentence_case("light drizzle")).is_equal("Light drizzle")
+	assert_str(Text.sentence_case("")).is_empty()
+	assert_str(Text.as_sentence(" a messy bob ")).is_equal("A messy bob.")
+	assert_str(Text.as_sentence("Really?")).is_equal("Really?")
+	assert_array(Array(Text.words("Gruff-but-soft Ajumma!"))).is_equal(["gruff", "but", "soft", "ajumma"])
+	assert_array(Text.numbers_in("₩412,000 for 3 bottles, at 2am")).is_equal(["412000", "3", "2"])
+	assert_array(Text.numbers_in("no numbers here")).is_empty()
+
+
+func test_check_fields_wants_every_field_with_something_in_it() -> void:
+	assert_str(Text.check_fields("not a dict", ["name"])).is_equal("it wasn't a JSON object")
+	assert_str(Text.check_fields({"name": "Kim"}, ["name", "job"])).is_equal("it left out \"job\"")
+	assert_str(Text.check_fields({"name": "   "}, ["name"])).is_equal("\"name\" was empty")
+	var data := {"name": "  Kim Ji-ho ", "likes": ["soju", "rain"], "age": 0}
+	assert_str(Text.check_fields(data, ["name", "likes", "age"])).is_empty()  # (age: a number, not checked as text)
+	assert_str(str(data["name"])).is_equal("Kim Ji-ho")  # tidied in place
+	assert_str(str(data["likes"])).is_equal("soju, rain")
+
+
+func test_pick_weighted_follows_the_weights_and_skips() -> void:
+	var weights := {"a": 1.0, "b": 3.0, "c": 0.0}
+	assert_str(Text.pick_weighted(weights, 0.0, "")).is_equal("a")
+	assert_str(Text.pick_weighted(weights, 0.2, "")).is_equal("a")
+	assert_str(Text.pick_weighted(weights, 0.3, "")).is_equal("b")
+	assert_str(Text.pick_weighted(weights, 1.0, "")).is_equal("b")  # (a roll of 1 still lands)
+	assert_str(Text.pick_weighted(weights, 0.0, "a")).is_equal("b")  # skipped: never picked
+	for roll in [0.0, 0.5, 0.99]:
+		assert_str(Text.pick_weighted(weights, roll, "")).is_not_equal("c")  # no weight, never picked
+
+
+func test_street_company_and_phones() -> void:
+	assert_int(Looks.street_company(0.0)).is_equal(1)
+	assert_int(Looks.street_company(0.7)).is_equal(2)
+	assert_int(Looks.street_company(0.95)).is_equal(3)
+	assert_int(Looks.street_company(1.0)).is_equal(1)
+	assert_bool(Looks.on_phone(true, false, 0.3)).is_true()  # plenty on their own are
+	assert_bool(Looks.on_phone(false, false, 0.3)).is_false()  # fewer with friends
+	assert_bool(Looks.on_phone(true, true, 0.0)).is_false()  # nobody running for it
+	assert_float(float(Looks.PHONE_CHANCE["together"])).is_less(float(Looks.PHONE_CHANCE["alone"]))
+
+
+func test_order_and_opener_situations_only_say_what_is_true() -> void:
+	for moment in Talk.ORDER_MOMENTS + Talk.OPENER_MOMENTS:
+		assert_str(str(moment["text"])).not_contains("\"")  # never a phrase for the AI to repeat
+		assert_bool(["any", "usual", "first", "late", "regular", "rain"].has(str(moment["when"]))).is_true()
+	assert_str(Talk.order_moment(false, false, false, 0.9, 0.0)).is_empty()  # now and then, not always
+	for i in 20:
+		var plain := Talk.order_moment(false, false, false, 0.0, i / 20.0)
+		assert_str(plain).is_not_empty()
+		assert_str(plain).not_contains("usual")  # no usual: never "reaching for it"
+		assert_str(plain).not_contains("first time")
+		assert_str(plain).not_contains("late")
+		var opener := Talk.opener_moment(false, false, false, false, 0.0, i / 20.0)
+		assert_str(opener).not_contains("wet")
+		assert_str(opener).not_contains("remember")
+	assert_str(Talk.order_moment(true, false, false, 0.0, 0.99)).contains("usual")  # (the last that fits)
+	assert_str(Talk.order_moment(false, true, true, 0.0, 0.99)).contains("late")
+	assert_str(Talk.opener_moment(true, false, false, false, 0.0, 0.99)).contains("remember")
+	assert_float(Talk.ORDER_MOMENT_CHANCE).is_less_equal(0.5)  # the AI's own way stays in the mix
+
+
+func test_specials_follow_the_weather() -> void:
+	assert_array(Orders.pick_specials("rain", 0.5, 0.9)).is_equal(["pajeon", "makgeolli"])  # rain: always
+	assert_array(Orders.pick_specials("drizzle", 0.0, 0.0)).is_equal(["pajeon", "makgeolli"])
+	for weather in Orders.SPECIAL_DISHES:
+		for roll in [0.0, 0.5, 0.99]:
+			var specials := Orders.pick_specials(weather, roll, roll)
+			assert_int(specials.size()).is_between(1, 2)
+			assert_str(str(Menu.find(str(specials[0])).get("kind", ""))).is_equal("food")
+			if specials.size() == 2:
+				assert_str(str(Menu.find(str(specials[1])).get("kind", ""))).is_equal("drink")
+			for id in specials:
+				assert_bool(bool(Menu.find(str(id)).get("extra_only", false))).is_false()  # orderable from the start
+	assert_int(Orders.pick_specials("snow", 0.0, 0.9).size()).is_equal(1)  # a drink only now and then
+
+
+func test_cravings_only_say_what_is_true() -> void:
+	assert_str(Talk.craving("", false, false, 0.9, 0.0)).is_empty()  # now and then
+	for i in 20:
+		var plain := Talk.craving("", false, false, 0.0, i / 20.0)
+		assert_str(plain).is_not_empty()
+		for not_true in ["chilled", "Rain", "too warm", "share", "day they've had", "comfort"]:
+			assert_str(plain).not_contains(not_true)
+	assert_str(Talk.craving("rain", false, false, 0.0, 0.99)).contains("pajeon and makgeolli")
+	assert_str(Talk.craving("snow", false, false, 0.0, 0.99)).contains("chilled")
+	assert_str(Talk.craving("", false, true, 0.0, 0.99)).contains("share")
+	assert_str(Talk.craving("", true, false, 0.0, 0.99)).contains("comfort")
+	for each in Talk.CRAVINGS:
+		assert_str(str(each["text"])).not_contains("\"")
+
+
+func test_the_diary_may_mention_tonights_specials() -> void:
+	var facts := {"people": [], "ordered": ["soju"], "specials": ["pajeon", "makgeolli"], "customers": 0, "takings": "₩0", "owner": "Park Mi-sook"}
+	var problem := Story.validate_diary({"entry": "Rain all night, and I had the pajeon ready for anyone who wanted it. Nobody did. Still, the soju went, and the tarp held up fine until close."}, facts)
+	assert_str(problem).not_contains("nobody ordered")
+	assert_str(Prompts.diary_facts_text(facts)).contains("Tonight's specials: Pajeon and Makgeolli.")
+
+
+func test_hover_tips_never_break_their_tag() -> void:
+	# "ma'am" in ajumma's tip showed the whole tag as raw text in the transcript.
+	var coloured := Glossary.explain("Thanks, Ajumma. Seonsaengnim, you too.")
+	var tip_parts := coloured.split("[hint=")
+	for part in tip_parts.slice(1):
+		var tip := part.split("]")[0]
+		assert_str(tip).not_contains("'")
+		assert_str(tip).not_contains("\"")
+	var label: RichTextLabel = auto_free(RichTextLabel.new())
+	label.bbcode_enabled = true
+	label.text = coloured
+	assert_str(label.get_parsed_text()).is_equal("Thanks, Ajumma. Seonsaengnim, you too.")
+	label.text = Text.hint("She's a nurse [night 2]\nsays \"hi\"", "[b]Kim Ji-ho[/b]")
+	assert_str(label.get_parsed_text()).is_equal("Kim Ji-ho")
 
 
 func _every_fill() -> Dictionary:
@@ -1312,9 +1532,12 @@ func test_tv_reactions_are_checked() -> void:
 	var nothing := {"mood": "Nothing"}
 	assert_str(Captions.validate_reaction(nothing, names)).is_empty()
 	assert_str(str(nothing["mood"])).is_equal("none")
-	var small := {"size": 3, "mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
+	var small := {"size": Captions.REACTION_MIN_SIZE - 1, "mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
 	assert_str(Captions.validate_reaction(small, names)).is_empty()
-	assert_str(str(small["mood"])).is_equal("none")  # a 3: not big enough for a caption
+	assert_str(str(small["mood"])).is_equal("none")  # too small for a caption
+	var personal := {"size": Captions.REACTION_MIN_SIZE, "mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
+	assert_str(Captions.validate_reaction(personal, names)).is_empty()
+	assert_str(str(personal["mood"])).is_equal("sad")  # just big enough
 	var unsized := {"mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY"}
 	assert_str(Captions.validate_reaction(unsized, names)).is_empty()
 	assert_str(str(unsized["mood"])).is_equal("none")
@@ -1488,3 +1711,104 @@ func test_each_recap_gets_a_different_k_tv_style() -> void:
 		for field in ["title", "sky", "rays", "pill", "tag", "teaser_colour", "ribbons", "drift", "beats", "last", "sting", "teaser", "overlay"]:
 			assert_bool(Story.RECAP_STYLES[key].has(field)).override_failure_message("%s has no %s" % [key, field]).is_true()
 		assert_bool(Ambience.STINGS.has(str(Story.RECAP_STYLES[key]["sting"]))).is_true()
+
+
+func test_each_night_event_gets_its_caption() -> void:
+	assert_dict(Captions.for_event("walked_on", {"first": true})).contains_keys(["kind"])
+	assert_dict(Captions.for_event("walked_on", {"first": false})).is_empty()  # several at once: one caption
+	var sat := {"name": "Kim Ji-ho", "seated": 2, "minutes": 1200, "job": "nurse", "regular": "", "friend": ""}
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("new_face")
+	sat["minutes"] = Captions.LATE_GUEST_AFTER + 5
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("late_guest")
+	sat["seated"] = 1
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("solo")
+	sat["seated"] = Captions.RUSH_SEATED
+	sat["rush_open"] = true
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("rush")
+	sat["rush_open"] = false
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("late_guest")  # the rush has had its caption
+	sat["regular"] = "regular"
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("regular_back")
+	sat["regular"] = "founding"
+	assert_str(str(Captions.for_event("sat_down", sat)["kind"])).is_equal("founding")
+	sat["friend"] = "Lee Da-eun"
+	var friends := Captions.for_event("sat_down", sat)
+	assert_str(str(friends["kind"])).is_equal("jjin_chin")
+	assert_str(str(friends["fill"]["friend"])).is_equal("Lee Da-eun")
+	assert_str(str(Captions.for_event("greeted", {"quick": true})["kind"])).is_equal("multitask")
+	assert_dict(Captions.for_event("greeted", {"quick": false})).is_empty()
+	assert_str(str(Captions.for_event("drinks_poured", {"first": true, "drink": "Soju"})["kind"])).is_equal("cheers")
+	assert_str(str(Captions.for_event("drinks_poured", {"first": false, "drinks": 3})["kind"])).is_equal("another_round")
+	assert_str(str(Captions.for_event("dish_served", {"food_served": 2, "name": "Kim Ji-ho"})["kind"])).is_equal("eating")
+	assert_str(str(Captions.for_event("dish_served", {"food_served": 1, "dish": "Tteokbokki"})["kind"])).is_equal("order_up")
+	assert_str(str(Captions.for_event("paid", {"bill": Captions.BIG_SPENDER})["kind"])).is_equal("big_spender")
+	assert_str(str(Captions.for_event("paid", {"bill": 12000})["kind"])).is_equal("bill")
+	var left := {"seated": 0, "waiting": 0, "last_orders": false, "minutes": Captions.QUIET_AFTER + 1}
+	assert_str(str(Captions.for_event("left", left)["kind"])).is_equal("quiet")
+	left["last_orders"] = true
+	assert_dict(Captions.for_event("left", left)).is_empty()  # last orders has its own
+	assert_str(str(Captions.for_event("cat_moved", {"spot": "lap", "new_lap": true, "cat": "Mandu", "with": "Kim Ji-ho"})["kind"])).is_equal("cat_lap")
+	assert_str(str(Captions.for_event("cat_moved", {"spot": "street", "was_out": false})["kind"])).is_equal("cat_out")
+	assert_str(str(Captions.for_event("cat_moved", {"spot": "stove", "was_out": true})["kind"])).is_equal("cat_back")
+	assert_dict(Captions.for_event("cat_moved", {"spot": "stove", "was_out": false})).is_empty()  # just pottering
+	assert_dict(Captions.for_event("arrived", {})).is_empty()
+	assert_dict(Captions.for_event("big_moment", {})).is_empty()  # (its own caption, from the AI's words)
+	for kind in ["dawn", "last_orders", "stove_backed", "chat_started", "joined_chat", "owner_joined", "became_regular", "friendlier"]:
+		var caption := Captions.for_event(kind, {})
+		assert_bool(Captions.CAPTIONS.has(str(caption.get("kind", "")))).override_failure_message("no caption for %s" % kind).is_true()
+
+
+func test_the_diary_facts_come_from_the_nights_events() -> void:
+	var events := [
+		{"kind": "sat_down", "at": 1300, "seated": 2},
+		{"kind": "sat_down", "at": 1360, "seated": 5},
+		{"kind": "walked_on", "at": 1365, "first": true},
+		{"kind": "big_moment", "at": 1370, "who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."},
+		{"kind": "cat_moved", "at": 1380, "spot": "lap", "new_lap": true, "with": "Kim Ji-ho"},
+		{"kind": "cat_moved", "at": 1385, "spot": "lap", "new_lap": true, "with": "Kim Ji-ho"},  # (the same lap twice: once)
+		{"kind": "friendlier", "at": 1390, "a": "Kim Ji-ho", "b": "Lee Da-eun", "term": "eonni"},
+		{"kind": "became_regular", "at": 1400, "name": "Kim Ji-ho"},
+		{"kind": "paid", "at": 1410, "name": "Kim Ji-ho", "hangul": "김지호", "job": "nurse", "regular": "", "ordered": "Soju, Tteokbokki", "order_ids": ["soju", "tteokbokki"]},
+		{"kind": "paid", "at": 1420, "name": "Lee Da-eun", "hangul": "이다은", "job": "teacher", "regular": "a regular", "ordered": "Soju", "order_ids": ["soju"]},
+	]
+	var facts := Story.diary_facts(events, {"episode": 3, "day": "Friday", "weather": "rain", "owner": "Park Mi-sook", "customers": 2,
+		"takings": 26000, "before": [10000, 10000, 10000], "cat": "Mandu", "line": {"speaker": "Kim Ji-ho", "text": "I quit today."},
+		"regulars": [{"name": "Hwang Tae-oh", "founding": true}, {"name": "Lee Da-eun", "founding": false}, {"name": "Choi Min-ho", "founding": false}]})
+	assert_str(str(facts["busiest"])).is_equal("10:40pm, with 5 at the counter")
+	assert_int(int(facts["walked_on"])).is_equal(1)
+	assert_str(str(facts["people"][0]["hangul"])).is_equal("김지호")
+	assert_array(facts["ordered"]).contains_exactly(["soju", "tteokbokki"])
+	assert_str(str(facts["moments"][0]["caption"])).is_equal("SHE QUIT?!")
+	assert_array(facts["cat_laps"]).is_equal(["Kim Ji-ho"])
+	assert_str(str(facts["friendlier"][0])).is_equal("Kim Ji-ho and Lee Da-eun are on \"eonni\" terms now")
+	assert_array(facts["new_regulars"]).is_equal(["Kim Ji-ho"])
+	assert_array(facts["missing"]).is_equal(["Hwang Tae-oh"])  # a founding regular who didn't come
+	assert_array(facts["not_here"]).is_equal(["Choi Min-ho"])  # a regular who didn't come (not missed by name)
+	assert_str(str(facts["takings"])).is_equal("₩26,000")
+	assert_str(str(facts["takings_vs_usual"])).is_equal("the best night yet")
+	assert_str(Story.validate_diary({"entry": Story.stitched_diary(facts)}, facts)).is_empty()  # and the game's own entry passes its checks
+
+
+func test_the_diary_and_recap_know_everyones_pronouns() -> void:
+	# (Without them, the diary had a woman regular as "he's been MIA".)
+	var events := [
+		{"kind": "paid", "at": 1410, "name": "Kim Ji-ho", "gender": "woman", "job": "nurse", "regular": "", "ordered": "Soju", "order_ids": ["soju"]},
+		{"kind": "paid", "at": 1420, "name": "Lee Min-jun", "gender": "man", "job": "chef", "regular": "", "ordered": "Beer", "order_ids": ["beer"]},
+		{"kind": "paid", "at": 1430, "name": "Han Ri-an", "gender": "non-binary", "job": "artist", "regular": "", "ordered": "Beer", "order_ids": ["beer"]},
+	]
+	var facts := Story.diary_facts(events, {"owner": "Park Mi-sook", "owner_gender": "woman", "customers": 3, "takings": 15000,
+		"regulars": [{"name": "Kim Jin-sook", "founding": true, "gender": "woman"}]})
+	assert_dict(facts["pronouns"]).is_equal({"Park Mi-sook": "she", "Kim Jin-sook": "she", "Kim Ji-ho": "she", "Lee Min-jun": "he", "Han Ri-an": "they"})
+	var text := Prompts.diary_facts_text(facts)
+	assert_str(text).contains("Kim Ji-ho (she, nurse")
+	assert_str(text).contains("Lee Min-jun (he, chef")
+	assert_str(text).contains("Kim Jin-sook (she), a regular, didn't come in tonight.")
+	assert_str(text).contains("Use these pronouns:")
+	assert_str(text).contains("Han Ri-an: they")
+	# Facts saved before pronouns (older diaries, for "Previously on…") still read fine.
+	var old := facts.duplicate(true)
+	old.erase("pronouns")
+	for person in old["people"]:
+		person.erase("pronoun")
+	assert_str(Prompts.diary_facts_text(old)).contains("Kim Jin-sook, a regular, didn't come in tonight.")
+	assert_str(People.pronoun("")).is_equal("they")

@@ -18,6 +18,7 @@ const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const RecapScreen = preload("res://scripts/recap_screen.gd")
+const DiaryPage = preload("res://scripts/diary_page.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
@@ -844,9 +845,109 @@ func test_passers_by_carry_umbrellas_in_the_rain() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._weather_kind = "rain"
-	scene._stroll()
+	scene._stroll(Looks.rain_gear("rain", 0.9, 0.5, 0.5), 1)
 	var walker := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
-	assert_object(walker.find_child("Umbrella", true, false)).is_not_null()
+	var umbrella := walker.find_child("Umbrella", true, false) as Node2D
+	assert_object(umbrella).is_not_null()
+	assert_object(umbrella.find_child("Canopy", true, false)).is_not_null()
+	assert_bool(walker.has_meta("running")).is_false()
+	# Now and then someone has none, and runs for it, something held over their head.
+	scene._stroll({"umbrella": false}, 1)
+	var runner_by := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	assert_object(runner_by.find_child("Umbrella", true, false)).is_null()
+	assert_object(runner_by.find_child("OverHead", true, false)).is_not_null()
+	assert_bool(runner_by.get_meta("running", false)).is_true()
+	# A clear night: nothing.
+	scene._weather_kind = "clear"
+	scene._stroll({}, 1)
+	var dry := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	assert_object(dry.find_child("Umbrella", true, false)).is_null()
+	assert_object(dry.find_child("OverHead", true, false)).is_null()
+
+
+func test_people_in_the_street_walk_together_and_look_at_phones() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._weather_kind = "clear"
+	var strollers_before: int = scene._strollers
+	scene._stroll({}, 3)
+	assert_int(scene._strollers - strollers_before).is_equal(3)
+	var group: Array = []
+	for i in range(strollers_before + 1, strollers_before + 4):
+		group.append(runner.find_child("Stroller%d" % i, true, false) as Control)
+	# Together: one after another, the same way, the same pace, a little apart.
+	for i in [1, 2]:
+		assert_float(absf(group[i].position.x - group[0].position.x)).is_equal_approx(62.0 * i, 0.5)
+	# Phones: a person on one has a lit screen in front of them.
+	var person: Control = scene._person(scene._stage, Vector2(0, Visit.STROLL_Y), Color.WHITE)
+	scene._phone(person)
+	assert_object(person.find_child("Phone", true, false)).is_not_null()
+	assert_object(person.find_child("Screen", true, false)).is_not_null()
+	assert_bool(person.get_meta("on_phone", false)).is_true()
+	# A pair sharing an umbrella in the rain: one umbrella between them, held out over the other.
+	scene._weather_kind = "rain"
+	var shared := false
+	for attempt in 40:
+		strollers_before = scene._strollers
+		scene._stroll({}, 2)
+		var first := runner.find_child("Stroller%d" % (strollers_before + 1), true, false) as Control
+		var second := runner.find_child("Stroller%d" % (strollers_before + 2), true, false) as Control
+		if second.find_child("Umbrella", true, false) == null:
+			var umbrella := first.find_child("Umbrella", true, false) as Node2D
+			assert_object(umbrella).is_not_null()
+			assert_float(absf(umbrella.position.x - Visit.UMBRELLA_HAND.x)).is_greater(10.0)
+			shared = true
+			break
+		# Not sharing: both have their own (nobody in a group runs off and leaves the other).
+		assert_bool(scene._is_running(first) or scene._is_running(second)).is_false()
+	assert_bool(shared).override_failure_message("no pair ever shared an umbrella").is_true()
+
+
+func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._weather_kind = "rain"
+	Hooks.rain_gear = {"umbrella": true, "shape": "wide", "size": 1.05, "tilt": 0.05}
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var guest = scene._guests[0]
+	assert_dict(guest.rain_gear).is_equal(Hooks.rain_gear)  # kept, to go back out with
+	# Sat down: the umbrella's down.
+	assert_bool(await _wait_until(func(): return not guest.walk.is_running())).is_true()
+	assert_object(guest.node.find_child("Umbrella", true, false)).is_null()
+	# The helpers, step by step: up in the street, down under the tarp.
+	var person: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._gear_up(person, Hooks.rain_gear, true)
+	var umbrella := person.find_child("Umbrella", true, false) as Node2D
+	assert_object(umbrella).is_not_null()
+	assert_str(str(umbrella.get_meta("shape"))).is_equal("wide")
+	scene._gear_down(person)
+	assert_object(person.find_child("Umbrella", true, false)).is_null()
+	# Running for it: the bobbing and leaning stop once they're in.
+	scene._gear_up(person, {"umbrella": false}, true)
+	assert_bool(scene._is_running(person)).is_true()
+	assert_float(person.rotation).is_not_equal(0.0)
+	scene._gear_down(person)
+	assert_bool(scene._is_running(person)).is_false()
+	assert_float(person.rotation).is_equal(0.0)
+	assert_float(person.position.y).is_equal(Visit.CUSTOMER_Y)
+	assert_object(person.find_child("OverHead", true, false)).is_null()
+	# A dry night: nobody needs anything.
+	scene._weather_kind = "clear"
+	assert_dict(scene._pick_rain_gear()).is_empty()
+
+
+func test_a_customer_with_no_umbrella_runs_in() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._weather_kind = "snow"
+	Hooks.rain_gear = {"umbrella": false}
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var guest = scene._guests[0]
+	assert_bool(await _wait_until(func(): return not guest.walk.is_running())).is_true()
+	assert_bool(scene._is_running(guest.node)).is_false()  # stopped, and sat down
+	assert_float(guest.node.position.y).is_equal(Visit.CUSTOMER_Y)
 
 
 func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
@@ -1220,19 +1321,58 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	CannedAi.scripted = []
 
 
+func test_a_reaction_check_waits_for_the_owner_instead_of_being_lost() -> void:
+	Hooks.reactions = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var owner_name := str(Game.bar["owner"]["name"])
+	var names := ["Kim Ji-ho", owner_name]
+	var lines := [{"speaker": "Kim Ji-ho", "text": "I quit my job today."}, {"speaker": owner_name, "text": "You did what?"}]
+	# Someone's waiting to be greeted: the check's put off, not asked (or lost).
+	scene._owner_working = true  # (so the owner doesn't get to it before we've looked)
+	scene._waiting.append(scene._clock)
+	scene._waiting_who.append("")
+	await scene._react(lines, names, [])
+	assert_int(scene._stats.reactions_put_off).is_equal(1)
+	assert_int(scene._stats.reactions_asked).is_equal(0)
+	assert_dict(scene._reaction_pending).is_not_empty()
+	# Once she's free, it's the next thing she does.
+	scene._waiting.clear()
+	scene._waiting_who.clear()
+	CannedAi.scripted = [{"size": 5, "mood": "shock", "who": "Ji-ho", "caption": "she quit her job?!"}]
+	scene._owner_working = false
+	assert_bool(await _wait_until(func(): return scene._stats.reactions_asked == 1)).override_failure_message("the put-off check was never asked").is_true()
+	assert_bool(await _wait_until(func(): return _transcript(runner).contains("SHE QUIT HER JOB?!"))).is_true()
+	assert_dict(scene._reaction_pending).is_empty()
+	# Too long ago: dropped, not asked.
+	scene._owner_working = true
+	scene._reaction_pending = {"lines": lines, "names": names, "items": [], "at": scene._clock - Captions.REACTION_STALE_MINUTES - 5.0}
+	await scene._ask_pending_reaction()
+	assert_int(scene._stats.reactions_asked).is_equal(1)
+	assert_int(scene._stats.reactions_skipped).is_equal(1)
+	CannedAi.scripted = []
+
+
 func test_the_diary_can_be_read_during_a_night() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Game.bar["diary"] = [{"night": 1, "episode": 1, "day": "Friday", "weather": "rain", "text": "The first night.", "stamp": "rain"},
-		{"night": 2, "episode": 2, "day": "Saturday", "weather": "snow", "text": "The second night.", "stamp": "snow"}]
+		{"night": 2, "episode": 2, "day": "Saturday", "weather": "snow", "text": "The second night. Jeong Min-ho had the tteokbokki, aigoo.", "stamp": "snow",
+			"facts": {"owner": "Park Mi-sook", "people": [{"name": "Jeong Min-ho"}]}}]
 	(runner.find_child("DiaryButton") as Button).pressed.emit()  # (top-bar buttons: see the stats test)
 	var book = runner.find_child("DiaryBook", true, false)
 	assert_object(book).is_not_null()
 	assert_int(book.showing_night()).is_equal(2)
 	scene._open_diary()  # a second click doesn't open a second book
 	assert_int(scene.get_children().filter(func(c): return c.name == "DiaryBook").size()).is_equal(1)
+	# Korean words have hover hints in the diary (it's read at leisure); names don't.
+	var page_text := (book.find_child("Entry", true, false) as RichTextLabel).text
+	assert_str(page_text).contains("Tteokbokki: spicy rice cakes")
+	assert_str(page_text).contains("[color=#%s]aigoo" % DiaryPage.WORD_INK)
+	assert_str(page_text).contains("Jeong Min-ho had")
+	assert_str((book.find_child("Entry", true, false) as RichTextLabel).get_parsed_text()).is_equal("The second night. Jeong Min-ho had the tteokbokki, aigoo.")
 	book._flip(-1)
-	assert_str((book.find_child("Entry", true, false) as Label).text).is_equal("The first night.")
+	assert_str((book.find_child("Entry", true, false) as RichTextLabel).get_parsed_text()).is_equal("The first night.")
 	book.close()
 
 

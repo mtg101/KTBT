@@ -5,12 +5,14 @@ extends Control
 ## owner's still writing, a pen moves across the page instead.
 
 const Story = preload("res://scripts/rules/story.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
 
 const Ktv = preload("res://scripts/ktv_style.gd")
 const PAPER := Ktv.PAPER
 const RULE := Color(0.45, 0.6, 0.85, 0.28)
 const MARGIN := Color(0.85, 0.3, 0.3, 0.45)
 const INK := Color("2b3a67")
+const WORD_INK := "a8326e"  # Korean words with a hover hint (Glossary.explain): a second pen, pink
 const PINK := Ktv.PINK
 const PAGE := Vector2(780, 600)
 const LINE_GAP := 38.0  # the ruled lines, matched to the entry's lines
@@ -20,7 +22,7 @@ const LEFT := 80.0  # the margin
 var _episode: Label
 var _day: Label
 var _whose: Label
-var _body: Label
+var _body: RichTextLabel  # BBCode, for the Korean words' hover hints
 var _writing: Label
 var _pen: Polygon2D
 var _pen_tween: Tween
@@ -53,12 +55,17 @@ func _init() -> void:
 	_whose.position = Vector2(LEFT + 12, 92)
 	add_child(_whose)
 
-	_body = _label(23, INK)
+	_body = RichTextLabel.new()
 	_body.name = "Entry"
+	_body.bbcode_enabled = true
+	_body.scroll_active = false
+	_body.mouse_filter = Control.MOUSE_FILTER_PASS  # (for the hover hints; clicks still go through)
+	_body.add_theme_font_size_override("normal_font_size", 23)
+	_body.add_theme_color_override("default_color", INK)
 	_body.position = Vector2(LEFT + 12, BODY_TOP - 30)
 	_body.size = Vector2(PAGE.x - LEFT - 60, PAGE.y - BODY_TOP - 20)
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_body.add_theme_constant_override("line_spacing", int(LINE_GAP) - 30)
+	_body.add_theme_constant_override("line_separation", int(LINE_GAP) - 30)
 	add_child(_body)
 
 	_writing = _label(24, INK.lightened(0.2))
@@ -109,7 +116,7 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 		_pen_tween.kill()
 	_pen.visible = false
 	_writing.visible = false
-	_body.text = str(entry.get("text", ""))
+	_body.text = Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK)
 	_body.visible = true
 	_set_stamp(str(entry.get("stamp", "soju")))
 	_stamp.visible = true
@@ -121,8 +128,18 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 	thump.parallel().tween_property(_stamp, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
+## The entry as written (without the hover hints).
 func entry_text() -> String:
-	return _body.text
+	return _body.get_parsed_text()
+
+
+## The names in an entry's facts (the owner, who came, who didn't), left alone by the glossary.
+func _names_in(entry: Dictionary) -> Array:
+	var facts: Dictionary = entry.get("facts", {})
+	var names: Array = [str(facts.get("owner", ""))]
+	for person in facts.get("people", []) + facts.get("not_here", []) + facts.get("missing", []):
+		names.append(str(person.get("name", "")) if person is Dictionary else str(person))
+	return names
 
 
 func _set_header(episode: int, day: String, weather: String, whose: String) -> void:

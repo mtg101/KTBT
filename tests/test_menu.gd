@@ -62,6 +62,22 @@ func test_every_name_resolves_to_its_own_id() -> void:
 		assert_str(Menu.resolve(str(item["name"]))).is_equal(str(item["id"]))
 
 
+func test_prompt_list_can_be_shuffled_and_marks_the_specials() -> void:
+	var order: Array = ["sundae", "soju", "odeng"]
+	var text := Menu.prompt_list(order, ["sundae"])
+	var lines := text.split("\n")
+	assert_int(lines.size()).is_equal(3)
+	assert_str(lines[0]).starts_with("- sundae:")
+	assert_str(lines[0]).ends_with("(TONIGHT'S SPECIAL)")
+	assert_str(lines[1]).starts_with("- soju:")
+	assert_str(lines[1]).not_contains("SPECIAL")
+	var shuffled := Menu.shuffled_ids()
+	assert_int(shuffled.size()).is_equal(Menu.ITEMS.size())
+	for item in Menu.ITEMS:
+		assert_bool(shuffled.has(item["id"])).is_true()  # every item, just in a new order
+	assert_str(Menu.prompt_list(shuffled)).not_contains("SPECIAL")  # (none given: none marked)
+
+
 func test_prompt_list_mentions_every_id_and_price() -> void:
 	var text := Menu.prompt_list()
 	for item in Menu.ITEMS:

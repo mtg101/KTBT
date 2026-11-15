@@ -6,9 +6,15 @@ extends RefCounted
 ## user data folder, one per night, to compare runs.
 
 const Text = preload("res://scripts/rules/text.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
 
 ## Where the logs go. Tests point this at their own folder.
 static var folder := "user://stats/"
+
+## Every night event, counted by kind (so a new kind of event is always counted, even
+## before it has a stat of its own).
+var event_counts := {}
 
 # People
 var arrived := 0
@@ -30,6 +36,15 @@ var customer_joins := 0
 var free_turns := 0  # times the owner's voice was free (nobody to greet or settle up with)
 var chat_chances := 0  # times a customer chat could have started (or carried on) when the owner was free
 var chats_continued := 0  # spells that carried on a chat already going
+var hints_given := {}  # hint kind (Talk.moment_kind: a menu id, "food", "pour"...) -> times given
+var hints_taken := {}  # ...and how many of those lines seemed to take it up (rough: Talk.hint_taken)
+var korean_words := {}  # word (Glossary: "Imo", "Soju", "Aigoo"...) -> times said
+## How lines start, by what they are ("order": first orders; "owner": the owner's first proper
+## word with someone) -> their first two words -> how many. To see how samey they are.
+var openings := {"order": {}, "owner": {}}
+var order_situations := 0  # first orders given a situation (Talk.order_moment and/or a craving)
+var cravings := 0  # ...of which with a craving (Talk.craving)
+var specials: Array = []  # tonight's specials (menu ids)
 
 # Regulars
 var regular_pulls := {}  # name -> pull, for everyone on the books
@@ -48,9 +63,13 @@ var reactions_asked := 0  # times the AI was asked "was that a big moment?"
 var reactions_shown := {}  # mood -> how many shown
 var reactions_none := 0  # ...answered "nothing special"
 var reactions_dropped := 0  # ...answered with something that failed the checks
-var reactions_skipped := 0  # ...not asked, because someone was waiting for the owner
+var reactions_put_off := 0  # ...put off, because someone was waiting for the owner (asked once she's free)
+var reactions_skipped := 0  # ...of those, never asked: too late by then, or a newer one came along
 
 # Food
+var ordered := {}  # menu id -> how many ordered
+var first_orders := 0
+var extra_orders := 0  # orders after the first
 var dishes_cooked := 0
 var food_waits: Array = []  # game minutes from ordering a cooked dish to it reaching the table
 
@@ -63,6 +82,7 @@ var rejections := {}  # kind of problem -> how many times
 ## often ("order: there's no food... (x3)"), for tuning prompts. Only in the log.
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
+var events: Array = []  # tonight's events (NightEvents.timeline), for the log
 var gave_up_by := {}  # what the AI was being asked for -> how many times it gave up
 var gave_up := 0  # calls that never got a usable reply
 var stale_redone := 0  # lines asked for again because things changed while the AI wrote them
@@ -78,6 +98,108 @@ var waiting_on_voice_seconds := 0.0  # ...while someone was waiting for it (to b
 ## One AI call: how long it took, what was wrong with any replies it rejected, and whether
 ## it got a usable reply in the end.
 ## purpose: what was being asked for ("order", "line"...).
+## Counts a night event (see night_events.gd: this listens to them). The events themselves
+## are kept too (events: the night's NightEvents.timeline), and saved in the night's log.
+func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot: Vector2 = Vector2.ZERO) -> void:
+	event_counts[kind] = int(event_counts.get(kind, 0)) + 1
+	match kind:
+		"ordered":
+			if bool(facts.get("first", false)):
+				first_orders += 1
+			else:
+				extra_orders += 1
+			for id in facts.get("items", []):
+				ordered[str(id)] = int(ordered.get(str(id), 0)) + 1
+		"arrived":
+			arrived += 1
+		"walked_on":
+			walked_past += 1
+		"sat_down":
+			peak_seated = maxi(peak_seated, int(facts.get("seated", 0)))
+		"greeted":
+			if bool(facts.get("quick", false)):
+				quick_greetings += 1
+			else:
+				proper_greetings += 1
+		"dish_served":
+			dishes_cooked += 1
+			food_waits.append(float(facts.get("wait", 0.0)))
+		"paid":
+			served += 1
+		"chat_started":
+			chats_started += 1
+		"chat_continued":
+			chats_continued += 1
+		"joined_chat":
+			customer_joins += 1
+		"owner_joined":
+			owner_joins += 1
+		"became_regular":
+			became_regulars += 1
+		"friendlier":
+			friendlier_moments += 1
+		"big_moment":
+			var mood := str(facts.get("mood", ""))
+			reactions_shown[mood] = int(reactions_shown.get(mood, 0)) + 1
+
+
+## A line said with a hint in its direction (see Talk.moment_kind): counted, and whether
+## the line seems to have taken it up.
+func record_hint(kind: String, line: String) -> void:
+	if kind == "":
+		return
+	hints_given[kind] = int(hints_given.get(kind, 0)) + 1
+	if Talk.hint_taken(kind, line):
+		hints_taken[kind] = int(hints_taken.get(kind, 0)) + 1
+
+
+## A line of this kind ("order" or "owner"): counts how it starts (its first two words).
+func record_opening(kind: String, line: String) -> void:
+	var start := " ".join(PackedStringArray(RegEx.create_from_string("[a-z']+").search_all(line.to_lower()).slice(0, 2).map(func(m): return m.get_string())))
+	if start == "":
+		return
+	var counts: Dictionary = openings.get(kind, {})
+	counts[start] = int(counts.get(start, 0)) + 1
+	openings[kind] = counts
+
+
+## The commonest opening of this kind, out of all of them: "\"ajumma i'll\" 12 of 19".
+func opening_text(kind: String) -> String:
+	var counts: Dictionary = openings.get(kind, {})
+	if counts.is_empty():
+		return "(none yet)"
+	var total := 0
+	var top := ""
+	for start in counts:
+		total += int(counts[start])
+		if top == "" or int(counts[start]) > int(counts[top]):
+			top = start
+	return "\"%s\" %d of %d" % [top, int(counts[top]), total]
+
+
+## A line said (by anyone): counts its Korean words. names: people's names, which don't count.
+func record_line(line: String, names: Array = []) -> void:
+	for word in Glossary.words_in(line, names):
+		korean_words[word] = int(korean_words.get(word, 0)) + 1
+
+
+## "soju 5 · somaek 2", most first. limit: how many (0: all).
+static func counts_text(counts: Dictionary, limit: int = 0) -> String:
+	var keys := counts.keys()
+	keys.sort_custom(func(a, b): return int(counts[a]) > int(counts[b]) or (int(counts[a]) == int(counts[b]) and str(a) < str(b)))
+	if limit > 0 and keys.size() > limit:
+		keys = keys.slice(0, limit)
+	return " · ".join(PackedStringArray(keys.map(func(k): return "%s %d" % [k, int(counts[k])])))
+
+
+## "somaek 1/2 · pour 0/1 · food ×3": hints taken up out of given. A kind with no tell-tale
+## words to look for (Talk.HINT_TELLS) can't be judged, so it just says how many were given.
+func hints_text() -> String:
+	var keys := hints_given.keys()
+	keys.sort()
+	return " · ".join(PackedStringArray(keys.map(func(k): return ("%s %d/%d" % [k, int(hints_taken.get(k, 0)), int(hints_given[k])]) if Talk.HINT_TELLS.has(k) else ("%s ×%d" % [k, int(hints_given[k])]))))
+
+
 func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") -> void:
 	ai_calls += 1
 	ai_seconds.append(seconds)
@@ -176,6 +298,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
+	lines.append("Hints taken up: %s" % (hints_text() if not hints_given.is_empty() else "(none given yet)"))
+	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
+	lines.append("Commonest start: orders %s · owner's openers %s · order situations given %d" % [opening_text("order"), opening_text("owner"), order_situations])
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
@@ -188,11 +313,14 @@ func panel_text(seated: int, cooking: int) -> String:
 	var shown_reactions := 0
 	for mood in reactions_shown:
 		shown_reactions += int(reactions_shown[mood])
-	lines.append("Reactions: asked %d · shown %d%s · none %d · dropped %d · skipped (busy) %d" % [reactions_asked, shown_reactions,
+	lines.append("Reactions: asked %d · shown %d%s · none %d · dropped %d · put off (busy) %d, never asked %d" % [reactions_asked, shown_reactions,
 		(" (" + ", ".join(PackedStringArray(reactions_shown.keys().map(func(k): return "%s %d" % [k, int(reactions_shown[k])]))) + ")") if not reactions_shown.is_empty() else "",
-		reactions_none, reactions_dropped, reactions_skipped])
+		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
+	lines.append("Orders %d first, %d more · %s" % [first_orders, extra_orders, counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
+	if not specials.is_empty():
+		lines.append("Specials: %s · cravings given %d" % [" · ".join(PackedStringArray(specials.map(func(id): return "%s %d ordered" % [id, int(ordered.get(id, 0))]))), cravings])
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
 	lines.append("Wait for food: avg %d min, longest %d" % [roundi(average(food_waits)), roundi(longest(food_waits))])
 	lines.append("")
@@ -203,6 +331,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Gave up %d%s · out-of-date lines redone %d" % [gave_up,
 		(" (" + ", ".join(PackedStringArray(gave_up_by.keys().map(func(k): return "%s %d" % [k, int(gave_up_by[k])]))) + ")") if not gave_up_by.is_empty() else "", stale_redone])
 	lines.append("")
+	lines.append("[b]EVERYTHING THAT HAPPENED[/b]")
+	lines.append(counts_text(event_counts) if not event_counts.is_empty() else "(nothing yet)")
+	lines.append("")
 	lines.append("Real time tonight: %d:%02d" % [floori(real_seconds / 60.0), int(real_seconds) % 60])
 	return "\n".join(lines)
 
@@ -211,6 +342,8 @@ func panel_text(seated: int, cooking: int) -> String:
 func summary(context: Dictionary) -> Dictionary:
 	return {
 		"context": context,
+		"events": events.duplicate(true),  # the night's timeline, event by event
+		"event_counts": event_counts.duplicate(),
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
@@ -224,6 +357,8 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
+			"hints_given": hints_given.duplicate(), "hints_taken": hints_taken.duplicate(), "korean_words": korean_words.duplicate(),
+			"openings": openings.duplicate(true), "order_situations": order_situations,
 		},
 		"regulars": {
 			"on_the_books": regular_pulls.size(), "founding": founding_regulars, "in_tonight": regulars_in,
@@ -231,8 +366,10 @@ func summary(context: Dictionary) -> Dictionary:
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
 		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back,
-			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "skipped": reactions_skipped}},
+			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
+			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
+			"specials": specials.duplicate(), "cravings": cravings,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},
