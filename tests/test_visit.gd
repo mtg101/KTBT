@@ -8,6 +8,8 @@ const Ai = preload("res://scripts/ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const Rules = preload("res://scripts/rules.gd")
+const Regulars = preload("res://scripts/regulars.gd")
+const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
@@ -71,6 +73,8 @@ func after_test() -> void:
 	Visit.strollers = true
 	Visit.offer_every_look = true
 	Visit.bubbles = false  # lines as fast as the AI writes them (one test turns them on)
+	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
+	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Ai.canned_think_seconds = 0.0
@@ -970,5 +974,138 @@ func test_lines_show_in_speech_bubbles_with_who_they_are_to() -> void:
 	var header := bubble.find_child("Header", true, false) as Label
 	assert_str(header.text).starts_with("→ ")
 	assert_object(bubble.listener).is_not_null()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+# --- Regulars ---------------------------------------------------------------------------------
+
+func _a_regular(founding: bool = false) -> Dictionary:
+	var customer := {"name": "Choi Hye-rin", "hangul": "최혜린", "gender": "woman", "age": 31, "job": "pharmacist",
+		"speech_style": "precise", "appearance": "A camel coat, buttoned to the top."}
+	var regular := Regulars.new_regular(customer, Rules.pick_look("woman", "30s", ""), ["soju", "tteokbokki"], 1, 0, 21 * 60, 0.5)
+	regular["visits"] = 4
+	if founding:
+		regular.merge({"founding": true, "role": "looks_out", "since": "for six years", "habit": "most Fridays", "usual": ["beer", "pajeon"],
+			"owner_knows_name": true, "knows_owner_name": true, "pull": Regulars.FOUNDING_PULL}, true)
+	return regular
+
+
+func test_a_new_bar_opens_with_two_founding_regulars() -> void:
+	Visit.founding_regulars = true
+	var runner := await _open_bar()
+	var regulars: Array = Game.bar.get("regulars", [])
+	assert_int(regulars.size()).is_equal(2)
+	var names := {}
+	for regular in regulars:
+		assert_bool(regular["founding"]).is_true()
+		assert_bool(Regulars.ROLES.has(regular["role"])).is_true()
+		assert_float(float(regular["pull"])).is_equal(Regulars.FOUNDING_PULL)
+		assert_int(Regulars.usual_of(regular).size()).is_equal(2)
+		assert_str(str(regular["name"])).is_not_equal(str(runner.scene()._owner["name"]))
+		names[regular["name"]] = true
+	assert_int(names.size()).is_equal(2)  # two different people
+	assert_str(regulars[0]["role"]).is_not_equal(regulars[1]["role"])
+
+
+func test_a_regular_comes_back_as_themselves() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var regular := _a_regular()
+	Game.bar["regulars"] = [regular]
+	var asked: Array = []
+	scene._ai.answered.connect(func(purpose, _s, _p, _ok): asked.append(purpose))
+	scene._arrive(scene._clock, regular["id"])
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).override_failure_message("the regular never sat down").is_true()
+	var guest = scene._guests[0]
+	assert_str(str(guest.customer["name"])).is_equal("Choi Hye-rin")
+	assert_array(asked).not_contains(["customer_name", "customer"])  # not reinvented
+	assert_array(asked).contains(["regular_tonight"])
+	assert_str(str(guest.customer["look"]["hair"])).is_equal(str(regular["look"]["hair"]))
+	assert_str((guest.node.get_node("Tag") as Label).text).ends_with("★")  # their 5th visit: a regular
+	assert_str(_transcript(runner)).contains("Choi Hye-rin is back, for her 5th visit")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_int(int(regular["visits"])).is_equal(5)
+	assert_int(int(regular["last_night"])).is_equal(scene._night_number)
+
+
+func test_a_founding_regulars_prompt_knows_their_history() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var regular := _a_regular(true)
+	Game.bar["regulars"] = [regular]
+	scene._arrive(scene._clock, regular["id"])
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var guest = scene._guests[0]
+	var text := Prompts.describe_relationship(scene._owner, guest.customer)
+	assert_str(text).contains("been coming for six years, most Fridays")
+	assert_str(text).contains("Beer")  # their usual
+	assert_str(text).contains("knows their name")
+	assert_str(text).contains("looks out for people")
+	assert_str((guest.node.get_node("Tag") as Label).text).ends_with("★★")
+	assert_str(_transcript(runner)).contains("takes her usual stool")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_someone_who_enjoyed_their_visit_can_become_a_regular() -> void:
+	Visit.regular_roll_override = 0.0  # if it's possible at all, it happens
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Game.bar["regulars"] = []
+	await _run_one_visit(runner)
+	var regulars: Array = Game.bar["regulars"]
+	assert_int(regulars.size()).is_equal(1)
+	assert_str(str(regulars[0]["name"])).is_equal(str(scene._customer["name"]))
+	assert_str(_transcript(runner)).contains("be back")
+	assert_bool(SaveStore.load_bar(Game.bar["id"])["regulars"].size() == 1).is_true()  # saved
+
+
+func test_nobody_becomes_a_regular_when_the_dice_say_no() -> void:
+	Visit.regular_roll_override = 1.0
+	var runner := await _open_bar()
+	Game.bar["regulars"] = []
+	await _run_one_visit(runner)
+	assert_array(Game.bar["regulars"]).is_empty()
+
+
+func test_regulars_who_stay_away_fade() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var staying := _a_regular()
+	staying["pull"] = 0.5
+	staying["last_night"] = 0  # not in tonight
+	var going := _a_regular()
+	going["id"] = "going"
+	going["name"] = "Bae Joon-young"
+	going["pull"] = 0.105
+	going["last_night"] = 0
+	Game.bar["regulars"] = [staying, going]
+	scene._fade_regulars()
+	assert_float(float(staying["pull"])).is_less(0.5)
+	assert_array(Game.bar["regulars"]).has_size(1)
+	assert_str(_transcript(runner)).contains("Bae Joon-young hasn't been in for a long while")
+	assert_str(scene._stats.panel_text(0, 0)).contains("REGULARS")
+	assert_str(scene._stats.panel_text(0, 0)).contains("faded away 1")
+
+
+func test_founding_regulars_always_come_in_the_first_night_and_are_introduced() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var regular := _a_regular(true)
+	regular["introduced"] = false
+	regular["pull"] = 0.0  # even someone who'd never come otherwise
+	regular["history"] = "She found the tent the night her pharmacy opened"
+	Game.bar["regulars"] = [regular]
+	scene._plan_regulars_tonight()
+	assert_int(scene._regulars_due.size()).is_equal(1)
+	scene._regulars_due.clear()
+	scene._arrive(scene._clock, regular["id"])
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var text := _transcript(runner)
+	assert_str(text).contains("She's the one who looks out for people")
+	assert_str(text).contains("She found the tent the night her pharmacy opened.")
+	assert_bool(regular["introduced"]).is_true()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()

@@ -1087,3 +1087,21 @@ func test_long_lines_are_paged_for_speech_bubbles() -> void:
 			assert_str(pages[i]).ends_with("…")
 	assert_str(" ".join(pages).replace("…", "")).contains("game-changer")
 	assert_float(Rules.page_seconds("Hi.")).is_equal(1.8)
+
+
+func test_regression_made_up_korean_is_rejected() -> void:
+	var line := {"line": "Eotteoke haeyo, yukhae? Chamcha-eun naneun joa?"}
+	assert_str(Rules.validate_line(line, "Kim Hye-ok", "Ajumma")).contains("made-up Korean")
+	assert_str(Rules.problem_kind("the line has made-up Korean words in it (x)")).is_equal("made-up Korean")
+	# The odd known word, names, food and everyday English are all fine.
+	assert_str(Rules.validate_line({"line": "Jeogiyo, is this seat taken? Geonbae, everyone!"}, "Kim Ji-ho", "")).is_empty()
+	assert_str(Rules.validate_line({"line": "Seo Yeon-woo and Jeong Eun-ji said the tteokbokki here is the best in Seoul."}, "Kim Ji-ho", "", [], ["Seo Yeon-woo", "Jeong Eun-ji"])).is_empty()
+	assert_str(Rules.validate_line({"line": "Some people just need someone to listen, and everyone needs a theory about love."}, "Kim Ji-ho", "")).is_empty()
+
+
+func test_muggy_nights_have_few_cardigans() -> void:
+	var cardigans := 0
+	for i in 400:
+		if Rules.pick_look("woman", "30s", "muggy")["clothes"] == "cardigan":
+			cardigans += 1
+	assert_int(cardigans).is_less(25)

@@ -30,6 +30,8 @@ func before_test() -> void:
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Visit.bubbles = false
+	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
+	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
@@ -301,3 +303,17 @@ func test_a_bar_saved_before_hangul_names_gets_them() -> void:
 	await _open_visit()
 	assert_str(str(Game.bar["owner"].get("hangul", ""))).is_equal("김성호")
 	assert_str(str(SaveStore.load_bar(bar["id"])["owner"].get("hangul", ""))).is_equal("김성호")  # saved, so it's only asked once
+
+
+func test_a_bar_saved_before_regulars_gets_its_two_once() -> void:
+	Visit.founding_regulars = true
+	var bar := _saved_bar("Golmok Pocha", 0)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	await _open_visit()
+	assert_int(SaveStore.load_bar(bar["id"])["regulars"].size()).is_equal(2)
+	# Opening it again asks the AI for nobody new.
+	Game.bar = SaveStore.load_bar(bar["id"])
+	CannedAi.scripted = [{"should": "never be used"}]
+	await _open_visit()
+	assert_array(CannedAi.scripted).is_not_empty()
+	assert_int(SaveStore.load_bar(bar["id"])["regulars"].size()).is_equal(2)

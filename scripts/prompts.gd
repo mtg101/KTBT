@@ -3,6 +3,7 @@ extends RefCounted
 ## This is creative writing rather than code: CC BY-SA 4.0 (see LICENSE-ASSETS.md).
 
 const Rules = preload("res://scripts/rules.gd")
+const Regulars = preload("res://scripts/regulars.gd")
 
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
 
@@ -450,9 +451,12 @@ static func describe_person(customer: Dictionary) -> String:
 	return text
 
 
-## What the owner and customer know about each other. For now every customer is a
-## stranger. Stage 6 (regulars) will replace this with what the game has actually tracked.
+## What the owner and customer know about each other: only what the game has tracked. A
+## regular's facts are in customer["regular"] (see Regulars and the visit scene).
 static func describe_relationship(owner: Dictionary, customer: Dictionary) -> String:
+	var known: Dictionary = customer.get("regular", {})
+	if not known.is_empty():
+		return describe_regular(owner, customer, known)
 	return "WHO KNOWS WHOM: this is %s's first visit. The owner has never met them and doesn't know their name unless they say it in the conversation. They aren't a regular, so nobody asks for \"the usual\" or acts like old friends. %s knows the owner only as \"%s\"." % [
 		customer["name"], customer["name"], owner["title"]]
 
@@ -491,3 +495,88 @@ static func what_just_happened(transcript: Array) -> String:
 	for i in range(last_said + 1, transcript.size()):
 		parts.append("Then: %s" % transcript_entry(transcript[i]))
 	return "WHAT JUST HAPPENED: %s\nReply directly to that, and stay consistent with it (for example, don't ask whether they'll eat when food is already on the table)." % " ".join(parts)
+
+
+## A regular, as the game knows them: their visits, how long they've been coming, their
+## usual, whose names are known, and what each knows about the other.
+static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dictionary) -> String:
+	var who := str(customer["name"])
+	var visits := int(known.get("visits", 1))
+	var text := "WHO KNOWS WHOM: %s is a regular here (%s)" % [who, Regulars.closeness_word(known).to_lower()]
+	if str(known.get("since", "")) != "":
+		text += ": they've been coming %s, %s." % [known["since"], known.get("habit", "now and then")]
+	else:
+		text += ": this is their %s visit" % Regulars.ordinal(visits + 1)
+		if known.has("nights_ago"):
+			text += ", and they were last in %s" % Regulars.nights_ago_text(int(known["nights_ago"]))
+		text += "."
+	if str(known.get("history", "")) != "":
+		text += " " + Rules.as_sentence(str(known["history"]))
+	if str(known.get("role", "")) != "":
+		text += " In the tent, they're %s." % Regulars.ROLES.get(known["role"], known["role"])
+	if bool(known.get("owner_knows_name", false)):
+		text += " The owner knows their name, %s." % who
+	else:
+		text += " The owner knows their face but not their name (unless they say it)."
+	if bool(known.get("knows_owner_name", false)):
+		text += " They know the owner as \"%s\", and by name, %s." % [owner["title"], owner["name"]]
+	else:
+		text += " They know the owner only as \"%s\"." % owner["title"]
+	if str(known.get("owner_knows", "")) != "":
+		text += " What the owner knows about them: %s" % Rules.as_sentence(str(known["owner_knows"]))
+	if str(known.get("knows_of_owner", "")) != "":
+		text += " What they know about the owner: %s" % Rules.as_sentence(str(known["knows_of_owner"]))
+	var usual: Array = known.get("usual", [])
+	if not usual.is_empty():
+		text += " Their usual is %s: they might just ask for \"the usual\"." % Rules.item_names(usual)
+	else:
+		text += " They don't have a usual yet, so nobody mentions \"the usual\"."
+	text += " They talk like people who've met before, but only about what's above: nothing else has been said between them."
+	return text
+
+
+## Messages asking the AI to invent one of a new bar's two founding regulars: someone who's
+## been coming for years. The game has decided their gender, look, role, how long and how
+## often, and their usual; the AI invents who they are.
+static func founding_regular_messages(owner: Dictionary, bar_name: String, gender: String, look: Dictionary, role: String, since: String, habit: String, usual: Array, taken: Array) -> Array:
+	var band: Array = Rules.AGE_RANGES[look["age_range"]]
+	var request := """%s
+
+The tent is %s. One of its regulars has been coming %s, %s. They're %s, %s. In the tent, they're %s. Their usual is %s.
+
+Invent them. Their name must be different from these: %s.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "name": their Korean name in English letters, family name first, then the given name
+- "hangul": the same name in Korean letters (Hangul)
+- "age": a whole number from %d to %d
+- "job": their job, or what they do
+- "speech_style": how they talk, in a few words
+- "appearance": what they look like at the counter, in one sentence: keep to how they look, in your own words
+- "history": how they first started coming, and what the tent means to them, in one sentence
+- "owner_knows": what the owner knows about them after all these years, in one sentence
+- "knows_of_owner": what they know about the owner, in one sentence (never the owner's secret itself)""" % [
+		describe_owner(owner), bar_name, since, habit, gender_phrase(gender), Rules.look_text(look),
+		Regulars.ROLES.get(role, role), Rules.item_names(usual), ", ".join(PackedStringArray(taken)),
+		maxi(19, int(band[0])), int(band[1])]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Messages asking the AI what brings a regular in tonight: just a mood and a reason, since
+## the game already knows who they are.
+static func regular_tonight_messages(day: String, time_text: String, weather: String, customer: Dictionary) -> Array:
+	var request := """It's %s, %s, with %s. A regular has just ducked under the tarp: %s (%s), %s, %s. Talks: %s.
+
+What sort of night are they having, and what brings them in tonight?
+
+Reply with ONLY a JSON object with exactly these keys:
+- "mood": a few words
+- "reason": why they're here tonight, in one sentence""" % [day, time_text, weather, customer["name"], gender_phrase(str(customer.get("gender", ""))),
+		customer.get("age", ""), customer.get("job", ""), customer.get("speech_style", "")]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]

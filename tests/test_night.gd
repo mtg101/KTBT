@@ -29,6 +29,8 @@ func before_test() -> void:
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Visit.bubbles = false
+	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
+	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)

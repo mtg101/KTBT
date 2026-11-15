@@ -23,6 +23,7 @@ const Ai = preload("res://scripts/ai.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Rules = preload("res://scripts/rules.gd")
+const Regulars = preload("res://scripts/regulars.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 
@@ -91,6 +92,10 @@ static var cat_wanders := true
 static var transcript_folder := ""
 ## Test hook: false keeps people from walking past in the street.
 static var strollers := true
+## Test hooks: false gives a new bar (or an older one) no founding regulars (they'd use up
+## tests' scripted replies); and a fixed roll for whether someone becomes a regular.
+static var founding_regulars := true
+static var regular_roll_override := -1.0
 ## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
 static var bubbles := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
@@ -139,6 +144,9 @@ class Guest:
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
 	var quick_greeting := false  # greeted in a rush: the owner's first proper word comes later
+	var chatted := false  # they've had a chat with another customer
+	var first_order: Array = []  # what they ordered as they sat down (for a regular's usual)
+	var arrived_minutes := 0  # when they came in (game minutes), for a new regular's usual hour
 	var stay_left := 0.0  # game minutes until they want to go
 	var node: Control
 	var walk: Tween  # walking in or out
@@ -182,6 +190,9 @@ const CAT_MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
 ## of the tent) is narrated, so the transcript isn't a log of the cat's every step.
 const CAT_POTTER_NARRATED := 0.35  # every customer's name so far tonight (the AI is asked to avoid them)
 var _waiting: Array = []  # when each person waiting for a stool (or to be greeted) turned up
+var _waiting_who: Array = []  # ...and who they are: a regular's id, or "" for someone new
+var _regulars_due: Array = []  # {"time", "id"}: regulars coming in tonight, soonest first
+var _skip_arrivals := 0  # a regular came in instead of someone new
 var _kitchen: Array = []  # {"guest", "id", "left"}: the first is on the stove, the rest queue
 var _ready_dishes: Array = []  # {"guest", "id"}: cooked, waiting to be carried over
 ## The owner's voice: one AI call at a time, so one conversation task at a time.
@@ -320,6 +331,8 @@ func _open_saved_bar() -> void:
 	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
 	_owner_working = true  # busy until it's done (it may ask the AI)
 	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
+	if founding_regulars and not Game.bar.has("regulars") and not _stopped:
+		await _make_founding_regulars()  # a bar saved before regulars: its two, once
 	_owner_working = false
 	if _stopped or Game.bar.is_empty():
 		return
@@ -444,6 +457,8 @@ func _invent_owner() -> void:
 	await _name_bar()
 	await _name_cat()
 	await _choose_look()
+	if founding_regulars:
+		await _make_founding_regulars()
 	_show_look()
 	_show_cat()
 	await get_tree().process_frame  # let the tent draw before the loading screen fades
@@ -575,6 +590,10 @@ func _start_night() -> void:
 	_night_lines = []
 	_stats = NightStats.new()
 	_waiting.clear()
+	_waiting_who.clear()
+	_skip_arrivals = 0
+	_plan_regulars_tonight()
+	_count_regulars()
 	_chats.clear()
 	_names_tonight.clear()
 	_jobs_tonight.clear()
@@ -626,8 +645,15 @@ func _process(delta: float) -> void:
 		# After 3am the clock runs on while the last customers finish up.
 		_clock += minutes
 		_update_clock_label()
+		while not _regulars_due.is_empty() and _clock >= float(_regulars_due[0]["time"]):
+			var due: Dictionary = _regulars_due.pop_front()
+			_arrive(float(due["time"]), str(due["id"]))
+			_skip_arrivals += 1  # a regular instead of a newcomer: the night stays as busy
 		while _clock >= _next_arrival and _next_arrival < Rules.LAST_ARRIVAL_MINUTES:
-			_arrive(_next_arrival)
+			if _skip_arrivals > 0:
+				_skip_arrivals -= 1
+			else:
+				_arrive(_next_arrival)
 			_next_arrival += Rules.next_arrival_gap(int(_next_arrival), randf())
 	_give_up_waiting()
 	if _clock >= Rules.CLOSE_MINUTES and not _last_orders:
@@ -652,8 +678,9 @@ func _people_in() -> int:
 
 ## Someone turns up, at this time (game minutes), and waits to be greeted. (Tests call this
 ## too, to bring customers in.)
-func _arrive(when: float) -> void:
+func _arrive(when: float, regular_id: String = "") -> void:
 	_waiting.append(when)
+	_waiting_who.append(regular_id)
 	_stats.arrived += 1
 	_update_info()
 
@@ -663,6 +690,7 @@ func _give_up_waiting() -> void:
 	var gone := 0
 	while not _waiting.is_empty() and _free_seats().is_empty() and _clock - float(_waiting[0]) > Rules.GIVE_UP_MINUTES:
 		_waiting.pop_front()
+		_waiting_who.pop_front()
 		_stats.walked_past += 1
 		_narrate("Someone peeks under the tarp, sees every stool taken, and walks on.")
 		_walk_past(gone * 1.5)  # if several give up at once, they don't walk in a clump
@@ -743,6 +771,7 @@ func _call_last_orders() -> void:
 func _end_night() -> void:
 	_night_open = false
 	_move_owner(OWNER_HOME_X)
+	_fade_regulars()
 	_update_stats_panel()
 	var line := Rules.memorable_line(_night_lines)
 	SaveStore.record_night(Game.bar, {
@@ -999,16 +1028,100 @@ func _beside(guest: Guest) -> float:
 func _greet() -> void:
 	_owner_working = true
 	var turned_up: float = _waiting.pop_front()
+	var regular := _regular(str(_waiting_who.pop_front()) if not _waiting_who.is_empty() else "")
 	_greeting = true
 	_stats.greet_waits.append(_clock - turned_up)  # how long they waited for the owner
 	var guest := Guest.new()
 	guest.quick_greeting = Rules.quick_greeting(_waiting.size(), _guests.size())
 	guest.seat = _free_seats().pick_random()
 	guest.arrived = Rules.clock_text(int(_clock))
+	guest.arrived_minutes = int(_clock)
 	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather}
 	_show("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
-	_narrate("%s. Someone ducks under the tarp." % guest.arrived)
+	var customer := {}
+	var look := {}
+	if not regular.is_empty():
+		# A regular: they're known, so not reinvented.
+		_narrate("%s. %s" % [guest.arrived, _back_text(regular)])
+		customer = await _regular_tonight(regular, guest)
+		look = customer["look"]
+	else:
+		_narrate("%s. Someone ducks under the tarp." % guest.arrived)
+		customer = await _new_customer(guest)
+		look = customer.get("look", {})
+	if customer.is_empty():
+		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
+		_greeting = false
+		_task_done()
+		return
+	_names_tonight.append(str(customer["name"]))
+	if not _jobs_tonight.has(str(customer["job"])):
+		_jobs_tonight.append(str(customer["job"]))
+	_looks_tonight.append(str(customer["appearance"]))
 
+	# The game decides their mood for company and how long they'll stay.
+	guest.company = company_override if company_override != "" else Rules.company(randf())
+	customer["company"] = guest.company
+	var stay := stay_minutes_override if stay_minutes_override >= 0 else Rules.stay_minutes(guest.company, randf())
+	guest.stay_left = 0.0 if _last_orders else float(stay)
+	guest.customer = customer
+	guest.color = _free_color()
+	guest.drinks_row = _drinks_rows[guest.seat]
+	guest.food_row = _food_rows[guest.seat]
+	guest.node = _person(_stage, Vector2(_random_offscreen_x(), CUSTOMER_Y), guest.color)
+	guest.node.name = "Customer%d" % guest.seat
+	_dress(guest.node, look)
+	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
+	_guests.append(guest)
+	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
+	_greeting = false
+	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
+	_update_info()
+	if regular.is_empty():  # a regular's look is known by now
+		_narrate(Rules.as_sentence(str(customer["appearance"])))
+	_attend(guest, false)
+	_walk_in(guest)  # the owner doesn't wait for them to sit down: the AI's already on their order
+
+	# 2. They say hello and order in one line, so what they say matches what they get.
+	# The game decides who's extra hungry (two mains) or having a rough night (two drinks).
+	_typing_label.text = "%s is looking at the menu..." % customer["name"]
+	var hungry := randf() < HUNGRY_CHANCE
+	var rough_night := randf() < ROUGH_NIGHT_CHANCE
+	var order: Dictionary = await _ai.ask_json(
+		Prompts.order_messages(_owner, customer, guest.moment, Menu.prompt_list(), guest.transcript, hungry, rough_night),
+		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7},
+		{"purpose": "order", "title": _owner["title"], "max_mains": 2 if hungry else 1, "max_drinks": 2 if rough_night else 1})
+	_typing_label.text = ""
+	var items: Array = ["soju", "odeng"]
+	if order.is_empty():
+		_narrate("(The AI couldn't come up with a valid order, so the game served soju and odeng: %s.)" % _ai.last_error)
+	else:
+		items = order["items"]
+		await _say(guest, false, str(order["line"]))
+	guest.order = items.duplicate()
+	guest.first_order = items.duplicate()
+	_serve(guest, items, true)
+	_stats.serve_waits.append(_clock - turned_up)
+	if guest.quick_greeting:
+		_stats.quick_greetings += 1
+	else:
+		_stats.proper_greetings += 1
+
+	# 3. Will they order more partway through? The game decides how often (often not,
+	# sometimes once, rarely twice) and on which of their turns, spaced out by the rules.
+	# If they leave before a turn comes round, that order never happens.
+	var extra_count := Rules.extra_order_count(randf())
+	guest.extra_turns = Rules.extra_order_turns(randi_range(3, 5) + extra_count, extra_count)
+	# 4. On a quiet night, a first word with the owner straight away. When it's busy, that
+	# waits until the owner has a moment.
+	if not guest.quick_greeting:
+		await _converse(guest, 1, false)
+	_task_done()
+
+
+## Someone new: the AI invents them, in two steps (name and gender, then the rest), to fit the
+## look and age range the game decides. {} if the AI couldn't.
+func _new_customer(guest: Guest) -> Dictionary:
 	# 1. Who is it? First just a name and gender: a quick ask, so if the name's taken, asking
 	# again costs little. Then the rest of that person.
 	_typing_label.text = "Someone is coming down the street..."
@@ -1034,74 +1147,12 @@ func _greet() -> void:
 			{"purpose": "customer", "name": who["name"], "gender": who["gender"], "look": look})
 	_typing_label.text = ""
 	if customer.is_empty():
-		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
-		_greeting = false
-		_task_done()
-		return
+		return {}
 	customer["name"] = who["name"]
 	customer["hangul"] = str(who.get("hangul", ""))
 	customer["gender"] = who["gender"]
 	customer["look"] = look
-	_names_tonight.append(str(who["name"]))
-	if not _jobs_tonight.has(str(customer["job"])):
-		_jobs_tonight.append(str(customer["job"]))
-	_looks_tonight.append(str(customer["appearance"]))
-	# The game decides their mood for company and how long they'll stay.
-	guest.company = company_override if company_override != "" else Rules.company(randf())
-	customer["company"] = guest.company
-	var stay := stay_minutes_override if stay_minutes_override >= 0 else Rules.stay_minutes(guest.company, randf())
-	guest.stay_left = 0.0 if _last_orders else float(stay)
-	guest.customer = customer
-	guest.color = _free_color()
-	guest.drinks_row = _drinks_rows[guest.seat]
-	guest.food_row = _food_rows[guest.seat]
-	guest.node = _person(_stage, Vector2(_random_offscreen_x(), CUSTOMER_Y), guest.color)
-	guest.node.name = "Customer%d" % guest.seat
-	_dress(guest.node, look)
-	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
-	_guests.append(guest)
-	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
-	_greeting = false
-	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
-	_update_info()
-	_narrate(Rules.as_sentence(str(customer["appearance"])))
-	_attend(guest, false)
-	_walk_in(guest)  # the owner doesn't wait for them to sit down: the AI's already on their order
-
-	# 2. They say hello and order in one line, so what they say matches what they get.
-	# The game decides who's extra hungry (two mains) or having a rough night (two drinks).
-	_typing_label.text = "%s is looking at the menu..." % customer["name"]
-	var hungry := randf() < HUNGRY_CHANCE
-	var rough_night := randf() < ROUGH_NIGHT_CHANCE
-	var order: Dictionary = await _ai.ask_json(
-		Prompts.order_messages(_owner, customer, guest.moment, Menu.prompt_list(), guest.transcript, hungry, rough_night),
-		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7},
-		{"purpose": "order", "title": _owner["title"], "max_mains": 2 if hungry else 1, "max_drinks": 2 if rough_night else 1})
-	_typing_label.text = ""
-	var items: Array = ["soju", "odeng"]
-	if order.is_empty():
-		_narrate("(The AI couldn't come up with a valid order, so the game served soju and odeng: %s.)" % _ai.last_error)
-	else:
-		items = order["items"]
-		await _say(guest, false, str(order["line"]))
-	guest.order = items.duplicate()
-	_serve(guest, items, true)
-	_stats.serve_waits.append(_clock - turned_up)
-	if guest.quick_greeting:
-		_stats.quick_greetings += 1
-	else:
-		_stats.proper_greetings += 1
-
-	# 3. Will they order more partway through? The game decides how often (often not,
-	# sometimes once, rarely twice) and on which of their turns, spaced out by the rules.
-	# If they leave before a turn comes round, that order never happens.
-	var extra_count := Rules.extra_order_count(randf())
-	guest.extra_turns = Rules.extra_order_turns(randi_range(3, 5) + extra_count, extra_count)
-	# 4. On a quiet night, a first word with the owner straight away. When it's busy, that
-	# waits until the owner has a moment.
-	if not guest.quick_greeting:
-		await _converse(guest, 1, false)
-	_task_done()
+	return customer
 
 
 ## Drinks (and anything else that needs no cooking) go on the table now, with the free
@@ -1198,6 +1249,7 @@ func _settle_up(guest: Guest) -> void:
 	_night_takings += bill
 	_stats.served += 1
 	_stats.owner_lines_each.append(guest.transcript.filter(func(e): return e.has("text")).size())
+	_after_visit(guest)
 	_customer = guest.customer
 	_order = guest.order.duplicate()
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
@@ -1475,6 +1527,8 @@ func _counter_chat() -> void:
 		said_by = speaker
 		lines -= 1
 		lines_said += 1
+		for person in chat.people:
+			person.chatted = true
 		# Something more urgent can cut the chat short, but only once it's had a few lines.
 		if _urgent() and lines_said >= CHAT_LINES_BEFORE_INTERRUPTING:
 			break
@@ -1933,7 +1987,9 @@ static func gender_symbol(gender: Variant) -> String:
 func _name_label(customer: Dictionary) -> String:
 	var symbol := gender_symbol(customer.get("gender", ""))
 	var named := _with_hangul(customer)
-	return named if symbol == "" else "%s %s" % [named, symbol]
+	var label := named if symbol == "" else "%s %s" % [named, symbol]
+	var mark := Regulars.closeness_mark(customer.get("regular", {}))  # ☆ ★ ★★ for regulars
+	return label if mark == "" else "%s %s" % [label, mark]
 
 
 ## The cat's name as shown on screen, like everyone's: "나비 Nabi ♀".
@@ -1986,6 +2042,16 @@ func _update_info() -> void:
 	for guest in seated:
 		var c: Dictionary = guest.customer
 		t += "[color=#%s][b]%s[/b][/color], %s, %s  [color=#%s](stool %d)[/color]\n" % [guest.color.lightened(0.35).to_html(false), _esc(_name_label(c)), c["age"], _esc(c["job"]), muted, guest.seat + 1]
+		var known: Dictionary = c.get("regular", {})
+		if not known.is_empty():
+			var status := "%s %s · %s visit" % [Regulars.closeness_mark(known), Regulars.closeness_word(known), Regulars.ordinal(int(known["visits"]) + 1)]
+			if str(known.get("since", "")) != "":
+				status = "%s %s · coming %s, %s" % [Regulars.closeness_mark(known), Regulars.closeness_word(known), known["since"], known.get("habit", "")]
+			elif known.has("nights_ago"):
+				status += " · last in %s" % Regulars.nights_ago_text(int(known["nights_ago"]))
+			if not known.get("usual", []).is_empty():
+				status += " · usual: %s" % Rules.item_names(known["usual"])
+			t += "[color=#%s]%s[/color]\n" % [OWNER_TEXT.to_html(false), _esc(status)]
 		t += "[color=#%s]%s · %s · %s[/color]\n" % [muted, COMPANY_LABEL.get(guest.company, ""), _esc(c["mood"]), _esc(c["reason"])]
 		var chat := _chat_of(guest)
 		if chat != null:
@@ -3009,3 +3075,214 @@ func _owner_look() -> Dictionary:
 			Game.bar["owner"]["look"] = _owner["look"]
 			Game.save()
 	return _owner["look"]
+
+
+# --- Regulars --------------------------------------------------------------------------------
+
+## The bar's regulars (saved with it).
+func _regulars() -> Array:
+	if not Game.bar.has("regulars"):
+		Game.bar["regulars"] = []
+	return Game.bar["regulars"]
+
+
+func _regular(id: String) -> Dictionary:
+	if id == "":
+		return {}
+	for regular in _regulars():
+		if str(regular["id"]) == id:
+			return regular
+	return {}
+
+
+func _day_index() -> int:
+	return maxi(0, Rules.DAYS.find(_night_day))
+
+
+## A new bar's two founding regulars: the game decides who they'll be (gender, look, role,
+## how long and how often, their usual), and the AI invents them. Saved with the bar.
+func _make_founding_regulars() -> void:
+	var roles: Array = Regulars.ROLES.keys()
+	roles.shuffle()
+	var taken: Array = [str(_owner["name"])]
+	var made: Array = []
+	for i in 2:
+		var gender := Rules.game_gender(randf())
+		var look := Rules.pick_look(gender if gender != "non-binary" else ["woman", "man"].pick_random(), Rules.pick_age_range(randf()), "")
+		var habit: Array = Regulars.HABITS.pick_random()
+		var years := randi_range(2, 12)
+		var since := "for %d years" % years
+		var usual: Array = [_menu_pick("drink"), _menu_pick("main")]
+		_typing_label.text = "Someone's been coming here for years..."
+		var reply: Dictionary = await _ai.ask_json(
+			Prompts.founding_regular_messages(_owner, str(Game.bar["name"]), gender, look, str(roles[i]), since, str(habit[0]), usual, taken),
+			_validate_founding.bind(taken, gender, str(look["age_range"])), {"temperature": 0.9},
+			{"purpose": "founding_regular", "taken": taken.duplicate(), "gender": gender, "look": look})
+		_typing_label.text = ""
+		if _stopped:
+			return
+		if reply.is_empty():
+			continue  # one fewer: the bar still opens
+		var days: Array = range(7)
+		days.shuffle()
+		var regular := {
+			"id": "%s-founding" % str(reply["name"]).to_lower().replace(" ", "-"),
+			"founding": true, "role": roles[i], "since": since, "habit": habit[0],
+			"history": reply["history"], "owner_knows": reply["owner_knows"], "knows_of_owner": reply["knows_of_owner"],
+			"visits": roundi(years * 52 * float(habit[2])), "first_night": 0, "last_night": 0,
+			"pull": Regulars.FOUNDING_PULL, "favourite_days": days.slice(0, int(habit[1])),
+			"usual_hour": randi_range(19 * 60, 23 * 60), "orders": [], "usual": usual,
+			"owner_knows_name": true, "knows_owner_name": true, "look": look, "introduced": false,
+		}
+		for key in ["name", "hangul", "gender", "age", "job", "speech_style", "appearance"]:
+			regular[key] = reply.get(key, "")
+		made.append(regular)
+		taken.append(str(reply["name"]))
+	Game.bar["regulars"] = made
+	Game.save()  # (they're introduced when they first come in: see _back_text)
+
+
+func _validate_regular_tonight(data: Variant) -> String:
+	return Rules.validate_regular_tonight(data)
+
+
+func _validate_founding(data: Variant, taken: Array, gender: String, age_range: String) -> String:
+	return Rules.validate_founding_regular(data, taken, gender, age_range)
+
+
+func _menu_pick(kind: String) -> String:
+	var choices: Array = Menu.ITEMS.filter(func(item): return (item.get("kind", "") == "drink") if kind == "drink" else (item.get("portion", "") == "main"))
+	return str(choices.pick_random()["id"])
+
+
+## Who's coming in tonight, from their pull and habits: each regular at most once, around
+## their usual hour.
+func _plan_regulars_tonight() -> void:
+	_regulars_due.clear()
+	for regular in _regulars():
+		# A founding regular always comes in the first night the bar has them, to meet them.
+		var first := bool(regular.get("founding", false)) and not bool(regular.get("introduced", false))
+		if first or randf() < Regulars.visit_chance(float(regular["pull"]), _day_index(), regular.get("favourite_days", []), Regulars.keen(regular, _night_number)):
+			_regulars_due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), randf()), "id": regular["id"]})
+	_regulars_due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
+
+
+## A regular's facts, for the prompts (see Prompts.describe_regular).
+func _regular_facts(regular: Dictionary) -> Dictionary:
+	var facts := {
+		"visits": int(regular.get("visits", 0)), "founding": bool(regular.get("founding", false)),
+		"role": regular.get("role", ""), "since": regular.get("since", ""), "habit": regular.get("habit", ""), "history": regular.get("history", ""),
+		"owner_knows": regular.get("owner_knows", ""), "knows_of_owner": regular.get("knows_of_owner", ""),
+		"usual": Regulars.usual_of(regular), "owner_knows_name": bool(regular.get("owner_knows_name", false)),
+		"knows_owner_name": bool(regular.get("knows_owner_name", false)),
+	}
+	if int(regular.get("last_night", 0)) > 0:
+		facts["nights_ago"] = _night_number - int(regular["last_night"])
+	return facts
+
+
+## A regular comes in: not reinvented, just asked what sort of night they're having.
+func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
+	var customer := {}
+	for key in ["name", "hangul", "gender", "age", "job", "speech_style", "appearance"]:
+		customer[key] = regular.get(key, "")
+	customer["look"] = Regulars.dressed_for(regular.get("look", {}), _weather_kind)
+	customer["regular"] = _regular_facts(regular)
+	customer["regular_id"] = regular["id"]
+	_typing_label.text = "%s is back..." % regular["name"]
+	var tonight: Dictionary = await _ai.ask_json(
+		Prompts.regular_tonight_messages(_night_day, guest.arrived, _night_weather, customer),
+		_validate_regular_tonight, {"temperature": 0.9}, {"purpose": "regular_tonight", "name": regular["name"]})
+	_typing_label.text = ""
+	if tonight.is_empty():
+		tonight = {"mood": "glad to be back", "reason": "It's been a while, and this is where they unwind."}
+	customer["mood"] = tonight["mood"]
+	customer["reason"] = tonight["reason"]
+	return customer
+
+
+## "Kim Ji-ho is back, for her 4th visit (last time: 9 nights ago)." or, for a founding
+## regular, "Choi Young-ja ducks in and takes her usual stool: she's been coming for six
+## years, most Fridays."
+func _back_text(regular: Dictionary) -> String:
+	var her: String = {"woman": "her", "man": "his"}.get(str(regular.get("gender", "")), "their")
+	var she: String = {"woman": "she's", "man": "he's"}.get(str(regular.get("gender", "")), "they've")
+	if bool(regular.get("founding", false)):
+		var text := "%s ducks in and takes %s usual stool: %s been coming %s, %s." % [regular["name"], her, she, regular.get("since", ""), regular.get("habit", "")]
+		if not bool(regular.get("introduced", false)):
+			# The first time we see them: who they are to the tent.
+			regular["introduced"] = true
+			Game.save()
+			var who: String = {"woman": "She's", "man": "He's"}.get(str(regular.get("gender", "")), "They're")
+			text += " %s %s. %s" % [who, str(Regulars.ROLES.get(regular.get("role", ""), "a regular")).get_slice(":", 0), Rules.as_sentence(str(regular.get("history", "")))]
+		return text
+	var text := "%s is back, for %s %s visit" % [regular["name"], her, Regulars.ordinal(int(regular.get("visits", 0)) + 1)]
+	if int(regular.get("last_night", 0)) > 0:
+		text += " (last time: %s)" % Regulars.nights_ago_text(_night_number - int(regular["last_night"]))
+	return text + "."
+
+
+## After someone pays: a regular's visit is added to their record; anyone else might become
+## a regular, from how the visit went. Saved with the bar.
+func _after_visit(guest: Guest) -> void:
+	var owner_lines := guest.transcript.filter(func(e): return e.has("text")).size()
+	var verdict := Regulars.game_verdict(owner_lines, guest.chatted, guest.quick_greeting, guest.company)
+	var rushed := Regulars.rushed(guest.quick_greeting, owner_lines)
+	var said := " ".join(PackedStringArray(guest.transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["text"])))).to_lower()
+	var regular := _regular(str(guest.customer.get("regular_id", "")))
+	if not regular.is_empty():
+		regular["visits"] = int(regular.get("visits", 0)) + 1
+		regular["last_night"] = _night_number
+		var orders: Array = regular.get("orders", [])
+		orders.append(guest.first_order.duplicate())
+		regular["orders"] = orders.slice(-5)
+		regular["pull"] = Regulars.pull_after_visit(float(regular["pull"]), verdict, rushed)
+		_stats.regulars_in += 1
+	else:
+		var roll := regular_roll_override if regular_roll_override >= 0.0 else randf()
+		if not Regulars.becomes_regular(verdict, rushed, roll):
+			return
+		regular = Regulars.new_regular(guest.customer, guest.customer.get("look", {}), guest.first_order, _night_number, _day_index(), guest.arrived_minutes, randf())
+		_regulars().append(regular)
+		_stats.became_regulars += 1
+		var they: String = {"woman": "she'll", "man": "he'll"}.get(str(guest.customer.get("gender", "")), "they'll")
+		_narrate("%s looks like %s be back." % [guest.customer["name"], they])
+	# Names, once they've been said (the full name, or the given name).
+	if _name_said(str(guest.customer["name"]), said):
+		regular["owner_knows_name"] = true
+	if _name_said(str(_owner["name"]), said):
+		regular["knows_owner_name"] = true
+	Game.save()
+	_count_regulars()
+
+
+func _name_said(full: String, said: String) -> bool:
+	var parts := full.split(" ", false)
+	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
+	return said.contains(full.to_lower()) or said.contains(given.to_lower())
+
+
+## The night's over: regulars who didn't come drift a little further away; anyone who's
+## drifted too far isn't a regular any more.
+func _fade_regulars() -> void:
+	var kept: Array = []
+	for regular in _regulars():
+		if int(regular.get("last_night", 0)) != _night_number:
+			regular["pull"] = Regulars.pull_after_absence(float(regular["pull"]), bool(regular.get("founding", false)))
+		if Regulars.still_regular(float(regular["pull"])):
+			kept.append(regular)
+		else:
+			_stats.faded_regulars += 1
+			_narrate("%s hasn't been in for a long while." % regular["name"])
+	Game.bar["regulars"] = kept
+	_count_regulars()
+
+
+## The regulars, for the stats panel and log.
+func _count_regulars() -> void:
+	_stats.regular_pulls = {}
+	_stats.founding_regulars = 0
+	for regular in _regulars():
+		_stats.regular_pulls[str(regular["name"])] = snappedf(float(regular["pull"]), 0.01)
+		if bool(regular.get("founding", false)):
+			_stats.founding_regulars += 1

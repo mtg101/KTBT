@@ -886,6 +886,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 	# No asides in brackets: a small model adds "(translations)" or stage directions there.
 	if line.contains("(") or line.contains(")"):
 		return "the line has something in brackets: write only what's said, in English, with no translations or stage directions"
+	var invented := romanised_korean(line, names + [speaker])
+	if not invented.is_empty():
+		return "the line has made-up Korean words in it (%s): everyone speaks fluent English here, with at most the odd Korean word a K-drama fan would know" % ", ".join(PackedStringArray(invented))
 	var term := close_term(line, names + [speaker])
 	if term != "":
 		return "the line says \"%s\", but these people have only just met: strangers don't use oppa, hyung, nuna or eonni" % term
@@ -901,6 +904,8 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
+	if p.contains("made-up korean"):
+		return "made-up Korean"
 	if p.contains("already at the counter") or p.contains("already called"):
 		return "same name"
 	if p.contains("the cat"):
@@ -1207,7 +1212,7 @@ static func pick_look(gender: String, age_range: String, weather: String, owner:
 		"cold", "snow":
 			clothes.merge({"padded": 35, "knit": 16, "tshirt": 0, "trench": 8}, true)
 		"muggy":
-			clothes.merge({"tshirt": 40, "padded": 0, "knit": 0, "trench": 0, "hoodie": 4}, true)
+			clothes.merge({"tshirt": 40, "padded": 0, "knit": 0, "trench": 0, "hoodie": 4, "cardigan": 2}, true)
 	if older:
 		clothes["hoodie"] = 2
 	if owner:  # behind the counter: something you can cook in, under an apron
@@ -1381,3 +1386,73 @@ static func bubble_pages(text: String, most: int = BUBBLE_PAGE) -> PackedStringA
 ## How long a page stays up: long enough to read it.
 static func page_seconds(page: String) -> float:
 	return clampf(1.0 + page.length() * 0.045, 1.8, 5.5)
+
+
+# --- Regulars ------------------------------------------------------------------------------
+
+const FOUNDING_FIELDS := ["name", "age", "job", "speech_style", "appearance", "history", "owner_knows", "knows_of_owner"]
+const MAX_REGULAR_TEXT := 300
+
+
+## One of a new bar's founding regulars (the game decided their gender and age range).
+## taken: names they mustn't share (the owner, the other founding regular).
+static func validate_founding_regular(data: Variant, taken: Array, gender: String, age_range: String) -> String:
+	var problem := check_fields(data, FOUNDING_FIELDS)
+	if problem != "":
+		return problem
+	problem = validate_customer_name(data, taken, gender)
+	if problem != "":
+		return problem
+	problem = check_age(data, MIN_DRINKING_AGE, MAX_CUSTOMER_AGE)
+	if problem != "":
+		return problem
+	fit_age(data, age_range)
+	for key in ["history", "owner_knows", "knows_of_owner", "appearance"]:
+		if tidy_text(data[key]).length() > MAX_REGULAR_TEXT:
+			return "\"%s\" is too long: one sentence" % key
+	return ""
+
+
+## What brings a regular in tonight.
+static func validate_regular_tonight(data: Variant) -> String:
+	return check_fields(data, ["mood", "reason"])
+
+
+# --- Made-up Korean ------------------------------------------------------------------------
+
+## Romanised Korean the dialogue may use: the odd word a K-drama fan would know, names of
+## food and places, and how people address each other.
+const KNOWN_KOREAN := ["ajumma", "ajusshi", "ajeossi", "imo", "samchon", "sajangnim", "seonsaengnim", "oppa", "hyung", "hyeong",
+	"nuna", "noona", "eonni", "unni", "sunbae", "seonbae", "haksaeng", "agassi", "jeogiyo", "geonbae", "aigoo", "aigo",
+	"daebak", "hwaiting", "gamsahamnida", "gomawo", "mianhae", "saranghae", "jinjja", "eomma", "appa", "omo", "aish",
+	"seoul", "busan", "gangnam", "hongdae", "itaewon", "myeongdong", "jongno", "mapo", "euljiro", "pocha", "pojangmacha",
+	"hoesik", "maknae", "satoori", "eomuk", "banchan", "kimchi", "chuseok", "seollal", "won"]
+## English words that happen to look like romanised Korean (with "eo", "eu" or "ae" in them,
+## or ending in "yo").
+const ENGLISH_LOOKALIKES := ["people", "someone", "anyone", "everyone", "video", "theory", "neon", "leopard", "george",
+	"geography", "meteor", "pigeon", "surgeon", "dungeon", "luncheon", "chameleon", "rodeo", "stereo", "neutral",
+	"europe", "european", "queue", "feud", "pseudo", "amateur", "chauffeur", "entrepreneur", "liqueur", "milieu",
+	"adieu", "lieu", "deuce", "sleuth", "euphoria", "eulogy", "michael", "israel", "aerial", "aesthetic", "maestro",
+	"reggae", "theology", "geometry", "leon", "napoleon", "creole", "yeoman", "deodorant", "galleon", "peony", "eon", "eons"]
+const MADE_UP_KOREAN_WORDS := 3  # this many romanised-looking words in a line, and it's made-up Korean
+
+
+## The romanised-Korean-looking words in a line, if there are enough to be made-up Korean
+## (a whole phrase rather than the odd word); [] otherwise. names: people's names, which are fine.
+static func romanised_korean(line: String, names: Array = []) -> Array:
+	var allowed := {}
+	for word in KNOWN_KOREAN + ENGLISH_LOOKALIKES:
+		allowed[word] = true
+	for person in names:
+		for part in words(str(person)):
+			allowed[part] = true
+	for item in Menu.ITEMS:
+		for part in words(str(item["name"])):
+			allowed[part] = true
+	var found: Array = []
+	for word in words(line):
+		if allowed.has(word) or word.length() < 3:
+			continue
+		if word.contains("eo") or word.contains("eu") or word.contains("ae") or (word.ends_with("yo") and word.length() > 3):
+			found.append(word)
+	return found if found.size() >= MADE_UP_KOREAN_WORDS else []

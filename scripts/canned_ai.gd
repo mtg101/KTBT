@@ -124,6 +124,18 @@ func reply(request: Dictionary) -> Variant:
 		"hangul":
 			var person_name := str(request.get("name", ""))
 			return {"hangul": HANGUL.get(person_name, Rules.CAT_HANGUL.get(person_name, ""))}
+		"founding_regular":
+			var taken: Array = request.get("taken", [])
+			var picked := _customer(taken, str(request.get("gender", "")))
+			var regular := picked.duplicate()
+			regular["hangul"] = HANGUL.get(picked["name"], "")
+			regular["history"] = "Started coming the winter the owner first put up the tarp, and never stopped."
+			regular["owner_knows"] = "Works too hard, eats too little, and always says it's the last bottle."
+			regular["knows_of_owner"] = "The owner never takes a day off, even when it snows."
+			return _fit_look(regular, request, Rules.MIN_DRINKING_AGE)
+		"regular_tonight":
+			var mood_from: Dictionary = CUSTOMERS.pick_random()
+			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
 		"customer_name":
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
 			return {"name": picked["name"], "hangul": HANGUL.get(picked["name"], ""), "gender": picked["gender"]}

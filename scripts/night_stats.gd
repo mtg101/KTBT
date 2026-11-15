@@ -31,6 +31,13 @@ var free_turns := 0  # times the owner's voice was free (nobody to greet or sett
 var chat_chances := 0  # times a customer chat could have started (or carried on) when the owner was free
 var chats_continued := 0  # spells that carried on a chat already going
 
+# Regulars
+var regular_pulls := {}  # name -> pull, for everyone on the books
+var founding_regulars := 0
+var regulars_in := 0  # regulars who came in (and paid) tonight
+var became_regulars := 0
+var faded_regulars := 0
+
 # Food
 var dishes_cooked := 0
 var food_waits: Array = []  # game minutes from ordering a cooked dish to it reaching the table
@@ -140,6 +147,10 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
 	lines.append("")
+	lines.append("[b]REGULARS[/b]")
+	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
+	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
+	lines.append("")
 	lines.append("[b]FOOD[/b]")
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
 	lines.append("Wait for food: avg %d min, longest %d" % [roundi(average(food_waits)), roundi(longest(food_waits))])
@@ -171,6 +182,10 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
+		},
+		"regulars": {
+			"on_the_books": regular_pulls.size(), "founding": founding_regulars, "in_tonight": regulars_in,
+			"became": became_regulars, "faded": faded_regulars, "pulls": regular_pulls.duplicate(),
 		},
 		"food": {
 			"dishes_cooked": dishes_cooked,

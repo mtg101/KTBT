@@ -190,3 +190,10 @@ func test_every_canned_name_has_hangul_that_fits() -> void:
 		assert_str(Rules.fit_hangul(person, CannedAi.HANGUL[person])).override_failure_message(person).is_equal(CannedAi.HANGUL[person])
 	for cat in Rules.CAT_NAMES:
 		assert_str(Rules.fit_hangul(cat, Rules.CAT_HANGUL[cat])).override_failure_message(cat).is_equal(Rules.CAT_HANGUL[cat])
+
+
+func test_canned_founding_regulars_and_their_evenings_pass_the_rules() -> void:
+	var look := Rules.pick_look("woman", "40s", "")
+	var regular: Dictionary = _canned.reply({"purpose": "founding_regular", "taken": ["Park Mi-sook"], "gender": "woman", "look": look})
+	assert_str(Rules.validate_founding_regular(regular, ["Park Mi-sook"], "woman", "40s")).is_empty()
+	assert_str(Rules.validate_regular_tonight(_canned.reply({"purpose": "regular_tonight", "name": "Kim Ji-ho"}))).is_empty()

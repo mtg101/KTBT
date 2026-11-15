@@ -362,3 +362,31 @@ func test_names_are_asked_for_in_hangul_too() -> void:
 	assert_str(_request(Prompts.customer_name_messages("Friday", "9:00pm", "fog"))).contains("\"hangul\"")
 	assert_str(_request(Prompts.customer_name_messages("Friday", "9:00pm", "fog", [], [], "non-binary"))).contains("\"hangul\"")
 	assert_str(_request(Prompts.owner_messages("woman"))).contains("\"hangul\"")
+
+
+func test_a_first_timer_is_a_stranger_and_a_regular_is_known() -> void:
+	var stranger := {"name": "Han Seol", "gender": "woman"}
+	assert_str(Prompts.describe_relationship(_owner_data(), stranger)).contains("first visit")
+	var regular := {"name": "Han Seol", "gender": "woman", "regular": {"visits": 3, "nights_ago": 9, "usual": [], "owner_knows_name": false, "knows_owner_name": false}}
+	var text := Prompts.describe_relationship(_owner_data(), regular)
+	assert_str(text).contains("4th visit")
+	assert_str(text).contains("a week ago")
+	assert_str(text).contains("not their name")
+	assert_str(text).contains("don't have a usual yet")
+	assert_str(text).not_contains("first visit")
+	regular["regular"].merge({"usual": ["soju", "tteokbokki"], "owner_knows_name": true}, true)
+	text = Prompts.describe_relationship(_owner_data(), regular)
+	assert_str(text).contains("the usual")
+	assert_str(text).contains("Tteokbokki")
+	assert_str(text).contains("knows their name, Han Seol")
+
+
+func test_founding_regular_prompt_has_the_games_facts() -> void:
+	var look := {"age_range": "40s", "hair": "short", "hair_colour": "black", "clothes": "work_jacket", "colour": "navy"}
+	var text := _request(Prompts.founding_regular_messages(_owner_data(), "Golmok Pocha", "man", look, "fixture", "for 9 years", "most nights", ["soju", "sundae"], ["Park Mi-sook"]))
+	assert_str(text).contains("for 9 years, most nights")
+	assert_str(text).contains("end stool")
+	assert_str(text).contains("Soju")
+	assert_str(text).contains("Park Mi-sook")
+	assert_str(text).contains("from 40 to 49")
+	assert_str(text).contains("never the owner's secret")
