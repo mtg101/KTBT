@@ -182,7 +182,7 @@ static func seen_as(person: Dictionary) -> String:
 ## "dome": the everyday one; "wide": a big, flatter golf umbrella; "bubble": a deep clear
 ## dome down round the head (Seoul's convenience-store ones); "compact": a small folding one.
 const UMBRELLA_SHAPES := {"dome": 0.4, "wide": 0.2, "bubble": 0.25, "compact": 0.15}
-const NO_UMBRELLA_CHANCE := {"drizzle": 0.25, "rain": 0.07, "snow": 0.15}  # (drizzle: plenty don't bother)
+const NO_UMBRELLA_CHANCE := {"drizzle": 0.12, "rain": 0.06, "snow": 0.1}  # (rare: at a quarter in drizzle, 30 of 125 ran)
 
 
 ## Whether anyone out in this weather needs an umbrella (or to run for it).

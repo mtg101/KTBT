@@ -172,6 +172,9 @@ var _names_tonight: Array = []
 var _jobs_tonight: Array = []  # tonight's customers' jobs and looks, so newcomers are different
 var _looks_tonight: Array = []
 const VARIETY_LOOKS := 5  # how many recent looks the AI is shown
+## A customer invented ahead (see _prepare_customer) is used if they arrive within this many
+## game minutes; any later, they're from another hour (a 7pm salaryman isn't a 2am one).
+const PREPARED_FRESH_MINUTES := 60.0
 # The cat: who it is (saved with the bar) and where it is now.
 var _cat := {}  # name, coat, personality
 var _cat_spot := "stove"
@@ -192,6 +195,9 @@ var _ready_dishes: Array = []  # {"guest", "id"}: cooked, waiting to be carried 
 ## The owner's voice: one AI call at a time, so one conversation task at a time.
 var _owner_working := false
 var _greeting := false  # the owner's greeting someone who isn't on their stool yet
+## The next new customer, invented ahead while the owner was free ({"customer", "at"}: game
+## minutes), so when someone ducks under the tarp only their order waits for the AI. {}: none.
+var _prepared := {}
 ## The owner's hands: carrying a dish over, which happens whatever the voice is doing.
 var _carrying := false
 var _owner_tween: Tween
@@ -1120,6 +1126,12 @@ func _next_task() -> void:
 		if randf() < chance:
 			_counter_chat()
 			return
+	# Inventing the next customer comes after customers' chances to chat (which don't need
+	# the owner), so it only ever takes a turn the owner would have spent talking. (Before
+	# them, chats fell from about 15% of lines to 6%.)
+	if _should_prepare():
+		_prepare_customer()
+		return
 	if lonely != null:
 		_talk(lonely)
 
@@ -1345,7 +1357,9 @@ func _greet() -> void:
 		look = customer["look"]
 	else:
 		_narrate("%s. Someone ducks under the tarp." % guest.arrived)
-		customer = await _new_customer(guest)
+		customer = _take_prepared()
+		if customer.is_empty():
+			customer = await _new_customer(guest.arrived)
 		look = customer.get("look", {})
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
@@ -1434,10 +1448,13 @@ func _greet() -> void:
 
 ## Someone new: the AI invents them, in two steps (name and gender, then the rest), to fit the
 ## look and age range the game decides. {} if the AI couldn't.
-func _new_customer(guest: Guest) -> Dictionary:
+## Invents a new customer arriving at this time (as text): {} if the AI can't. ahead: being
+## invented before they arrive (see _prepare_customer), so nothing's shown while it thinks.
+func _new_customer(arrived: String, ahead: bool = false) -> Dictionary:
 	# 1. Who is it? First just a name and gender: a quick ask, so if the name's taken, asking
 	# again costs little. Then the rest of that person.
-	_typing_label.text = "Someone is coming down the street..."
+	if not ahead:
+		_typing_label.text = "Someone is coming down the street..."
 	var taken: Array = [str(_owner["name"])]  # nobody at the counter shares a name
 	for other in _guests:
 		taken.append(str(other.customer["name"]))
@@ -1445,20 +1462,22 @@ func _new_customer(guest: Guest) -> Dictionary:
 	# About one in a hundred is non-binary: the game decides; otherwise the AI chooses.
 	var gender := Hooks.gender_override if Hooks.gender_override != "" else People.game_gender(randf())
 	var who: Dictionary = await _ai.ask_json(
-		Prompts.customer_name_messages(_night_day, guest.arrived, _night_weather, taken, used, gender),
+		Prompts.customer_name_messages(_night_day, arrived, _night_weather, taken, used, gender),
 		_validate_customer_name.bind(taken, gender), {"temperature": 1.0}, {"purpose": "customer_name", "taken": taken, "gender": gender})
 	var customer := {}
 	var look := {}
 	if not who.is_empty():
-		_typing_label.text = "%s is coming down the street..." % who["name"]
+		if not ahead:
+			_typing_label.text = "%s is coming down the street..." % who["name"]
 		# The game decides their age range and look (by the weather); the AI invents someone
 		# who'd look like that.
 		look = Looks.pick_look(str(who["gender"]), Looks.pick_age_range(randf()), _weather_kind)
 		customer = await _ai.ask_json(
-			Prompts.customer_messages(_night_day, guest.arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS), look),
+			Prompts.customer_messages(_night_day, arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS), look),
 			_validate_customer_details.bind(str(look["age_range"])), {"temperature": 0.9},
 			{"purpose": "customer", "name": who["name"], "gender": who["gender"], "look": look})
-	_typing_label.text = ""
+	if not ahead:
+		_typing_label.text = ""
 	if customer.is_empty():
 		return {}
 	customer["name"] = who["name"]
@@ -1466,6 +1485,48 @@ func _new_customer(guest: Guest) -> Dictionary:
 	customer["gender"] = who["gender"]
 	customer["look"] = look
 	return customer
+
+
+## Whether to invent the next customer now: the owner's free (this comes after greeting,
+## settling up and a put-off reaction), the tent's open for new people, and there's nobody
+## ready yet (or the one ready is too old to use).
+func _should_prepare() -> bool:
+	if not Hooks.prepare_customers or not _night_open or _last_orders or _clock >= NightRules.CLOSE_MINUTES:
+		return false
+	if not _prepared.is_empty() and _clock - float(_prepared["at"]) > PREPARED_FRESH_MINUTES:
+		_prepared = {}
+		_stats.prepared_stale += 1
+	return _prepared.is_empty()
+
+
+## Invents the next new customer ahead, while the owner's free: the same AI asks as when they
+## arrive, just not while they're standing at the tarp waiting.
+func _prepare_customer() -> void:
+	_owner_working = true
+	var at := _clock
+	var customer := await _new_customer(NightRules.clock_text(int(_clock)), true)
+	if _stopped:
+		return
+	if not customer.is_empty():
+		_prepared = {"customer": customer, "at": at}
+		_stats.prepared += 1
+	_task_done()
+
+
+## The customer invented ahead, if there is one fit to come in now (not too old, and nobody
+## at the counter has their name), or {}. Either way, there's none ready after this.
+func _take_prepared() -> Dictionary:
+	if _prepared.is_empty():
+		return {}
+	var ready_one: Dictionary = _prepared["customer"]
+	var at := float(_prepared["at"])
+	_prepared = {}
+	var taken: Array = [str(_owner["name"])] + _guests.map(func(g): return str(g.customer["name"]))
+	if _clock - at > PREPARED_FRESH_MINUTES or taken.has(str(ready_one["name"])):
+		_stats.prepared_stale += 1
+		return {}
+	_stats.prepared_used += 1
+	return ready_one
 
 
 ## Drinks (and anything else that needs no cooking) go on the table now, with the free

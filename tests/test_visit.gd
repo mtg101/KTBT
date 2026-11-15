@@ -210,6 +210,31 @@ func test_the_ai_hears_what_is_still_cooking() -> void:
 	assert_bool(told).is_true()
 
 
+func test_the_next_customer_is_invented_ahead() -> void:
+	Hooks.prepare_customers = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	# Nobody's in: the owner's free, so the next customer's invented before they arrive.
+	assert_bool(await _wait_until(func(): return not scene._prepared.is_empty())).override_failure_message("nobody was invented ahead").is_true()
+	var ahead := str(scene._prepared["customer"]["name"])
+	assert_str(_transcript(runner)).not_contains(ahead)  # (nothing shown: they're not here yet)
+	# When someone ducks under the tarp, it's them.
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty())).is_true()
+	assert_str(str(scene._guests[0].customer["name"])).is_equal(ahead)
+	assert_int(scene._stats.prepared_used).is_equal(1)
+	# Too long waiting: from another hour, so thrown away and invented fresh.
+	scene._owner_working = true  # (so the owner doesn't invent another meanwhile)
+	scene._prepared = {"customer": {"name": "Old Name"}, "at": scene._clock - Visit.PREPARED_FRESH_MINUTES - 10.0}
+	assert_dict(scene._take_prepared()).is_empty()
+	assert_int(scene._stats.prepared_stale).is_equal(1)
+	# Someone at the counter has their name by now: thrown away too.
+	scene._prepared = {"customer": {"name": ahead}, "at": scene._clock}
+	assert_dict(scene._take_prepared()).is_empty()
+	assert_int(scene._stats.prepared_stale).is_equal(2)
+	scene._owner_working = false
+
+
 func test_the_owner_moves_between_customers() -> void:
 	Hooks.stay_minutes_override = 600
 	Hooks.chat_chance_override = 0.0  # just the owner talking

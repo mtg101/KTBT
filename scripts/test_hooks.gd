@@ -37,6 +37,9 @@ static var strollers := true
 static var offer_every_look := false
 ## false keeps the cat where it is (tests move it themselves).
 static var cat_wanders := true
+## false: the next new customer isn't invented ahead, while the owner's free, but when they
+## arrive (as before: tests that script exact AI replies would have them used up early).
+static var prepare_customers := true
 ## Rain gear for every customer coming and going in the rain or snow, instead of the dice
 ## (Looks.rain_gear: {"umbrella": false} runs for it). {}: the dice.
 static var rain_gear := {}
@@ -81,6 +84,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	strollers = true
 	offer_every_look = true
 	founding_regulars = false
+	prepare_customers = false
 	regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	memories = false
 	reactions = false
@@ -113,6 +117,7 @@ static func restore() -> void:
 	offer_every_look = false
 	cat_wanders = true
 	rain_gear = {}
+	prepare_customers = true
 	founding_regulars = true
 	regular_roll_override = -1.0
 	memories = true

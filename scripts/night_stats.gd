@@ -21,6 +21,9 @@ var arrived := 0
 var served := 0  # paid and left
 var walked_past := 0  # gave up waiting for a stool
 var peak_seated := 0
+var prepared := 0  # new customers invented ahead, while the owner was free
+var prepared_used := 0  # ...who came in
+var prepared_stale := 0  # ...thrown away: too long waiting (another hour), or their name was taken by then
 var quick_greetings := 0
 var proper_greetings := 0
 var greet_waits: Array = []  # game minutes from arriving to the owner coming to greet them
@@ -297,6 +300,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	if not street.is_empty():
 		lines.append("Street: %s" % counts_text(street))
 	lines.append("Greetings: %d proper, %d quick" % [proper_greetings, quick_greetings])
+	lines.append("Invented ahead: %d (%d came in, %d too old or name taken)" % [prepared, prepared_used, prepared_stale])
 	lines.append("Wait for the owner: avg %d min, longest %d" % [roundi(average(greet_waits)), roundi(longest(greet_waits))])
 	lines.append("Wait for first drinks: avg %d min, longest %d" % [roundi(average(serve_waits)), roundi(longest(serve_waits))])
 	if owner_lines_each.is_empty():
@@ -361,6 +365,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
 			"quick_greetings": quick_greetings, "proper_greetings": proper_greetings,
+			"invented_ahead": {"invented": prepared, "came_in": prepared_used, "thrown_away": prepared_stale},
 			"greet_wait_minutes": {"average": average(greet_waits), "longest": longest(greet_waits)},
 			"first_drinks_wait_minutes": {"average": average(serve_waits), "longest": longest(serve_waits)},
 			"owner_lines_each": {"average": average(owner_lines_each), "fewest": shortest(owner_lines_each), "most": longest(owner_lines_each)},
