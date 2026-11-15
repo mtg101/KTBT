@@ -203,3 +203,9 @@ func test_diary_entries_are_kept_one_per_night() -> void:
 	assert_str(str(bar["diary"][1]["text"])).is_equal("Second night, rewritten.")
 	SaveStore.save_bar(bar)
 	assert_int(SaveStore.load_bar(bar["id"])["diary"].size()).is_equal(2)
+
+
+func test_a_bar_with_no_id_is_never_written() -> void:
+	# (What's left of a bar closed mid-visit: a few counts, no id. Saving it must not crash.)
+	assert_int(SaveStore.save_bar({"takings": 12000, "visits": 1})).is_equal(ERR_INVALID_PARAMETER)
+	assert_array(SaveStore.list_bars()).is_empty()

@@ -56,6 +56,8 @@ static func make_id(bar_name: String, when: int) -> String:
 
 ## Saves the bar (and stamps last_played). Returns OK or the error.
 static func save_bar(bar: Dictionary) -> Error:
+	if str(bar.get("id", "")) == "":
+		return ERR_INVALID_PARAMETER  # not a whole bar (nothing to name its file by): never written
 	var made := DirAccess.make_dir_recursive_absolute(folder)
 	if made != OK and not DirAccess.dir_exists_absolute(folder):
 		return made

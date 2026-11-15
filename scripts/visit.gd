@@ -1474,6 +1474,8 @@ func _settle_up(guest: Guest) -> void:
 	_attend(guest, false)
 	await _goodbye(guest)
 	await _wait_for_reader()  # let their goodbye sink in before they go
+	if _stopped or Game.bar.is_empty():
+		return  # the bar was closed while they said goodbye: nothing to record it in
 	var bill := Orders.bill(guest.order)
 	SaveStore.record_visit(Game.bar, {
 		"customer": guest.customer["name"], "job": guest.customer["job"],
