@@ -75,6 +75,7 @@ func after_test() -> void:
 	Visit.bubbles = false  # lines as fast as the AI writes them (one test turns them on)
 	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
+	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Ai.canned_think_seconds = 0.0
@@ -1109,3 +1110,49 @@ func test_founding_regulars_always_come_in_the_first_night_and_are_introduced() 
 	assert_bool(regular["introduced"]).is_true()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func _a_departing_guest(scene) -> Visit.Guest:
+	var guest := Visit.Guest.new()
+	guest.customer = {"name": "Yoon Na-rae", "hangul": "윤나래", "gender": "woman", "age": 28, "job": "nurse", "mood": "tired",
+		"reason": "A double shift.", "speech_style": "brisk", "appearance": "Scrubs under a coat.", "look": Rules.pick_look("woman", "20s", "")}
+	guest.first_order = ["soju", "odeng"]
+	guest.arrived_minutes = int(scene._clock)
+	guest.transcript = [{"speaker": "Yoon Na-rae", "text": "Double shift at the hospital again. My mum keeps telling me to quit."},
+		{"speaker": scene._owner["name"], "text": "Eat something first."}]
+	return guest
+
+
+func test_a_loved_visit_is_remembered_and_makes_a_regular() -> void:
+	Visit.memories = true
+	Visit.regular_roll_override = 0.05  # under "loved it"'s 1 in 10, over "fine"'s 1 in 200
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Game.bar["regulars"] = []
+	CannedAi.scripted = [{"owner_remembers": "The nurse on a double shift; her mum wants her to quit.", "they_remember": "The owner made her eat first.",
+		"job": "nurse at the hospital", "family": "her mum wants her to quit", "home": "Jeju", "other": "", "night": "loved it", "towards_owner": "warmer"}]
+	await scene._after_visit(_a_departing_guest(scene))
+	var regulars: Array = Game.bar["regulars"]
+	assert_int(regulars.size()).is_equal(1)
+	var regular: Dictionary = regulars[0]
+	assert_str(str(regular["memories"][0]["owner"])).contains("double shift")
+	assert_str(str(regular["facts"]["job"])).is_equal("nurse at the hospital")
+	assert_str(str(regular["facts"]["family"])).contains("mum")
+	assert_bool(regular["facts"].has("home")).is_false()  # Jeju was never said
+	assert_int(int(scene._stats.verdicts.get("loved", 0))).is_equal(1)
+	# Next time, the owner's prompt remembers.
+	var facts: Dictionary = scene._regular_facts(regular)
+	var text := Prompts.describe_relationship(scene._owner, {"name": "Yoon Na-rae", "regular": facts})
+	assert_str(text).contains("her mum wants her to quit")
+
+
+func test_a_visit_they_didnt_enjoy_makes_no_regular() -> void:
+	Visit.memories = true
+	Visit.regular_roll_override = 0.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Game.bar["regulars"] = []
+	CannedAi.scripted = [{"owner_remembers": "Barely said a word.", "they_remember": "Slow food.", "night": "didn't enjoy it", "towards_owner": "cooler"}]
+	await scene._after_visit(_a_departing_guest(scene))
+	assert_array(Game.bar["regulars"]).is_empty()
+	assert_int(int(scene._stats.verdicts.get("didnt", 0))).is_equal(1)

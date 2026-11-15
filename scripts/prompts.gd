@@ -340,7 +340,7 @@ Reply with ONLY a JSON object with exactly these keys:
 
 
 ## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
-const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free), and it's everyone's first time at this tent: nobody's been coming for years or knows the owner's cooking. They're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
+const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free). Unless it says above that two of them know each other, they're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: never oppa, hyung, nuna or eonni (those are for people who are close). To get someone's attention they might say \"jeogiyo\" (excuse me)."
 
 
 ## Messages asking the AI for the next line of a chat between customers at the counter
@@ -350,7 +350,11 @@ const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (
 static func counter_chat_messages(owner: Dictionary, owner_in: bool, people: Array, tables: Array, moment: Dictionary, transcript: Array, speaker: String, addressee: String, direction: String, cat: String = "") -> Array:
 	var who := PackedStringArray()
 	for i in people.size():
-		who.append("- %s Their table: %s." % [describe_person(people[i]), tables[i]])
+		who.append("- %s %s Their table: %s." % [describe_person(people[i]), standing(people[i], owner), tables[i]])
+	# Founding regulars have been coming for years: they know each other.
+	var old_hands: Array = people.filter(func(p): return bool(p.get("regular", {}).get("founding", false)))
+	if old_hands.size() >= 2:
+		who.append("- %s know each other: long-time fellow regulars, on first-name terms." % " and ".join(PackedStringArray(old_hands.map(func(p): return str(p["name"])))))
 	var owner_gender := str(owner.get("gender", "woman"))
 	var owner_part := "The owner, %s (customers call %s \"%s\"), is busy elsewhere and isn't part of this conversation." % [
 		owner["name"], "her" if owner_gender == "woman" else "him", owner.get("title", "Ajumma")]
@@ -526,6 +530,19 @@ static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dic
 		text += " What the owner knows about them: %s" % Rules.as_sentence(str(known["owner_knows"]))
 	if str(known.get("knows_of_owner", "")) != "":
 		text += " What they know about the owner: %s" % Rules.as_sentence(str(known["knows_of_owner"]))
+	var remembered: Array = known.get("memories", [])
+	if str(known.get("impression", "")) != "":
+		text += " The owner's overall impression of them: %s" % Rules.as_sentence(str(known["impression"]))
+	if not remembered.is_empty():
+		text += " What the owner remembers from their last visits (oldest first): %s" % " / ".join(PackedStringArray(remembered.map(func(m): return str(m["owner"]))))
+		text += " What they remember about the owner: %s" % " / ".join(PackedStringArray(remembered.map(func(m): return str(m["them"]))))
+	var facts: Dictionary = known.get("facts", {})
+	var stuck := PackedStringArray()
+	for key in Rules.STICKING:
+		if str(facts.get(key, "")) != "":
+			stuck.append("%s: %s" % [{"job": "job", "family": "family", "home": "from", "other": "and"}[key], facts[key]])
+	if not stuck.is_empty():
+		text += " Things the owner knows about them: %s." % "; ".join(stuck)
 	var usual: Array = known.get("usual", [])
 	if not usual.is_empty():
 		text += " Their usual is %s: they might just ask for \"the usual\"." % Rules.item_names(usual)
@@ -580,3 +597,51 @@ Reply with ONLY a JSON object with exactly these keys:
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
 	]
+
+
+## Messages asking the AI what the owner and a customer would each take away from tonight's
+## visit, the few things about the customer that would stick, and how the night went for
+## them. transcript: their conversation with the owner; chat: their lines at the counter
+## with other customers ({"speaker", "text"}).
+static func memory_messages(owner: Dictionary, customer: Dictionary, transcript: Array, chat: Array) -> Array:
+	var sticking := PackedStringArray()
+	for key in Rules.STICKING:
+		sticking.append("- \"%s\": %s, if they said it tonight; otherwise \"\"" % [key, Rules.STICKING[key]])
+	var request := """%s
+
+%s
+
+Tonight's visit has just ended. Their conversation with the owner:
+%s
+
+What they said chatting with other customers at the counter:
+%s
+
+People remember a night at a bar roughly: the gist, a detail or two, how it felt. Not every word.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "owner_remembers": what the owner would remember about them from tonight, in a sentence or two
+- "they_remember": what they'd remember about the owner and the night, in a sentence or two
+%s
+- "night": how the night went for them: one of "loved it" (they opened up, laughed, or felt looked after), "enjoyed it" (an ordinary good night: a proper chat, good food: most visits with a real conversation), "it was fine" (nothing much happened: hardly a word with anyone), "didn't enjoy it" (rare: they were ignored, kept waiting, or upset)
+- "towards_owner": how they feel about the owner now, compared with before tonight: one of "warmer", "the same", "cooler"
+
+Only what was actually said or happened tonight: nothing invented.""" % [
+		describe_owner(owner), describe_customer(customer), transcript_text(transcript),
+		transcript_text(chat) if not chat.is_empty() else "(they didn't chat with anyone)", "\n".join(sticking)]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Where someone stands at this tent, for a chat prompt: a first-timer, a regular, or someone
+## who's been coming for years (and how well they know the owner).
+static func standing(person: Dictionary, owner: Dictionary) -> String:
+	var known: Dictionary = person.get("regular", {})
+	if known.is_empty():
+		return "It's their first time at this tent: they don't know the owner, and they've never been before."
+	var owner_name := (", and by name, %s" % owner["name"]) if bool(known.get("knows_owner_name", false)) else ""
+	if str(known.get("since", "")) != "":
+		return "They're a long-time regular (coming %s), and know the owner well, as \"%s\"%s." % [known["since"], owner["title"], owner_name]
+	return "They're a regular here (this is their %s visit), and know the owner as \"%s\"%s." % [Regulars.ordinal(int(known.get("visits", 1)) + 1), owner["title"], owner_name]

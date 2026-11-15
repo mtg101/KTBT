@@ -1105,3 +1105,37 @@ func test_muggy_nights_have_few_cardigans() -> void:
 		if Rules.pick_look("woman", "30s", "muggy")["clothes"] == "cardigan":
 			cardigans += 1
 	assert_int(cardigans).is_less(25)
+
+
+func _memory(changes: Dictionary = {}) -> Dictionary:
+	var data := {"owner_remembers": "Tired pharmacist; laughed at last.", "they_remember": "The owner fussed over her.",
+		"job": "pharmacist", "family": "two kids", "home": "", "other": "", "night": "Enjoyed it", "towards_owner": "warmer"}
+	data.merge(changes, true)
+	return data
+
+
+func test_a_memory_keeps_only_what_was_said() -> void:
+	var data := _memory()
+	assert_str(Rules.validate_memory(data, "i run the pharmacy on the corner, and my boss never stops")).is_empty()
+	assert_str(str(data["night"])).is_equal("enjoyed")
+	assert_str(str(data["towards_owner"])).is_equal("warmer")
+	assert_str(str(data["job"])).is_equal("pharmacist")  # backed by "pharmacy"
+	assert_str(str(data["family"])).is_empty()  # nobody said anything about kids: it doesn't stick
+	assert_str(Rules.validate_memory(_memory({"night": "it was amazing"}), "")).contains("\"night\"")
+	assert_str(Rules.validate_memory(_memory({"towards_owner": "in love"}), "")).contains("\"towards_owner\"")
+	var long := "".lpad(Rules.MAX_MEMORY + 1, "a")
+	assert_str(Rules.validate_memory(_memory({"owner_remembers": long}), "")).contains("too long")
+	var none := _memory({"night": "didn't enjoy it", "towards_owner": "about the same", "job": "none"})
+	assert_str(Rules.validate_memory(none, "pharmacy")).is_empty()
+	assert_str(str(none["night"])).is_equal("didnt")
+	assert_str(str(none["job"])).is_empty()
+
+
+func test_last_time_comes_up_only_with_something_to_remember() -> void:
+	for i in 50:
+		assert_str(Rules.pick_owner_topic(randf(), false, "none")).is_not_equal("last_time")
+	var asked := 0
+	for i in 200:
+		if Rules.pick_owner_topic(randf(), false, "none", "", true) == "last_time":
+			asked += 1
+	assert_int(asked).is_greater(20)

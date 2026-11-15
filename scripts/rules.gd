@@ -635,8 +635,9 @@ const OWNER_TOPICS := {
 	"owner_secret": "something that hints at the owner's secret, without giving it away",
 	"advice": "a bit of the owner's blunt advice about life",
 	"the_cat": "the tent's cat",
+	"last_time": "something the owner remembers from their last visit: ask how it turned out",
 }
-const OWNER_TOPIC_WEIGHTS := {"food": 1.0, "their_day": 2.0, "on_their_mind": 3.0, "owner_story": 1.5, "the_night": 1.0, "owner_secret": 0.5, "advice": 1.5, "the_cat": 1.0}
+const OWNER_TOPIC_WEIGHTS := {"food": 1.0, "their_day": 2.0, "on_their_mind": 3.0, "owner_story": 1.5, "the_night": 1.0, "owner_secret": 0.5, "advice": 1.5, "the_cat": 1.0, "last_time": 0.0}
 ## What customers chatting to each other get on to.
 const CHAT_TOPICS := {
 	"why_here": "why they're each here tonight",
@@ -654,8 +655,11 @@ const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "fo
 ## likelier when something's just been served or is still cooking; the cat when it's with
 ## them (and never when there's no cat in the tent). Never the same topic twice running.
 ## cat: "none" (no cat, or it's out), "tent" (somewhere about) or "with_them".
-static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: String = "") -> String:
+## remembered: the owner remembers something from this regular's last visits, so it can come up.
+static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: String = "", remembered: bool = false) -> String:
 	var weights := OWNER_TOPIC_WEIGHTS.duplicate()
+	if remembered:
+		weights["last_time"] = 3.0
 	if food_news:
 		weights["food"] = 3.0
 	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
@@ -1456,3 +1460,54 @@ static func romanised_korean(line: String, names: Array = []) -> Array:
 		if word.contains("eo") or word.contains("eu") or word.contains("ae") or (word.ends_with("yo") and word.length() > 3):
 			found.append(word)
 	return found if found.size() >= MADE_UP_KOREAN_WORDS else []
+
+
+# --- Memories ------------------------------------------------------------------------------
+
+## The verdict on a visit, as the AI may put it -> the game's word for it.
+const NIGHT_VERDICTS := {"loved it": "loved", "loved": "loved", "enjoyed it": "enjoyed", "enjoyed": "enjoyed",
+	"it was fine": "fine", "fine": "fine", "didn't enjoy it": "didnt", "did not enjoy it": "didnt", "didnt": "didnt"}
+const OWNER_FEELINGS := {"warmer": "warmer", "the same": "same", "about the same": "same", "same": "same", "cooler": "cooler"}
+## The things that stick, as the prompt asks for them.
+const STICKING := {"job": "their job or what they do", "family": "family (married, children, parents...)",
+	"home": "where they live or come from", "other": "one other thing about them that would stick"}
+const MAX_MEMORY := 260
+const SHORT_WORDS := ["that", "this", "with", "from", "they", "their", "have", "about", "just", "been", "were", "what", "when", "some", "into", "really", "very", "much", "only"]
+
+
+## The after-visit memory. said: everything the customer themselves said tonight (lower
+## case), which the things that stick must come from: one that isn't backed by it is dropped
+## (left empty), not rejected, so a made-up "she has two kids" never sticks.
+static func validate_memory(data: Variant, said: String) -> String:
+	var problem := check_fields(data, ["owner_remembers", "they_remember", "night", "towards_owner"])
+	if problem != "":
+		return problem
+	var night := tidy_text(data["night"]).to_lower()
+	if not NIGHT_VERDICTS.has(night):
+		return "\"night\" must be one of: loved it, enjoyed it, it was fine, didn't enjoy it"
+	var feeling := tidy_text(data["towards_owner"]).to_lower()
+	if not OWNER_FEELINGS.has(feeling):
+		return "\"towards_owner\" must be one of: warmer, the same, cooler"
+	for key in ["owner_remembers", "they_remember"]:
+		var text := tidy_text(data[key])
+		if text.length() > MAX_MEMORY:
+			return "\"%s\" is too long: a sentence or two" % key
+		data[key] = text
+	data["night"] = NIGHT_VERDICTS[night]
+	data["towards_owner"] = OWNER_FEELINGS[feeling]
+	for key in STICKING:
+		data[key] = sticks(str(data.get(key, "")), said)
+	return ""
+
+
+## A thing that sticks, if what was said backs it up (one of its real words was said), or "".
+static func sticks(fact: String, said: String) -> String:
+	var text := tidy_text(fact)
+	if text == "" or text.to_lower() in ["none", "n/a", "unknown", "not mentioned", "nothing"]:
+		return ""
+	for word in words(text):
+		# (the start of a long word is enough: "pharmacist" is backed by "pharmacy")
+		var stem := word if word.length() < 7 else word.substr(0, 6)
+		if word.length() >= 4 and not SHORT_WORDS.has(word) and said.contains(stem):
+			return text
+	return ""

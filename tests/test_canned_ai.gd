@@ -197,3 +197,10 @@ func test_canned_founding_regulars_and_their_evenings_pass_the_rules() -> void:
 	var regular: Dictionary = _canned.reply({"purpose": "founding_regular", "taken": ["Park Mi-sook"], "gender": "woman", "look": look})
 	assert_str(Rules.validate_founding_regular(regular, ["Park Mi-sook"], "woman", "40s")).is_empty()
 	assert_str(Rules.validate_regular_tonight(_canned.reply({"purpose": "regular_tonight", "name": "Kim Ji-ho"}))).is_empty()
+
+
+func test_canned_memories_pass_the_rules() -> void:
+	for verdict in ["loved", "enjoyed", "fine", "didnt"]:
+		var memory: Dictionary = _canned.reply({"purpose": "memory", "verdict": verdict})
+		assert_str(Rules.validate_memory(memory, "")).is_empty()
+		assert_str(str(memory["night"])).is_equal(verdict)

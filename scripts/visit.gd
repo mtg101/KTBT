@@ -96,6 +96,9 @@ static var strollers := true
 ## tests' scripted replies); and a fixed roll for whether someone becomes a regular.
 static var founding_regulars := true
 static var regular_roll_override := -1.0
+## Test hook: false skips the after-visit memory (an AI call that would use up scripted
+## replies), so the game's own verdict is used; memory tests turn it on.
+static var memories := true
 ## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
 static var bubbles := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
@@ -145,6 +148,7 @@ class Guest:
 	var version := 0
 	var quick_greeting := false  # greeted in a rush: the owner's first proper word comes later
 	var chatted := false  # they've had a chat with another customer
+	var chat_lines: Array = []  # {"speaker", "text"}: what was said in their chats at the counter
 	var first_order: Array = []  # what they ordered as they sat down (for a regular's usual)
 	var arrived_minutes := 0  # when they came in (game minutes), for a new regular's usual hour
 	var stay_left := 0.0  # game minutes until they want to go
@@ -1249,7 +1253,6 @@ func _settle_up(guest: Guest) -> void:
 	_night_takings += bill
 	_stats.served += 1
 	_stats.owner_lines_each.append(guest.transcript.filter(func(e): return e.has("text")).size())
-	_after_visit(guest)
 	_customer = guest.customer
 	_order = guest.order.duplicate()
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
@@ -1263,6 +1266,7 @@ func _settle_up(guest: Guest) -> void:
 		_attending = null
 	if _cat_with == guest:
 		_move_cat()  # they got up, so the cat's off
+	await _after_visit(guest)  # what they'll remember, and whether they'll be back
 	_task_done()
 
 
@@ -1271,7 +1275,8 @@ func _settle_up(guest: Guest) -> void:
 func _talk(guest: Guest) -> void:
 	_owner_working = true
 	_attend(guest, true)
-	guest.topic = Rules.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic)
+	var remembered: bool = not guest.customer.get("regular", {}).get("memories", []).is_empty()
+	guest.topic = Rules.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered)
 	guest.food_news = false
 	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
 	# for customers to chat) sooner.
@@ -1386,6 +1391,11 @@ func _goodbye(guest: Guest) -> void:
 ## trench coat"), since nobody knows a stranger's name.
 func _known_as(guest: Guest, chat: Chat) -> String:
 	var full := str(guest.customer["name"])
+	# Founding regulars have known each other for years.
+	if chat != null and bool(guest.customer.get("regular", {}).get("founding", false)):
+		for other in chat.people:
+			if other != guest and bool(other.customer.get("regular", {}).get("founding", false)):
+				return full
 	var parts := full.split(" ", false)
 	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
 	if chat != null:
@@ -1529,6 +1539,7 @@ func _counter_chat() -> void:
 		lines_said += 1
 		for person in chat.people:
 			person.chatted = true
+			person.chat_lines.append({"speaker": speaker, "text": line})
 		# Something more urgent can cut the chat short, but only once it's had a few lines.
 		if _urgent() and lines_said >= CHAT_LINES_BEFORE_INTERRUPTING:
 			break
@@ -2041,7 +2052,11 @@ func _update_info() -> void:
 		t += "\n[color=#%s][b]AT THE COUNTER[/b][/color]\n" % accent
 	for guest in seated:
 		var c: Dictionary = guest.customer
-		t += "[color=#%s][b]%s[/b][/color], %s, %s  [color=#%s](stool %d)[/color]\n" % [guest.color.lightened(0.35).to_html(false), _esc(_name_label(c)), c["age"], _esc(c["job"]), muted, guest.seat + 1]
+		var hover := _remembered_text(c.get("regular", {}))
+		var named := "[b]%s[/b]" % _esc(_name_label(c))
+		if hover != "":
+			named = "[hint=%s]%s[/hint]" % [hover, named]  # hover: what the owner remembers
+		t += "[color=#%s]%s[/color], %s, %s  [color=#%s](stool %d)[/color]\n" % [guest.color.lightened(0.35).to_html(false), named, c["age"], _esc(c["job"]), muted, guest.seat + 1]
 		var known: Dictionary = c.get("regular", {})
 		if not known.is_empty():
 			var status := "%s %s · %s visit" % [Regulars.closeness_mark(known), Regulars.closeness_word(known), Regulars.ordinal(int(known["visits"]) + 1)]
@@ -3175,6 +3190,7 @@ func _regular_facts(regular: Dictionary) -> Dictionary:
 		"owner_knows": regular.get("owner_knows", ""), "knows_of_owner": regular.get("knows_of_owner", ""),
 		"usual": Regulars.usual_of(regular), "owner_knows_name": bool(regular.get("owner_knows_name", false)),
 		"knows_owner_name": bool(regular.get("knows_owner_name", false)),
+		"memories": regular.get("memories", []), "impression": regular.get("impression", ""), "facts": regular.get("facts", {}),
 	}
 	if int(regular.get("last_night", 0)) > 0:
 		facts["nights_ago"] = _night_number - int(regular["last_night"])
@@ -3228,6 +3244,16 @@ func _after_visit(guest: Guest) -> void:
 	var owner_lines := guest.transcript.filter(func(e): return e.has("text")).size()
 	var verdict := Regulars.game_verdict(owner_lines, guest.chatted, guest.quick_greeting, guest.company)
 	var rushed := Regulars.rushed(guest.quick_greeting, owner_lines)
+	# What each of them will remember, and how the night went for them: the AI's verdict, from
+	# the dialogue (the game's own is the fallback).
+	var memory := {}
+	if memories:
+		memory = await _remember(guest, verdict)
+		if _stopped or Game.bar.is_empty():
+			return
+		if not memory.is_empty():
+			verdict = str(memory["night"])
+	_stats.verdicts[verdict] = int(_stats.verdicts.get(verdict, 0)) + 1
 	var said := " ".join(PackedStringArray(guest.transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["text"])))).to_lower()
 	var regular := _regular(str(guest.customer.get("regular_id", "")))
 	if not regular.is_empty():
@@ -3237,6 +3263,8 @@ func _after_visit(guest: Guest) -> void:
 		orders.append(guest.first_order.duplicate())
 		regular["orders"] = orders.slice(-5)
 		regular["pull"] = Regulars.pull_after_visit(float(regular["pull"]), verdict, rushed)
+		if str(memory.get("towards_owner", "")) == "warmer":
+			regular["warmth"] = int(regular.get("warmth", 0)) + 1  # (for friendlier terms, in step 3)
 		_stats.regulars_in += 1
 	else:
 		var roll := regular_roll_override if regular_roll_override >= 0.0 else randf()
@@ -3245,8 +3273,12 @@ func _after_visit(guest: Guest) -> void:
 		regular = Regulars.new_regular(guest.customer, guest.customer.get("look", {}), guest.first_order, _night_number, _day_index(), guest.arrived_minutes, randf())
 		_regulars().append(regular)
 		_stats.became_regulars += 1
+		if str(memory.get("towards_owner", "")) == "warmer":
+			regular["warmth"] = 1
 		var they: String = {"woman": "she'll", "man": "he'll"}.get(str(guest.customer.get("gender", "")), "they'll")
 		_narrate("%s looks like %s be back." % [guest.customer["name"], they])
+	if not memory.is_empty():
+		Regulars.remember(regular, _night_number, memory)
 	# Names, once they've been said (the full name, or the given name).
 	if _name_said(str(guest.customer["name"]), said):
 		regular["owner_knows_name"] = true
@@ -3254,6 +3286,28 @@ func _after_visit(guest: Guest) -> void:
 		regular["knows_owner_name"] = true
 	Game.save()
 	_count_regulars()
+
+
+## The after-visit AI call: what the owner and the customer will each remember, the things
+## about them that stick (only from what they actually said), and the verdict. {} if the AI
+## couldn't.
+func _remember(guest: Guest, game_verdict: String) -> Dictionary:
+	var who := str(guest.customer["name"])
+	var theirs := PackedStringArray()
+	for entry in guest.transcript + guest.chat_lines:
+		if entry.has("text") and str(entry.get("speaker", "")) == who:
+			theirs.append(str(entry["text"]))
+	var said := " ".join(theirs).to_lower()
+	var memory: Dictionary = await _ai.ask_json(
+		Prompts.memory_messages(_owner, guest.customer, guest.transcript, guest.chat_lines),
+		_validate_memory.bind(said), {"temperature": 0.4}, {"purpose": "memory", "verdict": game_verdict})
+	if memory.is_empty():
+		_stats.memories_failed += 1
+	return memory
+
+
+func _validate_memory(data: Variant, said: String) -> String:
+	return Rules.validate_memory(data, said)
 
 
 func _name_said(full: String, said: String) -> bool:
@@ -3286,3 +3340,20 @@ func _count_regulars() -> void:
 		_stats.regular_pulls[str(regular["name"])] = snappedf(float(regular["pull"]), 0.01)
 		if bool(regular.get("founding", false)):
 			_stats.founding_regulars += 1
+
+
+## What the owner remembers about a regular, for the info panel's hover ("" if nothing yet).
+func _remembered_text(known: Dictionary) -> String:
+	var parts := PackedStringArray()
+	if str(known.get("impression", "")) != "":
+		parts.append(str(known["impression"]))
+	for memory in known.get("memories", []):
+		parts.append(str(memory["owner"]))
+	var facts: Dictionary = known.get("facts", {})
+	for key in Rules.STICKING:
+		if str(facts.get(key, "")) != "":
+			parts.append("%s: %s" % [{"job": "Job", "family": "Family", "home": "From", "other": "Also"}[key], facts[key]])
+	if str(known.get("owner_knows", "")) != "" and parts.is_empty():
+		parts.append(str(known["owner_knows"]))
+	# (No square brackets: it goes inside a BBCode tag.)
+	return " · ".join(parts).replace("[", "(").replace("]", ")").replace("\n", " ")

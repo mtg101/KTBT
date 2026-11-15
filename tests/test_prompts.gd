@@ -390,3 +390,43 @@ func test_founding_regular_prompt_has_the_games_facts() -> void:
 	assert_str(text).contains("Park Mi-sook")
 	assert_str(text).contains("from 40 to 49")
 	assert_str(text).contains("never the owner's secret")
+
+
+func test_the_memory_prompt_and_a_regulars_memories() -> void:
+	var customer := {"name": "Han Seol", "gender": "woman", "age": 30, "job": "teacher", "mood": "tired", "reason": "A long day.", "speech_style": "soft"}
+	var text := _request(Prompts.memory_messages(_owner_data(), customer, [{"speaker": "Han Seol", "text": "My exam's on Friday."}], []))
+	assert_str(text).contains("My exam's on Friday.")
+	assert_str(text).contains("\"owner_remembers\"")
+	assert_str(text).contains("\"night\"")
+	assert_str(text).contains("didn't enjoy it")
+	assert_str(text).contains("nothing invented")
+	customer["regular"] = {"visits": 2, "usual": [], "memories": [{"night": 1, "owner": "Nervous about her exam on Friday.", "them": "The owner told her to sleep."}],
+		"impression": "A quiet one.", "facts": {"job": "teacher", "home": "Daegu"}}
+	var known := Prompts.describe_relationship(_owner_data(), customer)
+	assert_str(known).contains("Nervous about her exam on Friday.")
+	assert_str(known).contains("The owner told her to sleep.")
+	assert_str(known).contains("A quiet one.")
+	assert_str(known).contains("from: Daegu")
+
+
+func test_regression_regulars_arent_strangers_in_customer_chats() -> void:
+	var newcomer := {"name": "Moon Ji-yeon", "gender": "woman", "age": 30, "job": "teacher", "mood": "tired", "reason": "A long day.", "speech_style": "soft"}
+	var fixture := {"name": "Kang Tae-il", "gender": "man", "age": 64, "job": "retired customs officer", "mood": "calm", "reason": "Wednesdays.", "speech_style": "dry",
+		"regular": {"founding": true, "since": "for 12 years", "visits": 600, "knows_owner_name": true}}
+	var family := fixture.duplicate(true)
+	family["name"] = "Yoon Ji-hyun"
+	var moment := {"day": "Friday", "time": "9:00pm", "weather": "fog"}
+	var text := _request(Prompts.counter_chat_messages(_owner_data(), false, [newcomer, fixture], ["soju", "beer"], moment, [], "Kang Tae-il", "Moon Ji-yeon", ""))
+	assert_str(text).contains("It's their first time at this tent")  # the newcomer
+	assert_str(text).contains("long-time regular (coming for 12 years), and know the owner well")
+	assert_str(text).contains("by name, Park Mi-sook")
+	assert_str(text).not_contains("know each other: long-time")
+	text = _request(Prompts.counter_chat_messages(_owner_data(), false, [fixture, family], ["soju", "beer"], moment, [], "Kang Tae-il", "Yoon Ji-hyun", ""))
+	assert_str(text).contains("Kang Tae-il and Yoon Ji-hyun know each other")
+
+
+func test_the_memory_prompt_says_what_each_verdict_means() -> void:
+	var customer := {"name": "Han Seol", "gender": "woman", "age": 30, "job": "teacher", "mood": "tired", "reason": "A long day.", "speech_style": "soft"}
+	var text := _request(Prompts.memory_messages(_owner_data(), customer, [], []))
+	assert_str(text).contains("an ordinary good night")
+	assert_str(text).contains("rare")

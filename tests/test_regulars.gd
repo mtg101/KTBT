@@ -117,3 +117,16 @@ func test_the_bar_settles_instead_of_filling_up_with_regulars() -> void:
 		assert_float(share).override_failure_message("seed %d: regulars %.0f%% of the night" % [seed_value, share * 100]).is_between(0.05, 0.35)
 		founding_kept += int(run["founding_left"])
 	assert_int(founding_kept).is_greater(20)  # founding regulars usually last (out of 40)
+
+
+func test_memories_blur_after_a_few_visits_and_facts_stick() -> void:
+	var regular := {}
+	for night in range(1, 6):
+		Regulars.remember(regular, night, {"owner_remembers": "Night %d: talked about the exam. Laughed a lot." % night, "they_remember": "Kind owner.", "job": "student" if night == 1 else "", "home": "Busan" if night == 4 else ""})
+	var memories: Array = regular["memories"]
+	assert_int(memories.size()).is_equal(Regulars.RECENT_MEMORIES)
+	assert_int(int(memories[0]["night"])).is_equal(3)  # the newest three, oldest first
+	assert_str(str(regular["impression"])).contains("Night 1: talked about the exam.")
+	assert_str(str(regular["impression"])).not_contains("Laughed")  # just the gist
+	assert_str(str(regular["facts"]["job"])).is_equal("student")  # stuck, even though not said again
+	assert_str(str(regular["facts"]["home"])).is_equal("Busan")

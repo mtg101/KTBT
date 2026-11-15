@@ -136,6 +136,10 @@ func reply(request: Dictionary) -> Variant:
 		"regular_tonight":
 			var mood_from: Dictionary = CUSTOMERS.pick_random()
 			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
+		"memory":
+			var night: String = {"loved": "loved it", "enjoyed": "enjoyed it", "fine": "it was fine", "didnt": "didn't enjoy it"}.get(str(request.get("verdict", "fine")), "it was fine")
+			return {"owner_remembers": "Quiet at first, then talked about work.", "they_remember": "The owner fussed over them, and the food was good.",
+				"job": "", "family": "", "home": "", "other": "", "night": night, "towards_owner": "the same"}
 		"customer_name":
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
 			return {"name": picked["name"], "hangul": HANGUL.get(picked["name"], ""), "gender": picked["gender"]}
