@@ -8,7 +8,6 @@ const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const Menu = preload("res://scripts/menu.gd")
-const Rules = preload("res://scripts/rules.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"

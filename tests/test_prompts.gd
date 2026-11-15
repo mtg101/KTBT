@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
-const Rules = preload("res://scripts/rules.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 
 func _owner_data() -> Dictionary:
@@ -437,7 +437,7 @@ func test_the_tv_reaction_prompt() -> void:
 	assert_str(text).contains("Kim Ji-ho, Park Mi-sook")
 	assert_str(text).contains("\"none\"")
 	assert_str(text).contains("Most lines are this")
-	for mood in Rules.REACTIONS:
+	for mood in Captions.REACTIONS:
 		assert_str(text).contains("\"%s\"" % mood)
 	assert_str(text).contains("at most five words")
 	assert_str(text).contains("\"size\"")

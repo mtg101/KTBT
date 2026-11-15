@@ -2,7 +2,15 @@ extends RefCounted
 ## Prompt text sent to the local LLM.
 ## This is creative writing rather than code: CC BY-SA 4.0 (see LICENSE-ASSETS.md).
 
-const Rules = preload("res://scripts/rules.gd")
+const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Looks = preload("res://scripts/rules/looks.gd")
+const Memories = preload("res://scripts/rules/memories.gd")
+const Orders = preload("res://scripts/rules/orders.gd")
+const People = preload("res://scripts/rules/people.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
+const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
@@ -50,13 +58,13 @@ const OWNER_ADDRESS := {
 ## Messages asking the AI to invent the tent's owner.
 ## The game decides whether the owner is a woman or a man (and so their title);
 ## the AI invents the rest.
-## look: how the game has decided the owner looks (Rules.pick_look), including their age range.
+## look: how the game has decided the owner looks (Looks.pick_look), including their age range.
 static func owner_messages(gender: String, look: Dictionary = {}) -> Array:
 	var title: String = OWNER_ADDRESS[gender]["title"]
 	var ages := "a whole number, 40 or older"
 	var seen := ""
 	if not look.is_empty():
-		var band: Array = Rules.AGE_RANGES[look["age_range"]]
+		var band: Array = Looks.AGE_RANGES[look["age_range"]]
 		ages = "a whole number from %d to %d" % [maxi(40, int(band[0])), int(band[1])]
 		seen = "\n\nHow they look (the game has decided this, so keep to it): %s. Let it shape who they are." % look_text_for(look)
 	var request := """Invent the owner of this pojangmacha. The owner is a %s, and customers call them "%s". They've run the tent for years, and every regular knows them. Everything about them (archetype, appearance) must fit a %s.%s
@@ -98,15 +106,15 @@ Reply with ONLY a JSON object with exactly these keys:
 
 ## Messages asking the AI how the tent looks, to suit its owner and name: the sign's Hangul,
 ## and choices from the game's lists (so the game can draw it).
-## offered: the colours and shapes the game offers this bar (Rules.look_offer); empty for all.
+## offered: the colours and shapes the game offers this bar (BarLook.look_offer); empty for all.
 static func bar_look_messages(owner: Dictionary, bar_name: String, meaning: String, offered: Dictionary = {}) -> Array:
 	var shapes := PackedStringArray()
-	for id in offered.get("shape", Rules.TENT_SHAPES.keys()):
-		shapes.append("%s (%s)" % [id, Rules.TENT_SHAPES[id]])
-	var tarps := PackedStringArray(offered.get("tarp", Rules.BAR_TARPS.keys()))
+	for id in offered.get("shape", BarLook.TENT_SHAPES.keys()):
+		shapes.append("%s (%s)" % [id, BarLook.TENT_SHAPES[id]])
+	var tarps := PackedStringArray(offered.get("tarp", BarLook.BAR_TARPS.keys()))
 	var touches := PackedStringArray()
-	for id in Rules.BAR_TOUCHES:
-		touches.append("%s (%s)" % [id, Rules.BAR_TOUCHES[id]])
+	for id in BarLook.BAR_TOUCHES:
+		touches.append("%s (%s)" % [id, BarLook.BAR_TOUCHES[id]])
 	var request := """%s
 
 The tent is called %s (%s). Choose how it looks, to suit the owner and the name.
@@ -118,7 +126,7 @@ Reply with ONLY a JSON object with exactly these keys:
 - "sign": the sign's style, one of: %s
 - "touches": a list of one or two little touches around the tent, from: %s""" % [
 		describe_owner(owner), bar_name, meaning, ", ".join(shapes), ", ".join(tarps),
-		", ".join(PackedStringArray(Rules.SIGN_STYLES.keys())), ", ".join(touches)]
+		", ".join(PackedStringArray(BarLook.SIGN_STYLES.keys())), ", ".join(touches)]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -168,7 +176,7 @@ Reply with ONLY a JSON object with exactly these keys:
 ## the AI fills in the rest of that person; without, it invents a whole customer.
 ## used_jobs and used_looks: tonight's customers so far, so this one's different (small models
 ## otherwise send in four nurses with dark circles under their eyes).
-## look: how the game has decided the customer looks (Rules.pick_look), including their age
+## look: how the game has decided the customer looks (Looks.pick_look), including their age
 ## range; the AI invents someone who'd look like that.
 static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = [], look: Dictionary = {}) -> Array:
 	if customer_name != "":
@@ -176,7 +184,7 @@ static func customer_messages(day: String, time_text: String, weather: String, i
 		var seen := ""
 		var appearance := "what they look like as they arrive, in one sentence"
 		if not look.is_empty():
-			var band: Array = Rules.AGE_RANGES[look["age_range"]]
+			var band: Array = Looks.AGE_RANGES[look["age_range"]]
 			ages = "a whole number from %d to %d" % [maxi(19, int(band[0])), int(band[1])]
 			seen = "\n\nHow they look (the game has decided this, so keep to it): %s. Invent someone who'd look like that." % look_text_for(look)
 			appearance += ": keep to how they look, in your own words, and add how they seem (their expression, or how they carry themselves), not an object"
@@ -293,9 +301,9 @@ Reply with ONLY a JSON object with exactly these keys:
 
 
 ## "a woman", "a man", or "non-binary, they/them": how prompts describe someone's gender.
-## A look in words (Rules.look_text), here so prompts and their tests can share it.
+## A look in words (Looks.look_text), here so prompts and their tests can share it.
 static func look_text_for(look: Dictionary) -> String:
-	return Rules.look_text(look)
+	return Looks.look_text(look)
 
 
 static func gender_phrase(gender: String) -> String:
@@ -310,7 +318,7 @@ static func describe_cat(cat: Dictionary, now: String) -> String:
 	if cat.has("sex"):
 		sex = " (a %s: call the cat \"%s\")" % ["female" if cat["sex"] == "she" else "male", cat["sex"]]
 	return "THE CAT: %s, the tent's %s cat%s, %s. Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
-		cat["name"], cat["coat"], sex, Rules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
+		cat["name"], cat["coat"], sex, CatRules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
 
 
 ## Messages asking the AI to name the bar's cat. The game has decided its coat and personality.
@@ -330,7 +338,7 @@ Reply with ONLY a JSON object with exactly one key:
 static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String, sex: String = "she", taken: Array = []) -> Array:
 	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s %s cat, %s.
 
-What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.""" % [owner["name"], bar_name, coat, "female" if sex == "she" else "male", Rules.CAT_PERSONALITIES.get(personality, personality)]
+What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.""" % [owner["name"], bar_name, coat, "female" if sex == "she" else "male", CatRules.CAT_PERSONALITIES.get(personality, personality)]
 	if not taken.is_empty():
 		request += " Other tents' cats are called %s, so pick something else." % ", ".join(PackedStringArray(taken))
 	request += """
@@ -344,7 +352,7 @@ Reply with ONLY a JSON object with exactly these keys:
 	]
 
 
-## How strangers at the counter talk to each other: the game checks this too (Rules.close_term).
+## How strangers at the counter talk to each other: the game checks this too (Talk.close_term).
 const STRANGERS_RULES := "Everyone's already sitting on a stool at the counter (nobody asks if a seat's free). Unless it says above that two of them know each other, they're strangers who've only just met tonight. They don't know each other's names unless someone has said theirs in the conversation below. They talk politely, as strangers do in Korea: no oppa, hyung, nuna or eonni (those are for people who are close) unless the note on how they address each other allows it. To get someone's attention they might say \"jeogiyo\" (excuse me)."
 
 
@@ -456,9 +464,9 @@ static func describe_person(customer: Dictionary) -> String:
 		who, customer["age"], customer["job"], customer["mood"],
 		customer["reason"], customer["speech_style"]]
 	if customer.has("company"):
-		text += " With other customers: %s." % Rules.COMPANY_TEXT.get(customer["company"], "")
+		text += " With other customers: %s." % People.COMPANY_TEXT.get(customer["company"], "")
 	if customer.has("appearance"):
-		text += " What anyone can see: %s" % Rules.as_sentence(str(customer["appearance"]))
+		text += " What anyone can see: %s" % Text.as_sentence(str(customer["appearance"]))
 	text += " (Nobody else knows their name, age, job or why they're here unless they've said it in the conversation: only what they can see.)"
 	return text
 
@@ -523,7 +531,7 @@ static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dic
 			text += ", and they were last in %s" % Regulars.nights_ago_text(int(known["nights_ago"]))
 		text += "."
 	if str(known.get("history", "")) != "":
-		text += " " + Rules.as_sentence(str(known["history"]))
+		text += " " + Text.as_sentence(str(known["history"]))
 	if str(known.get("role", "")) != "":
 		text += " In the tent, they're %s." % Regulars.ROLES.get(known["role"], known["role"])
 	if bool(known.get("owner_knows_name", false)):
@@ -535,25 +543,25 @@ static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dic
 	else:
 		text += " They know the owner only as \"%s\"." % owner["title"]
 	if str(known.get("owner_knows", "")) != "":
-		text += " What the owner knows about them: %s" % Rules.as_sentence(str(known["owner_knows"]))
+		text += " What the owner knows about them: %s" % Text.as_sentence(str(known["owner_knows"]))
 	if str(known.get("knows_of_owner", "")) != "":
-		text += " What they know about the owner: %s" % Rules.as_sentence(str(known["knows_of_owner"]))
+		text += " What they know about the owner: %s" % Text.as_sentence(str(known["knows_of_owner"]))
 	var remembered: Array = known.get("memories", [])
 	if str(known.get("impression", "")) != "":
-		text += " The owner's overall impression of them: %s" % Rules.as_sentence(str(known["impression"]))
+		text += " The owner's overall impression of them: %s" % Text.as_sentence(str(known["impression"]))
 	if not remembered.is_empty():
 		text += " What the owner remembers from their last visits (oldest first): %s" % " / ".join(PackedStringArray(remembered.map(func(m): return str(m["owner"]))))
 		text += " What they remember about the owner: %s" % " / ".join(PackedStringArray(remembered.map(func(m): return str(m["them"]))))
 	var facts: Dictionary = known.get("facts", {})
 	var stuck := PackedStringArray()
-	for key in Rules.STICKING:
+	for key in Memories.STICKING:
 		if str(facts.get(key, "")) != "":
 			stuck.append("%s: %s" % [{"job": "job", "family": "family", "home": "from", "other": "and"}[key], facts[key]])
 	if not stuck.is_empty():
 		text += " Things the owner knows about them: %s." % "; ".join(stuck)
 	var usual: Array = known.get("usual", [])
 	if not usual.is_empty():
-		text += " Their usual is %s: they might just ask for \"the usual\"." % Rules.item_names(usual)
+		text += " Their usual is %s: they might just ask for \"the usual\"." % Orders.item_names(usual)
 	else:
 		text += " They don't have a usual yet, so nobody mentions \"the usual\"."
 	text += " They talk like people who've met before, but only about what's above: nothing else has been said between them."
@@ -564,7 +572,7 @@ static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dic
 ## been coming for years. The game has decided their gender, look, role, how long and how
 ## often, and their usual; the AI invents who they are.
 static func founding_regular_messages(owner: Dictionary, bar_name: String, gender: String, look: Dictionary, role: String, since: String, habit: String, usual: Array, taken: Array) -> Array:
-	var band: Array = Rules.AGE_RANGES[look["age_range"]]
+	var band: Array = Looks.AGE_RANGES[look["age_range"]]
 	var request := """%s
 
 The tent is %s. One of its regulars has been coming %s, %s. They're %s, %s. In the tent, they're %s. Their usual is %s.
@@ -581,8 +589,8 @@ Reply with ONLY a JSON object with exactly these keys:
 - "history": how they first started coming, and what the tent means to them, in one sentence
 - "owner_knows": what the owner knows about them after all these years, in one sentence
 - "knows_of_owner": what they know about the owner, in one sentence (never the owner's secret itself)""" % [
-		describe_owner(owner), bar_name, since, habit, gender_phrase(gender), Rules.look_text(look),
-		Regulars.ROLES.get(role, role), Rules.item_names(usual), ", ".join(PackedStringArray(taken)),
+		describe_owner(owner), bar_name, since, habit, gender_phrase(gender), Looks.look_text(look),
+		Regulars.ROLES.get(role, role), Orders.item_names(usual), ", ".join(PackedStringArray(taken)),
 		maxi(19, int(band[0])), int(band[1])]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
@@ -613,8 +621,8 @@ Reply with ONLY a JSON object with exactly these keys:
 ## with other customers ({"speaker", "text"}).
 static func memory_messages(owner: Dictionary, customer: Dictionary, transcript: Array, chat: Array) -> Array:
 	var sticking := PackedStringArray()
-	for key in Rules.STICKING:
-		sticking.append("- \"%s\": %s, if they said it tonight; otherwise \"\"" % [key, Rules.STICKING[key]])
+	for key in Memories.STICKING:
+		sticking.append("- \"%s\": %s, if they said it tonight; otherwise \"\"" % [key, Memories.STICKING[key]])
 	var request := """%s
 
 %s
@@ -659,8 +667,8 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 ## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking.
 static func reaction_messages(lines: Array, names: Array) -> Array:
 	var moods := PackedStringArray()
-	for mood in Rules.REACTIONS:
-		moods.append("\"%s\" (%s)" % [mood, Rules.REACTIONS[mood]["means"]])
+	for mood in Captions.REACTIONS:
+		moods.append("\"%s\" (%s)" % [mood, Captions.REACTIONS[mood]["means"]])
 	var request := """You're the caption editor on a Korean variety show, watching a conversation at a street tent bar:
 %s
 

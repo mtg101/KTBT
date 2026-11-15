@@ -8,7 +8,7 @@ const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
-const Rules = preload("res://scripts/rules.gd")
+const Story = preload("res://scripts/rules/story.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -103,7 +103,7 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_str(page.entry_text()).is_equal(str(entry["text"]))
 	assert_str(str(entry["by"])).is_equal("game")  # (diaries off: the game writes it)
 	assert_int(int(entry["facts"]["customers"])).is_equal(scene._night_visits)  # kept for "Previously on…"
-	assert_bool(Rules.DIARY_STAMPS.has(str(entry["stamp"]))).is_true()
+	assert_bool(Story.DIARY_STAMPS.has(str(entry["stamp"]))).is_true()
 	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
 	# The numbers are behind the Stats button.
 	var numbers := runner.find_child("SummaryText") as Control

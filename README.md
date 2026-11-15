@@ -35,6 +35,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | [DEVLOG.md](DEVLOG.md) | A dated record of what's been done and why |
 | [LLM-TUNING.md](LLM-TUNING.md) | LLM tuning notes: quirks in the local model's output and how we handle them |
 | [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting, and installing the test framework |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is laid out: the layers, and which file does what |
 | [TESTS.md](TESTS.md) | How KTBT is tested: what's automated, what's playtested, conventions and coverage |
 
 ## Tech
@@ -84,7 +85,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
 | `scripts/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
 | `scripts/menu.gd` | The menu and prices (the game's facts) |
-| `scripts/rules.gd` | The game's rules: checks on every AI reply, bills, the night's clock and arrivals, text tidying (no scene or AI, so easy to test) |
+| `scripts/rules/` | The game's rules, one file per area (see [ARCHITECTURE.md](ARCHITECTURE.md)): pure functions and their tables, no scene or AI, so easy to test |
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close, and the music (which carries on between scenes) |
 | `scripts/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
 | `scripts/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |

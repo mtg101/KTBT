@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 ## the bar settles rather than filling up with regulars.
 
 const Regulars = preload("res://scripts/regulars.gd")
-const Rules = preload("res://scripts/rules.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 
 func test_who_becomes_a_regular_follows_how_the_visit_went() -> void:
@@ -52,7 +52,7 @@ func test_favourite_nights_and_usual_hours() -> void:
 	for roll in [0.0, 0.5, 1.0]:
 		var when := Regulars.arrival_time(21 * 60, roll)
 		assert_float(absf(when - 21 * 60)).is_less_equal(Regulars.USUAL_HOUR_SPREAD)
-	assert_float(Regulars.arrival_time(26 * 60 + 20, 1.0)).is_less(float(Rules.LAST_ARRIVAL_MINUTES))  # never after 2:30am
+	assert_float(Regulars.arrival_time(26 * 60 + 20, 1.0)).is_less(float(NightRules.LAST_ARRIVAL_MINUTES))  # never after 2:30am
 
 
 func test_a_usual_only_once_it_is_real() -> void:

@@ -2,7 +2,7 @@ class_name Caption
 extends Control
 ## A Korean variety-show caption (자막): big outlined Hangul over a coloured English tag, an
 ## icon, a slight tilt, popping in with an overshoot, held a moment, then fading. Placed by
-## whoever it's about (see visit.gd _caption); the words come from Rules.CAPTIONS.
+## whoever it's about (see visit.gd _caption); the words come from Captions.CAPTIONS.
 
 const INK := Color("1d1a26")
 const HANGUL_SIZE := 50

@@ -2,7 +2,7 @@ extends RefCounted
 ## Offline mode: a stand-in for the LLM that answers instantly from pre-written characters
 ## and lines, for machines without a suitable GPU. It's also the fake AI the tests use.
 ##
-## Replies are built to pass the game's rules (scripts/rules.gd), using what the game says
+## Replies are built to pass the game's rules (scripts/rules/), using what the game says
 ## it's asking for (the "request": purpose plus context), and still go through the same
 ## checks as real AI replies.
 ##
@@ -10,7 +10,13 @@ extends RefCounted
 ## including deliberately bad ones); while the queue has anything in it, it's used first.
 
 const Menu = preload("res://scripts/menu.gd")
-const Rules = preload("res://scripts/rules.gd")
+const BarLook = preload("res://scripts/rules/bar_look.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Looks = preload("res://scripts/rules/looks.gd")
+const Names = preload("res://scripts/rules/names.gd")
+const People = preload("res://scripts/rules/people.gd")
+const Story = preload("res://scripts/rules/story.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 static var scripted: Array = []
 
@@ -127,7 +133,7 @@ func reply(request: Dictionary) -> Variant:
 			return _fit_look(owner, request, 40)
 		"hangul":
 			var person_name := str(request.get("name", ""))
-			return {"hangul": HANGUL.get(person_name, Rules.CAT_HANGUL.get(person_name, ""))}
+			return {"hangul": HANGUL.get(person_name, Names.CAT_HANGUL.get(person_name, ""))}
 		"founding_regular":
 			var taken: Array = request.get("taken", [])
 			var picked := _customer(taken, str(request.get("gender", "")))
@@ -136,14 +142,14 @@ func reply(request: Dictionary) -> Variant:
 			regular["history"] = "Started coming the winter the owner first put up the tarp, and never stopped."
 			regular["owner_knows"] = "Works too hard, eats too little, and always says it's the last bottle."
 			regular["knows_of_owner"] = "The owner never takes a day off, even when it snows."
-			return _fit_look(regular, request, Rules.MIN_DRINKING_AGE)
+			return _fit_look(regular, request, People.MIN_DRINKING_AGE)
 		"regular_tonight":
 			var mood_from: Dictionary = CUSTOMERS.pick_random()
 			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
 		"recap":
-			return Rules.stitched_recap(request.get("facts", {}))
+			return Story.stitched_recap(request.get("facts", {}))
 		"diary":
-			return {"entry": Rules.stitched_diary(request.get("facts", {}))}
+			return {"entry": Story.stitched_diary(request.get("facts", {}))}
 		"reaction":
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])
@@ -159,7 +165,7 @@ func reply(request: Dictionary) -> Variant:
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
 			return {"name": picked["name"], "hangul": HANGUL.get(picked["name"], ""), "gender": picked["gender"]}
 		"customer":
-			return _fit_look(_customer_details(str(request.get("name", "")), str(request.get("gender", ""))), request, Rules.MIN_DRINKING_AGE)
+			return _fit_look(_customer_details(str(request.get("name", "")), str(request.get("gender", ""))), request, People.MIN_DRINKING_AGE)
 		"chat_line":
 			if bool(request.get("owner_speaks", false)):
 				return {"line": OWNER_LINES.pick_random()}
@@ -168,15 +174,15 @@ func reply(request: Dictionary) -> Variant:
 			return _bar_name(str(request.get("owner_name", "")))
 		"bar_look":
 			return {
-				"hangul": BAR_HANGUL.get(str(request.get("bar_name", "")), Rules.DEFAULT_HANGUL),
-				"tarp": request.get("tarps", Rules.BAR_TARPS.keys()).pick_random(),
-				"shape": request.get("shapes", Rules.TENT_SHAPES.keys()).pick_random(),
-				"sign": Rules.SIGN_STYLES.keys().pick_random(),
-				"touches": [Rules.BAR_TOUCHES.keys().pick_random()],
+				"hangul": BAR_HANGUL.get(str(request.get("bar_name", "")), BarLook.DEFAULT_HANGUL),
+				"tarp": request.get("tarps", BarLook.BAR_TARPS.keys()).pick_random(),
+				"shape": request.get("shapes", BarLook.TENT_SHAPES.keys()).pick_random(),
+				"sign": BarLook.SIGN_STYLES.keys().pick_random(),
+				"touches": [BarLook.BAR_TOUCHES.keys().pick_random()],
 			}
 		"cat_name":
-			var cat_name := Rules.fallback_cat_name(randf(), request.get("taken", []))
-			return {"name": cat_name, "hangul": Rules.CAT_HANGUL.get(cat_name, "")}
+			var cat_name := CatRules.fallback_cat_name(randf(), request.get("taken", []))
+			return {"name": cat_name, "hangul": Names.CAT_HANGUL.get(cat_name, "")}
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))
 		"extra_order":
@@ -194,9 +200,9 @@ func _fit_look(person: Dictionary, request: Dictionary, youngest: int) -> Dictio
 	var look: Dictionary = request.get("look", {})
 	if look.is_empty():
 		return person
-	var band: Array = Rules.AGE_RANGES[look["age_range"]]
+	var band: Array = Looks.AGE_RANGES[look["age_range"]]
 	person["age"] = randi_range(maxi(youngest, int(band[0])), int(band[1]))
-	person["appearance"] = Rules.as_sentence("Someone %s" % Rules.look_text(look))
+	person["appearance"] = Text.as_sentence("Someone %s" % Looks.look_text(look))
 	return person
 
 

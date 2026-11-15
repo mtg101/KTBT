@@ -5,7 +5,7 @@ extends RefCounted
 ## ends (or the bar's closed partway through), writes them to a log file in stats/ in the
 ## user data folder, one per night, to compare runs.
 
-const Rules = preload("res://scripts/rules.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 ## Where the logs go. Tests point this at their own folder.
 static var folder := "user://stats/"
@@ -83,7 +83,7 @@ func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") 
 	ai_seconds.append(seconds)
 	rejected += problems.size()
 	for problem in problems:
-		var kind := Rules.problem_kind(str(problem))
+		var kind := Text.problem_kind(str(problem))
 		rejections[kind] = int(rejections.get(kind, 0)) + 1
 		var reasons: Dictionary = rejection_reasons.get(kind, {})
 		var reason := "%s: %s" % [purpose, problem] if purpose != "" else str(problem)

@@ -4,6 +4,10 @@ A running record of what we've done on KTBT and why, newest first. What's coming
 
 ## 15 November 2026
 
+- **Refactor, step 1: the rules, one file per area** (behaviour unchanged):
+  - **`scripts/rules.gd` (2,347 lines) is now 13 files in `scripts/rules/`,** each saying what it's for: text helpers, people, names, looks, the bar's look, the night, orders, talk, address terms, the cat, memories, captions, and the story. Each preloads only the ones it needs, never in a circle (`text.gd` at the bottom, needing nothing).
+  - **Every use updated** (about 600 `Rules.` references in the game, prompts, offline mode and tests now name the file: `Captions.CAPTIONS`, `Talk.validate_line`), by a script that also checked no local variable clashed. Two helpers are public now, in `text.gd`: `pick_weighted` and `numbers_in`.
+  - **A new `ARCHITECTURE.md`:** the code's layers (rules, prompts and the AI, saves, the bar, what's on screen), what each rules file holds, and where new things go.
 - **Refactor, step 0: a safety net** (behaviour unchanged; the plan's in PLAN.md):
   - **Every test hook in one place:** the 20 switches scattered through `visit.gd` moved to `scripts/test_hooks.gd` (the game reads them as `Hooks.<name>`, and never sets them). `Hooks.for_tests()` puts every hook (those in other scripts too: save, log and transcript folders, the canned AI, sound) into one known test state before each test, and `Hooks.restore()` puts them back after. This fixed a leak: the visit tests set their test state after each test, not before, so the first one ran with whatever the previous suite left.
   - **A shared test base,** `tests/support/bar_test.gd`, for the visit, night and bars tests: the setup and clean-up, and the click, wait and transcript helpers, once instead of three times.

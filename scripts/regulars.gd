@@ -5,7 +5,8 @@ extends RefCounted
 ## come from a 100-night simulation (see PLAN.md): they settle at about ten regulars, and
 ## about three of a night's twenty customers.
 
-const Rules = preload("res://scripts/rules.gd")
+const Memories = preload("res://scripts/rules/memories.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 ## How a visit went (from step 2 the AI judges this from the dialogue; for now the game does,
 ## from what happened: see game_verdict).
@@ -83,7 +84,7 @@ static func visit_chance(pull: float, day: int, favourite_days: Array, is_keen: 
 ## When they turn up, around their usual hour (game minutes), from a roll of 0 to 1.
 static func arrival_time(usual_hour: int, roll: float) -> float:
 	var when := float(usual_hour) + (clampf(roll, 0.0, 1.0) * 2.0 - 1.0) * USUAL_HOUR_SPREAD
-	return clampf(when, float(Rules.OPEN_MINUTES + 5), float(Rules.LAST_ARRIVAL_MINUTES - 5))
+	return clampf(when, float(NightRules.OPEN_MINUTES + 5), float(NightRules.LAST_ARRIVAL_MINUTES - 5))
 
 
 ## The game's own verdict on a visit, from what happened: the fallback when the AI's verdict
@@ -256,7 +257,7 @@ static func remember(regular: Dictionary, night: int, memory: Dictionary) -> voi
 		regular["impression"] = impression
 	regular["memories"] = memories
 	var facts: Dictionary = regular.get("facts", {})
-	for key in Rules.STICKING:
+	for key in Memories.STICKING:
 		if str(memory.get(key, "")) != "":
 			facts[key] = str(memory[key])
 	regular["facts"] = facts

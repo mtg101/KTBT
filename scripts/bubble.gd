@@ -3,7 +3,7 @@ extends Control
 ## A speech bubble over whoever's speaking, with its tail pointing down at them, a header
 ## saying who they're talking to, and a curved line from the bubble to the listener. It
 ## follows them (someone still walking to their stool, the owner moving round), and shows a
-## long line a page at a time (see Rules.bubble_pages); the transcript keeps the full record.
+## long line a page at a time (see Talk.bubble_pages); the transcript keeps the full record.
 
 const NARROW := 330.0
 const WIDE := 440.0  # for a long line, so it stays a few lines tall

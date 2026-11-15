@@ -7,7 +7,16 @@ const Visit = preload("res://scripts/visit.gd")
 const Ai = preload("res://scripts/ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
-const Rules = preload("res://scripts/rules.gd")
+const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Looks = preload("res://scripts/rules/looks.gd")
+const Names = preload("res://scripts/rules/names.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Orders = preload("res://scripts/rules/orders.gd")
+const People = preload("res://scripts/rules/people.gd")
+const Story = preload("res://scripts/rules/story.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
 const RecapScreen = preload("res://scripts/recap_screen.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 const Prompts = preload("res://scripts/prompts.gd")
@@ -82,7 +91,7 @@ func test_clicking_next_customer_plays_a_whole_visit() -> void:
 	assert_str(text).contains("with the free banchan")
 	assert_str(text).contains("heads back out into the night")
 	# The bill is the game's: exactly the menu prices of everything they ordered.
-	assert_int(scene._takings).is_equal(Rules.bill(scene._order))
+	assert_int(scene._takings).is_equal(Orders.bill(scene._order))
 	assert_int(scene._takings).is_greater(0)
 	assert_str((runner.find_child("TakingsLabel") as Label).text).is_equal("Takings: %s" % Menu.format_won(scene._takings))
 	# They've gone, and the counter's clear.
@@ -151,7 +160,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	var scene = runner.scene()
 	_crowd(scene, 6)
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
-	scene._clock += Rules.GIVE_UP_MINUTES + 1  # the one left waiting has waited long enough
+	scene._clock += NightRules.GIVE_UP_MINUTES + 1  # the one left waiting has waited long enough
 	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).override_failure_message("nobody gave up").is_true()
 	assert_array(scene._waiting).is_empty()
 	assert_str(_transcript(runner)).contains("sees every stool taken, and walks on")
@@ -218,7 +227,7 @@ func test_takings_add_up_over_several_visits() -> void:
 	var expected := 0
 	for visit in 4:
 		await _run_one_visit(runner)
-		expected += Rules.bill(scene._order)
+		expected += Orders.bill(scene._order)
 		assert_int(scene._takings).is_equal(expected)
 
 
@@ -231,7 +240,7 @@ func test_a_bad_owner_reply_is_retried() -> void:
 	# ...rejected, and replaced by a valid owner on the retry.
 	assert_bool((runner.find_child("Owner") as Control).visible).is_true()
 	assert_str(str(scene._owner["name"])).is_not_equal("Nobody")
-	assert_int(int(scene._owner["age"])).is_greater_equal(Rules.MIN_OWNER_AGE)
+	assert_int(int(scene._owner["age"])).is_greater_equal(People.MIN_OWNER_AGE)
 
 
 func test_owner_that_cant_be_invented_offers_try_again() -> void:
@@ -520,8 +529,8 @@ func test_a_new_bar_gets_a_cat() -> void:
 	var runner := await _open_bar()
 	var cat: Dictionary = Game.bar["cat"]
 	assert_str(str(cat["name"])).is_not_empty()
-	assert_bool(Rules.CAT_COATS.has(cat["coat"])).is_true()
-	assert_bool(Rules.CAT_PERSONALITIES.has(cat["personality"])).is_true()
+	assert_bool(CatRules.CAT_COATS.has(cat["coat"])).is_true()
+	assert_bool(CatRules.CAT_PERSONALITIES.has(cat["personality"])).is_true()
 	assert_bool(SaveStore.load_bar(str(Game.bar["id"]))["cat"].has("name")).is_true()  # saved
 	assert_bool((runner.find_child("Cat") as Control).visible).is_true()
 	assert_str((runner.find_child("Info") as RichTextLabel).get_parsed_text()).contains("THE CAT")
@@ -584,7 +593,7 @@ func test_the_owners_chat_turns_to_a_topic() -> void:
 	var scene = runner.scene()
 	_crowd(scene, 1)
 	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].topic != "")).is_true()
-	assert_bool(Rules.OWNER_TOPICS.has(scene._guests[0].topic)).is_true()
+	assert_bool(Talk.OWNER_TOPICS.has(scene._guests[0].topic)).is_true()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
@@ -702,14 +711,14 @@ func test_a_new_bars_cat_is_a_she_or_a_he_with_its_own_name() -> void:
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME]  # the AI suggests Dubu: taken
 	await _open_bar()
 	var cat: Dictionary = Game.bar["cat"]
-	assert_bool(cat["sex"] in Rules.CAT_SEXES).is_true()
+	assert_bool(cat["sex"] in CatRules.CAT_SEXES).is_true()
 	assert_str(str(cat["name"])).is_not_equal("Dubu")
 
 
 func test_customers_are_women_and_men_about_equally() -> void:
 	var genders := {}
 	for i in 200:
-		var g: String = Rules.game_gender(randf())
+		var g: String = People.game_gender(randf())
 		genders[g] = int(genders.get(g, 0)) + 1
 	assert_int(int(genders.get("woman", 0))).is_between(70, 130)
 	assert_int(int(genders.get("man", 0))).is_between(70, 130)
@@ -733,7 +742,7 @@ func test_a_new_bar_gets_its_own_look() -> void:
 	assert_str((runner.find_child("SignHangul") as Label).text).is_equal("골목 포차")
 	assert_str((runner.find_child("SignEnglish") as Label).text).is_equal("GOLMOK POCHA")
 	assert_bool((runner.find_child("Sign") as Control).visible).is_true()
-	assert_bool((runner.find_child("Tarp") as Polygon2D).color.is_equal_approx(Color(Rules.BAR_TARPS["blue"][0]))).is_true()
+	assert_bool((runner.find_child("Tarp") as Polygon2D).color.is_equal_approx(Color(BarLook.BAR_TARPS["blue"][0]))).is_true()
 	assert_int(runner.find_child("DecorCounter").get_child_count()).is_greater(0)  # the radio
 	assert_int(runner.find_child("DecorRoof").get_child_count()).is_greater(0)  # the lanterns
 
@@ -775,7 +784,7 @@ func test_the_tent_cover_has_the_chosen_shape() -> void:
 	for point in tarp.polygon:
 		top = minf(top, point.y)
 	assert_float(top).is_less(40.0)  # higher in the middle than the classic tarp
-	for shape in Rules.TENT_SHAPES:
+	for shape in BarLook.TENT_SHAPES:
 		assert_int(scene._tent_shape(shape).size()).is_greater_equal(4)
 
 
@@ -812,7 +821,7 @@ func test_a_new_bar_chooses_from_a_few_colours_and_shapes() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var offer: Dictionary = scene._look_offer
-	assert_int(offer["tarp"].size()).is_equal(Rules.OFFERED_TARPS)
+	assert_int(offer["tarp"].size()).is_equal(BarLook.OFFERED_TARPS)
 	assert_array(offer["tarp"]).contains([Game.bar["look"]["tarp"]])
 	assert_array(offer["shape"]).contains([Game.bar["look"]["shape"]])
 
@@ -881,7 +890,7 @@ func test_the_cat_has_a_name_tag() -> void:
 	var scene = runner.scene()
 	var tag := runner.find_child("Cat").get_node("Tag") as Label
 	assert_str(tag.text).contains(str(scene._cat["name"]))
-	assert_str(tag.text).starts_with(str(Rules.CAT_HANGUL[scene._cat["name"]]))  # Hangul first, like everyone's
+	assert_str(tag.text).starts_with(str(Names.CAT_HANGUL[scene._cat["name"]]))  # Hangul first, like everyone's
 	assert_str(tag.text).ends_with("♀" if scene._cat["sex"] == "she" else "♂")
 
 
@@ -904,7 +913,7 @@ func test_lines_show_in_speech_bubbles_with_who_they_are_to() -> void:
 func _a_regular(founding: bool = false) -> Dictionary:
 	var customer := {"name": "Choi Hye-rin", "hangul": "최혜린", "gender": "woman", "age": 31, "job": "pharmacist",
 		"speech_style": "precise", "appearance": "A camel coat, buttoned to the top."}
-	var regular := Regulars.new_regular(customer, Rules.pick_look("woman", "30s", ""), ["soju", "tteokbokki"], 1, 0, 21 * 60, 0.5)
+	var regular := Regulars.new_regular(customer, Looks.pick_look("woman", "30s", ""), ["soju", "tteokbokki"], 1, 0, 21 * 60, 0.5)
 	regular["visits"] = 4
 	if founding:
 		regular.merge({"founding": true, "role": "looks_out", "since": "for six years", "habit": "most Fridays", "usual": ["beer", "pajeon"],
@@ -1036,7 +1045,7 @@ func test_founding_regulars_always_come_in_the_first_night_and_are_introduced() 
 func _a_departing_guest(scene) -> Visit.Guest:
 	var guest := Visit.Guest.new()
 	guest.customer = {"name": "Yoon Na-rae", "hangul": "윤나래", "gender": "woman", "age": 28, "job": "nurse", "mood": "tired",
-		"reason": "A double shift.", "speech_style": "brisk", "appearance": "Scrubs under a coat.", "look": Rules.pick_look("woman", "20s", "")}
+		"reason": "A double shift.", "speech_style": "brisk", "appearance": "Scrubs under a coat.", "look": Looks.pick_look("woman", "20s", "")}
 	guest.first_order = ["soju", "odeng"]
 	guest.arrived_minutes = int(scene._clock)
 	guest.transcript = [{"speaker": "Yoon Na-rae", "text": "Double shift at the hospital again. My mum keeps telling me to quit."},
@@ -1143,7 +1152,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
 	assert_int(int(scene._stats.captions.get("rush", 0))).is_equal(1)  # the counter filling up
 	assert_str(_transcript(runner)).contains("[TV] ")
-	scene._clock += Rules.GIVE_UP_MINUTES + 1
+	scene._clock += NightRules.GIVE_UP_MINUTES + 1
 	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).is_true()
 	assert_str(_transcript(runner)).contains("[TV] ")
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
@@ -1156,7 +1165,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_object(caption).is_not_null()
 	if caption != null:
 		assert_str(caption.name).is_equal("Caption")
-		var hangul: Array = Rules.CAPTIONS["stove"]["words"].map(func(w): return w[0])
+		var hangul: Array = Captions.CAPTIONS["stove"]["words"].map(func(w): return w[0])
 		assert_array(hangul).contains([(caption.find_child("Hangul", true, false) as Label).text])
 		assert_str((caption.find_child("English", true, false) as Label).text).is_not_empty().not_contains("{")
 	# The Captions toggle turns them off.
@@ -1169,7 +1178,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 func test_the_last_customer_leaving_late_is_all_quiet() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	scene._clock = float(Rules.QUIET_AFTER + 10)
+	scene._clock = float(Captions.QUIET_AFTER + 10)
 	_crowd(scene, 1)
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
 	_time_up(scene)
@@ -1188,7 +1197,7 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	await scene._react(lines, names, [])
 	assert_str(_transcript(runner)).contains("SHE QUIT HER JOB?!")
 	assert_int(int(scene._stats.reactions_shown.get("shock", 0))).is_equal(1)
-	assert_array(Rules.REACTIONS["shock"]["hangul"]).contains([(scene._caption_shown.find_child("Hangul", true, false) as Label).text])
+	assert_array(Captions.REACTIONS["shock"]["hangul"]).contains([(scene._caption_shown.find_child("Hangul", true, false) as Label).text])
 	# Nothing special: no caption. A bad answer: dropped, not asked again.
 	CannedAi.scripted = [{"mood": "none"}]
 	await scene._react(lines, names, [])
@@ -1240,7 +1249,7 @@ func test_skip_ends_the_recap() -> void:
 	assert_str((screen.find_child("RecapEpisode", true, false) as Label).text).is_equal("제5화")
 	assert_str(screen.who_text()).is_equal("김지호 Kim Ji-ho")  # her name tag, in Hangul too
 	assert_str(screen.style_name()).is_equal("makjang")
-	assert_str((screen.find_child("RecapTitle", true, false).get_child(0) as Label).text).is_equal(str(Rules.RECAP_STYLES["makjang"]["title"]))
+	assert_str((screen.find_child("RecapTitle", true, false).get_child(0) as Label).text).is_equal(str(Story.RECAP_STYLES["makjang"]["title"]))
 	assert_object(screen.find_child("RecapSticker", true, false)).is_not_null()  # and last time's big moment, stuck on
 	(screen.find_child("RecapSkip", true, false) as Button).pressed.emit()
 	assert_bool(ended[0]).is_true()

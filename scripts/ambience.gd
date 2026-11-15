@@ -7,7 +7,8 @@ extends Node
 ## the subway, glasses, a pour, stools, the cash tin, the cat). The game says what's going
 ## on (set_scene, play); this only decides how it sounds.
 
-const Rules = preload("res://scripts/rules.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 ## Test hooks: false makes no sound at all (nothing is made or played); and where the
 ## Sound on/off setting is kept.
@@ -23,7 +24,7 @@ const LOOPS := {"hum": -20.0, "drizzle": -16.0, "rain": -11.0, "wind": -17.0, "s
 	"sizzle": -21.0, "murmur": -23.0, "cicadas": -27.0}
 const SOUNDS := {"car": -17.0, "truck": -15.0, "scooter": -19.0, "subway": -19.0, "clink": -15.0,
 	"pour": -22.0, "scrape": -19.0, "cash": -17.0, "meow": -17.0}
-## The TV captions' stings (Rules.CAPTION_STINGS), louder than the scene, never muffled.
+## The TV captions' stings (Captions.CAPTION_STINGS), louder than the scene, never muffled.
 const STINGS := {"siren": -13.0, "whoosh": -14.0, "ding": -12.0, "sparkle": -14.0, "nyang": -11.0, "pop": -12.0,
 	"dun": -10.0, "sad": -13.0, "boing": -12.0}
 const FADE_PER_SECOND := 0.5  # how fast a loop moves to its new level
@@ -92,12 +93,12 @@ static func save_enabled(on: bool) -> void:
 	settings.save(settings_path)
 
 
-## What's going on in the scene: "weather" (a Rules.weather_kind), "people" at the counter,
+## What's going on in the scene: "weather" (a NightRules.weather_kind), "people" at the counter,
 ## "cooking" (something's on the stove), "open" (the night's running) and "minutes" (the clock).
 func set_scene(scene: Dictionary) -> void:
 	_target = mix(scene)
 	_minutes = int(scene.get("minutes", _minutes))
-	_busy = clampf(Rules.arrivals_per_hour(_minutes) / 4.0, 0.0, 1.0)
+	_busy = clampf(NightRules.arrivals_per_hour(_minutes) / 4.0, 0.0, 1.0)
 	if make_sound:
 		AudioServer.set_bus_effect_enabled(_bus(), 0, muffled(str(scene.get("weather", ""))))
 

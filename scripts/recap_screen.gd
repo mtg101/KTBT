@@ -10,7 +10,9 @@ extends Control
 signal finished
 
 const CaptionPopup = preload("res://scripts/caption.gd")
-const Rules = preload("res://scripts/rules.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
+const Names = preload("res://scripts/rules/names.gd")
+const Story = preload("res://scripts/rules/story.gd")
 
 const NIGHT_TOP := Color("0d0b24")
 const NIGHT_BOTTOM := Color("2a1a40")
@@ -285,10 +287,10 @@ func style_name() -> String:
 	return str(_style.get("name", ""))
 
 
-## The colours and the overlay of a style (Rules.RECAP_STYLES).
+## The colours and the overlay of a style (Story.RECAP_STYLES).
 func _apply_style(key: String) -> void:
-	_style = Rules.RECAP_STYLES.get(key, Rules.RECAP_STYLES["melodrama"]).duplicate()
-	_style["name"] = key if Rules.RECAP_STYLES.has(key) else "melodrama"
+	_style = Story.RECAP_STYLES.get(key, Story.RECAP_STYLES["melodrama"]).duplicate()
+	_style["name"] = key if Story.RECAP_STYLES.has(key) else "melodrama"
 	var top := Color(str(_style["sky"][0]))
 	var bottom := Color(str(_style["sky"][1]))
 	_sky.vertex_colors = PackedColorArray([top, top, bottom, bottom])
@@ -377,7 +379,7 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 		_sticker.queue_free()
 	var people: Dictionary = extras.get("people", {})
 	for full in people:
-		var given := Rules.given_name(str(full))
+		var given := Names.given_name(str(full))
 		if not (beat.contains(str(full)) or beat.contains(given)):
 			continue
 		var hangul := str(people[full])
@@ -387,9 +389,9 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 		_who.rotation = 0.04
 		_slam(_who, 0.04)
 		for moment in extras.get("moments", []):
-			if str(moment.get("who", "")) != str(full) or not Rules.REACTIONS.has(str(moment.get("mood", ""))):
+			if str(moment.get("who", "")) != str(full) or not Captions.REACTIONS.has(str(moment.get("mood", ""))):
 				continue
-			var data: Dictionary = Rules.REACTIONS[str(moment["mood"])]
+			var data: Dictionary = Captions.REACTIONS[str(moment["mood"])]
 			var sticker := CaptionPopup.new()
 			sticker.name = "RecapSticker"
 			sticker.time_scale = time_scale

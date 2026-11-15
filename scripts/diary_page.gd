@@ -1,10 +1,10 @@
 extends Control
 ## A page of the owner's diary: cream paper with ruled lines and a red margin, the episode and
 ## the day (in Hangul and English) at the top, the entry in ink, and a stamp in the corner
-## (Rules.DIARY_STAMPS). Used at 3am (see visit.gd _end_night) and for the diary book. While the
+## (Story.DIARY_STAMPS). Used at 3am (see visit.gd _end_night) and for the diary book. While the
 ## owner's still writing, a pen moves across the page instead.
 
-const Rules = preload("res://scripts/rules.gd")
+const Story = preload("res://scripts/rules/story.gd")
 
 const PAPER := Color("f6ecd6")
 const RULE := Color(0.45, 0.6, 0.85, 0.28)
@@ -132,7 +132,7 @@ func entry_text() -> String:
 
 func _set_header(episode: int, day: String, weather: String, whose: String) -> void:
 	_episode.text = "EP. %d" % episode
-	_day.text = "%s %s · %s" % [Rules.DAY_HANGUL.get(day, ""), day, weather]
+	_day.text = "%s %s · %s" % [Story.DAY_HANGUL.get(day, ""), day, weather]
 	_whose.text = whose
 
 
@@ -140,7 +140,7 @@ func _set_header(episode: int, day: String, weather: String, whose: String) -> v
 func _set_stamp(key: String) -> void:
 	for child in _stamp.get_children():
 		child.queue_free()
-	var data: Dictionary = Rules.DIARY_STAMPS.get(key, Rules.DIARY_STAMPS["soju"])
+	var data: Dictionary = Story.DIARY_STAMPS.get(key, Story.DIARY_STAMPS["soju"])
 	var colour := Color(str(data["colour"]))
 	for ring in [[78.0, 6.0], [66.0, 2.5]]:
 		var line := Line2D.new()
