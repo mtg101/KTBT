@@ -44,6 +44,11 @@ var friendlier_moments := 0  # two regulars on "eonni" (or oppa, hyung, nuna) te
 # TV captions
 var captions := {}  # kind -> how many shown tonight
 var captions_held_back := 0  # ones that would have come too soon after another
+var reactions_asked := 0  # times the AI was asked "was that a big moment?"
+var reactions_shown := {}  # mood -> how many shown
+var reactions_none := 0  # ...answered "nothing special"
+var reactions_dropped := 0  # ...answered with something that failed the checks
+var reactions_skipped := 0  # ...not asked, because someone was waiting for the owner
 
 # Food
 var dishes_cooked := 0
@@ -177,6 +182,12 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
+	var shown_reactions := 0
+	for mood in reactions_shown:
+		shown_reactions += int(reactions_shown[mood])
+	lines.append("Reactions: asked %d · shown %d%s · none %d · dropped %d · skipped (busy) %d" % [reactions_asked, shown_reactions,
+		(" (" + ", ".join(PackedStringArray(reactions_shown.keys().map(func(k): return "%s %d" % [k, int(reactions_shown[k])]))) + ")") if not reactions_shown.is_empty() else "",
+		reactions_none, reactions_dropped, reactions_skipped])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -215,7 +226,8 @@ func summary(context: Dictionary) -> Dictionary:
 			"became": became_regulars, "faded": faded_regulars, "pulls": regular_pulls.duplicate(),
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
-		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back},
+		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back,
+			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "skipped": reactions_skipped}},
 		"food": {
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},

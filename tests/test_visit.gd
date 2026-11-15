@@ -76,6 +76,7 @@ func after_test() -> void:
 	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
+	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
 	Visit.captions = true
 	Visit.caption_pacing = false  # every caption shows, so tests can look for them (pacing has its own rule tests)
 	Ambience.make_sound = false  # quiet tests (and quick ones)
@@ -1198,7 +1199,7 @@ func test_two_regulars_get_to_know_each_other_and_then_ask() -> void:
 	assert_bool(scene._close(a, b)).is_true()
 	assert_bool(older["friends"]["choi-hye-rin-1"]["close"]).is_true()
 	assert_str(_transcript(runner)).contains("are on \"eonni\" terms now")
-	assert_str(_transcript(runner)).contains("[TV] 언니! \"EONNI\" NOW!")
+	assert_int(int(scene._stats.captions.get("friendlier", 0))).is_equal(1)  # a TV caption
 	assert_str(scene._to_label("Eonni, look!", a, b, "label")).starts_with("언니 Eonni")
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
@@ -1224,10 +1225,11 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	var scene = runner.scene()
 	_crowd(scene, 6)
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
-	assert_str(_transcript(runner)).contains("[TV] 퇴근 러시! THE AFTER-WORK RUSH!")  # the counter filling up
+	assert_int(int(scene._stats.captions.get("rush", 0))).is_equal(1)  # the counter filling up
+	assert_str(_transcript(runner)).contains("[TV] ")
 	scene._clock += Rules.GIVE_UP_MINUTES + 1
 	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).is_true()
-	assert_str(_transcript(runner)).contains("[TV] 만석! FULL HOUSE!")
+	assert_str(_transcript(runner)).contains("[TV] ")
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
 	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_equal(1)
 	# Drawn: Hangul over the English, by the tent (at normal speed, so it's still up to look at).
@@ -1244,7 +1246,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	# The Captions toggle turns them off.
 	(runner.find_child("CaptionsToggle", true, false) as CheckBox).button_pressed = false
 	scene._call_last_orders()
-	assert_str(_transcript(runner)).not_contains("[TV] 마감!")
+	assert_int(int(scene._stats.captions.get("last_orders", 0))).is_equal(0)
 	assert_bool(await _wait_until(func(): return not scene.busy, 30000)).is_true()
 
 
@@ -1256,4 +1258,29 @@ func test_the_last_customer_leaving_late_is_all_quiet() -> void:
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
-	assert_str(_transcript(runner)).contains("[TV] 고요… ALL QUIET…")
+	assert_int(int(scene._stats.captions.get("quiet", 0))).is_equal(1)
+
+
+func test_a_big_moment_gets_a_tv_reaction() -> void:
+	Visit.reactions = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var owner_name := str(Game.bar["owner"]["name"])
+	var names := ["Kim Ji-ho", owner_name]
+	var lines := [{"speaker": "Kim Ji-ho", "text": "I quit my job today."}, {"speaker": owner_name, "text": "You did what?"}]
+	CannedAi.scripted = [{"mood": "shock", "who": "Ji-ho", "caption": "she quit her job?!"}]
+	await scene._react(lines, names, [])
+	assert_str(_transcript(runner)).contains("SHE QUIT HER JOB?!")
+	assert_int(int(scene._stats.reactions_shown.get("shock", 0))).is_equal(1)
+	assert_array(Rules.REACTIONS["shock"]["hangul"]).contains([(scene._caption_shown.find_child("Hangul", true, false) as Label).text])
+	# Nothing special: no caption. A bad answer: dropped, not asked again.
+	CannedAi.scripted = [{"mood": "none"}]
+	await scene._react(lines, names, [])
+	assert_int(scene._stats.reactions_none).is_equal(1)
+	CannedAi.scripted = [{"mood": "angry", "who": "Kim Ji-ho", "caption": "GRR"}, {"mood": "funny", "who": "Kim Ji-ho", "caption": "NOT ASKED"}]
+	await scene._react(lines, names, [])
+	assert_int(scene._stats.reactions_dropped).is_equal(1)
+	assert_int(CannedAi.scripted.size()).is_equal(1)  # only one try
+	assert_str(_transcript(runner)).not_contains("NOT ASKED")
+	assert_int(scene._stats.reactions_asked).is_equal(3)
+	CannedAi.scripted = []

@@ -102,9 +102,11 @@ static var regular_roll_override := -1.0
 static var memories := true
 ## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
 static var bubbles := true
-## Test hooks: false shows no TV captions; false shows every one, however close together.
+## Test hooks: false shows no TV captions; false shows every one, however close together;
+## false asks the AI for no reactions (an extra AI call that would use up scripted replies).
 static var captions := true
 static var caption_pacing := true
+static var reactions := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
 static var offer_every_look := false
 
@@ -134,6 +136,7 @@ const SPEED_CHANGE_RATE := 4.0
 class Guest:
 	extends RefCounted
 	var seat := 0
+	var reacted_at := 0  # the line of their conversation with the owner last checked for a TV reaction
 	var customer := {}
 	var color := Color.WHITE
 	var arrived := ""  # the time they arrived, as text
@@ -226,6 +229,8 @@ var _caption_last_kind := {}  # kind -> real seconds when one of those last show
 var _rush_shown := false  # tonight's after-work rush has been and gone
 var _dawn_shown := false  # ...and 2am feelings
 var _red_flashes := 0  # emergencies flashed (for tests)
+var _reaction_last := -1.0  # real seconds when the last reaction showed
+var _reaction_until := -1.0  # ...and until when it's up
 var _bubbles_toggle: CheckBox
 var _sound_toggle: CheckBox
 var _music: Music  # Arirang, now and then
@@ -1333,6 +1338,11 @@ func _talk(guest: Guest) -> void:
 	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
 	# for customers to chat) sooner.
 	await _converse(guest, 1 if _guests.size() >= Rules.BUSY_COUNTER else randi_range(1, 2), true)
+	# Every few lines, was anything a big moment? (A TV reaction.)
+	if _guests.has(guest) and guest.line - guest.reacted_at >= Rules.REACT_EVERY:
+		guest.reacted_at = guest.line
+		var spoken: Array = guest.transcript.filter(func(e): return e.has("text")).slice(-Rules.REACT_EVERY)
+		await _react(spoken, [str(_owner["name"]), str(guest.customer["name"])], guest.order)
 	_task_done()
 
 
@@ -1615,6 +1625,16 @@ func _counter_chat() -> void:
 					if str(g.customer["name"]) == said_by:
 						by = _known_as(g, chat)
 			guest.transcript.append({"action": "%s has been chatting with %s at the counter. The last thing said there (by %s): \"%s\"" % [guest.customer["name"], " and ".join(PackedStringArray(others)), by, said]})
+	# Was anything in that spell a big moment? (A TV reaction.)
+	if lines_said > 0:
+		var spoken: Array = chat.transcript.filter(func(e): return e.has("text")).slice(-lines_said)
+		var talking: Array = chat.people.map(func(g): return str(g.customer["name"]))
+		if spoken.any(func(e): return str(e["speaker"]) == str(_owner["name"])):
+			talking.append(str(_owner["name"]))
+		var ordered: Array = []
+		for guest in chat.people:
+			ordered.append_array(guest.order)
+		await _react(spoken, talking, ordered)
 	chat.owner_in = false  # the owner goes back to work after the spell
 	_task_done()
 
@@ -2028,7 +2048,8 @@ func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: 
 	if not captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
 		return
 	var now := Time.get_ticks_msec() / 1000.0
-	if caption_pacing and not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP)):
+	var reaction_up := now < _reaction_until and not bool(Rules.CAPTIONS[kind]["emergency"])  # a reaction's up: routine ones wait
+	if caption_pacing and (reaction_up or not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP))):
 		_stats.captions_held_back += 1
 		return
 	_caption_last = now
@@ -2045,7 +2066,13 @@ func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: 
 		fill["cat"] = _cat["name"]
 	if _weather_kind in ["drizzle", "rain"]:
 		fill["weather"] = "rain"
-	_show("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [str(data["colour"]), _esc(Rules.caption_text(kind, fill, roll))])
+	_pop_caption(Rules.caption_words(kind, fill, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), bool(data["emergency"]), about, spot, Rules.CAPTION_SECONDS)
+
+
+## Puts a caption up (see _caption and _react): in the transcript, popped up on the stage
+## (replacing the last), with its sting, and the red light for an emergency.
+func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Control, spot: Vector2, hold: float) -> void:
+	_show("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [colour, _esc("[TV] %s %s" % [words["hangul"], words["english"]])])
 	if is_instance_valid(_caption_shown):
 		_caption_shown.name = "OldCaption"  # (so it's never mistaken for the new one while it goes)
 		_caption_shown.queue_free()
@@ -2059,13 +2086,57 @@ func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: 
 		caption.at = about.position + Vector2(40, -60)
 	else:
 		caption.at = Vector2(STAGE_SIZE.x / 2, 150)
-	caption.setup(Rules.caption_words(kind, fill, roll), str(data["icon"]), Color(str(data["colour"])))
+	caption.setup(words, icon, Color(colour))
 	_caption_layer.add_child(caption)
-	caption.pop(Rules.CAPTION_SECONDS)
+	caption.pop(hold)
 	_caption_shown = caption
-	_ambience.sting(str(data["sound"]))
-	if bool(data["emergency"]):
+	_ambience.sting(sound)
+	if emergency:
 		_flash_red()
+
+
+## A TV reaction: asks the AI whether anything in the latest lines was a big moment (usually
+## not), and if so pops up its caption over whoever it's about, with the Hangul, look and
+## sound from its mood (Rules.REACTIONS). Only when nobody's waiting for the owner; an answer
+## that fails the checks is dropped, not retried. names: who's talking; items: what they've
+## ordered (a caption can't mention anything else).
+func _react(lines: Array, names: Array, items: Array) -> void:
+	if not reactions or not captions or _captions_toggle == null or not _captions_toggle.button_pressed or lines.is_empty():
+		return
+	if _urgent():
+		_stats.reactions_skipped += 1
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if caption_pacing and _reaction_last >= 0.0 and now - _reaction_last < _scaled(Rules.REACTION_GAP):
+		return
+	_stats.reactions_asked += 1
+	var reply: Dictionary = await _ai.ask_json(Prompts.reaction_messages(lines.slice(-Rules.REACTION_LINES), names),
+		_validate_reaction.bind(names, items), {"temperature": 0.7}, {"purpose": "reaction", "names": names, "tries": 1})
+	if _stopped:
+		return
+	if reply.is_empty():
+		_stats.reactions_dropped += 1
+		return
+	var mood := str(reply["mood"])
+	if mood == "none":
+		_stats.reactions_none += 1
+		return
+	now = Time.get_ticks_msec() / 1000.0
+	_reaction_last = now
+	_reaction_until = now + _scaled(Rules.REACTION_SECONDS)
+	_caption_last = now  # (routine captions wait their usual gap after it)
+	_stats.reactions_shown[mood] = int(_stats.reactions_shown.get(mood, 0)) + 1
+	var who := str(reply["who"])
+	var about: Control = _owner_node
+	if who != str(_owner["name"]):
+		var guest: Guest = _guest_named(who)
+		about = guest.node if guest != null else null
+	var data: Dictionary = Rules.REACTIONS[mood]
+	_pop_caption(Rules.reaction_words(mood, str(reply["caption"]), randf()), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Rules.REACTION_SECONDS)
+
+
+func _validate_reaction(data: Variant, names: Array, items: Array) -> String:
+	return Rules.validate_reaction(data, names, items)
 
 
 ## The emergency light: the red border flashing three times round the tent.

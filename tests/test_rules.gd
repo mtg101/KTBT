@@ -1240,11 +1240,11 @@ func test_tv_captions_fill_in_the_games_facts() -> void:
 	for k in 20:
 		var said := Rules.caption_words("order_up", {"dish": "Tteokbokki"}, k / 20.0)
 		seen[said["english"]] = true
-	assert_bool(seen.has("TTEOKBOKKI, INHALED!")).is_true()
+	assert_bool(seen.keys().any(func(e): return str(e).begins_with("TTEOKBOKKI, "))).is_true()
 	for k in 20:
 		assert_str(Rules.caption_words("order_up", {}, k / 20.0)["english"]).not_contains("{")  # no dish: none that need one
-	assert_str(Rules.caption_words("jjin_chin", {"name": "Kim Ji-ho", "friend": "Kang Da-eun"}, 0.5)["english"]).is_equal("JI-HO & DA-EUN ∞")
-	assert_str(Rules.caption_words("regular_back", {"visit": 7}, 0.99)["english"]).is_equal("VISIT NUMBER 7 ★")
+	assert_str(Rules.caption_words("jjin_chin", {"name": "Kim Ji-ho", "friend": "Kang Da-eun"}, 0.3)["english"]).is_equal("JI-HO & DA-EUN ∞")
+	assert_str(Rules.caption_words("regular_back", {"visit": 7}, 0.7)["english"]).is_equal("VISIT NUMBER 7 ★")
 	assert_str(Rules.caption_words("solo", {"weather": "rain"}, 0.99)["hangul"]).is_equal("비 오는 날 혼술…")
 	assert_str(Rules.given_name("Kim Ji-ho")).is_equal("Ji-ho")
 	assert_str(Rules.given_name("Mandu")).is_equal("Mandu")
@@ -1262,16 +1262,24 @@ func test_every_tv_caption_is_complete() -> void:
 			var said := Rules.caption_words(kind, _every_fill(), (k + 0.5) / count)
 			assert_str(said["hangul"]).is_equal(str(data["words"][k][0]).replace("{term_hangul}", "언니"))  # each of its words can come up
 			assert_str(said["hangul"] + said["english"]).not_contains("{")  # every blank filled
-	assert_str(Rules.caption_text("full_house")).is_equal("[TV] 만석! FULL HOUSE!")
-	assert_str(Rules.caption_text("cheers", {}, 0.0)).is_equal("[TV] 짠! JJAN! CHEERS!")
-	assert_str(Rules.caption_text("cheers", {}, 0.99)).is_equal("[TV] 원샷! ONE SHOT!")
-	assert_str(Rules.caption_words("regular_back", {"gender": "man"})["english"]).is_equal("HE'S BACK! ★")
-	assert_str(Rules.caption_words("regular_back", {"gender": "non-binary"})["english"]).is_equal("THEY'RE BACK! ★")
-	assert_str(Rules.caption_text("friendlier", {"term": "eonni"})).is_equal("[TV] 언니! \"EONNI\" NOW!")
-	assert_str(Rules.caption_words("cat_lap", {"cat": "Mandu"})["english"]).is_equal("MANDU MAKES A FRIEND")
+			assert_str(said["english"]).not_contains("<").not_contains("|")  # every piece picked
+	assert_str(Rules.caption_text("full_house")).starts_with("[TV] 만석! FULL HOUSE")
+	assert_str(Rules.caption_text("cheers", {}, 0.0)).starts_with("[TV] 짠! JJAN! ")
+	assert_str(Rules.caption_text("cheers", {}, 0.99)).starts_with("[TV] 원샷! ONE SHOT")
+	assert_str(Rules.caption_text("cheers", {}, 0.3)).is_equal(Rules.caption_text("cheers", {}, 0.3))  # the same roll, the same words
+	var rng := RandomNumberGenerator.new()
+	var seen := {}
+	for i in 40:
+		seen[Rules.pick_pieces("<SOLO|LONE> <DINER|WOLF>", rng)] = true
+	assert_array(seen.keys()).contains_exactly_in_any_order(["SOLO DINER", "SOLO WOLF", "LONE DINER", "LONE WOLF"])
+	assert_str(Rules.pick_pieces("NO PIECES HERE", rng)).is_equal("NO PIECES HERE")
+	assert_str(Rules.caption_words("regular_back", {"gender": "man"})["english"]).starts_with("HE'S BACK")
+	assert_str(Rules.caption_words("regular_back", {"gender": "non-binary"})["english"]).starts_with("THEY'RE BACK")
+	assert_str(Rules.caption_text("friendlier", {"term": "eonni"})).starts_with("[TV] 언니! \"EONNI\" ")
+	assert_str(Rules.caption_words("cat_lap", {"cat": "Mandu"})["english"]).starts_with("MANDU ")
 	assert_bool(Rules.CAPTIONS["full_house"]["emergency"]).is_true()
 	assert_bool(Rules.CAPTIONS["regular_back"]["emergency"]).is_false()
-	assert_str(Rules.caption_text("bill", {"amount": "₩26,000"})).is_equal("[TV] 계산! ₩26,000")
+	assert_str(Rules.caption_text("bill", {"amount": "₩26,000"}, 0.5)).is_equal("[TV] 계산! ₩26,000")
 	assert_str(Rules.caption_text("not a kind")).is_empty()
 
 
@@ -1284,3 +1292,30 @@ func test_tv_captions_are_paced() -> void:
 	assert_bool(Rules.caption_allowed("full_house", 100.0, 99.0, -1.0)).is_true()  # an emergency doesn't wait...
 	assert_bool(Rules.caption_allowed("full_house", 100.0, 99.0, 90.0)).is_false()  # ...but doesn't repeat on and on
 	assert_bool(Rules.caption_allowed("not a kind", 100.0, -1.0, -1.0)).is_false()
+
+
+func test_tv_reactions_are_checked() -> void:
+	var names := ["Kim Ji-ho", "Park Mi-sook"]
+	assert_str(Rules.validate_reaction({"mood": "none"}, names)).is_empty()
+	var nothing := {"mood": "Nothing"}
+	assert_str(Rules.validate_reaction(nothing, names)).is_empty()
+	assert_str(str(nothing["mood"])).is_equal("none")
+	var good := {"mood": "Shock", "who": "Ji-ho", "caption": "\"she quit her job?!\""}
+	assert_str(Rules.validate_reaction(good, names, ["soju"])).is_empty()
+	assert_str(str(good["mood"])).is_equal("shock")
+	assert_str(str(good["who"])).is_equal("Kim Ji-ho")  # a given name will do
+	assert_str(str(good["caption"])).is_equal("SHE QUIT HER JOB?!")
+	assert_str(Rules.validate_reaction({"mood": "angry", "who": "Kim Ji-ho", "caption": "WOW"}, names)).contains("isn't one of")
+	assert_str(Rules.validate_reaction({"mood": "sad", "who": "Lee Min-ho", "caption": "WOW"}, names)).contains("isn't one of the people talking")
+	assert_str(Rules.validate_reaction({"mood": "sad", "who": "Kim Ji-ho", "caption": ""}, names)).contains("empty")
+	assert_str(Rules.validate_reaction({"mood": "funny", "who": "Kim Ji-ho", "caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}, names)).contains("longer than five words")
+	assert_str(Rules.validate_reaction({"mood": "funny", "who": "Kim Ji-ho", "caption": "LOL (LAUGHS)"}, names)).contains("brackets")
+	assert_str(Rules.validate_reaction({"mood": "warm", "who": "Kim Ji-ho", "caption": "FREE TTEOKBOKKI FOR HER"}, names, ["soju"])).contains("nobody ordered")
+	assert_str(Rules.problem_kind(Rules.validate_reaction({"mood": "warm", "who": "x", "caption": "HI"}, names))).is_equal("TV reactions")
+	# The game's Korean, the AI's English.
+	var words := Rules.reaction_words("shock", "she quit her job?!", 0.0)
+	assert_str(words["hangul"]).is_equal("충격!")
+	assert_str(words["english"]).is_equal("SHE QUIT HER JOB?!")
+	for mood in Rules.REACTIONS:
+		assert_array(Rules.REACTION_STINGS).contains([Rules.REACTIONS[mood]["sound"]])
+		assert_bool(Ambience.STINGS.has(str(Rules.REACTIONS[mood]["sound"]))).override_failure_message("no sting for %s" % mood).is_true()

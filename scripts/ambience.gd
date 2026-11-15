@@ -24,7 +24,8 @@ const LOOPS := {"hum": -20.0, "drizzle": -16.0, "rain": -11.0, "wind": -17.0, "s
 const SOUNDS := {"car": -17.0, "truck": -15.0, "scooter": -19.0, "subway": -19.0, "clink": -15.0,
 	"pour": -22.0, "scrape": -19.0, "cash": -17.0, "meow": -17.0}
 ## The TV captions' stings (Rules.CAPTION_STINGS), louder than the scene, never muffled.
-const STINGS := {"siren": -13.0, "whoosh": -14.0, "ding": -12.0, "sparkle": -14.0, "nyang": -11.0, "pop": -12.0}
+const STINGS := {"siren": -13.0, "whoosh": -14.0, "ding": -12.0, "sparkle": -14.0, "nyang": -11.0, "pop": -12.0,
+	"dun": -10.0, "sad": -13.0, "boing": -12.0}
 const FADE_PER_SECOND := 0.5  # how fast a loop moves to its new level
 const LAST_TRAIN := 24 * 60 + 60  # no subway rumbling under the street after 1am
 
@@ -467,6 +468,42 @@ static func make(sound: String) -> AudioStreamWAV:
 					var t := float(i - start) / RATE
 					twinkle[i] += (sin(TAU * float(notes[n_i]) * t) + 0.3 * sin(TAU * float(notes[n_i]) * 2.0 * t)) * exp(-t * 7.0)
 			return _finish(twinkle, false)
+		"dun":  # the dramatic "dun dun DUN!" of a shock
+			var m := roundi(1.5 * RATE)
+			var hit := PackedFloat32Array()
+			hit.resize(m)
+			for note in [[0.0, 110.0, 0.6], [0.28, 103.8, 0.6], [0.56, 92.5, 1.0]]:
+				var start := roundi(float(note[0]) * RATE)
+				for i in range(start, m):
+					var t := float(i - start) / RATE
+					var f := float(note[1])
+					var tone := 0.0
+					for h in range(1, 7):
+						tone += sin(TAU * f * h * t) / h
+					hit[i] += tone * float(note[2]) * exp(-t * (5.0 if note[2] < 1.0 else 1.8))
+			return _finish(_low(hit, 2000.0), false)
+		"sad":  # a soft, falling "aww": three slow notes down
+			var m := roundi(1.6 * RATE)
+			var aww := PackedFloat32Array()
+			aww.resize(m)
+			for note in [[0.0, 659.3], [0.35, 587.3], [0.7, 493.9]]:
+				var start := roundi(float(note[0]) * RATE)
+				for i in range(start, m):
+					var t := float(i - start) / RATE
+					var f := float(note[1]) * (1.0 - 0.02 * minf(1.0, t))  # sagging a touch
+					aww[i] += (sin(TAU * f * t) + 0.3 * sin(TAU * f * 2.0 * t)) * minf(1.0, t / 0.04) * exp(-t * 2.2)
+			return _finish(aww, false)
+		"boing":  # a cartoon spring, for a laugh
+			var m := roundi(0.6 * RATE)
+			var spring := PackedFloat32Array()
+			spring.resize(m)
+			var phase := 0.0
+			for i in m:
+				var t := float(i) / RATE
+				var f := 180.0 + 220.0 * exp(-t * 6.0) * (1.0 + 0.5 * sin(TAU * 14.0 * t))
+				phase += TAU * f / RATE
+				spring[i] = (sin(phase) + 0.3 * sin(phase * 2.0)) * minf(1.0, t / 0.005) * exp(-t * 4.5)
+			return _finish(spring, false)
 		"pop":  # a bubbly cartoon pop: a quick upward blip
 			var m := roundi(0.22 * RATE)
 			var blip := PackedFloat32Array()

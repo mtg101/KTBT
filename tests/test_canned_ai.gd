@@ -199,6 +199,17 @@ func test_canned_founding_regulars_and_their_evenings_pass_the_rules() -> void:
 	assert_str(Rules.validate_regular_tonight(_canned.reply({"purpose": "regular_tonight", "name": "Kim Ji-ho"}))).is_empty()
 
 
+func test_canned_tv_reactions_pass_the_rules() -> void:
+	var names := ["Kim Ji-ho", "Park Mi-sook"]
+	var shown := 0
+	for i in TRIES:
+		var reply: Dictionary = _canned.reply({"purpose": "reaction", "names": names})
+		assert_str(Rules.validate_reaction(reply, names)).is_empty()
+		if str(reply["mood"]) != "none":
+			shown += 1
+	assert_int(shown).is_between(1, TRIES / 2)  # mostly nothing
+
+
 func test_canned_memories_pass_the_rules() -> void:
 	for verdict in ["loved", "enjoyed", "fine", "didnt"]:
 		var memory: Dictionary = _canned.reply({"purpose": "memory", "verdict": verdict})

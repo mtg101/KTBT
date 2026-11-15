@@ -78,7 +78,7 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 		return await _ask_canned(validator, request, problems)
 	last_error = ""
 	var convo := messages.duplicate()
-	for attempt in max_attempts:
+	for attempt in int(request.get("tries", max_attempts)):
 		var reply: Array
 		if simulate_unreachable:
 			await get_tree().process_frame
@@ -108,7 +108,7 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 
 func _ask_canned(validator: Callable, request: Dictionary, problems: Array) -> Dictionary:
 	last_error = ""
-	for attempt in max_attempts:
+	for attempt in int(request.get("tries", max_attempts)):
 		# A frame's pause, so the game behaves the same as with a real (slower) AI.
 		await get_tree().process_frame
 		if canned_think_seconds > 0.0:

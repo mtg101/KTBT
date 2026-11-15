@@ -645,3 +645,26 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 	if str(known.get("since", "")) != "":
 		return "They're a long-time regular (coming %s), and know the owner well, as \"%s\"%s." % [known["since"], owner["title"], owner_name]
 	return "They're a regular here (this is their %s visit), and know the owner as \"%s\"%s." % [Regulars.ordinal(int(known.get("visits", 1)) + 1), owner["title"], owner_name]
+
+
+## After a spell of conversation: was anything a big moment, worth a Korean variety show's
+## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking.
+static func reaction_messages(lines: Array, names: Array) -> Array:
+	var moods := PackedStringArray()
+	for mood in Rules.REACTIONS:
+		moods.append("\"%s\" (%s)" % [mood, Rules.REACTIONS[mood]["means"]])
+	var request := """You're the caption editor on a Korean variety show, watching a conversation at a street tent bar:
+%s
+
+Was anything in these lines a big moment, the kind the editors would pop a caption up for? Most of the time nothing is: ordinary chat gets no caption.
+
+Reply with ONLY a JSON object:
+- "mood": "none" if nothing stands out; otherwise one of: %s
+- "who": who it's about, one of: %s (leave it out for "none")
+- "caption": the caption, at most five words, in English capitals, punchy and a bit cheeky, like "SHE QUIT HER JOB?!" or "HE REMEMBERED HER BIRTHDAY" (leave it out for "none")
+
+Only what was actually said: nothing invented.""" % [transcript_text(lines), ", ".join(moods), ", ".join(PackedStringArray(names))]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]

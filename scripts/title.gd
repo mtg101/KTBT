@@ -115,32 +115,55 @@ static func _when(unix: int) -> String:
 
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color("14132a")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	# The loading screen's night, tent, rays and ribbons behind it all, with Korean TV captions
+	# popping up either side.
+	var backdrop := LoadingScreen.new()
+	backdrop.name = "Backdrop"
+	backdrop.backdrop = true
+	add_child(backdrop)
 
 	var centre := CenterContainer.new()
 	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(centre)
 
+	var card := PanelContainer.new()  # a dark card, so the menu reads over the busy backdrop
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.07, 0.06, 0.15, 0.85)
+	card_style.border_color = Color("ff7eb6")
+	card_style.set_border_width_all(4)
+	card_style.set_corner_radius_all(28)
+	card_style.content_margin_left = 40
+	card_style.content_margin_right = 40
+	card_style.content_margin_top = 24
+	card_style.content_margin_bottom = 30
+	card.add_theme_stylebox_override("panel", card_style)
+	centre.add_child(card)
+
 	var col := VBoxContainer.new()
 	col.custom_minimum_size = Vector2(1000, 0)
 	col.add_theme_constant_override("separation", 18)
-	centre.add_child(col)
+	card.add_child(col)
 
 	var title := Label.new()
 	title.text = "KTBT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 96)
-	title.add_theme_color_override("font_color", ACCENT)
+	title.add_theme_color_override("font_color", Color("fff4e0"))
+	title.add_theme_constant_override("outline_size", 24)
+	title.add_theme_color_override("font_outline_color", Color("ff7eb6").darkened(0.15))
+	title.add_theme_color_override("font_shadow_color", Color("2a1840"))
+	title.add_theme_constant_override("shadow_offset_x", 6)
+	title.add_theme_constant_override("shadow_offset_y", 8)
+	title.add_theme_constant_override("shadow_outline_size", 24)
 	col.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Korean Tent Bar Tropes"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 28)
-	subtitle.add_theme_color_override("font_color", MUTED)
+	subtitle.add_theme_color_override("font_color", Color("ffd27f"))
+	subtitle.add_theme_constant_override("outline_size", 8)
+	subtitle.add_theme_color_override("font_outline_color", Color("1a1840"))
 	col.add_child(subtitle)
 
 	var music_row := HBoxContainer.new()  # the music's volume (it plays from here on)
@@ -181,7 +204,7 @@ func _build_ui() -> void:
 	col.add_child(heading)
 
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 460)
+	scroll.custom_minimum_size = Vector2(0, 400)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
 

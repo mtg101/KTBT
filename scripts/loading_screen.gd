@@ -11,6 +11,25 @@ const MINT := Color("7ee8c8")
 const YELLOW := Color("ffd27f")
 const NIGHT_TOP := Color("1a1840")
 const NIGHT_BOTTOM := Color("3c2a5c")
+const CaptionReel = preload("res://scripts/caption_reel.gd")
+
+## Captions popping up while the AI works, as a variety show teases what's coming.
+const LINES := [
+	["오늘의 포차는?!", "TONIGHT'S POCHA IS…?!", "❓", "ffd27f"],
+	["두근두근", "DUGEUN DUGEUN! HEART POUNDING", "💓", "ff7eb6"],
+	["개봉박두!", "COMING UP NEXT!", "🎬", "7ee8c8"],
+	["사장님 섭외 중", "CASTING THE OWNER…", "📋", "ffd27f"],
+	["간판 제작 중", "PAINTING THE SIGN…", "🎨", "7fd8ff"],
+	["고양이 오디션", "CAT AUDITIONS IN PROGRESS", "🐈", "ffc46b"],
+	["포차 오픈 임박!", "OPENING ANY MINUTE!", "⏰", "ff9a4f"],
+	["잠시만요~", "JAMSIMANYO~ ONE MOMENT!", "🙏", "c79bff"],
+	["기대하세요!", "GIDAEHASEYO! GET EXCITED!", "✨", "8cf05a"],
+	["소주 냉장 중", "SOJU CHILLING…", "🍶", "7fd8ff"],
+]
+
+## As the title screen's backdrop: no big title, caption or status (the title screen has
+## its own), just the night, the tent, the rays and the sparkles, with captions at the sides.
+var backdrop := false
 
 ## What the AI is doing right now, shown along the bottom.
 var status := "":
@@ -27,9 +46,22 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_sky()
 	_build_burst()
+	_build_ribbons()
 	_build_tent()
-	_build_title()
+	if not backdrop:
+		_build_title()
 	_build_sparkles()
+	_build_on_air()
+	var reel := CaptionReel.new()
+	reel.name = "CaptionReel"
+	reel.size = SIZE
+	add_child(reel)
+	if backdrop:
+		reel.lines = TITLE_LINES
+		reel.areas = [Rect2(190, 260, 50, 640), Rect2(1680, 260, 50, 640)]  # either side of the menu
+	else:
+		reel.lines = LINES
+		reel.areas = [Rect2(80, 520, 420, 380), Rect2(1420, 520, 420, 380), Rect2(560, 470, 800, 60)]
 	_status = Label.new()
 	_status.name = "LoadingStatus"
 	_status.position = Vector2(0, 1010)
@@ -38,7 +70,62 @@ func _ready() -> void:
 	_status.add_theme_font_size_override("font_size", 22)
 	_status.add_theme_color_override("font_color", Color("c9c6e2"))
 	_status.text = status
+	_status.visible = not backdrop
 	add_child(_status)
+
+
+## Captions for the title screen.
+const TITLE_LINES := [
+	["어서오세요!", "EOSEO OSEYO! WELCOME!", "👋", "7ee8c8"],
+	["오늘 밤도 영업 중", "OPEN AGAIN TONIGHT", "🏮", "ff9a4f"],
+	["단골 환영", "REGULARS WELCOME ★", "★", "4fd2ff"],
+	["신장개업!", "GRAND OPENING!", "🎉", "ffd27f"],
+	["소주 한잔?", "SOJU HANJAN? JUST ONE?", "🍶", "7fd8ff"],
+	["강추!", "GANGCHU! HIGHLY RECOMMENDED", "👍", "8cf05a"],
+	["실화냐?!", "SILHWANYA?! IS THIS REAL?!", "😱", "ff7eb6"],
+	["오늘의 주인공은?", "WHO'S TONIGHT'S STAR?", "🌟", "ffd27f"],
+	["포차 감성", "POCHA GAMSEONG: THE VIBE", "✨", "c79bff"],
+	["안주 추천", "ANJU CHUCHEON: TRY THE ODENG", "🍢", "ffc46b"],
+]
+
+
+## Diagonal ribbons in the corners, like a variety show's title card.
+func _build_ribbons() -> void:
+	for corner in [[Vector2(0, 0), 1.0, PINK], [Vector2(SIZE.x, SIZE.y), -1.0, MINT]]:
+		var at: Vector2 = corner[0]
+		var way: float = corner[1]
+		for k in 3:
+			var near := 120.0 + k * 70.0
+			var far := near + 40.0
+			var ribbon := Polygon2D.new()
+			ribbon.polygon = PackedVector2Array([at + Vector2(near * way, 0), at + Vector2(far * way, 0), at + Vector2(0, far * way), at + Vector2(0, near * way)])
+			ribbon.color = Color(corner[2] if k != 1 else YELLOW, 0.55 - k * 0.12)
+			add_child(ribbon)
+
+
+## An "ON AIR" light by the channel bug, blinking.
+func _build_on_air() -> void:
+	var light := PanelContainer.new()
+	light.name = "OnAir"
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("e8263a")
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 2
+	style.content_margin_bottom = 4
+	light.add_theme_stylebox_override("panel", style)
+	var text := Label.new()
+	text.text = "● ON AIR"
+	text.add_theme_font_size_override("font_size", 22)
+	text.add_theme_color_override("font_color", Color.WHITE)
+	light.add_child(text)
+	light.position = Vector2(SIZE.x - 190, 44)
+	light.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(light)
+	var blink := light.create_tween().set_loops()
+	blink.tween_property(light, "modulate:a", 0.35, 0.6)
+	blink.tween_property(light, "modulate:a", 1.0, 0.6)
 
 
 ## The night sky, fading down to a warm haze over the street.

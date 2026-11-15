@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
+const Rules = preload("res://scripts/rules.gd")
 
 
 func _owner_data() -> Dictionary:
@@ -390,6 +391,17 @@ func test_founding_regular_prompt_has_the_games_facts() -> void:
 	assert_str(text).contains("Park Mi-sook")
 	assert_str(text).contains("from 40 to 49")
 	assert_str(text).contains("never the owner's secret")
+
+
+func test_the_tv_reaction_prompt() -> void:
+	var text := _request(Prompts.reaction_messages([{"speaker": "Kim Ji-ho", "text": "I quit my job today."}], ["Kim Ji-ho", "Park Mi-sook"]))
+	assert_str(text).contains("I quit my job today.")
+	assert_str(text).contains("Kim Ji-ho, Park Mi-sook")
+	assert_str(text).contains("\"none\"")
+	assert_str(text).contains("Most of the time nothing is")
+	for mood in Rules.REACTIONS:
+		assert_str(text).contains("\"%s\"" % mood)
+	assert_str(text).contains("at most five words")
 
 
 func test_the_memory_prompt_and_a_regulars_memories() -> void:

@@ -106,6 +106,10 @@ const CUSTOMER_LAST_LINES := [
 ]
 
 
+## Offline mode's TV reactions: one caption per mood.
+const REACTION_CAPTIONS := {"shock": "WAIT, WHAT?!", "sad": "THAT ONE HURT", "sweet": "IS THIS A MOMENT?",
+	"warm": "SO WHOLESOME", "funny": "TOO FUNNY", "awkward": "SO AWKWARD"}
+
 ## A reply for what the game is asking: request["purpose"] is "owner", "customer", "order",
 ## "extra_order" or "line", plus whatever context that needs.
 func reply(request: Dictionary) -> Variant:
@@ -136,6 +140,13 @@ func reply(request: Dictionary) -> Variant:
 		"regular_tonight":
 			var mood_from: Dictionary = CUSTOMERS.pick_random()
 			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
+		"reaction":
+			# Mostly nothing; now and then a big moment, about one of the people talking.
+			var names: Array = request.get("names", [])
+			if names.is_empty() or randf() < 0.75:
+				return {"mood": "none"}
+			var mood: String = REACTION_CAPTIONS.keys().pick_random()
+			return {"mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood]}
 		"memory":
 			var night: String = {"loved": "loved it", "enjoyed": "enjoyed it", "fine": "it was fine", "didnt": "didn't enjoy it"}.get(str(request.get("verdict", "fine")), "it was fine")
 			return {"owner_remembers": "Quiet at first, then talked about work.", "they_remember": "The owner fussed over them, and the food was good.",
