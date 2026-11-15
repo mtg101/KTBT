@@ -26,6 +26,7 @@ const Rules = preload("res://scripts/rules.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
+const CaptionPopup = preload("res://scripts/caption.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -101,6 +102,9 @@ static var regular_roll_override := -1.0
 static var memories := true
 ## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
 static var bubbles := true
+## Test hooks: false shows no TV captions; false shows every one, however close together.
+static var captions := true
+static var caption_pacing := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
 static var offer_every_look := false
 
@@ -213,6 +217,15 @@ var _passers_by := 0  # how many have walked past tonight (also names their node
 var _ambience: Ambience  # the tent's background sound
 var _bubble_layer: Control  # speech bubbles, over everything on the stage
 var _bubbles_shown: Array = []  # Bubble: the newest last
+var _caption_layer: Control  # TV captions, over everything
+var _captions_toggle: CheckBox
+var _caption_shown: Control  # the one up now (a new one replaces it)
+var _red_frame: Panel  # flashes round the tent for an emergency
+var _caption_last := -1.0  # real seconds when the last caption showed (-1: none yet)
+var _caption_last_kind := {}  # kind -> real seconds when one of those last showed
+var _rush_shown := false  # tonight's after-work rush has been and gone
+var _dawn_shown := false  # ...and 2am feelings
+var _red_flashes := 0  # emergencies flashed (for tests)
 var _bubbles_toggle: CheckBox
 var _sound_toggle: CheckBox
 var _music: Music  # Arirang, now and then
@@ -603,6 +616,8 @@ func _start_night() -> void:
 	_jobs_tonight.clear()
 	_looks_tonight.clear()
 	_last_orders = false
+	_rush_shown = false
+	_dawn_shown = false
 	_attending = null
 	_night_open = true
 	_next_arrival = _clock + Rules.next_arrival_gap(int(_clock), randf())
@@ -660,6 +675,9 @@ func _process(delta: float) -> void:
 				_arrive(_next_arrival)
 			_next_arrival += Rules.next_arrival_gap(int(_next_arrival), randf())
 	_give_up_waiting()
+	if not _dawn_shown and _clock >= Rules.DAWN_AT and not _guests.is_empty():
+		_dawn_shown = true
+		_caption("dawn")
 	if _clock >= Rules.CLOSE_MINUTES and not _last_orders:
 		_call_last_orders()
 	if not _carrying and not _ready_dishes.is_empty():
@@ -697,6 +715,8 @@ func _give_up_waiting() -> void:
 		_waiting_who.pop_front()
 		_stats.walked_past += 1
 		_narrate("Someone peeks under the tarp, sees every stool taken, and walks on.")
+		if gone == 0:
+			_caption("full_house")
 		_walk_past(gone * 1.5)  # if several give up at once, they don't walk in a clump
 		gone += 1
 		_update_info()
@@ -765,6 +785,7 @@ func _call_last_orders() -> void:
 	if _guests.is_empty():
 		return
 	_narrate("%s. %s calls last orders and starts stacking the spare stools." % [Rules.clock_text(int(_clock)), _owner_display()])
+	_caption("last_orders", _owner_node)
 	for guest in _guests:
 		guest.stay_left = 0.0
 		guest.transcript.append({"action": "It's 3am: %s calls last orders and starts stacking the spare stools." % _owner["name"]})
@@ -1082,6 +1103,22 @@ func _greet() -> void:
 	_greeting = false
 	_stats.peak_seated = maxi(_stats.peak_seated, _guests.size())
 	_update_info()
+	var at_stool := Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60)  # (they're still walking to it)
+	if not regular.is_empty():
+		var friend_in := _guests.any(func(g): return g != guest and not _friend(guest, g).is_empty())
+		if friend_in:
+			var friend: Guest = _guests.filter(func(g): return g != guest and not _friend(guest, g).is_empty())[0]
+			_caption("jjin_chin", null, {"name": customer["name"], "friend": friend.customer["name"]}, at_stool)
+		else:
+			_caption("founding" if bool(regular.get("founding", false)) else "regular_back", null, {"gender": str(regular.get("gender", "")),
+				"name": customer["name"], "visit": int(regular.get("visits", 0)) + 1, "years": str(regular.get("since", ""))}, at_stool)
+	elif not _rush_shown and _guests.size() >= Rules.RUSH_SEATED:
+		_rush_shown = true
+		_caption("rush")
+	elif _guests.size() == 1:
+		_caption("solo", null, {}, at_stool)  # (rain filled in by _caption)
+	else:
+		_caption("late_guest" if _clock >= Rules.LATE_GUEST_AFTER else "new_face", null, {"job": str(customer.get("job", ""))}, at_stool)
 	if regular.is_empty():  # a regular's look is known by now
 		_narrate(Rules.as_sentence(str(customer["appearance"])))
 	_attend(guest, false)
@@ -1109,6 +1146,7 @@ func _greet() -> void:
 	_stats.serve_waits.append(_clock - turned_up)
 	if guest.quick_greeting:
 		_stats.quick_greetings += 1
+		_caption("multitask", _owner_node)
 	else:
 		_stats.proper_greetings += 1
 
@@ -1176,10 +1214,18 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	if now.any(func(id): return Menu.find(id).get("kind", "") == "drink"):
 		_ambience.play("pour")
 		_ambience.play("clink", 1.0, 0.8)
+		if first_order:
+			var drink: String = str(Menu.find(now.filter(func(id): return Menu.find(id).get("kind", "") == "drink")[0]).get("name", ""))
+			_caption("cheers", null, {"drink": drink}, Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60))  # (they may still be walking to their stool)
+		else:
+			_caption("another_round", guest.node, {"drinks": guest.order.filter(func(id): return Menu.find(id).get("kind", "") == "drink").size()})
 	elif not now.is_empty():
 		_ambience.play("clink", 0.55)  # a bowl of odeng or rice set down
+	var was_backed := _kitchen.size() >= Rules.STOVE_BACKED
 	for id in later:
 		_kitchen.append({"guest": guest, "id": id, "left": float(Menu.cook_minutes(id)), "ordered": _clock})
+	if not was_backed and _kitchen.size() >= Rules.STOVE_BACKED:
+		_caption("stove", null, {"dishes": _kitchen.size()})
 	_typing_label.text = ""
 	_update_stove()
 	var said := ""
@@ -1226,6 +1272,7 @@ func _carry_dish() -> void:
 	_stats.food_waits.append(_clock - float(dish["ordered"]))
 	var item_name := str(Menu.find(id)["name"])
 	_narrate("%s brings the %s over to %s." % [_owner_display(), item_name, guest.customer["name"]])
+	_caption("order_up", guest.node, {"dish": item_name})
 	guest.transcript.append({"action": "%s brings over the %s, hot from the stove. It's on the table now." % [_owner["name"], item_name]})
 	_update_info()
 	if _attending != null and _attending != guest and _guests.has(_attending):
@@ -1259,10 +1306,13 @@ func _settle_up(guest: Guest) -> void:
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
 	_ambience.play("cash")
 	_ambience.play("scrape", 0.9, 0.5)
+	_caption("big_spender" if bill >= Rules.BIG_SPENDER else "bill", guest.node, {"amount": Menu.format_won(bill)})
 	_clear_table(guest)
 	_walk_out(guest)  # off they go; the owner gets on with the next thing
 	_guests.erase(guest)
 	_refresh_tags()
+	if _guests.is_empty() and _waiting.is_empty() and not _last_orders and _clock >= Rules.QUIET_AFTER:
+		_caption("quiet")
 	_leave_chats(guest)
 	if _attending == guest:
 		_attending = null
@@ -1493,6 +1543,7 @@ func _counter_chat() -> void:
 			chat.people.append(joiner)
 			_stats.customer_joins += 1
 			_narrate("%s joins in." % joiner.customer["name"])
+			_caption("joins", joiner.node, {"gender": str(joiner.customer.get("gender", "")), "name": joiner.customer["name"]})
 			chat.transcript.append({"action": "%s, from further along the counter, joins the conversation." % joiner.customer["name"]})
 	elif free.size() >= 2:
 		free.shuffle()
@@ -1501,6 +1552,7 @@ func _counter_chat() -> void:
 		_chats.append(chat)
 		_stats.chats_started += 1
 		_narrate("%s gets talking to %s." % [free[0].customer["name"], free[1].customer["name"]])
+		_caption("chat_start", free[0].node, {"name": free[0].customer["name"], "friend": free[1].customer["name"]})
 		chat.transcript.append({"action": "%s turns to %s, a stranger a few stools along, and starts a conversation." % [free[0].customer["name"], free[1].customer["name"]]})
 	if chat == null:
 		_task_done()
@@ -1509,6 +1561,7 @@ func _counter_chat() -> void:
 		chat.owner_in = true
 		_stats.owner_joins += 1
 		_narrate("%s leans over the counter and joins in." % _owner_display())
+		_caption("owner_joins", _owner_node)
 		chat.transcript.append({"action": "%s, the owner, leans over the counter and joins in." % _owner["name"]})
 	if chat.owner_in:
 		# Talking with the owner counts as being seen to.
@@ -1706,6 +1759,12 @@ func _move_cat(spot: String = "") -> void:
 		with.transcript.append({"action": text})
 		with.version += 1
 	_place_cat()
+	if spot == "lap" and with != null and with != before:
+		_caption("cat_lap", with.node, {"cat": cat_name, "name": with.customer["name"]})
+	elif spot == "street" and not was_out:
+		_caption("cat_out", _cat_node, {"cat": cat_name})
+	elif was_out and spot != "street":
+		_caption("cat_back", _cat_node, {"cat": cat_name})
 	_update_info()
 
 
@@ -1958,6 +2017,67 @@ func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
 		return
 	var seconds := clampf(1.0 + text.length() * 0.035, 1.5, 7.0)
 	_read_until = Time.get_ticks_msec() + int(_scaled(seconds) * 1000.0)
+
+
+## A TV caption (Rules.CAPTIONS) for something noteworthy: popped up over whoever it's about
+## (or the middle of the tent), with its sound sting, and for an emergency the red border
+## flashing. Paced so they stay a treat (Rules.caption_allowed); each one shown goes in the
+## transcript and the stats. fill: the words' blanks (gender, term, cat).
+## spot: where to put it instead (stage coordinates), e.g. the stool someone's walking to.
+func _caption(kind: String, about: Control = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
+	if not captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if caption_pacing and not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP)):
+		_stats.captions_held_back += 1
+		return
+	_caption_last = now
+	_caption_last_kind[kind] = now
+	_stats.captions[kind] = int(_stats.captions.get(kind, 0)) + 1
+	var data: Dictionary = Rules.CAPTIONS[kind]
+	var roll := randf()  # which of its words, for a kind with several
+	fill = fill.duplicate()
+	if not fill.has("owner") and not _owner.is_empty():
+		fill["owner"] = _owner["name"]
+	if not fill.has("seated"):
+		fill["seated"] = _guests.size()
+	if not fill.has("cat") and not _cat.is_empty():
+		fill["cat"] = _cat["name"]
+	if _weather_kind in ["drizzle", "rain"]:
+		fill["weather"] = "rain"
+	_show("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [str(data["colour"]), _esc(Rules.caption_text(kind, fill, roll))])
+	if is_instance_valid(_caption_shown):
+		_caption_shown.name = "OldCaption"  # (so it's never mistaken for the new one while it goes)
+		_caption_shown.queue_free()
+	var caption := CaptionPopup.new()
+	caption.name = "Caption"
+	caption.time_scale = _scaled(1.0)
+	caption.stage_width = STAGE_SIZE.x
+	if spot.x >= 0.0:
+		caption.at = spot
+	elif about != null and is_instance_valid(about):
+		caption.at = about.position + Vector2(40, -60)
+	else:
+		caption.at = Vector2(STAGE_SIZE.x / 2, 150)
+	caption.setup(Rules.caption_words(kind, fill, roll), str(data["icon"]), Color(str(data["colour"])))
+	_caption_layer.add_child(caption)
+	caption.pop(Rules.CAPTION_SECONDS)
+	_caption_shown = caption
+	_ambience.sting(str(data["sound"]))
+	if bool(data["emergency"]):
+		_flash_red()
+
+
+## The emergency light: the red border flashing three times round the tent.
+func _flash_red() -> void:
+	_red_flashes += 1
+	_red_frame.visible = true
+	_red_frame.modulate.a = 0.0
+	var tween := _red_frame.create_tween()
+	for _flash in 3:
+		tween.tween_property(_red_frame, "modulate:a", 1.0, _scaled(0.18))
+		tween.tween_property(_red_frame, "modulate:a", 0.0, _scaled(0.3))
+	tween.tween_callback(func(): _red_frame.visible = false)
 
 
 ## Shows a line in a speech bubble over the speaker, a page at a time, with who it's to and
@@ -2235,6 +2355,13 @@ func _build_ui() -> void:
 	_bubbles_toggle.tooltip_text = "Speech bubbles over whoever's talking, with a line to who they're talking to."
 	bar.add_child(_bubbles_toggle)
 
+	_captions_toggle = CheckBox.new()
+	_captions_toggle.name = "CaptionsToggle"
+	_captions_toggle.text = "Captions"
+	_captions_toggle.button_pressed = true
+	_captions_toggle.tooltip_text = "Korean TV-style captions when something noteworthy happens."
+	bar.add_child(_captions_toggle)
+
 	_sound_toggle = CheckBox.new()
 	_sound_toggle.name = "SoundToggle"
 	_sound_toggle.text = "Sound"
@@ -2270,7 +2397,7 @@ func _build_ui() -> void:
 	bar.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
-	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _bubbles_toggle]:
+	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _bubbles_toggle, _captions_toggle]:
 		toggle.add_theme_icon_override("unchecked", _tick_box(false))
 		toggle.add_theme_icon_override("checked", _tick_box(true))
 
@@ -2514,6 +2641,19 @@ func _build_stage(stage: Control) -> void:
 	_weather_front.z_index = 2  # in front of everyone
 	_bubble_layer = _layer(stage, "Bubbles")
 	_bubble_layer.z_index = 4  # in front of the tarp, the weather and the owner's name
+	_caption_layer = _layer(stage, "Captions")
+	_caption_layer.z_index = 5  # in front of everything, bubbles included
+	_red_frame = Panel.new()
+	_red_frame.name = "RedFrame"
+	_red_frame.size = STAGE_SIZE
+	_red_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var red := StyleBoxFlat.new()
+	red.bg_color = Color(1.0, 0.1, 0.1, 0.12)
+	red.border_color = Color("ff2a2a")
+	red.set_border_width_all(10)
+	_red_frame.add_theme_stylebox_override("panel", red)
+	_red_frame.visible = false
+	_caption_layer.add_child(_red_frame)
 
 
 ## The drinks fridge at the back, by the stove (the owner's station), behind the owner: a
@@ -3332,6 +3472,7 @@ func _after_visit(guest: Guest) -> void:
 			regular["warmth"] = 1
 		var they: String = {"woman": "she'll", "man": "he'll"}.get(str(guest.customer.get("gender", "")), "they'll")
 		_narrate("%s looks like %s be back." % [guest.customer["name"], they])
+		_caption("new_regular", guest.node, {"gender": str(guest.customer.get("gender", "")), "name": guest.customer["name"]})
 	if not memory.is_empty():
 		Regulars.remember(regular, _night_number, memory)
 	# Names, once they've been said (the full name, or the given name).
@@ -3516,6 +3657,7 @@ func _make_close(a: Guest, b: Guest, term: String) -> void:
 		mine["friends"] = friends
 	_stats.friendlier_moments += 1
 	_narrate("%s and %s are on \"%s\" terms now." % [a.customer["name"], b.customer["name"], term])
+	_caption("friendlier", a.node, {"term": term})
 	Game.save()
 
 

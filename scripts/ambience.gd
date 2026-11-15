@@ -23,6 +23,8 @@ const LOOPS := {"hum": -20.0, "drizzle": -16.0, "rain": -11.0, "wind": -17.0, "s
 	"sizzle": -21.0, "murmur": -23.0, "cicadas": -27.0}
 const SOUNDS := {"car": -17.0, "truck": -15.0, "scooter": -19.0, "subway": -19.0, "clink": -15.0,
 	"pour": -22.0, "scrape": -19.0, "cash": -17.0, "meow": -17.0}
+## The TV captions' stings (Rules.CAPTION_STINGS), louder than the scene, never muffled.
+const STINGS := {"siren": -13.0, "whoosh": -14.0, "ding": -12.0, "sparkle": -14.0, "nyang": -11.0, "pop": -12.0}
 const FADE_PER_SECOND := 0.5  # how fast a loop moves to its new level
 const LAST_TRAIN := 24 * 60 + 60  # no subway rumbling under the street after 1am
 
@@ -156,6 +158,20 @@ func play(sound: String, pitch: float = 1.0, delay: float = 0.0) -> void:
 	player.play()
 
 
+## A TV caption's sound sting: straight to the speakers (not muffled by snow or fog), at the
+## Sound volume, and silent with Sound off.
+func sting(sound: String) -> void:
+	if not _built or not enabled or not _made.has(sound) or not STINGS.has(sound):
+		return
+	var player := AudioStreamPlayer.new()
+	player.stream = _made[sound]
+	player.bus = "Master"
+	player.volume_db = float(STINGS[sound]) + linear_to_db(maxf(volume, 0.001))
+	add_child(player)
+	player.finished.connect(player.queue_free)
+	player.play()
+
+
 func _process(delta: float) -> void:
 	if not _built:
 		return
@@ -198,7 +214,7 @@ static func _bus() -> int:
 
 ## Makes the sounds (a frame apart, so the loading screen keeps moving), then starts the loops.
 func _build() -> void:
-	for sound in LOOPS.keys() + SOUNDS.keys():
+	for sound in LOOPS.keys() + SOUNDS.keys() + STINGS.keys():
 		if not _made.has(sound):
 			_made[sound] = make(sound)
 			if not is_inside_tree():
@@ -405,6 +421,77 @@ static func make(sound: String) -> AudioStreamWAV:
 					var weight := exp(-pow((h * f - formant) / 600.0, 2.0)) + 0.3 / h
 					voice += sin(phase * h) * weight
 				cry[i] = voice * minf(1.0, u / 0.06) * pow(maxf(0.0, sin(PI * minf(1.0, u * 1.05))), 0.5)
+			return _finish(cry, false)
+		"siren":  # the emergency: a two-tone wail, high-low, high-low
+			var m := roundi(1.6 * RATE)
+			var wail := PackedFloat32Array()
+			wail.resize(m)
+			var phase := 0.0
+			for i in m:
+				var t := float(i) / RATE
+				var f := 960.0 if int(t / 0.2) % 2 == 0 else 720.0
+				phase += TAU * f / RATE
+				var tone := sin(phase) + 0.4 * sin(phase * 3.0) / 3.0 + 0.25 * sin(phase * 5.0) / 5.0
+				wail[i] = tone * minf(1.0, t / 0.02) * minf(1.0, (1.6 - t) / 0.15)
+			return _finish(_low(wail, 3500.0), false)
+		"whoosh":  # a swoosh across the screen: noise rising and falling in pitch
+			var m := roundi(0.7 * RATE)
+			var air := _white(m, rng)
+			var low := _band(air, 300.0, 900.0)
+			var high := _band(air, 1500.0, 5000.0)
+			for i in m:
+				var u := float(i) / m
+				var sweep := sin(PI * u)
+				air[i] = (low[i] * (1.0 - sweep) + high[i] * sweep) * pow(sin(PI * u), 1.5)
+			return _finish(air, false)
+		"ding":  # a game-show ding-dong, rising
+			var m := roundi(1.0 * RATE)
+			var bell := PackedFloat32Array()
+			bell.resize(m)
+			for hit in [[0.0, 1318.5], [0.16, 1760.0]]:
+				var start := roundi(float(hit[0]) * RATE)
+				for k in 3:
+					var f: float = float(hit[1]) * float([1.0, 2.0, 3.01][k])
+					for i in range(start, m):
+						var t := float(i - start) / RATE
+						bell[i] += sin(TAU * f * t) * float([1.0, 0.35, 0.15][k]) * exp(-t * (4.0 + k * 3.0))
+			return _finish(bell, false)
+		"sparkle":  # twinkling notes running up
+			var m := roundi(0.9 * RATE)
+			var twinkle := PackedFloat32Array()
+			twinkle.resize(m)
+			var notes := [1568.0, 2093.0, 2637.0, 3136.0, 4186.0]
+			for n_i in notes.size():
+				var start := roundi(n_i * 0.06 * RATE)
+				for i in range(start, m):
+					var t := float(i - start) / RATE
+					twinkle[i] += (sin(TAU * float(notes[n_i]) * t) + 0.3 * sin(TAU * float(notes[n_i]) * 2.0 * t)) * exp(-t * 7.0)
+			return _finish(twinkle, false)
+		"pop":  # a bubbly cartoon pop: a quick upward blip
+			var m := roundi(0.22 * RATE)
+			var blip := PackedFloat32Array()
+			blip.resize(m)
+			var phase := 0.0
+			for i in m:
+				var t := float(i) / RATE
+				phase += TAU * (500.0 + 2600.0 * minf(1.0, t / 0.06)) / RATE
+				blip[i] = sin(phase) * minf(1.0, t / 0.004) * exp(-t * 22.0)
+			return _finish(blip, false)
+		"nyang":  # a cartoon "nyang!": short and bright
+			var m := roundi(0.4 * RATE)
+			var cry := PackedFloat32Array()
+			cry.resize(m)
+			var phase := 0.0
+			for i in m:
+				var u := float(i) / m
+				var f := 700.0 + 500.0 * sin(PI * minf(1.0, u * 1.4)) - 200.0 * u
+				phase += TAU * f / RATE
+				var openness := pow(sin(PI * u), 0.5)
+				var formant := 900.0 + 1100.0 * openness
+				var voice := 0.0
+				for h in range(1, 9):
+					voice += sin(phase * h) * (exp(-pow((h * f - formant) / 700.0, 2.0)) + 0.25 / h)
+				cry[i] = voice * minf(1.0, u / 0.05) * pow(1.0 - u, 0.7)
 			return _finish(cry, false)
 	return _finish(PackedFloat32Array([0.0, 0.0]), false)
 

@@ -76,6 +76,8 @@ func after_test() -> void:
 	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
 	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
+	Visit.captions = true
+	Visit.caption_pacing = false  # every caption shows, so tests can look for them (pacing has its own rule tests)
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Ai.canned_think_seconds = 0.0
@@ -627,6 +629,7 @@ func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
 	scene._move_cat("lap")
 	var cat_name := str(Game.bar["cat"]["name"])
 	assert_str(_transcript(runner)).contains("%s jumps up onto %s's lap" % [cat_name, guest.customer["name"]])
+	assert_int(int(scene._stats.captions.get("cat_lap", 0))).is_equal(1)  # a TV caption
 	assert_bool(guest.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("lap"))).is_true()
 	assert_str(scene._cat_prompt()).contains("on %s's lap" % guest.customer["name"])
 	# When they leave, the cat jumps down.
@@ -1025,6 +1028,7 @@ func test_a_regular_comes_back_as_themselves() -> void:
 	assert_str(str(guest.customer["look"]["hair"])).is_equal(str(regular["look"]["hair"]))
 	assert_str((guest.node.get_node("Tag") as Label).text).ends_with("★")  # their 5th visit: a regular
 	assert_str(_transcript(runner)).contains("Choi Hye-rin is back, for her 5th visit")
+	assert_int(int(scene._stats.captions.get("regular_back", 0))).is_equal(1)  # a TV caption
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_int(int(regular["visits"])).is_equal(5)
@@ -1194,6 +1198,7 @@ func test_two_regulars_get_to_know_each_other_and_then_ask() -> void:
 	assert_bool(scene._close(a, b)).is_true()
 	assert_bool(older["friends"]["choi-hye-rin-1"]["close"]).is_true()
 	assert_str(_transcript(runner)).contains("are on \"eonni\" terms now")
+	assert_str(_transcript(runner)).contains("[TV] 언니! \"EONNI\" NOW!")
 	assert_str(scene._to_label("Eonni, look!", a, b, "label")).starts_with("언니 Eonni")
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
@@ -1211,3 +1216,44 @@ func test_the_owner_uses_a_well_known_regulars_given_name() -> void:
 	assert_str(note).contains("may call")
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_noteworthy_moments_get_tv_captions() -> void:
+	Visit.stay_minutes_override = 600  # nobody leaves, so the tent stays full
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 6)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
+	assert_str(_transcript(runner)).contains("[TV] 퇴근 러시! THE AFTER-WORK RUSH!")  # the counter filling up
+	scene._clock += Rules.GIVE_UP_MINUTES + 1
+	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).is_true()
+	assert_str(_transcript(runner)).contains("[TV] 만석! FULL HOUSE!")
+	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
+	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_equal(1)
+	# Drawn: Hangul over the English, by the tent (at normal speed, so it's still up to look at).
+	Visit.pause_scale_override = 1.0
+	scene._caption("stove")
+	Visit.pause_scale_override = 0.01
+	var caption: Control = scene._caption_shown
+	assert_object(caption).is_not_null()
+	if caption != null:
+		assert_str(caption.name).is_equal("Caption")
+		var hangul: Array = Rules.CAPTIONS["stove"]["words"].map(func(w): return w[0])
+		assert_array(hangul).contains([(caption.find_child("Hangul", true, false) as Label).text])
+		assert_str((caption.find_child("English", true, false) as Label).text).is_not_empty().not_contains("{")
+	# The Captions toggle turns them off.
+	(runner.find_child("CaptionsToggle", true, false) as CheckBox).button_pressed = false
+	scene._call_last_orders()
+	assert_str(_transcript(runner)).not_contains("[TV] 마감!")
+	assert_bool(await _wait_until(func(): return not scene.busy, 30000)).is_true()
+
+
+func test_the_last_customer_leaving_late_is_all_quiet() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._clock = float(Rules.QUIET_AFTER + 10)
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_str(_transcript(runner)).contains("[TV] 고요… ALL QUIET…")

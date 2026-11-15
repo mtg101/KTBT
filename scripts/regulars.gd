@@ -47,14 +47,14 @@ const HABITS := [
 
 
 ## A newcomer's visit: do they become a regular? roll: 0 to 1.
-static func becomes_regular(verdict: String, rushed: bool, roll: float) -> bool:
-	var chance: float = BECOME.get(verdict, 0.0) * (RUSHED_FACTOR if rushed else 1.0)
+static func becomes_regular(verdict: String, was_rushed: bool, roll: float) -> bool:
+	var chance: float = BECOME.get(verdict, 0.0) * (RUSHED_FACTOR if was_rushed else 1.0)
 	return roll < chance
 
 
 ## A regular's pull after a visit.
-static func pull_after_visit(pull: float, verdict: String, rushed: bool) -> float:
-	return clampf(pull + float(PULL_CHANGE.get(verdict, 0.0)) + (RUSHED_PULL if rushed else 0.0), 0.0, 1.0)
+static func pull_after_visit(pull: float, verdict: String, was_rushed: bool) -> float:
+	return clampf(pull + float(PULL_CHANGE.get(verdict, 0.0)) + (RUSHED_PULL if was_rushed else 0.0), 0.0, 1.0)
 
 
 ## A regular's pull after a night they didn't come.

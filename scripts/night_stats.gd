@@ -41,6 +41,10 @@ var verdicts := {}  # how each visit went (the AI's verdict, or the game's if it
 var memories_failed := 0
 var friendlier_moments := 0  # two regulars on "eonni" (or oppa, hyung, nuna) terms
 
+# TV captions
+var captions := {}  # kind -> how many shown tonight
+var captions_held_back := 0  # ones that would have come too soon after another
+
 # Food
 var dishes_cooked := 0
 var food_waits: Array = []  # game minutes from ordering a cooked dish to it reaching the table
@@ -129,6 +133,21 @@ func rejection_text() -> String:
 
 
 ## The stats panel's text. seated and cooking are how things stand right now.
+func captions_total() -> int:
+	var total := 0
+	for kind in captions:
+		total += int(captions[kind])
+	return total
+
+
+## "full_house 2 · regular_back 3"
+func caption_counts() -> String:
+	var parts := PackedStringArray()
+	for kind in captions:
+		parts.append("%s %d" % [kind, int(captions[kind])])
+	return " · ".join(parts)
+
+
 func panel_text(seated: int, cooking: int) -> String:
 	var lines := PackedStringArray()
 	lines.append("[b]PEOPLE[/b]")
@@ -155,6 +174,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
 	lines.append("Friendlier terms tonight: %d" % friendlier_moments)
 	lines.append("Visits: loved %d · enjoyed %d · fine %d · didn't enjoy %d%s" % [int(verdicts.get("loved", 0)), int(verdicts.get("enjoyed", 0)), int(verdicts.get("fine", 0)), int(verdicts.get("didnt", 0)), (" · memories failed %d" % memories_failed) if memories_failed > 0 else ""])
+	lines.append("")
+	lines.append("[b]TV CAPTIONS[/b]")
+	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -193,6 +215,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"became": became_regulars, "faded": faded_regulars, "pulls": regular_pulls.duplicate(),
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
+		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back},
 		"food": {
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},

@@ -1225,3 +1225,62 @@ func test_sibling_terms_and_colours() -> void:
 	assert_str(coloured).contains("Hyung-jun.")  # a name, left alone
 	assert_str(coloured).not_contains("[color=#%s]Hyung" % Rules.WARMTH_COLOURS["close"])
 	assert_str(Rules.address_text("Kim Ji-ho", _p("woman", 25), "Park Mi-sook", _p("woman", 58, true), false)).contains("Imo")
+
+
+func _every_fill() -> Dictionary:
+	return {"gender": "woman", "name": "Kim Ji-ho", "friend": "Kang Da-eun", "term": "eonni", "cat": "Mandu",
+		"owner": "Park Mi-sook", "amount": "₩26,000", "dish": "Tteokbokki", "drink": "Soju", "job": "office worker",
+		"weather": "rain", "visit": 7, "drinks": 3, "dishes": 3, "seated": 4, "years": "for nine years"}
+
+
+func test_tv_captions_fill_in_the_games_facts() -> void:
+	for kind in Rules.CAPTIONS:
+		assert_dict(Rules.caption_words(kind)).override_failure_message("%s has no wording without blanks" % kind).is_not_empty()
+	var seen := {}
+	for k in 20:
+		var said := Rules.caption_words("order_up", {"dish": "Tteokbokki"}, k / 20.0)
+		seen[said["english"]] = true
+	assert_bool(seen.has("TTEOKBOKKI, INHALED!")).is_true()
+	for k in 20:
+		assert_str(Rules.caption_words("order_up", {}, k / 20.0)["english"]).not_contains("{")  # no dish: none that need one
+	assert_str(Rules.caption_words("jjin_chin", {"name": "Kim Ji-ho", "friend": "Kang Da-eun"}, 0.5)["english"]).is_equal("JI-HO & DA-EUN ∞")
+	assert_str(Rules.caption_words("regular_back", {"visit": 7}, 0.99)["english"]).is_equal("VISIT NUMBER 7 ★")
+	assert_str(Rules.caption_words("solo", {"weather": "rain"}, 0.99)["hangul"]).is_equal("비 오는 날 혼술…")
+	assert_str(Rules.given_name("Kim Ji-ho")).is_equal("Ji-ho")
+	assert_str(Rules.given_name("Mandu")).is_equal("Mandu")
+
+
+func test_every_tv_caption_is_complete() -> void:
+	for kind in Rules.CAPTIONS:
+		var data: Dictionary = Rules.CAPTIONS[kind]
+		for field in ["words", "icon", "colour", "sound", "emergency"]:
+			assert_bool(data.has(field)).override_failure_message("%s has no %s" % [kind, field]).is_true()
+		assert_array(Rules.CAPTION_STINGS).contains([data["sound"]])
+		assert_bool(Ambience.STINGS.has(str(data["sound"]))).override_failure_message("no sting for %s" % kind).is_true()
+		var count: int = data["words"].size()
+		for k in count:
+			var said := Rules.caption_words(kind, _every_fill(), (k + 0.5) / count)
+			assert_str(said["hangul"]).is_equal(str(data["words"][k][0]).replace("{term_hangul}", "언니"))  # each of its words can come up
+			assert_str(said["hangul"] + said["english"]).not_contains("{")  # every blank filled
+	assert_str(Rules.caption_text("full_house")).is_equal("[TV] 만석! FULL HOUSE!")
+	assert_str(Rules.caption_text("cheers", {}, 0.0)).is_equal("[TV] 짠! JJAN! CHEERS!")
+	assert_str(Rules.caption_text("cheers", {}, 0.99)).is_equal("[TV] 원샷! ONE SHOT!")
+	assert_str(Rules.caption_words("regular_back", {"gender": "man"})["english"]).is_equal("HE'S BACK! ★")
+	assert_str(Rules.caption_words("regular_back", {"gender": "non-binary"})["english"]).is_equal("THEY'RE BACK! ★")
+	assert_str(Rules.caption_text("friendlier", {"term": "eonni"})).is_equal("[TV] 언니! \"EONNI\" NOW!")
+	assert_str(Rules.caption_words("cat_lap", {"cat": "Mandu"})["english"]).is_equal("MANDU MAKES A FRIEND")
+	assert_bool(Rules.CAPTIONS["full_house"]["emergency"]).is_true()
+	assert_bool(Rules.CAPTIONS["regular_back"]["emergency"]).is_false()
+	assert_str(Rules.caption_text("bill", {"amount": "₩26,000"})).is_equal("[TV] 계산! ₩26,000")
+	assert_str(Rules.caption_text("not a kind")).is_empty()
+
+
+func test_tv_captions_are_paced() -> void:
+	assert_bool(Rules.caption_allowed("rush", 100.0, -1.0, -1.0)).is_true()  # the first of the night
+	assert_bool(Rules.caption_allowed("rush", 100.0, 98.0, -1.0)).is_false()  # too soon after another
+	assert_bool(Rules.caption_allowed("rush", 100.0, 96.0, -1.0)).is_true()
+	assert_bool(Rules.caption_allowed("regular_back", 100.0, 95.0, 92.0)).is_false()  # the same kind again so soon
+	assert_bool(Rules.caption_allowed("regular_back", 200.0, 190.0, 85.0)).is_true()
+	assert_bool(Rules.caption_allowed("full_house", 100.0, 99.0, -1.0)).is_true()  # an emergency doesn't wait...
+	assert_bool(Rules.caption_allowed("full_house", 100.0, 99.0, 90.0)).is_false()  # ...but doesn't repeat on and on
+	assert_bool(Rules.caption_allowed("not a kind", 100.0, -1.0, -1.0)).is_false()

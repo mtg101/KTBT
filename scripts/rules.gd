@@ -1684,3 +1684,157 @@ static func colour_terms(bbcode: String, names: Array = []) -> String:
 				at = found.get_end()
 			out = result + out.substr(at)
 	return out
+
+
+# --- TV captions -------------------------------------------------------------------------
+
+## Korean variety-show captions (자막, jamak): when something noteworthy happens, one pops up
+## by whoever it's about, with a sound sting. The game decides when (from what it already
+## knows), and owns every word, so they're always right. Each kind has its words, as [Hangul,
+## English], several to pick from at random, so they don't repeat too often; the English
+## carries the romanised Korean for the words worth learning, like "JJAN!". Blanks are filled
+## from the game's facts (see caption_words), and a wording is only picked when the game has
+## everything it needs, so every kind has at least one with no blanks but {they}. Then an icon,
+## a colour, its sound sting, and whether it's an emergency (the flashing red border and
+## siren, like the red light in Please Take Care of My Refrigerator).
+const CAPTIONS := {
+	# Emergencies
+	"full_house": {"words": [["만석!", "FULL HOUSE!"], ["자리 없음!", "NO SEATS LEFT!"], ["만석!", "EVERY STOOL TAKEN!"]],
+		"icon": "🚨", "colour": "ff3b3b", "sound": "siren", "emergency": true},
+	"stove": {"words": [["주문 폭주!", "ORDERS PILING UP!"], ["비상!", "BISANG! EMERGENCY!"], ["주문 폭주!", "{dishes} DISHES WAITING!"], ["불났다!", "THE STOVE'S ON FIRE (NOT REALLY)"]],
+		"icon": "🚨", "colour": "ff3b3b", "sound": "siren", "emergency": true},
+	# The night
+	"rush": {"words": [["퇴근 러시!", "THE AFTER-WORK RUSH!"], ["퇴근 러시!", "{seated} AT THE COUNTER ALREADY!"], ["바쁘다 바빠!", "BAPPEUDA BAPPA! SO BUSY!"]],
+		"icon": "🏃", "colour": "ffb400", "sound": "whoosh", "emergency": false},
+	"dawn": {"words": [["새벽 감성 ON", "SAEBYEOK GAMSEONG: 2AM FEELS"], ["새벽 2시", "2AM: TIME FOR HONESTY"], ["새벽 감성 ON", "{seated} STILL HERE AT 2AM"]],
+		"icon": "🌌", "colour": "b48cff", "sound": "sparkle", "emergency": false},
+	"quiet": {"words": [["고요…", "ALL QUIET…"], ["고요…", "JUST {owner} AND THE {weather} NOW"], ["아무도 없다…", "NOBODY LEFT…"]],
+		"icon": "🌙", "colour": "a8b0ff", "sound": "whoosh", "emergency": false},
+	"last_orders": {"words": [["마감!", "LAST ORDERS!"], ["영업 끝!", "THAT'S A WRAP!"], ["마감!", "{owner} STACKS THE STOOLS"]],
+		"icon": "🔔", "colour": "ffb400", "sound": "ding", "emergency": false},
+	# People coming in
+	"new_face": {"words": [["손님 등장!", "A NEW FACE!"], ["누구세요?", "NUGUSEYO? WHO'S THIS?"], ["손님 등장!", "A WILD {job} APPEARS!"], ["직업 공개", "TONIGHT'S GUEST: {job}"]],
+		"icon": "👀", "colour": "7fe0c0", "sound": "pop", "emergency": false},
+	"late_guest": {"words": [["야밤 손님!", "A LATE-NIGHT GUEST!"], ["이 시간에?!", "AT THIS HOUR?!"], ["야밤 손님!", "{job}, AFTER MIDNIGHT?!"]],
+		"icon": "🌙", "colour": "a8b0ff", "sound": "pop", "emergency": false},
+	"solo": {"words": [["혼술!", "HONSUL: DRINKING SOLO"], ["혼술 시작", "A TABLE FOR ONE"], ["비 오는 날 혼술…", "HONSUL IN THE {weather}…"]],
+		"icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
+	"regular_back": {"words": [["돌아왔다!", "{they} BACK! ★"], ["단골 출석!", "PRESENT AND CORRECT! ★"], ["단골 출석!", "VISIT NUMBER {visit} ★"], ["돌아왔다!", "{name} IS BACK! ★"]],
+		"icon": "👋", "colour": "4fd2ff", "sound": "ding", "emergency": false},
+	"founding": {"words": [["단골 등장!", "THE OLD REGULAR! ★★"], ["터줏대감", "TEOJUTDAEGAM: PART OF THE FURNITURE ★★"], ["단골 등장!", "{name}, {years} ★★"]],
+		"icon": "👑", "colour": "ffd23f", "sound": "ding", "emergency": false},
+	"jjin_chin": {"words": [["찐친 등장!", "JJIN-CHIN: REAL FRIENDS! ∞"], ["찐친 등장!", "{name} & {friend} ∞"], ["또 만났네", "TOGETHER AGAIN ∞"]],
+		"icon": "🤝", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
+	# At the counter
+	"cheers": {"words": [["짠!", "JJAN! CHEERS!"], ["건배!", "GEONBAE! CHEERS!"], ["원샷!", "ONE SHOT!"], ["짠!", "{drink} TIME!"]],
+		"icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
+	"another_round": {"words": [["한 잔 더!", "ONE MORE!"], ["한 잔 더!", "ROUND {drinks}!"], ["달린다!", "DALLINDA! ON A ROLL!"], ["간 건강 주의", "LIVER WARNING"]],
+		"icon": "🍻", "colour": "7fd8ff", "sound": "pop", "emergency": false},
+	"order_up": {"words": [["나왔습니다~", "ORDER UP!"], ["먹방 시작!", "MUKBANG TIME!"], ["폭풍 흡입!", "INHALING IT!"], ["꿀맛!", "GGULMAT! HONEY-TASTY!"],
+		["폭풍 흡입!", "{dish}, INHALED!"], ["비주얼 실화?!", "THAT {dish}, FOR REAL?!"], ["나왔습니다~", "ONE {dish}, HOT!"]],
+		"icon": "🍲", "colour": "ff9a4f", "sound": "ding", "emergency": false},
+	"multitask": {"words": [["사장님 멀티태스킹!", "THE OWNER MULTITASKS!"], ["초스피드!", "SUPER SPEED!"], ["사장님 멀티태스킹!", "{seated} CUSTOMERS, ONE {owner}"]],
+		"icon": "⚡", "colour": "ffd23f", "sound": "whoosh", "emergency": false},
+	"chat_start": {"words": [["대화 시작?!", "STRANGERS TALKING?!"], ["급 친해짐", "SUDDENLY FRIENDS"], ["대화 시작?!", "{name} × {friend}?!"]],
+		"icon": "💬", "colour": "c79bff", "sound": "whoosh", "emergency": false},
+	"joins": {"words": [["합류!", "{they} JOINING IN!"], ["합류!", "{name} JOINS IN!"], ["나도 나도!", "NADO NADO! ME TOO!"]],
+		"icon": "🙋", "colour": "c79bff", "sound": "pop", "emergency": false},
+	"owner_joins": {"words": [["사장님 참전!", "THE OWNER JOINS THE FIGHT!"], ["사장님 등판!", "{owner} STEPS UP TO THE PLATE"]],
+		"icon": "🔥", "colour": "ff7a4f", "sound": "whoosh", "emergency": false},
+	"friendlier": {"words": [["{term_hangul}!", "\"{term}\" NOW!"], ["호칭 승급!", "PROMOTED TO \"{term}\"!"]],
+		"icon": "💕", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
+	# Paying and going
+	"bill": {"words": [["계산!", "PAID UP!"], ["계산!", "{amount}"], ["잘 먹었습니다!", "JAL MEOGEOTSEUMNIDA! THANKS FOR THE FOOD!"]],
+		"icon": "💸", "colour": "8cf05a", "sound": "pop", "emergency": false},
+	"big_spender": {"words": [["통 큰 손님!", "BIG SPENDER!"], ["통 큰 손님!", "BIG SPENDER! {amount}"], ["플렉스!", "FLEX! {amount}"]],
+		"icon": "💰", "colour": "ffd23f", "sound": "ding", "emergency": false},
+	"new_regular": {"words": [["단골 탄생?!", "A NEW REGULAR?! ★"], ["단골 탄생?!", "{name}, A REGULAR NOW?! ★"], ["또 올 것 같은 예감", "{they} COMING BACK… ★"]],
+		"icon": "✨", "colour": "8cf05a", "sound": "sparkle", "emergency": false},
+	# The cat
+	"cat_lap": {"words": [["냥!", "{cat} MAKES A FRIEND"], ["심쿵!", "SIMKUNG! HEART-THUMP!"], ["냥!", "{cat} CHOOSES {name}"], ["집사 간택!", "CHOSEN BY THE CAT!"]],
+		"icon": "🐾", "colour": "ffc46b", "sound": "nyang", "emergency": false},
+	"cat_out": {"words": [["가출?!", "{cat} RUNS OFF?!"], ["가출?!", "THE CAT'S OFF!"], ["순찰 중", "{cat} ON PATROL"]],
+		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
+	"cat_back": {"words": [["냥이 출근!", "{cat} CLOCKS IN"], ["귀가!", "THE CAT'S BACK!"]],
+		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
+}
+const CAPTION_STINGS := ["siren", "whoosh", "ding", "sparkle", "nyang", "pop"]
+const CAPTION_GAP := 3.0  # real seconds at least between captions (emergencies don't wait)...
+const CAPTION_SAME_GAP := 12.0  # ...and between two of the same kind, so none repeats on and on
+const CAPTION_SECONDS := 2.6  # how long one stays up
+const RUSH_SEATED := 4  # the rush: the first time this many are at the counter
+const STOVE_BACKED := 3  # orders piling up: this many dishes waiting at the stove
+const QUIET_AFTER := 23 * 60  # gone quiet: the last customer leaving after 11pm
+const LATE_GUEST_AFTER := 24 * 60  # a late-night guest: in after midnight
+const DAWN_AT := 26 * 60  # 2am feelings
+const BIG_SPENDER := 40000  # a bill this big (won) gets a big spender caption
+
+
+## Whether a caption can show now (real seconds, scaled for tests): not too soon after the last
+## one, nor after the last of its kind. last_any and last_same are -1 for never.
+static func caption_allowed(kind: String, now: float, last_any: float, last_same: float, gap: float = CAPTION_GAP, same_gap: float = CAPTION_SAME_GAP) -> bool:
+	if not CAPTIONS.has(kind):
+		return false
+	if last_same >= 0.0 and now - last_same < same_gap:
+		return false
+	if bool(CAPTIONS[kind]["emergency"]):
+		return true
+	return last_any < 0.0 or now - last_any >= gap
+
+
+## A caption's words, filled in: {"hangul", "english"}. fill, all optional: gender (for
+## "SHE'S BACK!"), name and friend (full names; captions use the given name), term, cat, owner
+## (a name: the given name), amount, dish, drink, job, weather, visit, drinks, dishes, seated,
+## years. roll (0 to 1) picks among the wordings the game has everything for.
+static func caption_words(kind: String, fill: Dictionary = {}, roll: float = 0.0) -> Dictionary:
+	var data: Dictionary = CAPTIONS.get(kind, {})
+	if data.is_empty():
+		return {}
+	var values := {"they": str({"woman": "SHE'S", "man": "HE'S"}.get(str(fill.get("gender", "")), "THEY'RE"))}
+	for key in fill:
+		var value := str(fill[key]).strip_edges()
+		if value == "" or key == "gender":
+			continue
+		match str(key):
+			"name", "friend", "owner":
+				value = given_name(value).to_upper()
+			"term":
+				values["term_hangul"] = str(TERMS.get(value, {}).get("hangul", value))
+				value = value.to_upper()
+			"amount":
+				pass
+			_:
+				value = value.to_upper()
+		values[key] = value
+	var usable: Array = []
+	for wording in data["words"]:
+		if _blanks_filled(str(wording[0]) + str(wording[1]), values):
+			usable.append(wording)
+	if usable.is_empty():
+		return {}
+	var chosen: Array = usable[clampi(floori(roll * usable.size()), 0, usable.size() - 1)]
+	return {"hangul": str(chosen[0]).format(values), "english": str(chosen[1]).format(values)}
+
+
+## The given name in a full name ("Kim Ji-ho" -> "Ji-ho"); a one-word name stays as it is.
+static func given_name(full: String) -> String:
+	var parts := full.strip_edges().split(" ", false, 1)
+	return parts[1] if parts.size() > 1 else full.strip_edges()
+
+
+static func _blanks_filled(text: String, values: Dictionary) -> bool:
+	var at := text.find("{")
+	while at != -1:
+		var end := text.find("}", at)
+		if end == -1 or not values.has(text.substr(at + 1, end - at - 1)):
+			return false
+		at = text.find("{", end)
+	return true
+
+
+## How a caption reads in the transcript: "[TV] 만석! FULL HOUSE!"
+static func caption_text(kind: String, fill: Dictionary = {}, roll: float = 0.0) -> String:
+	var said := caption_words(kind, fill, roll)
+	if said.is_empty():
+		return ""
+	return "[TV] %s %s" % [said["hangul"], said["english"]]
