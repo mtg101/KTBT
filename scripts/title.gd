@@ -3,6 +3,7 @@ extends Control
 
 const SaveStore = preload("res://scripts/save_store.gd")
 const Menu = preload("res://scripts/menu.gd")
+const DiaryBook = preload("res://scripts/diary_book.gd")
 
 const ACCENT := Color("e8833a")
 const MUTED := Color("a9a6c2")
@@ -39,6 +40,12 @@ func _process(delta: float) -> void:
 			_fill_list()
 
 
+func _on_diary_pressed(bar: Dictionary) -> void:
+	var book := DiaryBook.new()
+	add_child(book)
+	book.open(bar.get("diary", []), "%s's diary" % bar.get("owner", {}).get("name", ""))
+
+
 func _on_delete_pressed(id: String) -> void:
 	if _confirming == id:
 		SaveStore.delete_bar(id)
@@ -69,6 +76,15 @@ func _fill_list() -> void:
 		open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(open)
 		var id := str(bars[i]["id"])
+		var entries: Array = bars[i].get("diary", [])
+		if not entries.is_empty():
+			var diary := Button.new()
+			diary.name = "Diary%d" % i
+			diary.text = "📖 Diary"
+			diary.tooltip_text = "Read the owner's diary."
+			diary.custom_minimum_size = Vector2(130, 64)
+			diary.pressed.connect(_on_diary_pressed.bind(bars[i]))
+			row.add_child(diary)
 		var delete := Button.new()
 		delete.name = "Delete%d" % i
 		delete.text = "Sure?" if _confirming == id else "Delete"

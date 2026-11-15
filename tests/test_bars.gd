@@ -174,6 +174,29 @@ func test_title_shows_nights_and_visits() -> void:
 	assert_str((runner.find_child("Bar0") as Button).text).contains("3 nights, 1 visit")
 
 
+func test_a_bars_diary_can_be_read_from_the_title() -> void:
+	_saved_bar("Golmok Pocha", 12000, 1000)  # no diary yet: no Diary button
+	var bar := SaveStore.new_bar("Sarang Pocha", "A test tent", OWNER_DATA)
+	for night in [1, 2, 3]:
+		SaveStore.record_diary(bar, {"night": night, "episode": night, "day": "Friday", "weather": "rain", "text": "Night %d was a night." % night, "stamp": "soju"})
+	SaveStore.save_bar(bar)
+	var runner := scene_runner(TITLE)
+	assert_object(runner.find_child("Diary1", true, false)).is_null()  # the older bar (listed second) has none
+	await _click(runner, runner.find_child("Diary0"))
+	var book = runner.find_child("DiaryBook", true, false)
+	assert_object(book).is_not_null()
+	assert_int(book.showing_night()).is_equal(3)  # opens at the latest
+	assert_str((book.find_child("Episode", true, false) as Label).text).is_equal("EP. 3")
+	assert_str((book.find_child("DiaryWhere", true, false) as Label).text).is_equal("3 of 3")
+	assert_bool((book.find_child("DiaryNewer", true, false) as Button).disabled).is_true()
+	await _click(runner, book.find_child("DiaryOlder", true, false))
+	await _click(runner, book.find_child("DiaryOlder", true, false))
+	assert_int(book.showing_night()).is_equal(1)
+	assert_bool((book.find_child("DiaryOlder", true, false) as Button).disabled).is_true()
+	await _click(runner, book.find_child("DiaryClose", true, false))
+	assert_bool(await _wait_until(func(): return runner.find_child("DiaryBook", true, false) == null, 3000)).is_true()
+
+
 func test_deleting_a_bar_takes_two_clicks() -> void:
 	_saved_bar("Golmok Pocha", 12000, 1000)
 	_saved_bar("Sarang Pocha", 34000, 2000)

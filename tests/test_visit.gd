@@ -1291,3 +1291,19 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	assert_str(_transcript(runner)).not_contains("NOT ASKED")
 	assert_int(scene._stats.reactions_asked).is_equal(3)
 	CannedAi.scripted = []
+
+
+func test_the_diary_can_be_read_during_a_night() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Game.bar["diary"] = [{"night": 1, "episode": 1, "day": "Friday", "weather": "rain", "text": "The first night.", "stamp": "rain"},
+		{"night": 2, "episode": 2, "day": "Saturday", "weather": "snow", "text": "The second night.", "stamp": "snow"}]
+	(runner.find_child("DiaryButton") as Button).pressed.emit()  # (top-bar buttons: see the stats test)
+	var book = runner.find_child("DiaryBook", true, false)
+	assert_object(book).is_not_null()
+	assert_int(book.showing_night()).is_equal(2)
+	scene._open_diary()  # a second click doesn't open a second book
+	assert_int(scene.get_children().filter(func(c): return c.name == "DiaryBook").size()).is_equal(1)
+	book._flip(-1)
+	assert_str((book.find_child("Entry", true, false) as Label).text).is_equal("The first night.")
+	book.close()

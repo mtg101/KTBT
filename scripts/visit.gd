@@ -28,6 +28,7 @@ const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const CaptionPopup = preload("res://scripts/caption.gd")
 const DiaryPage = preload("res://scripts/diary_page.gd")
+const DiaryBook = preload("res://scripts/diary_book.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -920,6 +921,15 @@ func _diary_facts() -> Dictionary:
 		"cat": str(_cat.get("name", "")), "cat_laps": _night_laps.duplicate(), "walked_on": _stats.walked_past,
 		"line": Rules.memorable_line(_night_lines).duplicate(), "ordered": ordered,
 	}
+
+
+## The owner's diary as a book, over everything (the night carries on behind it).
+func _open_diary() -> void:
+	if find_child("DiaryBook", false, false) != null:
+		return
+	var book := DiaryBook.new()
+	add_child(book)
+	book.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
 
 
 ## The end-of-night Stats button: the numbers instead of the diary page, and back.
@@ -2634,6 +2644,14 @@ func _build_ui() -> void:
 	_leave_button.custom_minimum_size = Vector2(150, 40)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	bar.add_child(_leave_button)
+
+	var diary := Button.new()
+	diary.name = "DiaryButton"
+	diary.text = "📖 Diary"
+	diary.tooltip_text = "The owner's diary: every night so far, a page at a time."
+	diary.custom_minimum_size = Vector2(130, 40)
+	diary.pressed.connect(_open_diary)
+	bar.add_child(diary)
 
 	_options_button = Button.new()
 	_options_button.name = "OptionsButton"
