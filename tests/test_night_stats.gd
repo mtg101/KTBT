@@ -189,7 +189,16 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.opening_text("order")).is_equal("\"ajumma i'll\" 2 of 3")
 	assert_str(stats.opening_text("owner")).is_equal("\"you look\" 1 of 1")
 	assert_str(stats.panel_text(0, 0)).contains("Commonest start: orders \"ajumma i'll\" 2 of 3")
+	# The street, and the sides added to orders.
+	stats.record_street("in twos")
+	stats.record_street("umbrella: bubble")
+	stats.record_street("umbrella: bubble")
+	stats.sides_added = 2
+	assert_str(stats.panel_text(0, 0)).contains("Street: umbrella: bubble 2 · in twos 1")
+	assert_str(stats.panel_text(0, 0)).contains("sides added 2")
 	var logged := stats.summary({})
+	assert_int(int(logged["street"]["umbrella: bubble"])).is_equal(2)
+	assert_int(int(logged["food"]["sides_added"])).is_equal(2)
 	assert_int(int(logged["talk"]["openings"]["order"]["ajumma i'll"])).is_equal(2)
 	assert_int(int(logged["food"]["ordered"]["dakgalbi"])).is_equal(1)
 	assert_int(int(logged["talk"]["korean_words"]["Aigoo"])).is_equal(1)

@@ -31,7 +31,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/talk.gd` | The checks every line of dialogue passes, what conversations turn to, speech bubble pages, made-up Korean, and the situations a line is given now and then (food moments, table customs, sharing, how someone orders, cravings, how the owner opens) |
 | `rules/address.gd` | Who calls whom what (oppa, imo, sajangnim...), and their colours on screen |
 | `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), and counting which are said |
-| `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about, its name |
+| `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about (and the moments for talking to it), its name |
 | `rules/memories.gd` | What's remembered after a visit, and the things that stick |
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
 | `rules/story.gd` | The owner's diary at 3am, and "Previously on..." |

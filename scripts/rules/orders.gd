@@ -60,7 +60,9 @@ static func validate_order(data: Variant, max_mains: int = 1, max_drinks: int = 
 			return "%s is only ordered later, not when you first sit down" % Menu.find(id)["name"]
 	# What they say must match what they get: no mentioning dishes they didn't order. A side
 	# they ask for but left out of "items" ("...and a bowl of rice") is added: the line wins.
+	var asked_for := ids.size()
 	add_mentioned_sides(line, ids, MAX_ORDER_ITEMS, func(more: Array): return check_order_shape(more, max_mains, max_drinks) == "")
+	data["added_sides"] = ids.size() - asked_for  # (for the stats)
 	var mention := unordered_mention(line, ids, true)
 	if mention != "":
 		return "the line mentions %s, but that isn't in \"items\"" % mention
@@ -116,7 +118,9 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 	# Everything they ask for must be in "items" (a side left out of it is added, as for a
 	# first order). Something already on the table can be mentioned only as "this ..."/"the
 	# ...", not asked for again ("another tteokbokki").
+	var asked_for := ids.size()
 	add_mentioned_sides(line, ids, MAX_EXTRA_ITEMS, func(more: Array): return not more.has("bokkeumbap") or has_main(table), table)
+	data["added_sides"] = ids.size() - asked_for  # (for the stats)
 	var allowed := with_somaek_parts(ids)
 	for found in mentions(line, true):
 		var id: String = found["id"]

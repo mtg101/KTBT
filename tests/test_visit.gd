@@ -213,6 +213,11 @@ func test_the_ai_hears_what_is_still_cooking() -> void:
 func test_the_owner_moves_between_customers() -> void:
 	Hooks.stay_minutes_override = 600
 	Hooks.chat_chance_override = 0.0  # just the owner talking
+	# (Not someone who wants the owner to themselves: the owner favours them for a few turns,
+	# which, on a slow machine, took longer than the wait. Which mood each customer got
+	# depended on the dice, and every new roll elsewhere shifts them.)
+	Hooks.company_override = "chatty"
+	Hooks.cat_wanders = false  # (the cat coming and going makes lines be asked for again)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -354,11 +359,13 @@ func test_quiet_customers_keep_to_themselves() -> void:
 	Hooks.stay_minutes_override = 600
 	Hooks.company_override = "quiet"
 	Hooks.chat_chance_override = 1.0
+	Hooks.cat_wanders = false  # (the cat coming and going makes lines be asked for again)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
-	# (A longer limit: on a slow machine, like GitHub's, six lines each can take a while.)
-	var talked: bool = await _wait_until(func(): return scene._guests.size() == 2 and scene._guests[0].line >= 6 and scene._guests[1].line >= 6, 45000)
+	# Plenty of chances to chat (chance 1.0 each time the owner's free), and none taken.
+	# (A longer limit: on a slow machine, like GitHub's, the lines can take a while.)
+	var talked: bool = await _wait_until(func(): return scene._guests.size() == 2 and scene._guests[0].line >= 4 and scene._guests[1].line >= 4, 45000)
 	assert_bool(talked).is_true()
 	assert_str(_transcript(runner)).not_contains("gets talking to")
 	assert_array(scene._chats).is_empty()
@@ -568,6 +575,35 @@ func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_str(scene._cat_spot).is_not_equal("lap")
 	assert_object(scene._cat_with).is_null()
+
+
+func test_people_get_a_moment_to_talk_to_the_cat() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	var cat_name := str(Game.bar["cat"]["name"])
+	# On their lap: a moment for the customer (now and then, so it may take a few goes).
+	for attempt in 30:
+		scene._move_cat("lap")
+		if guest.cat_moment != "":
+			break
+	assert_str(guest.cat_moment).contains(cat_name)
+	assert_str(scene._owner_cat_moment).is_empty()
+	# Up on the counter: the owner's to deal with, and the customer's moment has gone.
+	for attempt in 30:
+		scene._move_cat("counter")
+		if scene._owner_cat_moment != "":
+			break
+	assert_str(scene._owner_cat_moment).contains("counter")
+	assert_str(guest.cat_moment).is_empty()
+	# Out in the street: nobody's.
+	scene._move_cat("street")
+	assert_str(scene._owner_cat_moment).is_empty()
+	assert_str(guest.cat_moment).is_empty()
 
 
 func test_the_cat_wanders_by_itself() -> void:

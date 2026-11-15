@@ -397,13 +397,15 @@ const HINT_TELLS := {
 	"sundae": ["salt"], "ramyeon": ["lid"], "pajeon": ["crisp", "edge", "tear"], "tteokbokki": ["spicy", "sauce", "dip"],
 	"odeng": ["broth", "warm"], "more_food": ["share", "have some", "try", "take some", "help yourself"],
 	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
+	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 }
 
 
-## Whether a line seems to have taken up a hint of this kind (see HINT_TELLS).
-static func hint_taken(kind: String, line: String) -> bool:
+## Whether a line seems to have taken up a hint of this kind (see HINT_TELLS). extra: more
+## words that count (the cat's name, say).
+static func hint_taken(kind: String, line: String, extra: Array = []) -> bool:
 	var lower := line.to_lower()
-	for tell in HINT_TELLS.get(kind, []):
+	for tell in HINT_TELLS.get(kind, []) + extra:
 		if lower.contains(str(tell)):
 			return true
 	return false

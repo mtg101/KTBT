@@ -466,6 +466,8 @@ func test_first_order_asking_for_rice_gets_rice() -> void:
 	var data := _order(["soju", "tteokbokki"], "Soju, tteokbokki and a bowl of rice.")
 	assert_str(Orders.validate_order(data)).is_empty()
 	assert_array(data["items"]).is_equal(["soju", "tteokbokki", "gonggibap"])
+	assert_int(int(data["added_sides"])).is_equal(1)  # (counted in the stats)
+	assert_str(Text.problem_kind("they ordered Somaek, but the line doesn't ask for it")).is_equal("line doesn't match the order")
 
 
 func test_only_sides_are_added_and_only_if_they_fit() -> void:
@@ -1441,6 +1443,20 @@ func test_the_diary_may_mention_tonights_specials() -> void:
 	var problem := Story.validate_diary({"entry": "Rain all night, and I had the pajeon ready for anyone who wanted it. Nobody did. Still, the soju went, and the tarp held up fine until close."}, facts)
 	assert_str(problem).not_contains("nobody ordered")
 	assert_str(Prompts.diary_facts_text(facts)).contains("Tonight's specials: Pajeon and Makgeolli.")
+
+
+func test_people_get_moments_to_talk_to_the_cat() -> void:
+	assert_str(CatRules.cat_moment("Garae", "lap", 0.9)).is_empty()  # now and then
+	assert_str(CatRules.cat_moment("Garae", "street", 0.0)).is_empty()  # it's not here
+	for spot in CatRules.CAT_MOMENTS:
+		var moment := CatRules.cat_moment("Garae", spot, 0.0)
+		assert_str(moment).starts_with("Garae ")
+		assert_str(moment).not_contains("\"")  # a situation, never a line
+	assert_bool(CatRules.owner_spot("counter")).is_true()  # the owner's to deal with
+	assert_bool(CatRules.owner_spot("lap")).is_false()  # the customer it's with
+	assert_bool(Talk.hint_taken("cat", "Get down from there, you!")).is_true()
+	assert_bool(Talk.hint_taken("cat", "Hello, Garae.", ["garae"])).is_true()  # its name counts
+	assert_bool(Talk.hint_taken("cat", "Another soju, please.", ["garae"])).is_false()
 
 
 func test_hover_tips_never_break_their_tag() -> void:

@@ -131,6 +131,7 @@ class Guest:
 	var topic := ""  # what their chat with the owner is turning to (see Talk.pick_owner_topic)
 	var food_news := false  # something's been served since the last topic was picked
 	var food_moment := ""  # a Talk.served_moment direction for their next line, now and then after something arrives
+	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
@@ -218,6 +219,8 @@ var _reaction_last := -1.0  # real seconds when the last reaction showed
 var _reaction_until := -1.0  # ...and until when it's up
 ## Tonight's specials (menu ids, Orders.pick_specials): marked on the menu customers see.
 var _specials: Array = []
+## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
+var _owner_cat_moment := ""
 ## A reaction check put off because the owner was needed ({lines, names, items, at}: the latest
 ## one only), asked as soon as she's free (see _next_task).
 var _reaction_pending := {}
@@ -766,6 +769,9 @@ func _stroll(gear: Dictionary = {}, company: int = 0) -> void:
 	var shared := count == 2 and gear.is_empty() and Looks.wet(_weather_kind) and randf() < Looks.SHARED_UMBRELLA_CHANCE
 	var seconds := randf_range(6.0, 10.0)
 	var gap := 46.0 if shared else 62.0  # (closer under one umbrella)
+	_stats.record_street({1: "alone", 2: "in twos", 3: "in threes"}.get(count, "in a group"))
+	if shared:
+		_stats.record_street("sharing an umbrella")
 	for i in count:
 		var own := gear
 		if shared:
@@ -792,8 +798,10 @@ func _stroller(from_left: bool, behind: float, up: float, gear: Dictionary, alon
 	if not gear.has("none"):
 		_gear_up(person, gear, from_left)
 	var running := _is_running(person)
+	_stats.record_street("walked by")
 	if Looks.on_phone(alone, running, randf()):
 		_phone(person)
+		_stats.record_street("on a phone")
 	var tween := person.create_tween()
 	tween.tween_property(person, "position:x", (OFFSCREEN_RIGHT_X if from_left else OFFSCREEN_LEFT_X) + behind,
 		_scaled(randf_range(2.4, 3.4) if running else seconds))
@@ -1399,6 +1407,7 @@ func _greet() -> void:
 		_narrate("(The AI couldn't come up with a valid order, so the game served soju and odeng: %s.)" % _ai.last_error)
 	else:
 		items = order["items"]
+		_stats.sides_added += int(order.get("added_sides", 0))
 		_stats.record_opening("order", str(order["line"]))
 		if situation != "":
 			_stats.order_situations += 1
@@ -1654,6 +1663,7 @@ func _next_line(guest: Guest) -> void:
 		var opener := Talk.opener_moment(not known.is_empty(), known.is_empty(), _late(), Looks.wet(_weather_kind), randf(), randf())
 		if opener != "" and owner_speaks:
 			direction += " " + opener
+			_stats.opener_situations += 1
 	elif guest.stay_left < 10.0:
 		direction = "The customer is nearly ready to leave."
 	elif guest.topic != "":
@@ -1663,6 +1673,13 @@ func _next_line(guest: Guest) -> void:
 		direction = (guest.food_moment + " " + direction).strip_edges()
 		hint = Talk.moment_kind(guest.food_moment)
 		guest.food_moment = ""  # once
+	elif i > 0 and (_owner_cat_moment if owner_speaks else guest.cat_moment) != "":
+		direction = ((_owner_cat_moment if owner_speaks else guest.cat_moment) + " " + direction).strip_edges()
+		hint = "cat"
+		if owner_speaks:
+			_owner_cat_moment = ""
+		else:
+			guest.cat_moment = ""
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
 	direction = (direction + " " + _address_note(guest)).strip_edges()
@@ -1686,7 +1703,7 @@ func _next_line(guest: Guest) -> void:
 		_narrate("(The conversation with %s fizzled out: %s.)" % [guest.customer["name"], _ai.last_error])
 		guest.stay_left = 0.0
 		return
-	_stats.record_hint(hint, str(reply["line"]))
+	_stats.record_hint(hint, str(reply["line"]), _cat_tells())
 	if i == 0 and owner_speaks:
 		_stats.record_opening("owner", str(reply["line"]))
 	await _say(guest, owner_speaks, str(reply["line"]))
@@ -1773,6 +1790,7 @@ func _extra_order(guest: Guest) -> bool:
 	if extra.is_empty():
 		return false
 	var items: Array = extra["items"]
+	_stats.sides_added += int(extra.get("added_sides", 0))
 	await _say(guest, false, str(extra["line"]))
 	guest.order.append_array(items)
 	_serve(guest, items, false)
@@ -1952,6 +1970,16 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 			direction = sharing + " " + direction
 			hint = Talk.moment_kind(sharing)
 			chat.shared = true
+	# The cat's come to the speaker (or it's up to something the owner has to deal with).
+	if hint == "" and not first:
+		var with_cat := _owner_cat_moment if owner_speaks else (speaking.cat_moment if speaking != null else "")
+		if with_cat != "":
+			direction = with_cat + " " + direction
+			hint = "cat"
+			if owner_speaks:
+				_owner_cat_moment = ""
+			else:
+				speaking.cat_moment = ""
 	direction += " " + _chat_notes(chat) + " " + Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close)
 	var address := _address(speaking, listening, close)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
@@ -1979,7 +2007,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	chat.transcript.append({"speaker": speaker, "text": line})
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
-	_stats.record_hint(hint, line)
+	_stats.record_hint(hint, line, _cat_tells())
 	_stats.record_line(line, names)
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
@@ -2069,6 +2097,15 @@ func _move_cat(spot: String = "") -> void:
 	var before := _cat_with
 	_cat_spot = spot
 	_cat_with = with
+	# Now and then, a moment for whoever it's with now (people talk to cats); any older one's gone.
+	for guest in _guests:
+		guest.cat_moment = ""
+	_owner_cat_moment = ""
+	var moment := CatRules.cat_moment(str(_cat["name"]), spot, randf())
+	if moment != "" and CatRules.owner_spot(spot):
+		_owner_cat_moment = moment
+	elif moment != "" and with != null:
+		with.cat_moment = moment
 	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
 	var cat_name := str(_cat["name"])
 	var was_out := _cat_node.visible == false
@@ -2088,6 +2125,11 @@ func _move_cat(spot: String = "") -> void:
 		"new_lap": spot == "lap" and with != null and with != before, "was_out": was_out}
 	_event("cat_moved", moved, with.node if bool(moved["new_lap"]) else _cat_node)
 	_update_info()
+
+
+## The cat's name, for counting lines that talk to it (Talk.hint_taken).
+func _cat_tells() -> Array:
+	return [] if _cat.is_empty() else [str(_cat["name"]).to_lower()]
 
 
 func _cat_with_name() -> String:
@@ -2223,6 +2265,8 @@ func _walk_in(guest: Guest) -> void:
 	var stool_x: float = SEAT_X[guest.seat] - PERSON_WIDTH / 2
 	guest.rain_gear = _pick_rain_gear()
 	_gear_up(guest.node, guest.rain_gear, guest.node.position.x < stool_x)
+	if not guest.rain_gear.is_empty():
+		_stats.record_street("customers in under an umbrella" if bool(guest.rain_gear["umbrella"]) else "customers running in")
 	guest.walk = create_tween()
 	guest.walk.tween_property(guest.node, "position:x", stool_x, _scaled(1.1 if _is_running(guest.node) else 1.6)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	guest.walk.tween_callback(_gear_down.bind(guest.node))  # under the tarp
@@ -2241,7 +2285,7 @@ func _walk_out(guest: Guest) -> void:
 	var gear: Dictionary = {}
 	if Looks.wet(_weather_kind):
 		gear = guest.rain_gear if not guest.rain_gear.is_empty() else _pick_rain_gear()
-	_gear_up(guest.node, gear, guest.node.position.x < away)
+	_gear_up(guest.node, gear, guest.node.position.x < away, guest.rain_gear.is_empty())  # (counted only if it's new)
 	guest.walk = create_tween()
 	guest.walk.tween_property(guest.node, "position:x", away, _scaled(1.0 if _is_running(guest.node) else 1.4)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	guest.walk.tween_callback(guest.node.queue_free)
@@ -2257,13 +2301,16 @@ func _pick_rain_gear() -> Dictionary:
 
 
 ## Out into the weather with this gear: the umbrella up, or running for it ({}: nothing).
-func _gear_up(person: Control, gear: Dictionary, going_right: bool) -> void:
+## counted: in the street stats (not when a customer puts theirs back up to go).
+func _gear_up(person: Control, gear: Dictionary, going_right: bool, counted: bool = true) -> void:
 	if gear.is_empty():
 		return
 	if bool(gear["umbrella"]):
 		_umbrella(person, gear)
 	else:
 		_running_for_it(person, going_right)
+	if counted:
+		_stats.record_street(("umbrella: %s" % str(gear.get("shape", "dome"))) if bool(gear["umbrella"]) else "ran for it")
 
 
 ## In out of the weather: the umbrella folds down and goes, and anyone running stops.

@@ -96,6 +96,34 @@ static func cat_move_text(cat_name: String, spot: String, with: String = "") -> 
 	return "%s wanders off." % cat_name
 
 
+## People talk to cats. When the cat goes somewhere, now and then the next line from whoever
+## it's with gets a moment (a situation, never a line: whether they say anything to it is up
+## to them). lap, feet and food: the customer it's with; counter, stove and stools: the
+## owner (it's their tent). {cat} is its name.
+const CAT_MOMENTS := {
+	"lap": "{cat} has just settled on their lap and is looking up at them, the way cats do when they expect to be spoken to.",
+	"feet": "{cat} is winding round their ankles, mewing up at them.",
+	"food": "{cat} is sitting by their stool, staring at their food as if some of it is owed.",
+	"counter": "{cat} is up on the counter again, where the owner has told it a hundred times not to be.",
+	"stove": "{cat} is asleep by the stove, right where the owner needs to stand.",
+	"stools": "{cat} is weaving between the stools, getting under everyone's feet.",
+}
+const CAT_MOMENT_CHANCE := 0.5
+
+
+## Now and then, a moment for whoever the cat's with (see CAT_MOMENTS), or "". Whether it's
+## for the owner: owner_spot().
+static func cat_moment(cat_name: String, spot: String, roll: float) -> String:
+	if roll >= CAT_MOMENT_CHANCE or not CAT_MOMENTS.has(spot):
+		return ""
+	return str(CAT_MOMENTS[spot]).replace("{cat}", cat_name)
+
+
+## Whether a cat in this spot is the owner's to deal with, not a customer's.
+static func owner_spot(spot: String) -> bool:
+	return spot in ["counter", "stove", "stools"]
+
+
 ## The cat must be talked about as it really is: nobody strokes it, or talks of it on a lap,
 ## unless it's on the lap of someone in this conversation (people: their names). Returns a
 ## problem, or "".

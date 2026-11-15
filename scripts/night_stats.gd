@@ -43,6 +43,11 @@ var korean_words := {}  # word (Glossary: "Imo", "Soju", "Aigoo"...) -> times sa
 ## word with someone) -> their first two words -> how many. To see how samey they are.
 var openings := {"order": {}, "owner": {}}
 var order_situations := 0  # first orders given a situation (Talk.order_moment and/or a craving)
+var opener_situations := 0  # the owner's first proper words given a situation (Talk.opener_moment)
+var sides_added := 0  # sides an order line asked for that the AI left out, added (Orders.add_mentioned_sides)
+## Out in the street and coming in: who walked by (alone, in twos, in threes), on phones,
+## under which umbrellas, sharing one, running for it; customers under umbrellas or running in.
+var street := {}
 var cravings := 0  # ...of which with a craving (Talk.craving)
 var specials: Array = []  # tonight's specials (menu ids)
 
@@ -145,11 +150,11 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 
 ## A line said with a hint in its direction (see Talk.moment_kind): counted, and whether
 ## the line seems to have taken it up.
-func record_hint(kind: String, line: String) -> void:
+func record_hint(kind: String, line: String, extra_tells: Array = []) -> void:
 	if kind == "":
 		return
 	hints_given[kind] = int(hints_given.get(kind, 0)) + 1
-	if Talk.hint_taken(kind, line):
+	if Talk.hint_taken(kind, line, extra_tells):
 		hints_taken[kind] = int(hints_taken.get(kind, 0)) + 1
 
 
@@ -175,6 +180,11 @@ func opening_text(kind: String) -> String:
 		if top == "" or int(counts[start]) > int(counts[top]):
 			top = start
 	return "\"%s\" %d of %d" % [top, int(counts[top]), total]
+
+
+## Something seen in the street (or someone coming in out of the weather): see street.
+func record_street(what: String) -> void:
+	street[what] = int(street.get(what, 0)) + 1
 
 
 ## A line said (by anyone): counts its Korean words. names: people's names, which don't count.
@@ -284,6 +294,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Arrived %d · served %d · walked past %d" % [arrived, served, walked_past])
 	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
 	lines.append("Two or more in: %d%% of the night" % percent(together_seconds, real_seconds))
+	if not street.is_empty():
+		lines.append("Street: %s" % counts_text(street))
 	lines.append("Greetings: %d proper, %d quick" % [proper_greetings, quick_greetings])
 	lines.append("Wait for the owner: avg %d min, longest %d" % [roundi(average(greet_waits)), roundi(longest(greet_waits))])
 	lines.append("Wait for first drinks: avg %d min, longest %d" % [roundi(average(serve_waits)), roundi(longest(serve_waits))])
@@ -300,7 +312,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
 	lines.append("Hints taken up: %s" % (hints_text() if not hints_given.is_empty() else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
-	lines.append("Commonest start: orders %s · owner's openers %s · order situations given %d" % [opening_text("order"), opening_text("owner"), order_situations])
+	lines.append("Commonest start: orders %s · owner's openers %s · situations given: orders %d, openers %d" % [opening_text("order"), opening_text("owner"), order_situations, opener_situations])
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
@@ -318,7 +330,7 @@ func panel_text(seated: int, cooking: int) -> String:
 		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
-	lines.append("Orders %d first, %d more · %s" % [first_orders, extra_orders, counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
+	lines.append("Orders %d first, %d more%s · %s" % [first_orders, extra_orders, (" · sides added %d" % sides_added) if sides_added > 0 else "", counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
 	if not specials.is_empty():
 		lines.append("Specials: %s · cravings given %d" % [" · ".join(PackedStringArray(specials.map(func(id): return "%s %d ordered" % [id, int(ordered.get(id, 0))]))), cravings])
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -344,6 +356,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"context": context,
 		"events": events.duplicate(true),  # the night's timeline, event by event
 		"event_counts": event_counts.duplicate(),
+		"street": street.duplicate(),
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
@@ -358,7 +371,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
 			"hints_given": hints_given.duplicate(), "hints_taken": hints_taken.duplicate(), "korean_words": korean_words.duplicate(),
-			"openings": openings.duplicate(true), "order_situations": order_situations,
+			"openings": openings.duplicate(true), "order_situations": order_situations, "opener_situations": opener_situations,
 		},
 		"regulars": {
 			"on_the_books": regular_pulls.size(), "founding": founding_regulars, "in_tonight": regulars_in,
@@ -369,7 +382,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
-			"specials": specials.duplicate(), "cravings": cravings,
+			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},
