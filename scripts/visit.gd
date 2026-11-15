@@ -91,16 +91,18 @@ static var cat_wanders := true
 static var transcript_folder := ""
 ## Test hook: false keeps people from walking past in the street.
 static var strollers := true
+## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
+static var bubbles := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
 static var offer_every_look := false
 
 ## When the owner's free and nothing's urgent: how often customers chat to each other
 ## instead of the owner chatting to someone. Mostly it's customer and owner.
-const CHAT_CHANCE := 0.4
+const CHAT_CHANCE := 0.5
 ## ...and when it's busy (Rules.BUSY_COUNTER or more in), when there are most people to talk to.
-const BUSY_CHAT_CHANCE := 0.6
-const JOIN_CHANCE := 0.25  # how often another customer joins an ongoing chat
-const OWNER_JOINS_CHANCE := 0.2  # how often the owner joins a customer chat
+const BUSY_CHAT_CHANCE := 0.75
+const JOIN_CHANCE := 0.4  # how often another customer joins an ongoing chat
+const OWNER_JOINS_CHANCE := 0.35  # how often the owner joins a customer chat
 const CHAT_LINES := Vector2i(3, 5)  # lines in a spell of customer chat
 const CHAT_MIN_STAY_LEFT := 10.0  # game minutes
 const CHAT_LINES_BEFORE_INTERRUPTING := 3  # a chat gets this many lines before anything can cut in
@@ -194,6 +196,9 @@ var _last_orders := false
 var _leave_requested := false
 var _passers_by := 0  # how many have walked past tonight (also names their nodes)
 var _ambience: Ambience  # the tent's background sound
+var _bubble_layer: Control  # speech bubbles, over everything on the stage
+var _bubbles_shown: Array = []  # Bubble: the newest last
+var _bubbles_toggle: CheckBox
 var _sound_toggle: CheckBox
 var _music: Music  # Arirang, now and then
 var _loading: LoadingScreen  # the loading screen while a new bar is set up
@@ -791,12 +796,14 @@ func _next_task() -> void:
 	var chance := BUSY_CHAT_CHANCE if _guests.size() >= Rules.BUSY_COUNTER else CHAT_CHANCE
 	if chat_chance_override >= 0.0:
 		chance = chat_chance_override
+	var lonely := _left_alone_longest()
+	if lonely != null or _chat_possible():
+		_stats.free_turns += 1  # (counted only when there's someone to talk to, not every idle frame)
 	if _chat_possible():
 		_stats.chat_chances += 1
 		if randf() < chance:
 			_counter_chat()
 			return
-	var lonely := _left_alone_longest()
 	if lonely != null:
 		_talk(lonely)
 
@@ -1214,7 +1221,9 @@ func _talk(guest: Guest) -> void:
 	_attend(guest, true)
 	guest.topic = Rules.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic)
 	guest.food_news = false
-	await _converse(guest, randi_range(1, 2), true)
+	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
+	# for customers to chat) sooner.
+	await _converse(guest, 1 if _guests.size() >= Rules.BUSY_COUNTER else randi_range(1, 2), true)
 	_task_done()
 
 
@@ -1528,7 +1537,9 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
 	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), _esc(line)])
-	_give_time_to_read(line)
+	var listener_colour := OWNER_TEXT if addressed == null else addressed.color.lightened(0.35)
+	_give_time_to_read(line, _say_in_bubble(_owner_node if guest == null else guest.node, _owner_node if addressed == null else addressed.node,
+		to, listener_colour, colour, line))
 	return line
 
 
@@ -1812,7 +1823,10 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
 	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(text)])
-	_give_time_to_read(text)
+	if owner_speaks:
+		_give_time_to_read(text, _say_in_bubble(_owner_node, guest.node, _name_label(guest.customer), guest.color.lightened(0.35), colour, text))
+	else:
+		_give_time_to_read(text, _say_in_bubble(guest.node, _owner_node, _owner_label(), OWNER_TEXT, colour, text))
 
 
 func _narrate(text: String) -> void:
@@ -1823,12 +1837,68 @@ func _narrate(text: String) -> void:
 ## lines, longer). Meanwhile everything else carries on, including the AI writing the next
 ## line, so the gap is whichever is longer, the reading or the AI's thinking, not both.
 ## With "Reading pauses" off (the default for now), lines come as fast as the AI writes them.
-func _give_time_to_read(text: String) -> void:
+## bubble_seconds: how long the line's speech bubble takes to page through. Bubbles don't hold
+## the next line up: with one voice for the whole tent, waiting to read every bubble left no
+## time for customers to chat (and doubled the wait for the owner), so only Reading pauses do.
+func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
 	if not _reading_toggle.button_pressed:
 		_read_until = 0
 		return
 	var seconds := clampf(1.0 + text.length() * 0.035, 1.5, 7.0)
 	_read_until = Time.get_ticks_msec() + int(_scaled(seconds) * 1000.0)
+
+
+## Shows a line in a speech bubble over the speaker, a page at a time, with who it's to and
+## a line to them. Returns how long it'll take (already scaled), or 0 with bubbles off.
+func _say_in_bubble(speaker: Control, listener: Control, to_label: String, to_colour: Color, colour: Color, text: String) -> float:
+	if not bubbles or not _bubbles_toggle.button_pressed or speaker == null or not is_instance_valid(speaker):
+		return 0.0
+	# A speaker's new line replaces their last bubble; others' recent lines stay up, dimmed, so
+	# an exchange reads like a comic (and two conversations can show at once); older ones go.
+	_bubbles_shown = _bubbles_shown.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion())
+	for old in _bubbles_shown:
+		if old.speaker == speaker:
+			old.queue_free()
+	_bubbles_shown = _bubbles_shown.filter(func(b): return not b.is_queued_for_deletion())
+	while _bubbles_shown.size() > MAX_BUBBLES - 1:
+		_bubbles_shown.pop_front().queue_free()
+	for old in _bubbles_shown:
+		old.dim()
+	var bubble := Bubble.new()
+	bubble.name = "Bubble"
+	bubble.speaker = speaker
+	bubble.listener = listener if listener != null and is_instance_valid(listener) else null
+	bubble.colour = colour
+	bubble.stage_width = STAGE_SIZE.x
+	_bubble_layer.add_child(bubble)
+	var pages := Rules.bubble_pages(text)
+	var longest := 0
+	for page in pages:
+		longest = maxi(longest, page.length())
+	bubble.setup("→ %s" % to_label, to_colour, longest > Rules.BUBBLE_SHORT)
+	_bubbles_shown.append(bubble)
+	var total := 0.0
+	for page in pages:
+		total += _scaled(Rules.page_seconds(page))
+	_page_through(bubble, pages)
+	return total
+
+
+const MAX_BUBBLES := 3  # the newest bright, the two before it dimmed
+
+
+func _page_through(bubble: Bubble, pages: PackedStringArray) -> void:
+	for page in pages:
+		if not is_instance_valid(bubble):
+			return
+		bubble.show_page(page)
+		await get_tree().create_timer(_scaled(Rules.page_seconds(page))).timeout
+	# Left up a while after the last page (dimmed once someone else speaks), then it fades.
+	await get_tree().create_timer(_scaled(6.0)).timeout
+	if is_instance_valid(bubble) and not bubble.is_queued_for_deletion():
+		var fade := bubble.create_tween()
+		fade.tween_property(bubble, "modulate:a", 0.0, 0.6)
+		fade.tween_callback(bubble.queue_free)
 
 
 func _wait_for_reader() -> void:
@@ -2030,6 +2100,13 @@ func _build_ui() -> void:
 	_stats_toggle.toggled.connect(_on_stats_toggled)
 	bar.add_child(_stats_toggle)
 
+	_bubbles_toggle = CheckBox.new()
+	_bubbles_toggle.name = "BubblesToggle"
+	_bubbles_toggle.text = "Bubbles"
+	_bubbles_toggle.button_pressed = true
+	_bubbles_toggle.tooltip_text = "Speech bubbles over whoever's talking, with a line to who they're talking to."
+	bar.add_child(_bubbles_toggle)
+
 	_sound_toggle = CheckBox.new()
 	_sound_toggle.name = "SoundToggle"
 	_sound_toggle.text = "Sound"
@@ -2065,7 +2142,7 @@ func _build_ui() -> void:
 	bar.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
-	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle]:
+	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _bubbles_toggle]:
 		toggle.add_theme_icon_override("unchecked", _tick_box(false))
 		toggle.add_theme_icon_override("checked", _tick_box(true))
 
@@ -2307,6 +2384,8 @@ func _build_stage(stage: Control) -> void:
 	_build_sign(stage)
 	_weather_front = _layer(stage, "WeatherFront")
 	_weather_front.z_index = 2  # in front of everyone
+	_bubble_layer = _layer(stage, "Bubbles")
+	_bubble_layer.z_index = 4  # in front of the tarp, the weather and the owner's name
 
 
 ## The drinks fridge at the back, by the stove (the owner's station), behind the owner: a

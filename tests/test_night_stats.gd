@@ -100,3 +100,5 @@ func test_chat_chances_are_counted() -> void:
 	stats.chats_continued = 3
 	assert_str(stats.panel_text(2, 0)).contains("Chat chances: 10 · taken 5 (2 new, 3 carried on)")
 	assert_int(int(stats.summary({})["talk"]["chat_chances"])).is_equal(10)
+	stats.free_turns = 30
+	assert_str(stats.panel_text(2, 0)).contains("Owner free: 30 times (a chat possible in 10)")

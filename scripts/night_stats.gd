@@ -27,6 +27,7 @@ var chat_lines := 0  # lines in customer chats (owner joining in included)
 var chats_started := 0
 var owner_joins := 0
 var customer_joins := 0
+var free_turns := 0  # times the owner's voice was free (nobody to greet or settle up with)
 var chat_chances := 0  # times a customer chat could have started (or carried on) when the owner was free
 var chats_continued := 0  # spells that carried on a chat already going
 
@@ -137,6 +138,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Customer chats: %d started, %d lines (%d%% of all lines)" % [chats_started, chat_lines, percent(chat_lines, owner_lines + chat_lines)])
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
+	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -167,7 +169,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"talk": {
 			"owner_lines": owner_lines, "chat_lines": chat_lines, "chats_started": chats_started,
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
-			"chat_chances": chat_chances, "chats_continued": chats_continued,
+			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
 		},
 		"food": {

@@ -70,6 +70,7 @@ func after_test() -> void:
 	Visit.cat_wanders = true
 	Visit.strollers = true
 	Visit.offer_every_look = true
+	Visit.bubbles = false  # lines as fast as the AI writes them (one test turns them on)
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
 	Ai.canned_think_seconds = 0.0
@@ -957,3 +958,17 @@ func test_the_cat_has_a_name_tag() -> void:
 	assert_str(tag.text).contains(str(scene._cat["name"]))
 	assert_str(tag.text).starts_with(str(Rules.CAT_HANGUL[scene._cat["name"]]))  # Hangul first, like everyone's
 	assert_str(tag.text).ends_with("♀" if scene._cat["sex"] == "she" else "♂")
+
+
+func test_lines_show_in_speech_bubbles_with_who_they_are_to() -> void:
+	Visit.bubbles = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return runner.find_child("Bubble", true, false) != null)).override_failure_message("no speech bubble").is_true()
+	var bubble = runner.find_child("Bubble", true, false)
+	var header := bubble.find_child("Header", true, false) as Label
+	assert_str(header.text).starts_with("→ ")
+	assert_object(bubble.listener).is_not_null()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()

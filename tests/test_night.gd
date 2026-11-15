@@ -28,6 +28,7 @@ func before_test() -> void:
 	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
 	Ambience.make_sound = false  # quiet tests (and quick ones)
 	Ambience.settings_path = "user://test_settings.cfg"
+	Visit.bubbles = false
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)

@@ -1342,3 +1342,42 @@ static func _starts_alike(roman: String, syllable: String) -> bool:
 		if start.begins_with(entry[0]):
 			return initial in entry[1]
 	return true  # a letter we don't know: don't hold it against them
+
+
+# --- Speech bubbles ------------------------------------------------------------------------
+
+const BUBBLE_PAGE := 190  # most of a line fits in one bubble: only long ones are paged
+const BUBBLE_SHORT := 110  # up to this, a narrower bubble
+
+
+## A line split into bubble-sized pages. Most lines fit in one; a long one is split where it
+## overflows, at the last sentence end (or pause) in the page if there's one past halfway,
+## never mid-word, with "…" where it carries on. A short leftover joins the page before.
+static func bubble_pages(text: String, most: int = BUBBLE_PAGE) -> PackedStringArray:
+	var pages := PackedStringArray()
+	var page: Array = []  # words
+	for word in tidy_text(text).split(" ", false):
+		if not page.is_empty() and " ".join(page).length() + 1 + word.length() > most:
+			var cut := page.size()
+			var length := 0
+			for i in page.size():
+				length += str(page[i]).length() + 1
+				var w := str(page[i])
+				if length >= most * 0.5 and (w.ends_with(".") or w.ends_with("?") or w.ends_with("!") or w.ends_with(",") or w.ends_with(";")):
+					cut = i + 1
+			pages.append(" ".join(page.slice(0, cut)))
+			page = page.slice(cut)
+		page.append(word)
+	if not page.is_empty():
+		pages.append(" ".join(page))
+	if pages.size() > 1 and pages[pages.size() - 1].length() < 40 and pages[pages.size() - 2].length() + pages[pages.size() - 1].length() <= most + 40:
+		pages[pages.size() - 2] = pages[pages.size() - 2] + " " + pages[pages.size() - 1]
+		pages.resize(pages.size() - 1)
+	for i in pages.size() - 1:
+		pages[i] = pages[i].trim_suffix(",").trim_suffix(";") + "…"
+	return pages
+
+
+## How long a page stays up: long enough to read it.
+static func page_seconds(page: String) -> float:
+	return clampf(1.0 + page.length() * 0.045, 1.8, 5.5)

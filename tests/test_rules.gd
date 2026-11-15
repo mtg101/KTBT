@@ -1072,3 +1072,18 @@ func test_a_customer_name_keeps_its_hangul_only_if_it_fits() -> void:
 	var wrong := {"name": "Kim Ji-ho", "hangul": "박지호", "gender": "woman"}
 	assert_str(Rules.validate_customer_name(wrong)).is_empty()  # the name's still fine...
 	assert_str(str(wrong["hangul"])).is_empty()  # ...but the wrong Hangul isn't shown
+
+
+func test_long_lines_are_paged_for_speech_bubbles() -> void:
+	assert_array(Array(Rules.bubble_pages("Evening, Ajumma."))).is_equal(["Evening, Ajumma."])
+	var one := "I should warn you, the owner's recipes are a closely guarded secret, but I can tell you that her sundae is a game-changer."
+	assert_int(Rules.bubble_pages(one).size()).is_equal(1)  # most lines fit in one bubble
+	var long := one + " It's the one thing that keeps me coming back, even on the nights I swore I'd go straight home, and I've told nobody that, not even my sister."
+	var pages := Rules.bubble_pages(long)
+	assert_int(pages.size()).is_greater(1)
+	for i in pages.size():
+		assert_int(pages[i].length()).is_less_equal(Rules.BUBBLE_PAGE + 41)  # a short leftover may join the page before
+		if i < pages.size() - 1:
+			assert_str(pages[i]).ends_with("…")
+	assert_str(" ".join(pages).replace("…", "")).contains("game-changer")
+	assert_float(Rules.page_seconds("Hi.")).is_equal(1.8)
