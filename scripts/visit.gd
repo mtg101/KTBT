@@ -43,6 +43,7 @@ const DiaryPage = preload("res://scripts/diary_page.gd")
 const DiaryBook = preload("res://scripts/diary_book.gd")
 const RecapScreen = preload("res://scripts/recap_screen.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
+const Ktv = preload("res://scripts/ktv_style.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -59,10 +60,10 @@ const WEATHER := [
 	"a warm spring breeze",
 ]
 
-const ACCENT := Color("e8833a")
-const MUTED := Color("a9a6c2")
+const ACCENT := Ktv.ORANGE
+const MUTED := Ktv.MUTED
 const OWNER_COLOR := Color("8f8aa8")
-const OWNER_TEXT := Color("ffd27f")
+const OWNER_TEXT := Ktv.YELLOW
 const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Color("c7b06f"), Color("9a8fc7"), Color("c7836f")]
 
 # Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
@@ -199,6 +200,7 @@ var _bubble_layer: Control  # speech bubbles, over everything on the stage
 var _bubbles_shown: Array = []  # Bubble: the newest last
 var _caption_layer: Control  # TV captions, over everything
 var _captions_toggle: CheckBox
+var _music_toggle: CheckBox
 var _options_button: Button  # the top bar's Options button...
 var _options_panel: PanelContainer  # ...and the panel it drops down
 var _caption_shown: Control  # the one up now (a new one replaces it)
@@ -2562,7 +2564,7 @@ func _validate_cat_name(data: Variant, taken: Array) -> String:
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
-	bg.color = Color("14132a")
+	bg.color = Ktv.BACKGROUND
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
@@ -2665,11 +2667,14 @@ func _build_ui() -> void:
 	var music_row := HBoxContainer.new()
 	music_row.add_theme_constant_override("separation", 12)
 	opts.add_child(music_row)
-	var music_label := Label.new()
-	music_label.text = "    Music"  # (lined up with the sound slider, past the tick box)
-	music_label.custom_minimum_size = Vector2(150, 0)
-	music_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	music_row.add_child(music_label)
+	_music_toggle = CheckBox.new()
+	_music_toggle.name = "MusicToggle"
+	_music_toggle.text = "Music"
+	_music_toggle.button_pressed = _music.enabled  # on unless it was turned off last time
+	_music_toggle.tooltip_text = "Arirang, now and then through the night."
+	_music_toggle.toggled.connect(_music.set_enabled)
+	_music_toggle.custom_minimum_size = Vector2(150, 0)
+	music_row.add_child(_music_toggle)
 	var music := HSlider.new()
 	music.name = "MusicVolume"
 	music.min_value = 0.0
@@ -2684,9 +2689,8 @@ func _build_ui() -> void:
 	music_row.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
-	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _bubbles_toggle, _captions_toggle]:
-		toggle.add_theme_icon_override("unchecked", _tick_box(false))
-		toggle.add_theme_icon_override("checked", _tick_box(true))
+	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _music_toggle, _bubbles_toggle, _captions_toggle]:
+		Ktv.light_ticks(toggle)
 
 	_try_again = Button.new()
 	_try_again.name = "TryAgainButton"
@@ -2831,27 +2835,6 @@ func _build_ui() -> void:
 	summary_buttons.add_child(summary_leave)
 
 
-## A tick box that shows up on a dark background: a light outline, filled with the accent
-## colour and a tick when on.
-func _tick_box(on: bool) -> ImageTexture:
-	var side := 18
-	var image := Image.create(side, side, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0, 0, 0, 0))
-	var edge := Color("d8d5ee")
-	for i in side:
-		for j in [0, 1, side - 2, side - 1]:
-			image.set_pixel(i, j, edge)
-			image.set_pixel(j, i, edge)
-	if on:
-		image.fill_rect(Rect2i(3, 3, side - 6, side - 6), ACCENT)
-		# The tick: a short stroke down, then a long one up.
-		for k in 4:
-			image.fill_rect(Rect2i(5 + k, 8 + k, 2, 2), Color.WHITE)
-		for k in 6:
-			image.fill_rect(Rect2i(8 + k, 11 - k, 2, 2), Color.WHITE)
-	return ImageTexture.create_from_image(image)
-
-
 func _badge(colour: Color) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = colour
@@ -2893,7 +2876,7 @@ func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:
 	panel.position = pos
 	panel.size = panel_size
 	var box := StyleBoxFlat.new()
-	box.bg_color = Color("22203a")
+	box.bg_color = Ktv.PANEL
 	box.set_corner_radius_all(10)
 	box.set_content_margin_all(16)
 	panel.add_theme_stylebox_override("panel", box)

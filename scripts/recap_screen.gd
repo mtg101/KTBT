@@ -10,17 +10,18 @@ extends Control
 signal finished
 
 const CaptionPopup = preload("res://scripts/caption.gd")
+const Ktv = preload("res://scripts/ktv_style.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const Story = preload("res://scripts/rules/story.gd")
 
 const NIGHT_TOP := Color("0d0b24")
 const NIGHT_BOTTOM := Color("2a1a40")
-const CREAM := Color("fff4e0")
-const PINK := Color("ff7eb6")
-const YELLOW := Color("ffd27f")
-const MINT := Color("7ee8c8")
-const INK := Color("1a1840")
+const CREAM := Ktv.CREAM
+const PINK := Ktv.PINK
+const YELLOW := Ktv.YELLOW
+const MINT := Ktv.MINT
+const INK := Ktv.INK
 const SIZE := Vector2(1920, 1080)
 const BEAT_SECONDS := 3.6
 const TEASER_SECONDS := 3.4
@@ -107,9 +108,7 @@ func _init() -> void:
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_subtitle.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	_subtitle.add_theme_constant_override("shadow_offset_x", 5)
-	_subtitle.add_theme_constant_override("shadow_offset_y", 6)
+	Ktv.soft_shadow(_subtitle, Vector2(3, 4))
 	_stage.add_child(_subtitle)
 
 	_heart = _label("두근두근 DUGEUN DUGEUN", 34, PINK, 10)
@@ -516,26 +515,8 @@ func _sting(sound: String) -> void:
 
 
 func _pill(colour: Color, radius: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour
-	style.border_color = INK
-	style.set_border_width_all(5)
-	style.set_corner_radius_all(radius)
-	style.content_margin_left = 26
-	style.content_margin_right = 26
-	style.content_margin_bottom = 6
-	style.shadow_color = Color(0, 0, 0, 0.4)
-	style.shadow_offset = Vector2(6, 6)
-	return style
+	return Ktv.pill(colour, radius)
 
 
 func _label(text: String, font_size: int, colour: Color, outline: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", colour)
-	if outline > 0:
-		label.add_theme_constant_override("outline_size", outline)
-		label.add_theme_color_override("font_outline_color", INK)
-	return label
+	return Ktv.label(text, font_size, colour, outline)

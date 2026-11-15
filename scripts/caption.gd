@@ -4,7 +4,8 @@ extends Control
 ## icon, a slight tilt, popping in with an overshoot, held a moment, then fading. Placed by
 ## whoever it's about (see visit.gd _caption); the words come from Captions.CAPTIONS.
 
-const INK := Color("1d1a26")
+const Ktv = preload("res://scripts/ktv_style.gd")
+const INK := Ktv.INK
 const HANGUL_SIZE := 50
 const ENGLISH_SIZE := 24
 const ICON_SIZE := 44
@@ -33,19 +34,11 @@ func setup(words: Dictionary, icon: String, colour: Color) -> void:
 	row.add_child(_box)
 	var hangul := _label(str(words.get("hangul", "")), HANGUL_SIZE, colour, 14)
 	hangul.name = "Hangul"
-	hangul.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-	hangul.add_theme_constant_override("shadow_offset_x", 3)
-	hangul.add_theme_constant_override("shadow_offset_y", 4)
+	Ktv.soft_shadow(hangul, Vector2(2, 3))
 	_box.add_child(hangul)
 	var tag := PanelContainer.new()
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var style := StyleBoxFlat.new()
-	style.bg_color = colour.darkened(0.15)
-	style.border_color = INK
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
+	var style := Ktv.pill(colour.darkened(0.15), 10, 3, 10, false)
 	style.content_margin_top = 0
 	style.content_margin_bottom = 2
 	tag.add_theme_stylebox_override("panel", style)
@@ -86,12 +79,6 @@ func pop(hold_seconds: float) -> void:
 
 
 func _label(text: String, font_size: int, colour: Color, outline: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", colour)
-	label.add_theme_color_override("font_outline_color", INK)
-	label.add_theme_constant_override("outline_size", outline)
-	return label
+	var made := Ktv.label(text, font_size, colour, outline)
+	made.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	return made

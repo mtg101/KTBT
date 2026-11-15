@@ -866,6 +866,10 @@ func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
 	assert_float(music.value).is_equal(0.5)
 	music.value = 0.0  # all the way down: no music
 	assert_float(Music.load_volume()).is_equal(0.0)
+	var music_on := runner.find_child("MusicToggle") as CheckBox  # and its own tick box
+	assert_bool(music_on.button_pressed).is_true()
+	music_on.button_pressed = false
+	assert_bool(Music.load_enabled()).is_false()  # remembered for next time
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Ambience.settings_path))
 
 

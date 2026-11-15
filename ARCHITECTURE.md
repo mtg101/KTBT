@@ -10,7 +10,7 @@ The game's one big rule is **the game owns the facts, the AI owns the flavour**:
 2. **Prompts and the AI** (`prompts.gd`, `ai.gd`, `ollama_client.gd`, `canned_ai.gd`, `ai_settings.gd`): what the AI is asked, sending it to Ollama (or offline mode's canned replies), and retrying a reply the rules reject.
 3. **Saves and logs** (`save_store.gd`, `night_stats.gd`, `game.gd`): each bar's save file, the night's stats, and the `Game` autoload that holds the open bar.
 4. **The bar** (`visit.gd`, with `scenes/visit.tscn`): runs a night, using everything above. Still one big script; splitting it is step 4 of the refactor.
-5. **On screen** (`bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `title.gd`) and **sound** (`ambience.gd`, `music.gd`): pieces the bar and title screen show. All drawn and made in code for now.
+5. **On screen** (the look in `ktv_style.gd`: the K-TV palette, outlined labels, pills and title-card text, which everything on screen builds from; then `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `title.gd`) and **sound** (`ambience.gd`, `music.gd`): pieces the bar and title screen show. All drawn and made in code for now.
 
 Higher layers use lower ones, never the other way round: the rules don't know about scenes, and nothing below the bar knows about it.
 

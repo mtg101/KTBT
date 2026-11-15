@@ -6,11 +6,12 @@ extends Control
 
 const Story = preload("res://scripts/rules/story.gd")
 
-const PAPER := Color("f6ecd6")
+const Ktv = preload("res://scripts/ktv_style.gd")
+const PAPER := Ktv.PAPER
 const RULE := Color(0.45, 0.6, 0.85, 0.28)
 const MARGIN := Color(0.85, 0.3, 0.3, 0.45)
 const INK := Color("2b3a67")
-const PINK := Color("ff7eb6")
+const PINK := Ktv.PINK
 const PAGE := Vector2(780, 600)
 const LINE_GAP := 38.0  # the ruled lines, matched to the entry's lines
 const BODY_TOP := 150.0
@@ -35,17 +36,11 @@ func _init() -> void:
 
 	var pill := PanelContainer.new()
 	pill.position = Vector2(LEFT + 10, 36)
-	var style := StyleBoxFlat.new()
-	style.bg_color = PINK
-	style.border_color = Color("1a1840")
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(14)
-	style.content_margin_left = 14
-	style.content_margin_right = 14
+	var style := Ktv.pill(PINK, 14, 3, 14, false)
 	style.content_margin_bottom = 2
 	pill.add_theme_stylebox_override("panel", style)
 	add_child(pill)
-	_episode = _label(26, Color("1a1840"))
+	_episode = _label(26, Ktv.INK)
 	_episode.name = "Episode"
 	pill.add_child(_episode)
 	_day = _label(24, INK)
@@ -75,7 +70,7 @@ func _init() -> void:
 	add_child(_writing)
 	_pen = Polygon2D.new()
 	_pen.polygon = PackedVector2Array([Vector2(0, 0), Vector2(8, -6), Vector2(46, -44), Vector2(38, -52), Vector2(0, -14), Vector2(-4, 4)])
-	_pen.color = Color("1a1840")
+	_pen.color = Ktv.INK
 	_pen.visible = false
 	add_child(_pen)
 
@@ -173,12 +168,8 @@ func _draw() -> void:
 		y += LINE_GAP
 	draw_line(Vector2(LEFT, 0), Vector2(LEFT, PAGE.y), MARGIN, 2.0)
 	for hole in 3:  # punched holes down the side
-		draw_circle(Vector2(36, PAGE.y * (0.2 + 0.3 * hole)), 10, Color("14132a"))
+		draw_circle(Vector2(36, PAGE.y * (0.2 + 0.3 * hole)), 10, Ktv.BACKGROUND)
 
 
 func _label(font_size: int, colour: Color) -> Label:
-	var label := Label.new()
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", colour)
-	return label
+	return Ktv.label("", font_size, colour)

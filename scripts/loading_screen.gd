@@ -4,13 +4,14 @@ extends Control
 ## or variety-show title card, over a little tent bar glowing in the night.
 
 const SIZE := Vector2(1920, 1080)
-const TARP := Color("e8833a")
-const CREAM := Color("fff4e0")
-const PINK := Color("ff7eb6")
-const MINT := Color("7ee8c8")
-const YELLOW := Color("ffd27f")
-const NIGHT_TOP := Color("1a1840")
-const NIGHT_BOTTOM := Color("3c2a5c")
+const Ktv = preload("res://scripts/ktv_style.gd")
+const TARP := Ktv.ORANGE
+const CREAM := Ktv.CREAM
+const PINK := Ktv.PINK
+const MINT := Ktv.MINT
+const YELLOW := Ktv.YELLOW
+const NIGHT_TOP := Ktv.NIGHT_TOP
+const NIGHT_BOTTOM := Ktv.NIGHT_BOTTOM
 const CaptionReel = preload("res://scripts/caption_reel.gd")
 
 ## Captions popping up while the AI works, as a variety show teases what's coming.
@@ -225,12 +226,7 @@ func _build_title() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 112)
 	title.add_theme_color_override("font_color", CREAM)
-	title.add_theme_constant_override("outline_size", 30)
-	title.add_theme_color_override("font_outline_color", PINK.darkened(0.15))
-	title.add_theme_color_override("font_shadow_color", Color("2a1840"))
-	title.add_theme_constant_override("shadow_offset_x", 8)
-	title.add_theme_constant_override("shadow_offset_y", 10)
-	title.add_theme_constant_override("shadow_outline_size", 30)
+	Ktv.title_card(title, 30, PINK.darkened(0.15), Vector2(8, 10))
 	add_child(title)
 	var bob := title.create_tween().set_loops()
 	bob.tween_property(title, "scale", Vector2(1.03, 1.03), 1.2).set_trans(Tween.TRANS_SINE)
@@ -241,7 +237,7 @@ func _build_title() -> void:
 	pill.name = "Caption"
 	var style := StyleBoxFlat.new()
 	style.bg_color = MINT
-	style.border_color = Color("1a1840")
+	style.border_color = Ktv.INK
 	style.set_border_width_all(6)
 	style.set_corner_radius_all(40)
 	style.content_margin_left = 36
@@ -254,7 +250,7 @@ func _build_title() -> void:
 	var caption := Label.new()
 	caption.text = "포장마차 · 오늘 밤도 영업 중!"
 	caption.add_theme_font_size_override("font_size", 40)
-	caption.add_theme_color_override("font_color", Color("1a1840"))
+	caption.add_theme_color_override("font_color", Ktv.INK)
 	pill.add_child(caption)
 	add_child(pill)
 	pill.position = Vector2(SIZE.x / 2 - 330, 340)
@@ -268,7 +264,7 @@ func _build_title() -> void:
 	tag.add_theme_font_size_override("font_size", 34)
 	tag.add_theme_color_override("font_color", YELLOW)
 	tag.add_theme_constant_override("outline_size", 10)
-	tag.add_theme_color_override("font_outline_color", Color("1a1840"))
+	tag.add_theme_color_override("font_outline_color", Ktv.INK)
 	add_child(tag)
 
 

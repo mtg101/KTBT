@@ -30,12 +30,14 @@ static var _tune: AudioStreamWAV = null  # made once per run, on a worker thread
 static var _task := -1
 
 var volume := 0.5  # the Music slider, 0 to 1
+var enabled := true  # the Music tick box
 var _player: AudioStreamPlayer
 var _wait := 0.0  # straight away the first time, as soon as it's made
 
 
 func _ready() -> void:
 	volume = load_volume()
+	enabled = load_enabled()
 	if not Ambience.make_sound:
 		return
 	_bus()
@@ -57,6 +59,23 @@ func set_volume(level: float) -> void:
 	settings.save(Ambience.settings_path)
 
 
+## The Music tick box: on or off (the volume's kept for when it's back on), remembered.
+func set_enabled(on: bool) -> void:
+	enabled = on
+	_apply_volume()
+	var settings := ConfigFile.new()
+	settings.load(Ambience.settings_path)
+	settings.set_value("music", "on", on)
+	settings.save(Ambience.settings_path)
+
+
+static func load_enabled() -> bool:
+	var settings := ConfigFile.new()
+	if settings.load(Ambience.settings_path) != OK:
+		return true  # on by default
+	return bool(settings.get_value("music", "on", true))
+
+
 static func load_volume() -> float:
 	var settings := ConfigFile.new()
 	if settings.load(Ambience.settings_path) != OK:
@@ -67,7 +86,7 @@ static func load_volume() -> float:
 func _apply_volume() -> void:
 	if not Ambience.make_sound:
 		return
-	AudioServer.set_bus_mute(_bus(), volume <= 0.0)
+	AudioServer.set_bus_mute(_bus(), not enabled or volume <= 0.0)
 	AudioServer.set_bus_volume_db(_bus(), linear_to_db(maxf(volume, 0.001)) - 12.0)
 
 

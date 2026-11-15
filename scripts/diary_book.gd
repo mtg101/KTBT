@@ -6,6 +6,7 @@ extends Control
 ## on…" can open it at the night it's recapping too.
 
 const DiaryPage = preload("res://scripts/diary_page.gd")
+const Ktv = preload("res://scripts/ktv_style.gd")
 
 signal closed
 
@@ -49,7 +50,7 @@ func _init() -> void:
 	_where.custom_minimum_size = Vector2(200, 0)
 	_where.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_where.add_theme_font_size_override("font_size", 20)
-	_where.add_theme_color_override("font_color", Color("d8d5ee"))
+	_where.add_theme_color_override("font_color", Ktv.LIGHT)
 	buttons.add_child(_where)
 	_newer = _button("DiaryNewer", "Newer ▶", _flip.bind(1))
 	buttons.add_child(_newer)

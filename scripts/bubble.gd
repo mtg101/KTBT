@@ -8,8 +8,9 @@ extends Control
 const NARROW := 330.0
 const WIDE := 440.0  # for a long line, so it stays a few lines tall
 const ABOVE_HEAD := 36.0  # the bubble sits this far above the top of the speaker's head (over their name)
-const PAPER := Color("f7f1e3")
-const INK := Color("2a2533")
+const Ktv = preload("res://scripts/ktv_style.gd")
+const PAPER := Ktv.PAPER
+const INK := Ktv.INK
 
 var speaker: Control  # whoever's speaking (stage coordinates)
 var listener: Control  # whoever they're talking to (or null)

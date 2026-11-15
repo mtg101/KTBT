@@ -22,7 +22,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by, speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 418 automated tests (rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 419 automated tests (rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -79,6 +79,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/loading_screen.gd` | The loading screen shown while a new bar is set up |
 | `scripts/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
+| `scripts/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
 | `scripts/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
 | `scripts/bubble.gd` | A speech bubble: over the speaker, who it's to, a line to the listener, and long lines a page at a time |

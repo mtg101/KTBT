@@ -5,9 +5,10 @@ const SaveStore = preload("res://scripts/save_store.gd")
 const Menu = preload("res://scripts/menu.gd")
 const DiaryBook = preload("res://scripts/diary_book.gd")
 
-const ACCENT := Color("e8833a")
-const MUTED := Color("a9a6c2")
-const PANEL := Color("22203a")
+const Ktv = preload("res://scripts/ktv_style.gd")
+const ACCENT := Ktv.ORANGE
+const MUTED := Ktv.MUTED
+const PANEL := Ktv.PANEL
 
 var _list: VBoxContainer
 ## The bar whose Delete button has been clicked once ("Sure?"), and when, so a second click
@@ -145,7 +146,7 @@ func _build_ui() -> void:
 	var card := PanelContainer.new()  # a dark card, so the menu reads over the busy backdrop
 	var card_style := StyleBoxFlat.new()
 	card_style.bg_color = Color(0.07, 0.06, 0.15, 0.85)
-	card_style.border_color = Color("ff7eb6")
+	card_style.border_color = Ktv.PINK
 	card_style.set_border_width_all(4)
 	card_style.set_corner_radius_all(28)
 	card_style.content_margin_left = 40
@@ -164,31 +165,31 @@ func _build_ui() -> void:
 	title.text = "KTBT"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 96)
-	title.add_theme_color_override("font_color", Color("fff4e0"))
-	title.add_theme_constant_override("outline_size", 24)
-	title.add_theme_color_override("font_outline_color", Color("ff7eb6").darkened(0.15))
-	title.add_theme_color_override("font_shadow_color", Color("2a1840"))
-	title.add_theme_constant_override("shadow_offset_x", 6)
-	title.add_theme_constant_override("shadow_offset_y", 8)
-	title.add_theme_constant_override("shadow_outline_size", 24)
+	title.add_theme_color_override("font_color", Ktv.CREAM)
+	Ktv.title_card(title, 24, Ktv.PINK.darkened(0.15), Vector2(6, 8))
 	col.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Korean Tent Bar Tropes"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 28)
-	subtitle.add_theme_color_override("font_color", Color("ffd27f"))
+	subtitle.add_theme_color_override("font_color", Ktv.YELLOW)
 	subtitle.add_theme_constant_override("outline_size", 8)
-	subtitle.add_theme_color_override("font_outline_color", Color("1a1840"))
+	subtitle.add_theme_color_override("font_outline_color", Ktv.INK)
 	col.add_child(subtitle)
 
 	var music_row := HBoxContainer.new()  # the music's volume (it plays from here on)
 	music_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(music_row)
-	var music_label := Label.new()
-	music_label.text = "Music"
-	music_label.add_theme_color_override("font_color", MUTED)
-	music_row.add_child(music_label)
+	var music_toggle := CheckBox.new()
+	music_toggle.name = "MusicToggle"
+	music_toggle.text = "Music"
+	music_toggle.button_pressed = Game.music.enabled
+	music_toggle.tooltip_text = "Arirang, now and then."
+	music_toggle.add_theme_color_override("font_color", MUTED)
+	music_toggle.toggled.connect(Game.music.set_enabled)
+	Ktv.light_ticks(music_toggle)
+	music_row.add_child(music_toggle)
 	var music := HSlider.new()
 	music.name = "MusicVolume"
 	music.min_value = 0.0
