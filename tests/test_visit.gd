@@ -1,4 +1,4 @@
-extends GdUnitTestSuite
+extends "res://tests/support/bar_test.gd"
 ## Click-through tests for the visit scene: load the real scene, click the real button with
 ## simulated mouse input, and check what happens. The AI is offline mode (the canned AI),
 ## sometimes with scripted replies, so these run without Ollama, quickly and repeatably.
@@ -17,7 +17,6 @@ const NightStats = preload("res://scripts/night_stats.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TEST_SAVES := "user://test_saves_visit/"
-const TIMEOUT_MS := 15000
 
 ## A reply that's valid for either gender of owner (the archetype names no gendered term).
 const ANY_OWNER := {"name": "Han Jeong-hee", "age": 47, "archetype": "former chef who walked out of a hotel kitchen", "appearance": "Sleeves rolled up.", "personality": "proud, funny", "speech_style": "quick and teasing", "secret": "She still gets job offers from the hotel."}
@@ -29,105 +28,17 @@ const A_NAME := {"name": "Kim Ji-ho", "gender": "woman"}
 const A_CUSTOMER := {"name": "Kim Ji-ho", "age": 34, "job": "office worker", "mood": "worn out", "reason": "Her team lead took credit for her work again.", "speech_style": "dry, tired", "appearance": "A crumpled blazer."}
 
 
-var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
-var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_visit/"
 const TEST_STATS := "user://test_stats_visit/"
 
 
-func before_test() -> void:
-	_real_saves = SaveStore.folder
-	SaveStore.folder = TEST_SAVES
-	_real_stats = NightStats.folder
-	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
-	_clear_folder(TEST_STATS)
-	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
-	_clear_folder(TEST_TRANSCRIPTS)
-	_clear_saves()
-	Game.bar = {}  # a new bar each test
-	AiSettings.override = {"backend": "canned"}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = 0.01
-	Visit.random_seed = 1234
-	Visit.run_clock = false  # no automatic customers: these tests click Next customer themselves
-
-
-func after_test() -> void:
-	_clear_saves()
-	SaveStore.folder = _real_saves
-	_clear_folder(TEST_STATS)
-	NightStats.folder = _real_stats
-	_clear_folder(TEST_TRANSCRIPTS)
-	Visit.transcript_folder = ""
-	Game.bar = {}
-	Ai.simulate_unreachable = false
-	AiSettings.override = {}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = -1.0
-	Visit.random_seed = 0
-	Visit.run_clock = true
-	Visit.stay_minutes_override = -1
-	Visit.company_override = ""
-	Visit.chat_chance_override = -1.0
-	Visit.gender_override = ""
-	Visit.cat_wanders = true
-	Visit.strollers = true
-	Visit.offer_every_look = true
-	Visit.bubbles = false  # lines as fast as the AI writes them (one test turns them on)
-	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
-	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
-	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
-	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
-	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
-	Visit.recaps = false  # (no "Previously on…" when a bar opens; recap tests turn it on)
-	Visit.captions = true
-	Visit.caption_pacing = false  # every caption shows, so tests can look for them (pacing has its own rule tests)
-	Ambience.make_sound = false  # quiet tests (and quick ones)
-	Ambience.settings_path = "user://test_settings.cfg"
-	Ai.canned_think_seconds = 0.0
+func _setup() -> void:
+	Hooks.random_seed = 1234
+	Hooks.run_clock = false  # no automatic customers: these tests bring people in themselves
 
 
 # --- Helpers ---------------------------------------------------------------------------
 
-func _clear_folder(path: String) -> void:
-	var dir := DirAccess.open(path)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-func _clear_saves() -> void:
-	var dir := DirAccess.open(TEST_SAVES)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-## Waits (a frame at a time) until condition() is true. Returns false on timeout.
-func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
-	var start := Time.get_ticks_msec()
-	while not condition.call():
-		if Time.get_ticks_msec() - start > timeout_ms:
-			return false
-		await get_tree().process_frame
-	return true
-
-
-## Clicks a button the way a player would: move the mouse over it and press.
-func _click(runner: GdUnitSceneRunner, button: Button) -> void:
-	# Let layouts settle first: a button that's only just appeared (like Try again) may not
-	# be in its place yet.
-	for i in 3:
-		await get_tree().process_frame
-	runner.simulate_mouse_move(button.get_global_rect().get_center())
-	await runner.await_input_processed()
-	runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	await runner.await_input_processed()
-
-
-## Loads the scene and waits until the owner is in and the button is ready.
 func _open_bar() -> GdUnitSceneRunner:
 	var runner := scene_runner(SCENE)
 	var scene = runner.scene()
@@ -144,10 +55,6 @@ func _run_one_visit(runner: GdUnitSceneRunner) -> void:
 	var done: bool = await _wait_until(func(): return not scene.busy)
 	assert_bool(done).override_failure_message("the visit never finished").is_true()
 	await get_tree().process_frame  # let freed dishes disappear
-
-
-func _transcript(runner: GdUnitSceneRunner) -> String:
-	return (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
 
 
 # --- Tests -------------------------------------------------------------------------------
@@ -239,7 +146,7 @@ func _time_up(scene) -> void:
 
 
 func test_someone_who_waits_too_long_walks_past() -> void:
-	Visit.stay_minutes_override = 600  # nobody leaves, so the tent stays full
+	Hooks.stay_minutes_override = 600  # nobody leaves, so the tent stays full
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 6)
@@ -273,7 +180,7 @@ func test_cooked_food_waits_at_the_stove() -> void:
 func test_the_ai_hears_what_is_still_cooking() -> void:
 	var order := {"items": ["beer", "dakgalbi"], "line": "A beer and the dakgalbi, please."}
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
-	Visit.pause_scale_override = 1.0  # slow the stove, so the dakgalbi is still cooking for the first line
+	Hooks.pause_scale_override = 1.0  # slow the stove, so the dakgalbi is still cooking for the first line
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -290,8 +197,8 @@ func test_the_ai_hears_what_is_still_cooking() -> void:
 
 
 func test_the_owner_moves_between_customers() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0  # just the owner talking
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0  # just the owner talking
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -381,7 +288,7 @@ func test_ollama_backend_never_falls_back() -> void:
 # --- How long people stay, and customers talking to each other -------------------------
 
 func test_customers_say_goodbye_and_leave_when_their_time_is_up() -> void:
-	Visit.stay_minutes_override = 600
+	Hooks.stay_minutes_override = 600
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -400,9 +307,9 @@ func test_customers_say_goodbye_and_leave_when_their_time_is_up() -> void:
 
 
 func test_customers_chat_to_each_other() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "chatty"
-	Visit.chat_chance_override = 1.0
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -430,9 +337,9 @@ func test_customers_chat_to_each_other() -> void:
 
 
 func test_quiet_customers_keep_to_themselves() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "quiet"
-	Visit.chat_chance_override = 1.0
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "quiet"
+	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -445,7 +352,7 @@ func test_quiet_customers_keep_to_themselves() -> void:
 
 
 func test_no_two_customers_at_the_counter_share_a_name() -> void:
-	Visit.stay_minutes_override = 600
+	Hooks.stay_minutes_override = 600
 	# Two arrive together. The AI names the second customer the same as the first:
 	# rejected, and asked again. (The reply in between is the first one's order: with
 	# someone else waiting, the owner greets them quickly, with no chat yet.)
@@ -464,8 +371,8 @@ func test_no_two_customers_at_the_counter_share_a_name() -> void:
 
 
 func test_greetings_are_quick_when_its_busy() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 3)
@@ -483,8 +390,8 @@ func test_greetings_are_quick_when_its_busy() -> void:
 
 
 func test_food_is_carried_over_while_the_ai_is_thinking() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0
 	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
@@ -540,9 +447,9 @@ func test_stats_count_a_visit() -> void:
 
 
 func test_stats_count_customer_chats() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "chatty"
-	Visit.chat_chance_override = 1.0
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -555,7 +462,7 @@ func test_stats_count_customer_chats() -> void:
 # --- Gender symbols ------------------------------------------------------------------------
 
 func test_names_on_screen_show_gender_symbols() -> void:
-	Visit.stay_minutes_override = 600
+	Hooks.stay_minutes_override = 600
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -583,7 +490,7 @@ func test_gender_symbols() -> void:
 
 
 func test_a_non_binary_customer_comes_in() -> void:
-	Visit.gender_override = "non-binary"
+	Hooks.gender_override = "non-binary"
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	await _run_one_visit(runner)
@@ -592,17 +499,17 @@ func test_a_non_binary_customer_comes_in() -> void:
 
 
 func test_time_speeds_up_when_the_tent_is_empty_and_slows_when_busy() -> void:
-	Visit.run_clock = true
-	Visit.pause_scale_override = 1.0  # real speed, so the night doesn't race past before we look
-	Visit.stay_minutes_override = 600
+	Hooks.run_clock = true
+	Hooks.pause_scale_override = 1.0  # real speed, so the night doesn't race past before we look
+	Hooks.stay_minutes_override = 600
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._time_speed > 5.0)).is_true()
 	assert_str((runner.find_child("MomentLabel") as Label).text).contains("▶▶")
 	_crowd(scene, 2)
 	assert_bool(await _wait_until(func(): return scene._guests.size() >= 2 and scene._time_speed <= 1.0)).override_failure_message("time didn't slow down for two customers").is_true()
-	Visit.run_clock = false  # no more arrivals, so the tent can empty
-	Visit.pause_scale_override = 0.01
+	Hooks.run_clock = false  # no more arrivals, so the tent can empty
+	Hooks.pause_scale_override = 0.01
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
@@ -628,8 +535,8 @@ func test_the_ai_names_the_cat() -> void:
 
 
 func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.cat_wanders = false
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -649,7 +556,7 @@ func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
 
 
 func test_the_cat_wanders_by_itself() -> void:
-	Visit.run_clock = true
+	Hooks.run_clock = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var moved: bool = await _wait_until(func(): return scene._cat_spot != "stove")
@@ -657,7 +564,7 @@ func test_the_cat_wanders_by_itself() -> void:
 
 
 func test_the_cat_faces_the_way_its_going() -> void:
-	Visit.cat_wanders = false
+	Hooks.cat_wanders = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var cat := runner.find_child("Cat") as Control
@@ -671,8 +578,8 @@ func test_the_cat_faces_the_way_its_going() -> void:
 # --- How conversations flow -----------------------------------------------------------------
 
 func test_the_owners_chat_turns_to_a_topic() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -683,8 +590,8 @@ func test_the_owners_chat_turns_to_a_topic() -> void:
 
 
 func test_a_line_written_before_a_dish_arrived_is_asked_for_again() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0
 	var order := {"items": ["beer", "tteokbokki"], "line": "A beer and the tteokbokki, please."}
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
 	var runner := await _open_bar()
@@ -698,8 +605,8 @@ func test_a_line_written_before_a_dish_arrived_is_asked_for_again() -> void:
 
 
 func test_nobody_speaks_twice_running_as_they_leave() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.chat_chance_override = 0.0
+	Hooks.stay_minutes_override = 600
+	Hooks.chat_chance_override = 0.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -714,9 +621,9 @@ func test_nobody_speaks_twice_running_as_they_leave() -> void:
 
 
 func test_nobody_starts_a_chat_just_before_leaving() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "chatty"
-	Visit.chat_chance_override = 0.0  # no chat while they settle in
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 0.0  # no chat while they settle in
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -730,9 +637,9 @@ func test_nobody_starts_a_chat_just_before_leaving() -> void:
 
 
 func test_someone_leaving_a_chat_says_goodbye_to_their_partner() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "chatty"
-	Visit.chat_chance_override = 1.0
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -747,9 +654,9 @@ func test_someone_leaving_a_chat_says_goodbye_to_their_partner() -> void:
 
 
 func test_a_chat_gets_a_few_lines_before_anything_cuts_in() -> void:
-	Visit.stay_minutes_override = 600
-	Visit.company_override = "chatty"
-	Visit.chat_chance_override = 1.0
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
@@ -762,7 +669,7 @@ func test_a_chat_gets_a_few_lines_before_anything_cuts_in() -> void:
 
 
 func test_time_doesnt_race_while_the_first_customer_is_being_greeted() -> void:
-	Visit.stay_minutes_override = 600
+	Hooks.stay_minutes_override = 600
 	Ai.canned_think_seconds = 0.2  # inventing them takes a while
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -882,7 +789,7 @@ func test_stripes_are_cut_to_the_shape() -> void:
 
 
 func test_people_walk_past_without_coming_in() -> void:
-	Visit.run_clock = true
+	Hooks.run_clock = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._strollers >= 3)).override_failure_message("nobody walked past").is_true()
@@ -901,7 +808,7 @@ func test_no_template_tent_while_the_ai_thinks() -> void:
 
 
 func test_a_new_bar_chooses_from_a_few_colours_and_shapes() -> void:
-	Visit.offer_every_look = false
+	Hooks.offer_every_look = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var offer: Dictionary = scene._look_offer
@@ -979,7 +886,7 @@ func test_the_cat_has_a_name_tag() -> void:
 
 
 func test_lines_show_in_speech_bubbles_with_who_they_are_to() -> void:
-	Visit.bubbles = true
+	Hooks.bubbles = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 1)
@@ -1006,7 +913,7 @@ func _a_regular(founding: bool = false) -> Dictionary:
 
 
 func test_a_new_bar_opens_with_two_founding_regulars() -> void:
-	Visit.founding_regulars = true
+	Hooks.founding_regulars = true
 	var runner := await _open_bar()
 	var regulars: Array = Game.bar.get("regulars", [])
 	assert_int(regulars.size()).is_equal(2)
@@ -1065,7 +972,7 @@ func test_a_founding_regulars_prompt_knows_their_history() -> void:
 
 
 func test_someone_who_enjoyed_their_visit_can_become_a_regular() -> void:
-	Visit.regular_roll_override = 0.0  # if it's possible at all, it happens
+	Hooks.regular_roll_override = 0.0  # if it's possible at all, it happens
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Game.bar["regulars"] = []
@@ -1078,7 +985,7 @@ func test_someone_who_enjoyed_their_visit_can_become_a_regular() -> void:
 
 
 func test_nobody_becomes_a_regular_when_the_dice_say_no() -> void:
-	Visit.regular_roll_override = 1.0
+	Hooks.regular_roll_override = 1.0
 	var runner := await _open_bar()
 	Game.bar["regulars"] = []
 	await _run_one_visit(runner)
@@ -1138,8 +1045,8 @@ func _a_departing_guest(scene) -> Visit.Guest:
 
 
 func test_a_loved_visit_is_remembered_and_makes_a_regular() -> void:
-	Visit.memories = true
-	Visit.regular_roll_override = 0.05  # under "loved it"'s 1 in 10, over "fine"'s 1 in 200
+	Hooks.memories = true
+	Hooks.regular_roll_override = 0.05  # under "loved it"'s 1 in 10, over "fine"'s 1 in 200
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Game.bar["regulars"] = []
@@ -1161,8 +1068,8 @@ func test_a_loved_visit_is_remembered_and_makes_a_regular() -> void:
 
 
 func test_a_visit_they_didnt_enjoy_makes_no_regular() -> void:
-	Visit.memories = true
-	Visit.regular_roll_override = 0.0
+	Hooks.memories = true
+	Hooks.regular_roll_override = 0.0
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Game.bar["regulars"] = []
@@ -1180,7 +1087,7 @@ func test_two_regulars_get_to_know_each_other_and_then_ask() -> void:
 	var older := _a_regular()
 	older.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
 	Game.bar["regulars"] = [younger, older]
-	Visit.stay_minutes_override = 600
+	Hooks.stay_minutes_override = 600
 	scene._arrive(scene._clock, younger["id"])
 	scene._arrive(scene._clock, older["id"])
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).override_failure_message("they never both sat down").is_true()
@@ -1229,7 +1136,7 @@ func test_the_owner_uses_a_well_known_regulars_given_name() -> void:
 
 
 func test_noteworthy_moments_get_tv_captions() -> void:
-	Visit.stay_minutes_override = 600  # nobody leaves, so the tent stays full
+	Hooks.stay_minutes_override = 600  # nobody leaves, so the tent stays full
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 6)
@@ -1242,9 +1149,9 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
 	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_equal(1)
 	# Drawn: Hangul over the English, by the tent (at normal speed, so it's still up to look at).
-	Visit.pause_scale_override = 1.0
+	Hooks.pause_scale_override = 1.0
 	scene._caption("stove")
-	Visit.pause_scale_override = 0.01
+	Hooks.pause_scale_override = 0.01
 	var caption: Control = scene._caption_shown
 	assert_object(caption).is_not_null()
 	if caption != null:
@@ -1271,7 +1178,7 @@ func test_the_last_customer_leaving_late_is_all_quiet() -> void:
 
 
 func test_a_big_moment_gets_a_tv_reaction() -> void:
-	Visit.reactions = true
+	Hooks.reactions = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var owner_name := str(Game.bar["owner"]["name"])
@@ -1312,7 +1219,7 @@ func test_the_diary_can_be_read_during_a_night() -> void:
 
 
 func test_a_new_bar_opens_with_its_first_episode() -> void:
-	Visit.recaps = true
+	Hooks.recaps = true
 	var runner := scene_runner(SCENE)
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._night_number == 1)).override_failure_message("night one never started").is_true()

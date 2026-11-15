@@ -338,9 +338,9 @@ func test_the_game_decided_look_goes_into_the_prompts() -> void:
 	assert_str(details).contains("beige trench coat")
 	assert_str(details).contains("from 30 to 39")
 	var owner_look := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "camel", "apron": true}
-	var owner := _request(Prompts.owner_messages("woman", owner_look))
-	assert_str(owner).contains("greying perm")
-	assert_str(owner).contains("from 60 to 69")
+	var the_owner := _request(Prompts.owner_messages("woman", owner_look))
+	assert_str(the_owner).contains("greying perm")
+	assert_str(the_owner).contains("from 60 to 69")
 
 
 func test_regression_chats_know_everyones_sat_down_and_new_here() -> void:
@@ -418,10 +418,10 @@ func test_the_recap_prompt_tells_last_time() -> void:
 
 
 func test_the_owners_life_is_in_every_prompt() -> void:
-	var owner := _owner_data()
-	owner["family"] = "widowed young; a grown daughter in Daejeon"
-	owner["before"] = "a fish stall at Jagalchi market"
-	var text := Prompts.describe_owner(owner)
+	var the_owner := _owner_data()
+	the_owner["family"] = "widowed young; a grown daughter in Daejeon"
+	the_owner["before"] = "a fish stall at Jagalchi market"
+	var text := Prompts.describe_owner(the_owner)
 	assert_str(text).contains("widowed young; a grown daughter in Daejeon")
 	assert_str(text).contains("a fish stall at Jagalchi market")
 	assert_str(text).contains("never changes")

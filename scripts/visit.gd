@@ -30,6 +30,7 @@ const CaptionPopup = preload("res://scripts/caption.gd")
 const DiaryPage = preload("res://scripts/diary_page.gd")
 const DiaryBook = preload("res://scripts/diary_book.gd")
 const RecapScreen = preload("res://scripts/recap_screen.gd")
+const Hooks = preload("res://scripts/test_hooks.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -71,53 +72,7 @@ const OFFSCREEN_LEFT_X := -200.0
 const OFFSCREEN_RIGHT_X := 2072.0
 const PEEK_X := 865.0  # where a passer-by stops to look in: the gap between the second and third stools
 
-## Test hooks (set by tests before loading the scene; leave alone otherwise).
-## pause_scale_override >= 0 scales every pause and the clock (e.g. 0.01 runs a visit in a blink);
-## random_seed != 0 makes every run pick the same moments, customers and orders.
-static var pause_scale_override := -1.0
-static var random_seed := 0
-## Test hook: false stops the night clock, so no customers arrive by themselves and the
-## night never ends (tests that only want to click Next customer turn it off). The stove
-## keeps cooking either way.
-static var run_clock := true
-## Test hooks for customers: stay_minutes_override >= 0 gives everyone that stay;
-## company_override ("chatty", "quiet" or "owner") gives everyone that mood for company;
-## chat_chance_override >= 0 replaces CHAT_CHANCE and BUSY_CHAT_CHANCE.
-static var stay_minutes_override := -1
-static var company_override := ""
-static var chat_chance_override := -1.0
-## Test hook: a gender for every new customer instead of the game's roll ("non-binary").
-static var gender_override := ""
-## Test hook: false keeps the cat where it is (tests move it with _move_cat).
-static var cat_wanders := true
-## Where night transcripts go (see _start_transcript). "" means the default: logs/transcripts/
-## in the project folder when running from the editor, or the user data folder otherwise.
-## Tests point it at their own folder.
-static var transcript_folder := ""
-## Test hook: false keeps people from walking past in the street.
-static var strollers := true
-## Test hooks: false gives a new bar (or an older one) no founding regulars (they'd use up
-## tests' scripted replies); and a fixed roll for whether someone becomes a regular.
-static var founding_regulars := true
-static var regular_roll_override := -1.0
-## Test hook: false skips the after-visit memory (an AI call that would use up scripted
-## replies), so the game's own verdict is used; memory tests turn it on.
-static var memories := true
-## Test hook: false shows no speech bubbles (lines then come as fast as the AI writes them).
-static var bubbles := true
-## Test hooks: false shows no TV captions; false shows every one, however close together;
-## false asks the AI for no reactions (an extra AI call that would use up scripted replies).
-static var captions := true
-static var caption_pacing := true
-static var reactions := true
-## Test hook: false has the game write the 3am diary itself (no AI call, which would use up
-## scripted replies); diary tests turn it on.
-static var diaries := true
-## Test hook: false plays no "Previously on…" (or series opener) when a bar opens; recap tests
-## turn it on.
-static var recaps := true
-## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
-static var offer_every_look := false
+## The test hooks are in test_hooks.gd (as Hooks.<name>): tests set them; the game only reads them.
 
 ## When the owner's free and nothing's urgent: how often customers chat to each other
 ## instead of the owner chatting to someone. Mostly it's customer and owner.
@@ -343,8 +298,8 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
-	if random_seed != 0:
-		seed(random_seed)
+	if Hooks.random_seed != 0:
+		seed(Hooks.random_seed)
 	_ai = Ai.new()
 	add_child(_ai)
 	_ambience = Ambience.new()
@@ -380,7 +335,7 @@ func _open_saved_bar() -> void:
 		_owner = Game.bar["owner"].duplicate(true)
 		Game.save()
 	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
-	if founding_regulars and not Game.bar.has("regulars") and not _stopped:
+	if Hooks.founding_regulars and not Game.bar.has("regulars") and not _stopped:
 		await _make_founding_regulars()  # a bar saved before regulars: its two, once
 	if _stopped or Game.bar.is_empty():
 		_owner_working = false
@@ -388,7 +343,7 @@ func _open_saved_bar() -> void:
 	if not Game.bar.get("cat", {}).is_empty():  # bars saved before cats have none, for now
 		_show_cat()
 	_update_info()
-	if recaps and int(Game.bar.get("nights", 0)) > 0:
+	if Hooks.recaps and int(Game.bar.get("nights", 0)) > 0:
 		_loading.status = "Previously on…"
 		var recap := await _write_recap()
 		if _stopped or Game.bar.is_empty():
@@ -519,13 +474,13 @@ func _invent_owner() -> void:
 	await _name_bar()
 	await _name_cat()
 	await _choose_look()
-	if founding_regulars:
+	if Hooks.founding_regulars:
 		await _make_founding_regulars()
 	_show_look()
 	_show_cat()
 	await get_tree().process_frame  # let the tent draw before the loading screen fades
 	_end_loading()
-	if recaps:
+	if Hooks.recaps:
 		await _play_recap(Rules.series_opener(_recap_facts()), true)  # a new series: its first episode
 		if _stopped or Game.bar.is_empty():
 			return
@@ -554,7 +509,7 @@ func _name_bar() -> void:
 ## two, from the game's options, to suit the owner and the name (plain, if it can't).
 func _choose_look() -> void:
 	_typing_label.text = "The AI is putting up the tarp..."
-	_look_offer = {} if offer_every_look else Rules.look_offer()
+	_look_offer = {} if Hooks.offer_every_look else Rules.look_offer()
 	var look: Dictionary = await _ai.ask_json(
 		Prompts.bar_look_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", "")), _look_offer),
 		_validate_bar_look, {"temperature": 0.8}, {"purpose": "bar_look", "bar_name": Game.bar["name"],
@@ -708,16 +663,16 @@ func _process(delta: float) -> void:
 	# Everyone's stay runs down, even when tests hold the clock.
 	for guest in _guests:
 		guest.stay_left -= minutes
-	if strollers:
+	if Hooks.strollers:
 		_stroll_next -= minutes
 		if _stroll_next <= 0.0:
 			_stroll()
 			_stroll_next = Rules.stroll_gap(int(_clock), randf())
-	if cat_wanders and not _cat.is_empty():
+	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
 		if _cat_next <= 0.0:
 			_move_cat()
-	if run_clock:
+	if Hooks.run_clock:
 		# After 3am the clock runs on while the last customers finish up.
 		_clock += minutes
 		_update_clock_label()
@@ -890,7 +845,7 @@ func _write_diary() -> void:
 	_diary_page.show_writing(_night_number, _night_day, _night_weather, _owner_display())
 	var text := ""
 	var by := "game"
-	if diaries:
+	if Hooks.diaries:
 		var reply: Dictionary = await _ai.ask_json(Prompts.diary_messages(_owner, facts), _validate_diary.bind(facts), {"temperature": 0.8},
 			{"purpose": "diary", "facts": facts})
 		if _stopped or Game.bar.is_empty():
@@ -1050,8 +1005,8 @@ func _next_task() -> void:
 		_settle_up(payer)
 		return
 	var chance := BUSY_CHAT_CHANCE if _guests.size() >= Rules.BUSY_COUNTER else CHAT_CHANCE
-	if chat_chance_override >= 0.0:
-		chance = chat_chance_override
+	if Hooks.chat_chance_override >= 0.0:
+		chance = Hooks.chat_chance_override
 	var lonely := _left_alone_longest()
 	if lonely != null or _chat_possible():
 		_stats.free_turns += 1  # (counted only when there's someone to talk to, not every idle frame)
@@ -1187,7 +1142,7 @@ func _show(bbcode: String) -> void:
 ## sharing; .gitignore keeps them out of commits).
 func _start_transcript() -> void:
 	_transcript_file = null
-	var folder := transcript_folder
+	var folder := Hooks.transcript_folder
 	if folder == "":
 		folder = "res://logs/transcripts/" if OS.has_feature("editor") else "user://logs/transcripts/"
 	DirAccess.make_dir_recursive_absolute(folder)
@@ -1292,9 +1247,9 @@ func _greet() -> void:
 	_looks_tonight.append(str(customer["appearance"]))
 
 	# The game decides their mood for company and how long they'll stay.
-	guest.company = company_override if company_override != "" else Rules.company(randf())
+	guest.company = Hooks.company_override if Hooks.company_override != "" else Rules.company(randf())
 	customer["company"] = guest.company
-	var stay := stay_minutes_override if stay_minutes_override >= 0 else Rules.stay_minutes(guest.company, randf())
+	var stay := Hooks.stay_minutes_override if Hooks.stay_minutes_override >= 0 else Rules.stay_minutes(guest.company, randf())
 	guest.stay_left = 0.0 if _last_orders else float(stay)
 	guest.customer = customer
 	guest.color = _free_color()
@@ -1382,7 +1337,7 @@ func _new_customer(guest: Guest) -> Dictionary:
 		taken.append(str(other.customer["name"]))
 	var used: Array = _names_tonight.filter(func(n): return not taken.has(n))
 	# About one in a hundred is non-binary: the game decides; otherwise the AI chooses.
-	var gender := gender_override if gender_override != "" else Rules.game_gender(randf())
+	var gender := Hooks.gender_override if Hooks.gender_override != "" else Rules.game_gender(randf())
 	var who: Dictionary = await _ai.ask_json(
 		Prompts.customer_name_messages(_night_day, guest.arrived, _night_weather, taken, used, gender),
 		_validate_customer_name.bind(taken, gender), {"temperature": 1.0}, {"purpose": "customer_name", "taken": taken, "gender": gender})
@@ -2268,13 +2223,13 @@ func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
 ## about is untyped: whoever it's about may have walked off (and their node been freed) by
 ## the time it's called, and then it goes in the middle.
 func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
-	if not captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
+	if not Hooks.captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Rules.CAPTIONS.has(kind):
 		return
-	if caption_pacing and randf() >= float(Rules.CAPTIONS[kind].get("chance", 1.0)):
+	if Hooks.caption_pacing and randf() >= float(Rules.CAPTIONS[kind].get("chance", 1.0)):
 		return  # a kind that comes up all night: only now and then
 	var now := Time.get_ticks_msec() / 1000.0
 	var reaction_up := now < _reaction_until and not bool(Rules.CAPTIONS[kind]["emergency"])  # a reaction's up: routine ones wait
-	if caption_pacing and (reaction_up or not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP))):
+	if Hooks.caption_pacing and (reaction_up or not Rules.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Rules.CAPTION_GAP), _scaled(Rules.CAPTION_SAME_GAP))):
 		_stats.captions_held_back += 1
 		return
 	_caption_last = now
@@ -2326,13 +2281,13 @@ func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String
 ## that fails the checks is dropped, not retried. names: who's talking; items: what they've
 ## ordered (a caption can't mention anything else).
 func _react(lines: Array, names: Array, items: Array) -> void:
-	if not reactions or not captions or _captions_toggle == null or not _captions_toggle.button_pressed or lines.is_empty():
+	if not Hooks.reactions or not Hooks.captions or _captions_toggle == null or not _captions_toggle.button_pressed or lines.is_empty():
 		return
 	if _urgent():
 		_stats.reactions_skipped += 1
 		return
 	var now := Time.get_ticks_msec() / 1000.0
-	if caption_pacing and _reaction_last >= 0.0 and now - _reaction_last < _scaled(Rules.REACTION_GAP):
+	if Hooks.caption_pacing and _reaction_last >= 0.0 and now - _reaction_last < _scaled(Rules.REACTION_GAP):
 		return
 	_stats.reactions_asked += 1
 	var reply: Dictionary = await _ai.ask_json(Prompts.reaction_messages(lines.slice(-Rules.REACTION_LINES), names),
@@ -2382,7 +2337,7 @@ func _flash_red() -> void:
 ## Shows a line in a speech bubble over the speaker, a page at a time, with who it's to and
 ## a line to them. Returns how long it'll take (already scaled), or 0 with bubbles off.
 func _say_in_bubble(speaker: Control, listener: Control, to_label: String, to_colour: Color, colour: Color, text: String) -> float:
-	if not bubbles or not _bubbles_toggle.button_pressed or speaker == null or not is_instance_valid(speaker):
+	if not Hooks.bubbles or not _bubbles_toggle.button_pressed or speaker == null or not is_instance_valid(speaker):
 		return 0.0
 	# A speaker's new line replaces their last bubble; others' recent lines stay up, dimmed, so
 	# an exchange reads like a comic (and two conversations can show at once); older ones go.
@@ -2438,8 +2393,8 @@ func _wait_for_reader() -> void:
 
 
 func _scaled(seconds: float) -> float:
-	if pause_scale_override >= 0.0:
-		return seconds * pause_scale_override
+	if Hooks.pause_scale_override >= 0.0:
+		return seconds * Hooks.pause_scale_override
 	return seconds
 
 
@@ -3820,7 +3775,7 @@ func _after_visit(guest: Guest) -> void:
 	# What each of them will remember, and how the night went for them: the AI's verdict, from
 	# the dialogue (the game's own is the fallback).
 	var memory := {}
-	if memories:
+	if Hooks.memories:
 		memory = await _remember(guest, verdict)
 		if _stopped or Game.bar.is_empty():
 			return
@@ -3840,7 +3795,7 @@ func _after_visit(guest: Guest) -> void:
 			regular["warmth"] = int(regular.get("warmth", 0)) + 1  # (for friendlier terms, in step 3)
 		_stats.regulars_in += 1
 	else:
-		var roll := regular_roll_override if regular_roll_override >= 0.0 else randf()
+		var roll := Hooks.regular_roll_override if Hooks.regular_roll_override >= 0.0 else randf()
 		if not Regulars.becomes_regular(verdict, rushed, roll):
 			return
 		regular = Regulars.new_regular(guest.customer, guest.customer.get("look", {}), guest.first_order, _night_number, _day_index(), guest.arrived_minutes, randf())

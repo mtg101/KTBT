@@ -1000,10 +1000,10 @@ func test_looks_suit_the_weather_and_the_owner() -> void:
 	for i in 200:
 		assert_str(str(Rules.pick_look("man", "30s", "muggy")["clothes"])).is_not_equal("padded")
 		assert_str(str(Rules.pick_look("woman", "30s", "snow")["clothes"])).is_not_equal("tshirt")
-		var owner := Rules.pick_look("woman", Rules.pick_age_range(randf(), true), "", true)
-		assert_array(["suit", "blazer", "trench", "scrubs"]).not_contains([owner["clothes"]])
-		assert_bool(owner["apron"]).is_true()
-		assert_array(["20s", "30s"]).not_contains([owner["age_range"]])
+		var the_owner := Rules.pick_look("woman", Rules.pick_age_range(randf(), true), "", true)
+		assert_array(["suit", "blazer", "trench", "scrubs"]).not_contains([the_owner["clothes"]])
+		assert_bool(the_owner["apron"]).is_true()
+		assert_array(["20s", "30s"]).not_contains([the_owner["age_range"]])
 		assert_str(str(Rules.pick_look("man", "20s", "")["hair"])).is_not_equal("balding")
 		assert_array(["grey", "white"]).not_contains([Rules.pick_look("woman", "20s", "")["hair_colour"]])
 
@@ -1017,9 +1017,9 @@ func test_ages_keep_to_the_games_range() -> void:
 	assert_str(Rules.validate_customer_details(too_old, "20s")).is_empty()
 	assert_int(int(too_old["age"])).is_equal(29)  # moved into the game's range, not rejected
 	assert_str(Rules.validate_customer_details(customer.duplicate())).is_empty()  # any adult age
-	var owner := _owner({"age": 52})
-	assert_str(Rules.validate_owner(owner, "woman", "60s")).is_empty()
-	assert_int(int(owner["age"])).is_equal(60)
+	var the_owner := _owner({"age": 52})
+	assert_str(Rules.validate_owner(the_owner, "woman", "60s")).is_empty()
+	assert_int(int(the_owner["age"])).is_equal(60)
 	assert_str(Rules.validate_customer_details(_ages(15), "20s")).contains("15")  # under age is still rejected
 	assert_str(Rules.age_range_of(58)).is_equal("50s")
 	assert_str(Rules.age_range_of(80)).is_equal("70s")
@@ -1030,8 +1030,8 @@ func test_a_look_in_words() -> void:
 	assert_str(Rules.look_text(look)).is_equal("in their thirties, with black hair in a bob and glasses, wearing a beige trench coat and carrying a tote bag")
 	look.merge({"clothes": "suit", "colour": "navy", "glasses": false, "bag": "", "hair": "side_part"}, true)
 	assert_str(Rules.look_text(look)).is_equal("in their thirties, with neatly side-parted black hair, wearing a navy suit and tie")
-	var owner := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "camel", "apron": true}
-	assert_str(Rules.look_text(owner)).is_equal("in their sixties, with a short, tight greying perm, wearing a camel cardigan under an apron")
+	var the_owner := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "camel", "apron": true}
+	assert_str(Rules.look_text(the_owner)).is_equal("in their sixties, with a short, tight greying perm, wearing a camel cardigan under an apron")
 
 
 func _ages(age: int) -> Dictionary:
@@ -1141,8 +1141,8 @@ func test_last_time_comes_up_only_with_something_to_remember() -> void:
 	assert_int(asked).is_greater(20)
 
 
-func _p(gender: String, age: int, owner: bool = false) -> Dictionary:
-	return {"gender": gender, "age": age, "owner": owner}
+func _p(gender: String, age: int, the_owner: bool = false) -> Dictionary:
+	return {"gender": gender, "age": age, "owner": the_owner}
 
 
 func test_who_may_call_whom_what() -> void:
@@ -1328,11 +1328,11 @@ func test_tv_reactions_are_checked() -> void:
 
 
 func test_the_owners_life_is_fixed() -> void:
-	var owner := {"name": "Kim Sung-ho", "gender": "man", "family": "\"widowed; a son in Busan\""}
-	assert_bool(Rules.fill_owner_life(owner, 0.0)).is_true()
-	assert_str(str(owner["family"])).is_equal("widowed; a son in Busan")  # the AI's, tidied
-	assert_str(str(owner["before"])).is_equal(Rules.OWNER_BEFORES[0])  # left out: the game's
-	assert_bool(Rules.fill_owner_life(owner, 0.9)).is_false()  # already there: kept
+	var the_owner := {"name": "Kim Sung-ho", "gender": "man", "family": "\"widowed; a son in Busan\""}
+	assert_bool(Rules.fill_owner_life(the_owner, 0.0)).is_true()
+	assert_str(str(the_owner["family"])).is_equal("widowed; a son in Busan")  # the AI's, tidied
+	assert_str(str(the_owner["before"])).is_equal(Rules.OWNER_BEFORES[0])  # left out: the game's
+	assert_bool(Rules.fill_owner_life(the_owner, 0.9)).is_false()  # already there: kept
 	var her := {"name": "Park Mi-sook", "gender": "woman"}
 	Rules.fill_owner_life(her, 0.0)
 	assert_str(str(her["family"])).is_equal(Rules.OWNER_FAMILIES["woman"][0])

@@ -181,8 +181,8 @@ func test_canned_people_fit_the_games_look() -> void:
 	var customer: Dictionary = _canned.reply({"purpose": "customer", "name": "Moon Tae-il", "gender": "man", "look": look})
 	assert_str(Rules.validate_customer_details(customer, "60s")).is_empty()
 	assert_str(str(customer["appearance"])).contains(str(Rules.CLOTHES[look["clothes"]]).trim_prefix("a ").split(" ")[0])
-	var owner: Dictionary = _canned.reply({"purpose": "owner", "gender": "woman", "look": Rules.pick_look("woman", "70s", "", true)})
-	assert_str(Rules.validate_owner(owner, "woman", "70s")).is_empty()
+	var the_owner: Dictionary = _canned.reply({"purpose": "owner", "gender": "woman", "look": Rules.pick_look("woman", "70s", "", true)})
+	assert_str(Rules.validate_owner(the_owner, "woman", "70s")).is_empty()
 
 
 func test_every_canned_name_has_hangul_that_fits() -> void:

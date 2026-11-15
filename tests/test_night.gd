@@ -1,4 +1,4 @@
-extends GdUnitTestSuite
+extends "res://tests/support/bar_test.gd"
 ## Click-through tests for a full night: the clock runs on its own, customers arrive without
 ## anyone clicking, and at 3am the night ends with a summary and a save. Offline mode, with
 ## pauses (and so the clock) sped right up, so a whole night takes a few seconds.
@@ -13,101 +13,18 @@ const Rules = preload("res://scripts/rules.gd")
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
 const TEST_SAVES := "user://test_saves_night/"
-const TIMEOUT_MS := 15000
 const NIGHT_TIMEOUT_MS := 60000
-
-var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
-var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_night/"
 const TEST_STATS := "user://test_stats_night/"
 
 
-func before_test() -> void:
-	_real_saves = SaveStore.folder
-	SaveStore.folder = TEST_SAVES
-	_real_stats = NightStats.folder
-	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
-	Ambience.make_sound = false  # quiet tests (and quick ones)
-	Ambience.settings_path = "user://test_settings.cfg"
-	Visit.bubbles = false
-	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
-	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
-	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
-	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
-	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
-	Visit.recaps = false  # (no "Previously on…" when a bar opens; recap tests turn it on)
-	_clear_folder(TEST_STATS)
-	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
-	_clear_folder(TEST_TRANSCRIPTS)
-	_clear_saves()
-	Game.bar = {}
-	Game.change_scenes = false
-	Game.requested_scene = ""
-	AiSettings.override = {"backend": "canned"}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = 0.01
-	Visit.random_seed = 2468
-	Visit.run_clock = true
-
-
-func after_test() -> void:
-	_clear_saves()
-	SaveStore.folder = _real_saves
-	_clear_folder(TEST_STATS)
-	NightStats.folder = _real_stats
-	_clear_folder(TEST_TRANSCRIPTS)
-	Visit.transcript_folder = ""
-	Game.bar = {}
-	Game.change_scenes = true
-	Game.requested_scene = ""
-	AiSettings.override = {}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = -1.0
-	Visit.random_seed = 0
-	Visit.run_clock = true
-	Visit.stay_minutes_override = -1
-	Visit.company_override = ""
-	Visit.chat_chance_override = -1.0
+func _setup() -> void:
+	Hooks.random_seed = 2468
+	Hooks.run_clock = true  # whole nights, by themselves
 
 
 # --- Helpers ---------------------------------------------------------------------------
 
-func _clear_folder(path: String) -> void:
-	var dir := DirAccess.open(path)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-func _clear_saves() -> void:
-	var dir := DirAccess.open(TEST_SAVES)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
-	var start := Time.get_ticks_msec()
-	while not condition.call():
-		if Time.get_ticks_msec() - start > timeout_ms:
-			return false
-		await get_tree().process_frame
-	return true
-
-
-func _click(runner: GdUnitSceneRunner, button: Button) -> void:
-	await get_tree().process_frame  # let containers lay out before aiming at the button
-	await get_tree().process_frame
-	await get_tree().process_frame
-	runner.simulate_mouse_move(button.get_global_rect().get_center())
-	await runner.await_input_processed()
-	runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	await runner.await_input_processed()
-
-
-## Loads the scene and waits until the night has opened.
 func _open_bar() -> GdUnitSceneRunner:
 	var runner := scene_runner(SCENE)
 	var scene = runner.scene()
@@ -121,14 +38,10 @@ func _wait_for_summary(runner: GdUnitSceneRunner) -> bool:
 	return await _wait_until(func(): return summary.visible, NIGHT_TIMEOUT_MS)
 
 
-func _transcript(runner: GdUnitSceneRunner) -> String:
-	return (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
-
-
 # --- Tests -------------------------------------------------------------------------------
 
 func test_the_first_night_starts_at_six() -> void:
-	Visit.run_clock = false  # hold the clock at opening time
+	Hooks.run_clock = false  # hold the clock at opening time
 	var runner := await _open_bar()
 	assert_str(_transcript(runner)).contains("Night 1")
 	assert_str(_transcript(runner)).contains("6:00pm")
@@ -155,7 +68,7 @@ func test_customers_arrive_without_clicking() -> void:
 
 
 func test_someone_turning_up_mid_night_is_served() -> void:
-	Visit.run_clock = false
+	Hooks.run_clock = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._arrive(scene._clock)
@@ -205,7 +118,7 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 
 
 func test_the_ai_writes_the_diary_when_it_can() -> void:
-	Visit.diaries = true
+	Hooks.diaries = true
 	var runner := await _open_bar()
 	assert_bool(await _wait_for_summary(runner)).is_true()
 	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).is_true()
@@ -254,7 +167,7 @@ func test_the_night_transcript_is_written() -> void:
 
 
 func test_the_transcript_is_written_as_the_night_goes() -> void:
-	Visit.run_clock = false  # hold the night, so it's still going when we look
+	Hooks.run_clock = false  # hold the night, so it's still going when we look
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._arrive(scene._clock)
@@ -271,7 +184,7 @@ func test_open_for_another_night_starts_night_two() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	assert_bool(await _wait_for_summary(runner)).is_true()
-	Visit.run_clock = false  # hold night two at opening time
+	Hooks.run_clock = false  # hold night two at opening time
 	var first_day: String = scene._night_day
 	await _click(runner, runner.find_child("NextNightButton"))
 	assert_bool(await _wait_until(func(): return scene._night_number == 2)).override_failure_message("night two never started").is_true()
@@ -298,7 +211,7 @@ func test_a_saved_bar_carries_on_from_its_next_night() -> void:
 	bar["first_day"] = 0  # Monday, so night 4 is a Thursday
 	SaveStore.save_bar(bar)
 	Game.bar = SaveStore.load_bar(bar["id"])
-	Visit.run_clock = false
+	Hooks.run_clock = false
 	var runner := await _open_bar()
 	assert_str(_transcript(runner)).contains("Night 4")
 	assert_str((runner.find_child("MomentLabel") as Label).text).contains("Thursday")

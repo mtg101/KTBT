@@ -95,7 +95,9 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave; and drawing it all: the tent and its look, the light and weather, passers-by, the cat, and everyone in their look |
 | `scripts/pipeline_test.gd` | Pipeline test logic |
 | `logs/` | Night transcripts, written when playing from the editor (not committed) |
-| `tests/` | GdUnit4 tests: rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
+| `scripts/test_hooks.gd` | Every test hook in one place (the game only reads them) |
+| `.github/workflows/tests.yml` | Runs all the tests on GitHub on every push |
+| `tests/` | GdUnit4 tests (with a shared base in `tests/support/`): rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 
 ## AI usage

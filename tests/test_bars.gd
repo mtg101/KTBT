@@ -1,4 +1,4 @@
-extends GdUnitTestSuite
+extends "res://tests/support/bar_test.gd"
 ## Click-through tests for bars and saves: the title screen, new and saved bars, and
 ## autosave. Like test_visit.gd, these use offline mode and their own save folder.
 
@@ -13,103 +13,19 @@ const Rules = preload("res://scripts/rules.gd")
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
 const TEST_SAVES := "user://test_saves_bars/"
-const TIMEOUT_MS := 15000
 const OWNER_DATA := {"name": "Kim Sung-ho", "hangul": "김성호", "age": 58, "gender": "man", "title": "Ajusshi", "archetype": "quiet ajusshi with a mysterious past", "appearance": "A grey cardigan.", "personality": "calm, kind", "speech_style": "few words", "secret": "He was once a bodyguard."}
 
-var _real_saves := "user://saves/"  # (never "", which would save into the project folder)
-var _real_stats := "user://stats/"
 const TEST_TRANSCRIPTS := "user://test_transcripts_bars/"
 const TEST_STATS := "user://test_stats_bars/"
 
 
-func before_test() -> void:
-	_real_saves = SaveStore.folder
-	SaveStore.folder = TEST_SAVES
-	_real_stats = NightStats.folder
-	NightStats.folder = TEST_STATS  # night logs go here, not among real ones
-	Ambience.make_sound = false  # quiet tests (and quick ones)
-	Ambience.settings_path = "user://test_settings.cfg"
-	Visit.bubbles = false
-	Visit.founding_regulars = false  # (they would use up scripted replies; their own tests turn them on)
-	Visit.regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
-	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
-	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
-	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
-	Visit.recaps = false  # (no "Previously on…" when a bar opens; recap tests turn it on)
-	_clear_folder(TEST_STATS)
-	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
-	_clear_folder(TEST_TRANSCRIPTS)
-	_clear_saves()
-	Game.bar = {}
-	Game.change_scenes = false
-	Game.requested_scene = ""
-	AiSettings.override = {"backend": "canned"}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = 0.01
-	Visit.random_seed = 4321
-	Visit.run_clock = false  # no automatic customers: these tests click Next customer themselves
-
-
-func after_test() -> void:
-	_clear_saves()
-	SaveStore.folder = _real_saves
-	_clear_folder(TEST_STATS)
-	NightStats.folder = _real_stats
-	_clear_folder(TEST_TRANSCRIPTS)
-	Visit.transcript_folder = ""
-	Game.bar = {}
-	Game.change_scenes = true
-	Game.requested_scene = ""
-	AiSettings.override = {}
-	CannedAi.scripted = []
-	Visit.pause_scale_override = -1.0
-	Visit.random_seed = 0
-	Visit.run_clock = true
-	Visit.stay_minutes_override = -1
-	Visit.company_override = ""
-	Visit.chat_chance_override = -1.0
+func _setup() -> void:
+	Hooks.random_seed = 4321
+	Hooks.run_clock = false  # no automatic customers: these tests bring people in themselves
 
 
 # --- Helpers ---------------------------------------------------------------------------
 
-func _clear_folder(path: String) -> void:
-	var dir := DirAccess.open(path)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-func _clear_saves() -> void:
-	var dir := DirAccess.open(TEST_SAVES)
-	if dir == null:
-		return
-	for file_name in dir.get_files():
-		dir.remove(file_name)
-
-
-func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
-	var start := Time.get_ticks_msec()
-	while not condition.call():
-		if Time.get_ticks_msec() - start > timeout_ms:
-			return false
-		await get_tree().process_frame
-	return true
-
-
-func _click(runner: GdUnitSceneRunner, button: Button) -> void:
-	# Containers (like the title screen's) lay themselves out over the first frames after a
-	# scene loads; let that settle so we aim at where the button really is.
-	for i in 3:
-		await get_tree().process_frame
-	runner.simulate_mouse_move(button.get_global_rect().get_center())
-	await runner.await_input_processed()
-	runner.simulate_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	await runner.await_input_processed()
-
-
-## Waits until the game has asked for this scene (a click only lands on release, which can
-## be a frame or two after the simulated press). Returns false on timeout.
 func _wait_for_scene(scene_path: String) -> bool:
 	return await _wait_until(func(): return Game.requested_scene == scene_path, 3000)
 
@@ -287,7 +203,7 @@ func test_reopening_a_bar_doesnt_invent_a_new_owner() -> void:
 
 
 func test_reopening_a_bar_plays_previously_on() -> void:
-	Visit.recaps = true
+	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 4
 	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
@@ -339,9 +255,9 @@ func test_closing_the_window_saves_the_bar() -> void:
 
 
 func test_a_bar_saved_before_hangul_names_gets_them() -> void:
-	var owner := OWNER_DATA.duplicate()
-	owner.erase("hangul")
-	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", owner)
+	var the_owner := OWNER_DATA.duplicate()
+	the_owner.erase("hangul")
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", the_owner)
 	SaveStore.save_bar(bar)
 	Game.bar = SaveStore.load_bar(bar["id"])
 	await _open_visit()
@@ -366,7 +282,7 @@ func test_a_bar_saved_before_owners_had_a_life_gets_one_once() -> void:
 
 
 func test_a_bar_saved_before_regulars_gets_its_two_once() -> void:
-	Visit.founding_regulars = true
+	Hooks.founding_regulars = true
 	var bar := _saved_bar("Golmok Pocha", 0)
 	Game.bar = SaveStore.load_bar(bar["id"])
 	await _open_visit()

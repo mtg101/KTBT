@@ -1,0 +1,23 @@
+# Runs all the GdUnit4 tests, headless, on every push and pull request: GitHub starts a fresh
+# machine, gets Godot, and runs tests/ with the project's own copy of GdUnit4 (addons/). The
+# tests use offline mode (the canned AI), so no GPU or Ollama is needed. A green tick or a red
+# cross shows next to the commit on GitHub; the test report is kept with the run.
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: MikeSchulze/gdUnit4-action@v1
+        with:
+          godot-version: '4.7.2'
+          version: 'installed'  # the GdUnit4 in addons/, matching the editor
+          paths: 'res://tests'
+          timeout: 20
+          report-name: tests
