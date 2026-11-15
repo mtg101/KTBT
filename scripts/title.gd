@@ -1,6 +1,7 @@
 extends Control
 ## The title screen: start a new bar, or open one you've played before.
 
+const Text = preload("res://scripts/rules/text.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const Menu = preload("res://scripts/menu.gd")
 const DiaryBook = preload("res://scripts/diary_book.gd")
@@ -82,14 +83,14 @@ func _fill_list() -> void:
 			var diary := Button.new()
 			diary.name = "Diary%d" % i
 			diary.text = "📖 Diary"
-			diary.tooltip_text = "Read the owner's diary."
+			diary.tooltip_text = Text.tip("Read the owner's diary.")
 			diary.custom_minimum_size = Vector2(130, 64)
 			diary.pressed.connect(_on_diary_pressed.bind(bars[i]))
 			row.add_child(diary)
 		var delete := Button.new()
 		delete.name = "Delete%d" % i
 		delete.text = "Sure?" if _confirming == id else "Delete"
-		delete.tooltip_text = "Click again to delete this bar for good." if _confirming == id else "Delete this bar (you'll be asked to click again)."
+		delete.tooltip_text = Text.tip("Click again to delete this bar for good." if _confirming == id else "Delete this bar (you'll be asked to click again).")
 		delete.custom_minimum_size = Vector2(110, 64)
 		if _confirming == id:
 			delete.add_theme_color_override("font_color", ACCENT)
@@ -185,7 +186,7 @@ func _build_ui() -> void:
 	music_toggle.name = "MusicToggle"
 	music_toggle.text = "Music"
 	music_toggle.button_pressed = Game.music.enabled
-	music_toggle.tooltip_text = "Arirang, now and then."
+	music_toggle.tooltip_text = Text.tip("Arirang, now and then.")
 	music_toggle.add_theme_color_override("font_color", MUTED)
 	music_toggle.toggled.connect(Game.music.set_enabled)
 	Ktv.light_ticks(music_toggle)
@@ -198,7 +199,7 @@ func _build_ui() -> void:
 	music.value = Game.music.volume
 	music.custom_minimum_size = Vector2(160, 0)
 	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	music.tooltip_text = "Arirang, now and then (all the way down for none)."
+	music.tooltip_text = Text.tip("Arirang, now and then (all the way down for none).")
 	music.value_changed.connect(Game.music.set_volume)
 	music_row.add_child(music)
 

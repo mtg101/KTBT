@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest:** Close the bar now closes up early (with the owner's reason in the diary), hover over a customer for a quick summary of them, a greedy cat that steals fish cakes (with the red light) and prowls under the stools, a flickering neon sign and steaming dishes, customers who sway after a couple of bottles, snow and rain on umbrellas, and a stormy "Previously on…" after a night of heavy rain. Before that: a playtest review and what came of it (Korean words on hover, tonight's specials and cravings, orders that don't all sound the same, customers invented ahead), and no real people, brands or shows by name.
+✅ **Latest:** Close the bar now closes up early (no hurry for whoever's here, nobody new, a 마감 sign out front, and the owner's reason on TV and in the diary), hover over a customer for a quick summary of them, a greedy cat that steals fish cakes (with the red light) and prowls under the stools, a flickering neon sign and steaming dishes, customers who sway after a couple of bottles, snow and rain on umbrellas, and a stormy "Previously on…" after a night of heavy rain. Before that: a playtest review and what came of it (Korean words on hover, tonight's specials and cravings, orders that don't all sound the same, customers invented ahead), and no real people, brands or shows by name.
 
 **Next up:** see [PLAN.md](PLAN.md): the night as a story is done; next could be the refactor, real art and sound, or the game itself. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
@@ -23,7 +23,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 469 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 471 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 

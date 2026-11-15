@@ -234,6 +234,8 @@ func test_close_the_bar_closes_up_early_then_goes_back_to_the_title() -> void:
 	assert_str(str(entry["facts"]["closed_early"])).is_not_empty()
 	assert_str(str(entry["stamp"])).is_equal("early")
 	assert_str(_transcript(runner)).contains("decides to close up early tonight")
+	assert_str(str(entry["facts"]["closed_said"])).is_not_empty()  # (the owner said why, and the diary has it)
+	assert_object(runner.find_child("ClosedSign")).is_not_null()  # the 마감 board out front
 	# Then Close the bar (on the diary page) goes back to the title, saved.
 	await _click(runner, runner.find_child("SummaryLeaveButton"))
 	assert_bool(await _wait_for_scene(TITLE)).override_failure_message("Close the bar didn't ask for the title scene").is_true()
@@ -245,12 +247,29 @@ func test_closing_early_sees_everyone_off_first() -> void:
 	var runner := await _open_visit()
 	var scene = runner.scene()
 	var leave := runner.find_child("LeaveButton") as Button
+	Hooks.stay_minutes_override = 600  # (they stay until the test says their time's up)
 	scene._arrive(scene._clock)  # someone turns up
 	assert_bool(await _wait_until(func(): return not scene._guests.is_empty())).is_true()
+	var guest = scene._guests[0]
+	var stay: float = guest.stay_left
 	leave.pressed.emit()  # (top-bar buttons: a caption can pop up over them, see the stats test)
 	assert_bool(leave.disabled).is_true()  # closing up
-	assert_bool(scene._last_orders).is_true()  # nobody new
-	# They settle up and go, and then the night ends.
+	# No hurry for them: their night carries on as it was.
+	assert_float(guest.stay_left).is_equal(stay)
+	assert_bool(scene._last_orders).is_false()
+	# The owner tells them why, and it's on TV.
+	assert_bool(await _wait_until(func(): return scene._closing_said != "")).override_failure_message("the owner never said why").is_true()
+	assert_bool(guest.transcript.any(func(entry): return str(entry.get("text", "")) == scene._closing_said)).is_true()
+	assert_int(int(scene._stats.captions.get("closing_reason", 0))).is_equal(1)
+	# Nobody new: someone turning up sees the sign and walks on.
+	scene._arrive(scene._clock)
+	assert_array(scene._waiting).is_empty()
+	assert_str(_transcript(runner)).contains("sees the 마감 sign, and walks on")
+	var board := runner.find_child("ClosedSign") as Control
+	assert_str(board.tooltip_text).contains("마감 magam")
+	assert_bool(scene._night_open).is_true()  # (still open while they're here)
+	# Their time comes: they settle up and go, and then the night ends.
+	guest.stay_left = 0.0
 	var summary := runner.find_child("NightSummary") as Control
 	assert_bool(await _wait_until(func(): return summary.visible)).override_failure_message("the night never ended").is_true()
 	assert_array(scene._guests).is_empty()

@@ -145,14 +145,34 @@ static func numbers_in(text: String) -> Array:
 ## the tag: no square brackets, no newlines, and curly quotes in place of straight ones
 ## (a straight ' in "ma'am" made Godot read the rest as a quoted value, and the whole tag
 ## showed as raw text).
-static func hint(tip: String, inner: String) -> String:
-	var safe := tip.replace("[", "(").replace("]", ")").replace("\n", " ").replace("'", "’").replace("\"", "”")
-	return "[hint=%s]%s[/hint]" % [safe, inner]
+static func hint(tip_words: String, inner: String) -> String:
+	var safe := tip_words.replace("[", "(").replace("]", ")").replace("\n", " ").replace("'", "’").replace("\"", "”")
+	return "[hint=%s]%s[/hint]" % [tip(safe), inner]
+
+
+## The widest a hover (tooltip) gets, in characters a line: Godot's tooltips don't wrap, so a
+## long one runs right across the screen.
+const TIP_WIDTH := 48
+
+
+## Hover text, wrapped to TIP_WIDTH (each line of it, keeping any line breaks it has). Every
+## tooltip in the game goes through this.
+static func tip(text: String, width: int = TIP_WIDTH) -> String:
+	var lines := PackedStringArray()
+	for each in text.split("\n"):
+		lines.append(_wrap_line(each, width))
+	return "\n".join(lines)
 
 
 ## Text broken onto lines of at most this many characters, at spaces (a word longer than that
 ## gets a line of its own). For tooltips, which don't wrap by themselves.
 static func wrap(text: String, width: int) -> String:
+	return _wrap_line(text, width)
+
+
+## (wrap's work, under a name of its own: called from inside this script, wrap() is taken
+## for Godot's maths wrap(value, min, max).)
+static func _wrap_line(text: String, width: int) -> String:
 	var lines := PackedStringArray()
 	var line := ""
 	for word in text.split(" ", false):

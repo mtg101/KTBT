@@ -1539,6 +1539,45 @@ func test_closing_early_goes_in_the_diary() -> void:
 	assert_str(str(Captions.for_event("closed_early", {})["kind"])).is_equal("closing_early")
 
 
+func test_the_owner_says_why_they_are_closing_early() -> void:
+	var the_owner := {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "An apron.", "personality": "blunt", "speech_style": "blunt", "secret": "Once sang trot."}
+	# The prompt: who's there to tell, and a reason of their own.
+	var asked := str(Prompts.closing_messages(the_owner, {"time": "11:42pm", "weather": "Heavy rain", "seated": ["Kim Ji-ho"], "customers": 3})[1]["content"])
+	assert_str(asked).contains("It's 11:42pm, Heavy rain, and 3 customers").contains("(Kim Ji-ho)").contains("\"caption\"")
+	assert_str(str(Prompts.closing_messages(the_owner, {"time": "9:10pm"})[1]["content"])).contains("the empty stools")
+	# Checked like any line of theirs, with a short caption.
+	var names := ["Park Mi-sook", "Kim Ji-ho"]
+	var good := {"line": "My knees have had it. Take your time, Ji-ho, but nobody else tonight.", "caption": "the knees have spoken"}
+	assert_str(Story.validate_closing(good, "Park Mi-sook", "Ajumma", names)).is_empty()
+	assert_str(str(good["caption"])).is_equal("THE KNEES HAVE SPOKEN")  # (in capitals, for the TV)
+	assert_str(Story.validate_closing({"line": "My knees have had it."}, "Park Mi-sook", "Ajumma", names)).contains("caption")
+	assert_str(Story.validate_closing({"line": "My knees have had it.", "caption": "KNEES"}, "Park Mi-sook", "Ajumma", names)).contains("too short")
+	assert_str(Story.validate_closing({"line": "My knees have had it.", "caption": "THE KNEES HAVE SPOKEN AND THEY ARE VERY TIRED"}, "Park Mi-sook", "Ajumma", names)).contains("too long")
+	assert_str(Story.validate_closing({"line": "My knees have had it.", "caption": "JI-HO STAYS LATE"}, "Park Mi-sook", "Ajumma", names)).contains("names")
+	assert_str(Story.validate_closing({"line": "My knees have had it.", "caption": "MI-SOOK CALLS IT"}, "Park Mi-sook", "Ajumma", names)).is_empty()
+	assert_str(Story.validate_closing({"line": "", "caption": "THE KNEES HAVE SPOKEN"}, "Park Mi-sook", "Ajumma", names)).is_not_empty()
+	# The game's own reasons pass the same checks, and fit the weather (about half the time).
+	for kind in Story.CLOSING_REASONS:
+		for reason in Story.CLOSING_REASONS[kind]:
+			var copy: Dictionary = reason.duplicate()
+			assert_str(Story.validate_closing(copy, "Park Mi-sook", "Ajumma", names)).override_failure_message(str(reason)).is_empty()
+	assert_bool(Story.CLOSING_REASONS["rain"].has(Story.closing_reason("drizzle", 0.1))).is_true()
+	assert_bool(Story.CLOSING_REASONS["any"].has(Story.closing_reason("drizzle", 0.9))).is_true()
+	assert_bool(Story.CLOSING_REASONS["any"].has(Story.closing_reason("fog", 0.1))).is_true()
+	# On TV, with the reason as the caption, never held back.
+	var caption := Captions.for_event("closed_early", {"reason": "THE KNEES HAVE SPOKEN"})
+	assert_str(str(caption["kind"])).is_equal("closing_reason")
+	assert_str(Captions.caption_words("closing_reason", caption["fill"], 0.0)["english"]).is_equal("THE KNEES HAVE SPOKEN")
+	assert_bool(Captions.CAPTIONS["closing_reason"]["always"]).is_true()
+	for k in 10:  # (the reason whenever there is one; the plain words only without)
+		assert_str(Captions.caption_words("closing_reason", caption["fill"], k / 10.0)["english"]).is_equal("THE KNEES HAVE SPOKEN")
+	assert_str(Captions.caption_words("closing_reason", {}, 0.0)["english"]).is_equal("CLOSING EARLY!")
+	# And the diary gives the same reason.
+	var facts := Story.diary_facts([], {"owner": "Park Mi-sook", "closed_early": "11:42pm", "closed_said": "My knees have had it."})
+	assert_str(Prompts.diary_facts_text(facts)).contains("The owner closed up early, at 11:42pm, saying: \"My knees have had it.\"")
+	assert_str(str(Prompts.diary_messages(the_owner, facts)[1]["content"])).contains("told the counter why: \"My knees have had it.\"").contains("(the same reason)")
+
+
 func test_hover_tips_never_break_their_tag() -> void:
 	# "ma'am" in ajumma's tip showed the whole tag as raw text in the transcript.
 	var coloured := Glossary.explain("Thanks, Ajumma. Seonsaengnim, you too.")
@@ -1553,12 +1592,36 @@ func test_hover_tips_never_break_their_tag() -> void:
 	assert_str(label.get_parsed_text()).is_equal("Thanks, Ajumma. Seonsaengnim, you too.")
 	label.text = Text.hint("She's a nurse [night 2]\nsays \"hi\"", "[b]Kim Ji-ho[/b]")
 	assert_str(label.get_parsed_text()).is_equal("Kim Ji-ho")
+	# A long tip's wrapped, like every hover, and still a hint.
+	var long_tip := "Grew up in Busan, moved up for work, and still goes home every Chuseok to help her mum at the market stall."
+	label.text = Text.hint(long_tip, "Kim Ji-ho")
+	assert_str(label.get_parsed_text()).is_equal("Kim Ji-ho")
+	assert_str(Text.hint(long_tip, "x")).contains("\n")
+
+
+func test_every_hover_is_a_sensible_width() -> void:
+	var wrapped := Text.tip("Closes up early: nobody new comes in, whoever's here finishes at their own pace, and the owner writes up the night.\nThen you can open the next night.")
+	for line in wrapped.split("\n"):
+		assert_int(line.length()).is_less_equal(Text.TIP_WIDTH)
+	assert_str(wrapped).ends_with("\nThen you can open the next night.")  # (its own line breaks kept)
+	assert_str(Text.tip("Short and sweet.")).is_equal("Short and sweet.")
+	# Every hover set in the game's code goes through it.
+	for path in ["res://scripts/visit.gd", "res://scripts/title.gd"]:
+		var code := FileAccess.get_file_as_string(path)
+		for line in code.split("\n"):
+			var at := line.find(".tooltip_text = ")
+			if at == -1:
+				continue
+			var said := line.substr(at + ".tooltip_text = ".length())
+			var short := said.begins_with("str(item[") or said.begins_with("_hover_text(")  # (a dish's name; the customer's own wrapping)
+			assert_bool(short or said.begins_with("Text.tip(")).override_failure_message("%s: %s" % [path, line.strip_edges()]).is_true()
 
 
 func _every_fill() -> Dictionary:
 	return {"gender": "woman", "name": "Kim Ji-ho", "friend": "Kang Da-eun", "term": "eonni", "cat": "Mandu",
 		"owner": "Park Mi-sook", "amount": "₩26,000", "dish": "Tteokbokki", "drink": "Soju", "job": "office worker",
-		"weather": "rain", "visit": 7, "drinks": 3, "dishes": 3, "seated": 4, "years": "for nine years"}
+		"weather": "rain", "visit": 7, "drinks": 3, "dishes": 3, "seated": 4, "years": "for nine years",
+		"reason": "THE KNEES HAVE SPOKEN"}
 
 
 func test_tv_captions_fill_in_the_games_facts() -> void:
@@ -1585,10 +1648,13 @@ func test_every_tv_caption_is_complete() -> void:
 			assert_bool(data.has(field)).override_failure_message("%s has no %s" % [kind, field]).is_true()
 		assert_array(Captions.CAPTION_STINGS).contains([data["sound"]])
 		assert_bool(Ambience.STINGS.has(str(data["sound"]))).override_failure_message("no sting for %s" % kind).is_true()
-		var count: int = data["words"].size()
+		var wordings: Array = data["words"]
+		if bool(data.get("fill_first", false)):  # (with everything filled in, only its wordings with blanks come up)
+			wordings = wordings.filter(func(wording): return "{" in str(wording[0]) + str(wording[1]))
+		var count: int = wordings.size()
 		for k in count:
 			var said := Captions.caption_words(kind, _every_fill(), (k + 0.5) / count)
-			assert_str(said["hangul"]).is_equal(str(data["words"][k][0]).replace("{term_hangul}", "언니"))  # each of its words can come up
+			assert_str(said["hangul"]).is_equal(str(wordings[k][0]).replace("{term_hangul}", "언니"))  # each of its words can come up
 			assert_str(said["hangul"] + said["english"]).not_contains("{")  # every blank filled
 			assert_str(said["english"]).not_contains("<").not_contains("|")  # every piece picked
 	assert_str(Captions.caption_text("full_house")).starts_with("[TV] 만석! FULL HOUSE")

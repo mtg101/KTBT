@@ -408,6 +408,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"cat": str(context.get("cat", "")), "cat_laps": laps, "cat_thefts": thefts, "walked_on": walked_on,
 		"line": context.get("line", {}).duplicate(), "ordered": ordered, "specials": context.get("specials", []).duplicate(),
 		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
+		"closed_said": str(context.get("closed_said", "")),  # and what they told the counter, why
 	}
 
 
@@ -421,3 +422,65 @@ static func _pronouns(context: Dictionary, people: Array) -> Dictionary:
 	for person in people:
 		found[str(person["name"])] = str(person.get("pronoun", "they"))
 	return found
+
+
+# --- Closing up early ---------------------------------------------------------------------
+
+## The longest TV caption for the owner's reason (it's a pill on screen, in capitals).
+const MAX_CLOSING_CAPTION := 32
+
+## When the AI can't give the owner's reason for closing early, the game picks one: what they
+## tell the counter, and its TV caption. By the weather first (it's the likeliest reason), or
+## one that fits any night.
+const CLOSING_REASONS := {
+	"rain": [{"line": "This rain's not letting up. Finish up at your own pace, but I'm not letting anyone else in tonight.", "caption": "THE RAIN WINS TONIGHT"},
+		{"line": "Tarp's been dripping on me all night. You lot take your time, then that's me done.", "caption": "DEFEATED BY THE DRIP"}],
+	"snow": [{"line": "Snow's getting deep out there. You finish up, and I'll close up after you so we all get home.", "caption": "SNOWED OUT EARLY"}],
+	"cold": [{"line": "My hands have gone stiff with this cold. No rush for you, but nobody new tonight.", "caption": "TOO COLD TO CARRY ON"}],
+	"muggy": [{"line": "This heat's done me in. Finish your drinks, no hurry, then I'm closing up.", "caption": "THE HEAT WINS"}],
+	"any": [{"line": "My knees are telling me it's time. Take your time, but you're the last ones tonight.", "caption": "THE KNEES HAVE SPOKEN"},
+		{"line": "I've a feeling tonight's done all it's going to. Finish up when you're ready, then I'm closing.", "caption": "A GUT FEELING"},
+		{"line": "Early start tomorrow at the market. You're the last ones in, so no rush.", "caption": "MARKET CALLS AT DAWN"},
+		{"line": "Family's calling me home tonight. Finish what you've got, there's no hurry.", "caption": "FAMILY COMES FIRST"}],
+}
+
+
+## The game's reason for closing early tonight: {"line", "caption"}. weather: a weather kind
+## (see NightRules.weather_kind). roll (0 to 1) picks one, the weather's own about half the time.
+static func closing_reason(weather: String, roll: float) -> Dictionary:
+	var drizzle := "rain" if weather == "drizzle" else weather
+	var options: Array = CLOSING_REASONS["any"]
+	if CLOSING_REASONS.has(drizzle) and roll < 0.5:
+		options = CLOSING_REASONS[drizzle]
+		roll *= 2.0
+	elif CLOSING_REASONS.has(drizzle):
+		roll = (roll - 0.5) * 2.0
+	return options[clampi(floori(roll * options.size()), 0, options.size() - 1)].duplicate()
+
+
+## Checks the AI's reason for closing early: what the owner says (like any line of theirs:
+## see Talk.validate_line) and a short TV caption for it.
+static func validate_closing(data: Variant, owner_name: String, title: String, names: Array, cat: Dictionary = {}) -> String:
+	var problem := Talk.validate_line(data, owner_name, title, [], names, cat)
+	if problem != "":
+		return problem
+	if not data.has("caption"):
+		return "it didn't include \"caption\""
+	var caption := Text.tidy_text(data["caption"]).to_upper()
+	if caption.split(" ", false).size() < 2:
+		return "the caption is too short: a few words for the TV"
+	if caption.length() > MAX_CLOSING_CAPTION:
+		return "the caption is too long (%d characters, at most %d)" % [caption.length(), MAX_CLOSING_CAPTION]
+	if "[" in caption or "(" in caption or "{" in caption:
+		return "the caption has brackets"
+	var brand := Talk.real_brand(caption)
+	if brand != "":
+		return "the caption names a real brand (%s)" % brand
+	for person in names:
+		if str(person) == owner_name:
+			continue  # (the owner's own name's fine: "MI-SOOK CALLS IT")
+		for part in str(person).to_upper().split(" ", false):
+			if part.length() > 2 and part in caption.split(" ", false):
+				return "the caption names %s: it's about the owner's reason" % person
+	data["caption"] = caption
+	return ""

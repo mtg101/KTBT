@@ -85,6 +85,8 @@ const OWNER_BESIDE_X := -165.0  # where the owner stands to see to a stool (just
 # Off-stage spots either side (far enough out that the name tag is hidden too).
 const OFFSCREEN_LEFT_X := -200.0
 const OFFSCREEN_RIGHT_X := 2072.0
+const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
+const CLOSING_GLOW := 0.6  # the tent's glow with one bulb off
 const PEEK_X := 865.0  # where a passer-by stops to look in: the gap between the second and third stools
 
 ## The test hooks are in test_hooks.gd (as Hooks.<name>): tests set them; the game only reads them.
@@ -210,6 +212,9 @@ var _leave_requested := false
 ## just saves and quits, and the night doesn't count.)
 var _closing_early := false
 var _closed_early_at := 0.0  # game minutes
+var _closing_to_say := false  # the owner's still to tell the counter why (once they're free)
+var _closing_said := ""  # what they said
+var _closed_sign: Control  # the 마감 CLOSED board out front
 var _passers_by := 0  # how many have walked past tonight (also names their nodes)
 var _ambience: Ambience  # the tent's background sound
 var _bubble_layer: Control  # speech bubbles, over everything on the stage
@@ -501,7 +506,7 @@ func _on_offline_started(reason: String) -> void:
 
 func _show_offline_mode() -> void:
 	_mode_label.text = "OFFLINE MODE"
-	_mode_label.tooltip_text = "Characters and lines are pre-written, not from the AI (%s). Change it in ai_settings.cfg." % _ai.offline_reason
+	_mode_label.tooltip_text = Text.tip("Characters and lines are pre-written, not from the AI (%s). Change it in ai_settings.cfg." % _ai.offline_reason)
 	_mode_label.visible = true
 
 
@@ -630,13 +635,13 @@ func _new_cat(cat_name: String, coat: String, personality: String, sex: String, 
 func _show_cat() -> void:
 	_cat = Game.bar["cat"].duplicate()
 	_paint_cat()
-	_cat_node.tooltip_text = "%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")]
+	_cat_node.tooltip_text = Text.tip("%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")])
 	_narrate("%s, the tent's %s cat, is %s." % [_cat["name"], _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], _cat["personality"]).get_slice(":", 0)])
 
 
 func _show_bar_name() -> void:
 	_title_label.text = "KTBT  ·  %s" % Game.bar["name"]
-	_title_label.tooltip_text = str(Game.bar.get("name_meaning", ""))
+	_title_label.tooltip_text = Text.tip(str(Game.bar.get("name_meaning", "")))
 
 
 ## Close the bar: during a night, the owner closes up early (see _close_early); after it (the
@@ -663,22 +668,103 @@ func _notification(what: int) -> void:
 		_save_stats(false)
 
 
-## Closing up early: no more customers, everyone at the counter told and settling up once their
-## food's out (with their goodbyes, as usual), and once the tent's empty the night ends.
+## Closing up early: the sign goes out front and a bulb goes off, nobody new comes in (anyone
+## waiting, or turning up, sees the sign and walks on), and the owner tells the counter why as
+## soon as they're free (see _say_closing). Whoever's here finishes their night as usual, at
+## their own pace (orders, chats, goodbyes), and once the tent's empty the night ends.
 func _close_early() -> void:
 	_closing_early = true
+	_closing_to_say = true
+	_closing_said = ""
 	_closed_early_at = _clock
 	_leave_button.disabled = true
 	_leave_button.text = "Closing up..."
-	_last_orders = true  # (nobody new: see _can_greet)
-	_waiting.clear()
-	_waiting_who.clear()
-	_narrate("%s. %s decides to close up early tonight." % [NightRules.clock_text(int(_clock)), _owner_display()])
-	for guest in _guests:
-		guest.stay_left = 0.0
-		guest.transcript.append({"action": "%s is closing up early tonight, and lets everyone know." % _owner["name"]})
-	_event("closed_early", {"at": int(_clock), "seated": _guests.size()}, _owner_node)
+	_narrate("%s. %s decides to close up early tonight, and turns the sign round: 마감, closed." % [NightRules.clock_text(int(_clock)), _owner_display()])
+	_prepared = {}
+	var gone := 0
+	while not _waiting.is_empty():
+		_waiting.pop_front()
+		_waiting_who.pop_front()
+		_walk_past(gone * 1.5)
+		gone += 1
+	if gone > 0:
+		_narrate("%s at the tarp %s the sign and %s on." % ["Someone" if gone == 1 else "The people", "sees" if gone == 1 else "see", "walks" if gone == 1 else "walk"])
+	_show_closing_up()
 	_update_info()
+
+
+## The owner tells the counter why they're closing early (the AI's reason, or the game's), and
+## it's on TV: the closed_early event, with the reason as its caption.
+func _say_closing() -> void:
+	_closing_to_say = false
+	_owner_working = true
+	var seated: Array = _guests.map(func(g): return str(g.customer["name"]))
+	var owner_name := str(_owner["name"])
+	_typing_label.text = "%s is thinking..." % _owner_display()
+	var reply: Dictionary = await _ai.ask_json(
+		Prompts.closing_messages(_owner, {"time": NightRules.clock_text(int(_clock)), "weather": _night_weather, "seated": seated, "customers": _night_visits}),
+		Story.validate_closing.bind(owner_name, str(_owner["title"]), [owner_name] + seated, _cat_fact()), {"temperature": 0.9},
+		{"purpose": "closing", "title": _owner["title"], "weather": _weather_kind})
+	_typing_label.text = ""
+	if _stopped or Game.bar.is_empty():
+		return
+	if reply.is_empty():
+		reply = Story.closing_reason(_weather_kind, randf())
+	_closing_said = str(reply["line"])
+	await _wait_for_reader()
+	var to := "" if _guests.is_empty() else " to everyone"
+	_show("[color=#%s][b]%s%s:[/b][/color] %s\n\n" % [OWNER_TEXT.to_html(false), _esc(_owner_label()), to, Glossary.explain(_esc(_closing_said), _names_here())])
+	_stats.record_line(_closing_said, [owner_name])
+	var listener: Control = null
+	for guest in _guests:
+		if is_instance_valid(guest.node):
+			listener = guest.node
+			break
+	_give_time_to_read(_closing_said, _say_in_bubble(_owner_node, listener, "→ everyone" if listener != null else "", OWNER_TEXT, OWNER_TEXT, _closing_said))
+	for guest in _guests:
+		guest.transcript.append({"speaker": owner_name, "text": _closing_said})
+		guest.transcript.append({"action": "%s is closing up early: nobody new tonight, but there's no hurry for anyone already here." % owner_name})
+	_event("closed_early", {"at": int(_clock), "seated": _guests.size(), "reason": str(reply.get("caption", ""))}, _owner_node)
+	_owner_working = false
+
+
+## Closing up, as you'd see it: a 마감 CLOSED board out front (it pops up), and the bulb at the
+## far end switched off, so the tent's glow dims.
+func _show_closing_up() -> void:
+	if is_instance_valid(_closed_sign):
+		_closed_sign.queue_free()
+	_closed_sign = Control.new()
+	_closed_sign.name = "ClosedSign"
+	_closed_sign.position = Vector2(STAGE_SIZE.x - 210, 292)
+	_closed_sign.size = Vector2(84, 80)
+	_closed_sign.pivot_offset = Vector2(42, 80)  # (it pops up from the pavement)
+	_closed_sign.rotation_degrees = -4.0
+	_closed_sign.z_index = 4
+	_closed_sign.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
+	_closed_sign.tooltip_text = Text.tip("마감 magam: closed. The owner's closing up early tonight: nobody new, and everyone here finishes at their own pace.")
+	_stage.add_child(_closed_sign)
+	for leg_x in [14.0, 64.0]:
+		_rect(_closed_sign, Vector2(leg_x, 50), Vector2(5, 30), Color("4a3524"))  # the A-frame's legs
+	_rect(_closed_sign, Vector2(0, 0), Vector2(84, 56), Color("2c2a26"))  # a little chalkboard
+	_rect(_closed_sign, Vector2(4, 4), Vector2(76, 48), Color("3d4a3f"))
+	for line in [["마감", 22, 4.0], ["CLOSED", 12, 34.0]]:
+		var label := Ktv.label(str(line[0]), int(line[1]), Ktv.CREAM)
+		label.position = Vector2(0, float(line[2]))
+		label.size = Vector2(84, 20)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_closed_sign.add_child(label)
+	_closed_sign.scale = Vector2(1.0, 0.0)
+	var pop := _closed_sign.create_tween()
+	pop.tween_property(_closed_sign, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# The far bulb flickers, and goes off.
+	if not _bulb_lights.is_empty():
+		var bulb: ColorRect = _bulb_lights[-1]
+		var off := bulb.create_tween()
+		for k in 2:
+			off.tween_property(bulb, "modulate:a", 0.25, 0.06)
+			off.tween_property(bulb, "modulate:a", 1.0, 0.08 + 0.05 * k)
+		off.tween_callback(_update_light.bind(true))
 
 
 func _leave() -> void:
@@ -722,6 +808,10 @@ func _start_night() -> void:
 	_looks_tonight.clear()
 	_last_orders = false
 	_closing_early = false
+	_closing_to_say = false
+	_closing_said = ""
+	if is_instance_valid(_closed_sign):
+		_closed_sign.queue_free()
 	_leave_button.disabled = false
 	_leave_button.text = "Close the bar"
 	_rush_shown = false
@@ -799,7 +889,7 @@ func _process(delta: float) -> void:
 		return
 	if _leave_requested:
 		_leave()
-	elif (_clock >= NightRules.CLOSE_MINUTES or _closing_early) and _guests.is_empty():
+	elif (_clock >= NightRules.CLOSE_MINUTES or (_closing_early and not _closing_to_say)) and _guests.is_empty() and not _greeting:
 		_end_night()
 	else:
 		_next_task()
@@ -814,6 +904,10 @@ func _people_in() -> int:
 ## Someone turns up, at this time (game minutes), and waits to be greeted. (Tests call this
 ## too, to bring customers in.)
 func _arrive(when: float, regular_id: String = "") -> void:
+	if _closing_early:
+		_narrate("Someone comes up to the tarp, sees the 마감 sign, and walks on.")
+		_walk_past(0.0)
+		return
 	_waiting.append(when)
 	_waiting_who.append(regular_id)
 	_event("arrived", {"regular": regular_id != ""})
@@ -1141,6 +1235,7 @@ func _diary_facts() -> Dictionary:
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
 		"cat": str(_cat.get("name", "")), "line": NightRules.memorable_line(_night_lines), "specials": _specials.duplicate(),
 		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
+		"closed_said": _closing_said if _closing_early else "",
 	})
 
 
@@ -1248,12 +1343,13 @@ func _next_task() -> void:
 	if _can_greet():
 		_greet()
 		return
+	if _closing_to_say:  # (first: anyone settling up hears why before they go)
+		_say_closing()
+		return
 	var payer := _ready_to_pay()
 	if payer != null:
 		_settle_up(payer)
 		return
-	if _closing_early:
-		return  # (just seeing everyone off)
 	if not _reaction_pending.is_empty():
 		_ask_pending_reaction()
 		return
@@ -1289,7 +1385,7 @@ func _urgent() -> bool:
 
 
 func _can_greet() -> bool:
-	return not _waiting.is_empty() and not _free_seats().is_empty() and not _last_orders
+	return not _waiting.is_empty() and not _free_seats().is_empty() and not _last_orders and not _closing_early
 
 
 func _free_seats() -> Array:
@@ -1634,7 +1730,7 @@ func _new_customer(arrived: String, ahead: bool = false) -> Dictionary:
 ## settling up and a put-off reaction), the tent's open for new people, and there's nobody
 ## ready yet (or the one ready is too old to use).
 func _should_prepare() -> bool:
-	if not Hooks.prepare_customers or not _night_open or _last_orders or _clock >= NightRules.CLOSE_MINUTES:
+	if not Hooks.prepare_customers or not _night_open or _last_orders or _closing_early or _clock >= NightRules.CLOSE_MINUTES:
 		return false
 	if not _prepared.is_empty() and _clock - float(_prepared["at"]) > PREPARED_FRESH_MINUTES:
 		_prepared = {}
@@ -2724,7 +2820,7 @@ func _dish_shape(id: String) -> Control:
 ## The free banchan: three little dishes.
 func _banchan_shape() -> Control:
 	var shape := Control.new()
-	shape.tooltip_text = "Banchan: %s (free)" % BANCHAN
+	shape.tooltip_text = Text.tip("Banchan: %s (free)" % BANCHAN)
 	shape.mouse_filter = Control.MOUSE_FILTER_STOP
 	shape.custom_minimum_size = Vector2(26, 34)
 	for i in 3:
@@ -2746,10 +2842,13 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
 	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
+	# (Their node may have gone while the line was on its way, e.g. they've walked off: a freed
+	# node can't be passed as a Control, so it's null then, and the bubble skips or points nowhere.)
+	var them: Control = guest.node if is_instance_valid(guest.node) else null
 	if owner_speaks:
-		_give_time_to_read(text, _say_in_bubble(_owner_node, guest.node, _to_label(text, null, guest, _name_label(guest.customer)), guest.color.lightened(0.35), colour, text))
+		_give_time_to_read(text, _say_in_bubble(_owner_node, them, _to_label(text, null, guest, _name_label(guest.customer)), guest.color.lightened(0.35), colour, text))
 	else:
-		_give_time_to_read(text, _say_in_bubble(guest.node, _owner_node, _to_label(text, guest, null, _owner_label()), OWNER_TEXT, colour, text))
+		_give_time_to_read(text, _say_in_bubble(them, _owner_node, _to_label(text, guest, null, _owner_label()), OWNER_TEXT, colour, text))
 
 
 func _narrate(text: String) -> void:
@@ -2802,11 +2901,12 @@ func _caption_for_event(kind: String, facts: Dictionary, about: Variant, spot: V
 func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
 	if not Hooks.captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Captions.CAPTIONS.has(kind):
 		return
-	if Hooks.caption_pacing and randf() >= float(Captions.CAPTIONS[kind].get("chance", 1.0)):
+	var always := bool(Captions.CAPTIONS[kind].get("always", false))  # (closing early: never held back)
+	if Hooks.caption_pacing and not always and randf() >= float(Captions.CAPTIONS[kind].get("chance", 1.0)):
 		return  # a kind that comes up all night: only now and then
 	var now := Time.get_ticks_msec() / 1000.0
 	var reaction_up := now < _reaction_until and not bool(Captions.CAPTIONS[kind]["emergency"])  # a reaction's up: routine ones wait
-	if Hooks.caption_pacing and (reaction_up or not Captions.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Captions.CAPTION_GAP), _scaled(Captions.CAPTION_SAME_GAP))):
+	if Hooks.caption_pacing and not always and (reaction_up or not Captions.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Captions.CAPTION_GAP), _scaled(Captions.CAPTION_SAME_GAP))):
 		_stats.captions_held_back += 1
 		return
 	_caption_last = now
@@ -2928,7 +3028,9 @@ func _flash_red() -> void:
 
 ## Shows a line in a speech bubble over the speaker, a page at a time, with who it's to and
 ## a line to them. Returns how long it'll take (already scaled), or 0 with bubbles off.
-func _say_in_bubble(speaker: Control, listener: Control, to_label: String, to_colour: Color, colour: Color, text: String) -> float:
+## speaker and listener are untyped: either may have walked off (and been freed) while the line
+## was on its way, and a freed node can't be passed as a Control. Checked here instead.
+func _say_in_bubble(speaker: Variant, listener: Variant, to_label: String, to_colour: Color, colour: Color, text: String) -> float:
 	if not Hooks.bubbles or not _bubbles_toggle.button_pressed or speaker == null or not is_instance_valid(speaker):
 		return 0.0
 	# A speaker's new line replaces their last bubble; others' recent lines stay up, dimmed, so
@@ -3255,14 +3357,14 @@ func _build_ui() -> void:
 	_reading_toggle.name = "ReadingToggle"
 	_reading_toggle.text = "Reading pauses"
 	_reading_toggle.button_pressed = false  # Off while we try the bar without them.
-	_reading_toggle.tooltip_text = "Wait after each line so there's time to read it. Off: lines come as fast as the AI writes them."
+	_reading_toggle.tooltip_text = Text.tip("Wait after each line so there's time to read it. Off: lines come as fast as the AI writes them.")
 	opts.add_child(_reading_toggle)
 
 	_stats_toggle = CheckBox.new()
 	_stats_toggle.name = "StatsToggle"
 	_stats_toggle.text = "Stats"
 	_stats_toggle.button_pressed = true  # Shown by default while we're testing.
-	_stats_toggle.tooltip_text = "Debug stats for tonight (F3). A log of them is saved at the end of each night."
+	_stats_toggle.tooltip_text = Text.tip("Debug stats for tonight (F3). A log of them is saved at the end of each night.")
 	_stats_toggle.toggled.connect(_on_stats_toggled)
 	opts.add_child(_stats_toggle)
 
@@ -3270,21 +3372,21 @@ func _build_ui() -> void:
 	_bubbles_toggle.name = "BubblesToggle"
 	_bubbles_toggle.text = "Bubbles"
 	_bubbles_toggle.button_pressed = true
-	_bubbles_toggle.tooltip_text = "Speech bubbles over whoever's talking, with a line to who they're talking to."
+	_bubbles_toggle.tooltip_text = Text.tip("Speech bubbles over whoever's talking, with a line to who they're talking to.")
 	opts.add_child(_bubbles_toggle)
 
 	_captions_toggle = CheckBox.new()
 	_captions_toggle.name = "CaptionsToggle"
 	_captions_toggle.text = "Captions"
 	_captions_toggle.button_pressed = true
-	_captions_toggle.tooltip_text = "Korean TV-style captions when something noteworthy happens."
+	_captions_toggle.tooltip_text = Text.tip("Korean TV-style captions when something noteworthy happens.")
 	opts.add_child(_captions_toggle)
 
 	_sound_toggle = CheckBox.new()
 	_sound_toggle.name = "SoundToggle"
 	_sound_toggle.text = "Sound"
 	_sound_toggle.button_pressed = _ambience.enabled  # on unless it was turned off last time
-	_sound_toggle.tooltip_text = "The tent's background sound: the street, the weather, the stove and the counter."
+	_sound_toggle.tooltip_text = Text.tip("The tent's background sound: the street, the weather, the stove and the counter.")
 	_sound_toggle.toggled.connect(_ambience.set_enabled)
 	var sound_row := HBoxContainer.new()
 	sound_row.add_theme_constant_override("separation", 12)
@@ -3299,7 +3401,7 @@ func _build_ui() -> void:
 	volume.value = _ambience.volume
 	volume.custom_minimum_size = Vector2(120, 0)
 	volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	volume.tooltip_text = "How loud the background sound is."
+	volume.tooltip_text = Text.tip("How loud the background sound is.")
 	volume.value_changed.connect(_ambience.set_volume)
 	volume.custom_minimum_size = Vector2(180, 0)
 	sound_row.add_child(volume)
@@ -3310,7 +3412,7 @@ func _build_ui() -> void:
 	_music_toggle.name = "MusicToggle"
 	_music_toggle.text = "Music"
 	_music_toggle.button_pressed = _music.enabled  # on unless it was turned off last time
-	_music_toggle.tooltip_text = "Arirang, now and then through the night."
+	_music_toggle.tooltip_text = Text.tip("Arirang, now and then through the night.")
 	_music_toggle.toggled.connect(_music.set_enabled)
 	_music_toggle.custom_minimum_size = Vector2(150, 0)
 	music_row.add_child(_music_toggle)
@@ -3322,7 +3424,7 @@ func _build_ui() -> void:
 	music.value = _music.volume
 	music.custom_minimum_size = Vector2(120, 0)
 	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	music.tooltip_text = "Arirang, now and then through the night (all the way down for none)."
+	music.tooltip_text = Text.tip("Arirang, now and then through the night (all the way down for none).")
 	music.value_changed.connect(_music.set_volume)
 	music.custom_minimum_size = Vector2(180, 0)
 	music_row.add_child(music)
@@ -3334,7 +3436,7 @@ func _build_ui() -> void:
 	_try_again = Button.new()
 	_try_again.name = "TryAgainButton"
 	_try_again.text = "Try again"
-	_try_again.tooltip_text = "Ask the AI for the owner again."
+	_try_again.tooltip_text = Text.tip("Ask the AI for the owner again.")
 	_try_again.custom_minimum_size = Vector2(150, 40)
 	_try_again.visible = false
 	_try_again.pressed.connect(_on_try_again_pressed)
@@ -3343,7 +3445,7 @@ func _build_ui() -> void:
 	_leave_button = Button.new()
 	_leave_button.name = "LeaveButton"
 	_leave_button.text = "Close the bar"
-	_leave_button.tooltip_text = "Closes up early: nobody new comes in, everyone settles up, and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)"
+	_leave_button.tooltip_text = Text.tip("Closes up early: nobody new comes in, whoever's here finishes at their own pace, and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)")
 	_leave_button.custom_minimum_size = Vector2(150, 40)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	bar.add_child(_leave_button)
@@ -3351,7 +3453,7 @@ func _build_ui() -> void:
 	var diary := Button.new()
 	diary.name = "DiaryButton"
 	diary.text = "📖 Diary"
-	diary.tooltip_text = "The owner's diary: every night so far, a page at a time."
+	diary.tooltip_text = Text.tip("The owner's diary: every night so far, a page at a time.")
 	diary.custom_minimum_size = Vector2(130, 40)
 	diary.pressed.connect(_open_diary)
 	bar.add_child(diary)
@@ -3359,7 +3461,7 @@ func _build_ui() -> void:
 	_options_button = Button.new()
 	_options_button.name = "OptionsButton"
 	_options_button.text = "⚙ Options"
-	_options_button.tooltip_text = "Sound, music, speech bubbles, TV captions, reading pauses and the stats panel (Esc)."
+	_options_button.tooltip_text = Text.tip("Sound, music, speech bubbles, TV captions, reading pauses and the stats panel (Esc).")
 	_options_button.toggle_mode = true
 	_options_button.custom_minimum_size = Vector2(140, 40)
 	_options_button.toggled.connect(func(on): _options_panel.visible = on)
@@ -3461,7 +3563,7 @@ func _build_ui() -> void:
 	_stats_button.text = "Stats"
 	_stats_button.toggle_mode = true
 	_stats_button.custom_minimum_size = Vector2(140, 48)
-	_stats_button.tooltip_text = "Tonight's numbers, instead of the diary."
+	_stats_button.tooltip_text = Text.tip("Tonight's numbers, instead of the diary.")
 	_stats_button.toggled.connect(_on_summary_stats_toggled)
 	summary_buttons.add_child(_stats_button)
 	summary_buttons.add_child(next_night)
@@ -3640,7 +3742,7 @@ func _build_fridge(stage: Control) -> void:
 	fridge.position = Vector2(186, 116)  # just right of the odeng pot
 	fridge.size = Vector2(92, 134)
 	fridge.mouse_filter = Control.MOUSE_FILTER_STOP
-	fridge.tooltip_text = "The drinks fridge: soju, beer and makgeolli, ice cold."
+	fridge.tooltip_text = Text.tip("The drinks fridge: soju, beer and makgeolli, ice cold.")
 	stage.add_child(fridge)
 	_rect(fridge, Vector2.ZERO, Vector2(92, 134), Color("d8dce4"))  # the cabinet
 	_rect(fridge, Vector2.ZERO, Vector2(92, 14), Color("c8443a"))  # the header strip
@@ -3680,7 +3782,7 @@ func _build_odeng_pot(stage: Control) -> void:
 	pot.position = Vector2(108, 212)
 	pot.mouse_filter = Control.MOUSE_FILTER_STOP
 	pot.size = Vector2(60, 32)
-	pot.tooltip_text = "Odeng: %s" % Menu.find("odeng")["desc"]
+	pot.tooltip_text = Text.tip("Odeng: %s" % Menu.find("odeng")["desc"])
 	stage.add_child(pot)
 	for k in 4:  # skewers, at a slant
 		var skewer := _rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
@@ -3703,7 +3805,7 @@ func _build_neon(stage: Control) -> void:
 	_neon = Ktv.label("노\n래\n방", 22, Color("ff5fa2"), 6, Color("ff5fa2", 0.35))
 	_neon.name = "Neon"
 	_neon.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
-	_neon.tooltip_text = "노래방 noraebang: a karaoke room across the street,\nwhere the night carries on after the pocha."
+	_neon.tooltip_text = Text.tip("노래방 noraebang: a karaoke room across the street, where the night carries on after the pocha.")
 	_neon.position = Vector2(STAGE_SIZE.x - 36, 122)
 	_neon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage.add_child(_neon)
@@ -3831,7 +3933,7 @@ func _show_look() -> void:
 			label.add_theme_constant_override("outline_size", 0)
 	_sign_hangul.text = str(look["hangul"])
 	_sign_english.text = str(Game.bar.get("name", "")).to_upper()
-	_sign.tooltip_text = "%s · %s (%s)" % [look["hangul"], Game.bar.get("name", ""), Game.bar.get("name_meaning", "")]
+	_sign.tooltip_text = Text.tip("%s · %s (%s)" % [look["hangul"], Game.bar.get("name", ""), Game.bar.get("name_meaning", "")])
 	_sign.visible = true
 	for layer in [_decor_back, _decor_counter, _decor_roof]:
 		_clear(layer)
@@ -3911,7 +4013,7 @@ func _add_touch(id: String) -> void:
 
 ## The sky, the tent's glow and the bulbs, by the hour. Cold nights look bluer, fog greys
 ## everything, and a muggy night's a little warmer.
-func _update_light() -> void:
+func _update_light(closing_dim: bool = false) -> void:
 	var light := NightRules.night_light(_clock)
 	var sky: Color = light["sky"]
 	match _weather_kind:
@@ -3919,9 +4021,12 @@ func _update_light() -> void:
 		"fog": sky = sky.lerp(Color("4a4a58"), 0.35)
 		"muggy": sky = sky.lerp(Color("4a2e2a"), 0.25)
 	_sky.color = sky
-	_glow.color = Color(0.91, 0.51, 0.23, light["glow"])
+	var closing := closing_dim or (_closing_early and _night_open)  # (the far bulb's off: see _show_closing_up)
+	_glow.color = Color(0.91, 0.51, 0.23, float(light["glow"]) * (CLOSING_GLOW if closing else 1.0))
 	for bulb in _bulb_lights:
 		bulb.color = light["bulb"]
+	if closing and not _bulb_lights.is_empty():
+		_bulb_lights[-1].color = BULB_OFF
 
 
 ## Tonight's weather, as you'd see it: rain or snow falling, fog drifting, a warm haze, and

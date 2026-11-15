@@ -151,6 +151,8 @@ func reply(request: Dictionary) -> Variant:
 			return Story.stitched_recap(request.get("facts", {}))
 		"diary":
 			return {"entry": Story.stitched_diary(request.get("facts", {}))}
+		"closing":
+			return Story.closing_reason(str(request.get("weather", "")), randf())
 		"reaction":
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])

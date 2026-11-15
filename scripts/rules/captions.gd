@@ -101,7 +101,11 @@ const CAPTIONS := {
 		"icon": "🐈", "colour": "ffc46b", "sound": "nyang", "emergency": false},
 	"closing_early": {"words": [["조기 마감!", "JOGI MAGAM! CLOSING EARLY!"], ["오늘은 여기까지", "<THAT'S ALL|THAT'S IT> FOR TONIGHT!"],
 		["영업 종료!", "<TARP DOWN|SHUTTERS DOWN|LIGHTS OUT> EARLY!"]],
-		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false},
+		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true},
+	# The owner's own reason for closing early (the AI's, or the game's: see Story.closing_reason).
+	# fill_first: a wording with the reason whenever there is one (the plain one only without).
+	"closing_reason": {"words": [["조기 마감!", "{reason}"], ["오늘은 여기까지", "{reason}"], ["영업 종료!", "{reason}"], ["조기 마감!", "CLOSING EARLY!"]],
+		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true, "fill_first": true},
 	# (An emergency, Chef-My-Fridge style: the red light and the siren, for a fish cake.)
 	"cat_thief": {"words": [["범인은 고양이!", "THE CULPRIT: {cat}!"], ["도둑냥!", "DODUK-NYANG! <CAT BURGLAR|THIEF CAT|SKEWER HEIST>!"],
 		["어묵 실종?!", "<WHERE'S|WHO TOOK> {name}'S ODENG?!"], ["현행범!", "{cat}, CAUGHT <RED-PAWED|IN THE ACT>!"]],
@@ -183,6 +187,10 @@ static func caption_words(kind: String, fill: Dictionary = {}, roll: float = 0.0
 			usable.append(wording)
 	if usable.is_empty():
 		return {}
+	if bool(data.get("fill_first", false)):
+		var filled := usable.filter(func(wording): return "{" in str(wording[0]) + str(wording[1]))
+		if not filled.is_empty():
+			usable = filled
 	var chosen: Array = usable[clampi(floori(roll * usable.size()), 0, usable.size() - 1)]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(kind + str(roll))  # the same roll, the same pieces
@@ -383,6 +391,8 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			if bool(facts.get("was_out", false)) and spot != "street":
 				return {"kind": "cat_back", "fill": {"cat": facts.get("cat", "")}}
 		"closed_early":
+			if str(facts.get("reason", "")) != "":
+				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}
 			return {"kind": "closing_early", "fill": {}}
 		"cat_stole":
 			return {"kind": "cat_thief", "fill": {"cat": facts.get("cat", ""), "name": facts.get("name", "")}}

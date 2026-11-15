@@ -704,7 +704,12 @@ Only what was actually said: nothing invented.""" % [transcript_text(lines), Cap
 static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
 	var closed := str(facts.get("closed_early", ""))
 	# Closing early: the reason's the owner's own (it's their tent), so the AI gives it.
-	var early := "" if closed == "" else "\n\nThey closed up early tonight, at %s, long before the usual 3am. Say why, in a sentence, in their own words: a reason of their own that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, a night that had nothing left in it). It's about them, not anyone else." % closed
+	var said := str(facts.get("closed_said", ""))
+	var early := ""
+	if closed != "" and said != "":
+		early = "\n\nThey closed up early tonight, at %s, long before the usual 3am, and told the counter why: \"%s\" Say why in the diary too, in a sentence, in their own words (the same reason)." % [closed, said]
+	elif closed != "":
+		early = "\n\nThey closed up early tonight, at %s, long before the usual 3am. Say why, in a sentence, in their own words: a reason of their own that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, a night that had nothing left in it). It's about them, not anyone else." % closed
 	var request := """%s
 
 It's %s and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
@@ -715,6 +720,28 @@ Write their diary entry for tonight, in their own voice (first person, the way t
 Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
 
 Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), closed if closed != "" else "3am", owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", ""), early]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Closing up early: the owner decides to call it a night (the player pressed Close the bar)
+## and tells whoever's at the counter why, in a line of their own, with a TV caption for it.
+## context: time (clock text), weather (as it is tonight), seated (the names at the counter),
+## customers (how many came in so far).
+static func closing_messages(owner: Dictionary, context: Dictionary) -> Array:
+	var seated: Array = context.get("seated", [])
+	var who := "nobody's at the counter, so they say it to the empty stools" if seated.is_empty() else "they tell everyone at the counter (%s)" % ", ".join(PackedStringArray(seated))
+	var request := """%s
+
+It's %s, %s, and %d customers have been in so far tonight. The owner's decided to close up early: nobody new tonight, and whoever's here finishes at their own pace, no hurry. Long before the usual 3am, so there's a reason, their own, that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, an early start, a night that's had all it's going to have). It's about them, not anyone here.
+
+They say so out loud, in one or two short sentences, the way they talk (%s): %s.
+
+Then a TV caption for it, the way a Korean variety show captions a moment: two to five words in capitals, about the reason (like "THE KNEES HAVE SPOKEN" or "DEFEATED BY THE RAIN"), no names but the owner's.
+
+Reply with ONLY a JSON object: {"line": "what they say", "caption": "THE CAPTION"}""" % [describe_owner(owner), context.get("time", ""), context.get("weather", ""), int(context.get("customers", 0)), owner.get("speech_style", ""), who]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -740,7 +767,7 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	if str(facts.get("busiest", "")) != "":
 		lines.append("- Busiest at %s." % facts["busiest"])
 	if str(facts.get("closed_early", "")) != "":
-		lines.append("- The owner closed up early, at %s." % facts["closed_early"])
+		lines.append("- The owner closed up early, at %s%s." % [facts["closed_early"], (", saying: \"%s\"" % facts["closed_said"]) if str(facts.get("closed_said", "")) != "" else ""])
 	if not facts.get("specials", []).is_empty():
 		lines.append("- Tonight's specials: %s." % " and ".join(PackedStringArray(facts["specials"].map(func(id): return str(Menu.find(str(id)).get("name", id))))))
 	for moment in facts.get("moments", []):
