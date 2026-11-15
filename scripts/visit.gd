@@ -677,9 +677,14 @@ func _process(delta: float) -> void:
 		guest.stay_left -= minutes
 	if Hooks.strollers:
 		_stroll_next -= minutes
-		if _stroll_next <= 0.0:
+		# Catch up on everyone due (a slow frame, or time running fast, can cover several),
+		# so how many walk by doesn't depend on the frame rate; a few at most, so no crowd.
+		var due := 0
+		while _stroll_next <= 0.0 and due < 3:
 			_stroll()
-			_stroll_next = NightRules.stroll_gap(int(_clock), randf())
+			_stroll_next += NightRules.stroll_gap(int(_clock), randf())
+			due += 1
+		_stroll_next = maxf(_stroll_next, 0.0)
 	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
 		if _cat_next <= 0.0:

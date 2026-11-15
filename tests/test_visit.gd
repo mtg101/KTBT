@@ -160,6 +160,9 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	var scene = runner.scene()
 	_crowd(scene, 6)
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 5)).is_true()
+	# Slower here, so the passer-by is still on screen to look at (at 0.01 they're gone in about
+	# 50ms: a frame or two on a slow machine, like GitHub's).
+	Hooks.pause_scale_override = 0.2
 	scene._clock += NightRules.GIVE_UP_MINUTES + 1  # the one left waiting has waited long enough
 	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).override_failure_message("nobody gave up").is_true()
 	assert_array(scene._waiting).is_empty()
@@ -168,6 +171,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	var passer := runner.find_child("PasserBy1", true, false) as Control
 	assert_object(passer).is_not_null()
 	assert_bool(await _wait_until(func(): return not is_instance_valid(passer))).override_failure_message("the passer-by never left").is_true()
+	Hooks.pause_scale_override = 0.01
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy, 30000)).is_true()
 	assert_int(int(Game.bar["visits"])).is_equal(5)
@@ -352,7 +356,8 @@ func test_quiet_customers_keep_to_themselves() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 2)
-	var talked: bool = await _wait_until(func(): return scene._guests.size() == 2 and scene._guests[0].line >= 6 and scene._guests[1].line >= 6)
+	# (A longer limit: on a slow machine, like GitHub's, six lines each can take a while.)
+	var talked: bool = await _wait_until(func(): return scene._guests.size() == 2 and scene._guests[0].line >= 6 and scene._guests[1].line >= 6, 45000)
 	assert_bool(talked).is_true()
 	assert_str(_transcript(runner)).not_contains("gets talking to")
 	assert_array(scene._chats).is_empty()
