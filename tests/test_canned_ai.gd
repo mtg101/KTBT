@@ -199,6 +199,13 @@ func test_canned_founding_regulars_and_their_evenings_pass_the_rules() -> void:
 	assert_str(Rules.validate_regular_tonight(_canned.reply({"purpose": "regular_tonight", "name": "Kim Ji-ho"}))).is_empty()
 
 
+func test_the_canned_recap_passes_the_rules() -> void:
+	var facts := {"episode": 2, "bar": "Donghwa Pocha", "owner": "Park Mi-sook", "names": ["Park Mi-sook", "Kim Ji-ho"], "regulars": [],
+		"last": {"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."}], "new_regulars": ["Kim Ji-ho"]}}
+	var reply: Dictionary = _canned.reply({"purpose": "recap", "facts": facts})
+	assert_str(Rules.validate_recap(reply, facts)).is_empty()
+
+
 func test_the_canned_diary_passes_the_rules() -> void:
 	var facts := {"episode": 1, "day": "Friday", "weather": "a clear, cold night", "owner": "Park Mi-sook", "customers": 3, "takings": "₩61,000",
 		"people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [], "ordered": ["soju"], "cat": "Mandu", "cat_laps": ["Kim Ji-ho"]}

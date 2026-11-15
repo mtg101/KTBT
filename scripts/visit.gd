@@ -29,6 +29,7 @@ const NightStats = preload("res://scripts/night_stats.gd")
 const CaptionPopup = preload("res://scripts/caption.gd")
 const DiaryPage = preload("res://scripts/diary_page.gd")
 const DiaryBook = preload("res://scripts/diary_book.gd")
+const RecapScreen = preload("res://scripts/recap_screen.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
@@ -112,6 +113,9 @@ static var reactions := true
 ## Test hook: false has the game write the 3am diary itself (no AI call, which would use up
 ## scripted replies); diary tests turn it on.
 static var diaries := true
+## Test hook: false plays no "Previously on…" (or series opener) when a bar opens; recap tests
+## turn it on.
+static var recaps := true
 ## Test hook: true offers a new bar every colour and shape (so a scripted look always fits).
 static var offer_every_look := false
 
@@ -289,6 +293,7 @@ var _peak_time := ""
 var _diary_page: Control  # the 3am diary page (see diary_page.gd)
 var _summary_buttons: Array = []  # disabled while the owner writes
 var _stats_button: Button
+var _recap_said := ""  # tonight's "Previously on…", for the top of the night's transcript
 var _summary: PanelContainer
 var _summary_text: RichTextLabel
 
@@ -377,13 +382,25 @@ func _open_saved_bar() -> void:
 	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
 	if founding_regulars and not Game.bar.has("regulars") and not _stopped:
 		await _make_founding_regulars()  # a bar saved before regulars: its two, once
-	_owner_working = false
 	if _stopped or Game.bar.is_empty():
+		_owner_working = false
 		return
 	if not Game.bar.get("cat", {}).is_empty():  # bars saved before cats have none, for now
 		_show_cat()
 	_update_info()
-	_end_loading()
+	if recaps and int(Game.bar.get("nights", 0)) > 0:
+		_loading.status = "Previously on…"
+		var recap := await _write_recap()
+		if _stopped or Game.bar.is_empty():
+			_owner_working = false
+			return
+		_end_loading()
+		await _play_recap(recap, false)
+	else:
+		_end_loading()
+	_owner_working = false
+	if _stopped or Game.bar.is_empty():
+		return
 	_start_night()
 
 
@@ -508,6 +525,10 @@ func _invent_owner() -> void:
 	_show_cat()
 	await get_tree().process_frame  # let the tent draw before the loading screen fades
 	_end_loading()
+	if recaps:
+		await _play_recap(Rules.series_opener(_recap_facts()), true)  # a new series: its first episode
+		if _stopped or Game.bar.is_empty():
+			return
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
 	_owner_working = false
@@ -923,6 +944,68 @@ func _diary_facts() -> Dictionary:
 	}
 
 
+## "Previously on…": what the recap's written from: the last diary entry and its facts, the
+## regulars (and each one's latest memory, for a bar from before diaries), and who may be named.
+func _recap_facts() -> Dictionary:
+	var diary: Array = Game.bar.get("diary", [])
+	var last: Dictionary = diary[-1] if not diary.is_empty() else {}
+	var regulars: Array = _regulars()
+	var names: Array = [str(_owner.get("name", ""))]
+	for regular in regulars:
+		names.append(str(regular["name"]))
+	var latest_memories: Array = []
+	if last.is_empty():
+		for regular in regulars:
+			var kept: Array = regular.get("memories", [])
+			if not kept.is_empty():
+				latest_memories.append("%s, a regular: %s" % [regular["name"], kept[-1].get("owner", "")])
+	var last_facts: Dictionary = last.get("facts", {})
+	var hangul := {str(_owner.get("name", "")): str(_owner.get("hangul", ""))}  # for the recap's name tags
+	for regular in regulars:
+		hangul[str(regular["name"])] = str(regular.get("hangul", ""))
+	for person in last_facts.get("people", []):
+		names.append(str(person["name"]))
+		if not hangul.has(str(person["name"])) or str(hangul[str(person["name"])]) == "":
+			hangul[str(person["name"])] = str(person.get("hangul", ""))
+	return {
+		"episode": int(Game.bar.get("nights", 0)) + 1, "bar": str(Game.bar.get("name", "")), "owner": str(_owner.get("name", "")),
+		"archetype": str(_owner.get("archetype", "")), "owner_data": _owner.duplicate(true), "cat": str(Game.bar.get("cat", {}).get("name", "")),
+		"regulars": regulars.map(func(r): return str(r["name"])), "names": names,
+		"last": last_facts, "last_entry": str(last.get("text", "")), "memories": latest_memories, "hangul": hangul,
+	}
+
+
+## The recap for tonight: the AI's, checked, or the game's own from the same facts.
+func _write_recap() -> Dictionary:
+	var facts := _recap_facts()
+	var reply: Dictionary = await _ai.ask_json(Prompts.recap_messages(facts), _validate_recap.bind(facts), {"temperature": 0.85},
+		{"purpose": "recap", "facts": facts})
+	if reply.is_empty():
+		reply = Rules.stitched_recap(facts)
+	return reply
+
+
+func _validate_recap(data: Variant, facts: Dictionary) -> String:
+	return Rules.validate_recap(data, facts)
+
+
+## Plays a recap full screen and waits for it to finish (or be skipped).
+func _play_recap(recap: Dictionary, opener: bool) -> void:
+	var screen := RecapScreen.new()
+	screen.time_scale = _scaled(1.0)
+	screen.sting = _ambience.sting
+	add_child(screen)
+	var facts := _recap_facts()
+	# A different K-TV style each time (Rules.RECAP_STYLES), from last time's biggest moment.
+	var style := Rules.pick_recap_style(facts["last"], str(Game.bar.get("last_recap_style", "")), randf())
+	Game.bar["last_recap_style"] = style
+	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style}
+	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
+	await screen.finished
+	_recap_said = "%s %s %s" % ["Series opener:" if opener else "Previously on…", " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
+	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(_recap_said)])
+
+
 ## The owner's diary as a book, over everything (the night carries on behind it).
 func _open_diary() -> void:
 	if find_child("DiaryBook", false, false) != null:
@@ -1122,6 +1205,9 @@ func _start_transcript() -> void:
 			"on" if _reading_toggle.button_pressed else "off"],
 		"=".repeat(70),
 	])) + "\n")
+	if _recap_said != "":
+		_transcript_file.store_string(_recap_said + "\n\n")
+		_recap_said = ""
 	_transcript_file.flush()
 	print("Night transcript: ", ProjectSettings.globalize_path(path))
 
@@ -1433,7 +1519,7 @@ func _settle_up(guest: Guest) -> void:
 	var known := _regular(str(guest.customer.get("regular_id", "")))
 	if not known.is_empty():
 		standing = "a founding regular" if bool(known.get("founding", false)) else "a regular"
-	_night_people.append({"name": str(guest.customer["name"]), "job": str(guest.customer.get("job", "")), "regular": standing,
+	_night_people.append({"name": str(guest.customer["name"]), "hangul": str(guest.customer.get("hangul", "")), "job": str(guest.customer.get("job", "")), "regular": standing,
 		"ordered": ", ".join(PackedStringArray(guest.order.map(func(id): return str(Menu.find(id).get("name", id))))), "order_ids": guest.order.duplicate()})
 	_stats.owner_lines_each.append(guest.transcript.filter(func(e): return e.has("text")).size())
 	_customer = guest.customer

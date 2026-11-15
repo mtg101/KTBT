@@ -1428,3 +1428,51 @@ func test_names_are_cased_the_usual_way() -> void:
 		var chance := float(Rules.CAPTIONS[kind].get("chance", 1.0))
 		assert_bool(chance > 0.0 and chance <= 1.0).is_true()
 	assert_float(float(Rules.CAPTIONS["late_guest"]["chance"])).is_less(1.0)  # not every late arrival
+
+
+func _recap_facts() -> Dictionary:
+	return {"episode": 13, "bar": "Donghwa Pocha", "owner": "Park Mi-sook", "archetype": "gruff-but-soft ajumma", "cat": "Mandu",
+		"regulars": ["Hwang Tae-oh", "Lee Da-eun"], "names": ["Park Mi-sook", "Hwang Tae-oh", "Lee Da-eun", "Kim Ji-ho"],
+		"last": _diary_facts(), "last_entry": "Ji-ho quit. Tae-oh didn't come.", "memories": []}
+
+
+func test_the_recap_keeps_to_the_story() -> void:
+	var facts := _recap_facts()
+	var good := {"beats": ["\"Ji-ho finally says it: she quits.\"", "Tae-oh's stool stays empty."], "teaser": "Will Tae-oh come back."}
+	assert_str(Rules.validate_recap(good, facts)).is_empty()
+	assert_str(str(good["beats"][0])).is_equal("Ji-ho finally says it: she quits.")
+	assert_str(str(good["teaser"])).is_equal("Will Tae-oh come back?")  # made a question
+	assert_str(Rules.validate_recap({"beats": ["Just one."], "teaser": "Why?"}, facts)).contains("two or three")
+	assert_str(Rules.validate_recap({"beats": "Not a list", "teaser": "Why?"}, facts)).contains("a list")
+	var stranger := {"beats": ["Ji-ho quits.", "Min-jun walks in with flowers."], "teaser": "Who is he?"}
+	assert_str(Rules.validate_recap(stranger, facts)).contains("Min-jun")
+	var counted := {"beats": ["Ji-ho quits after 7 years.", "Tae-oh stays away."], "teaser": "What now?"}
+	assert_str(Rules.validate_recap(counted, facts)).contains("number (7)")
+	assert_str(Rules.unknown_name("A late-night Ji-ho, and Late-night rain.", ["Kim Ji-ho"])).is_empty()  # long words aren't names
+	# The game's own recap, and a new bar's opener, pass the checks.
+	assert_str(Rules.validate_recap(Rules.stitched_recap(facts), facts)).is_empty()
+	var first := _recap_facts()
+	first["episode"] = 1
+	first["last"] = {}
+	var opener := Rules.stitched_recap(first)
+	assert_str(str(opener["beats"][0])).contains("tarp goes up")
+	assert_str(str(opener["beats"][2])).contains("Tae-oh and Da-eun")
+	assert_str(Rules.validate_recap(opener, first)).is_empty()
+	assert_str(str(Rules.stitched_recap(facts)["teaser"])).is_equal("Will Tae-oh be back tonight?")  # a founding regular who didn't come
+
+
+func test_each_recap_gets_a_different_k_tv_style() -> void:
+	var shock := {"moments": [{"who": "Kim Ji-ho", "mood": "shock"}], "customers": 14}
+	assert_str(Rules.pick_recap_style(shock, "", 0.0)).is_equal("makjang")  # a shock: a makjang cliffhanger
+	assert_str(Rules.pick_recap_style({"moments": [{"mood": "funny"}], "customers": 14}, "", 0.0)).is_equal("variety")
+	assert_str(Rules.pick_recap_style({"moments": [{"mood": "sad"}], "customers": 14}, "", 0.0)).is_equal("melodrama")
+	assert_str(Rules.pick_recap_style({"moments": [], "customers": 5}, "", 0.0)).is_equal("nostalgic")  # a quiet night
+	assert_str(Rules.pick_recap_style(shock, "makjang", 0.0)).is_not_equal("makjang")  # never the same twice running
+	for roll in [0.0, 0.5, 0.99]:
+		var picked := Rules.pick_recap_style({"moments": [], "customers": 14}, "variety", roll)
+		assert_bool(Rules.RECAP_STYLES.has(picked)).is_true()
+		assert_str(picked).is_not_equal("variety")
+	for key in Rules.RECAP_STYLES:
+		for field in ["title", "sky", "rays", "pill", "tag", "teaser_colour", "ribbons", "drift", "beats", "last", "sting", "teaser", "overlay"]:
+			assert_bool(Rules.RECAP_STYLES[key].has(field)).override_failure_message("%s has no %s" % [key, field]).is_true()
+		assert_bool(Ambience.STINGS.has(str(Rules.RECAP_STYLES[key]["sting"]))).is_true()

@@ -6,14 +6,14 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest:** the owner's diary as a book, to flip back through past nights (from the bar or the title screen). Before that: the 3am diary entries, the owner's life made fixed, and Korean TV captions that react to what's said.
+✅ **Latest:** "Previously on…": opening a bar plays a K-drama recap of last time, in a different over-the-top K-TV style each time. Before that: the owner's diary, at 3am and as a book, the owner's life made fixed, and Korean TV captions that react to what's said.
 
-**Next up:** "Previously on…", a K-drama recap when you open a bar. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+**Next up:** see [PLAN.md](PLAN.md): the night as a story is done; next could be the refactor, real art and sound, or the game itself. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 ### What's in it so far
 
 - **Bars:** start a new bar from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each bar saves itself as you go.
-- **Nights:** 6pm to 3am, with time running faster while the tent's quiet. About twenty customers turn up, most in the late-evening rush, for five stools; when it's full, people walk on by. Each night is an episode: at 3am the owner writes it up in their diary (with the numbers behind a Stats button), and you can flip back through the diary any time.
+- **Nights:** 6pm to 3am, with time running faster while the tent's quiet. About twenty customers turn up, most in the late-evening rush, for five stools; when it's full, people walk on by. Each night is an episode: at 3am the owner writes it up in their diary (with the numbers behind a Stats button), and you can flip back through the diary any time. Opening a bar plays "Previously on…", a K-drama recap of last time.
 - **Customers:** invented by the AI, each with a look the game decides (age range, hair, clothes, colours) and a name in Hangul too ("김지호 Kim Ji-ho"). They order from the menu, get drinks straight away while cooked dishes queue at the one stove, chat with the owner, sometimes talk to each other, and leave when their time's up.
 - **Regulars:** two founding regulars per bar, and new customers can become regulars: they come back as themselves (★), remember what was said last time, get to know each other (∞), and fade away if they stop coming.
 - **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth, with their meaning on hover.
@@ -22,7 +22,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by, speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 411 automated tests (rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 418 automated tests (rules, prompts, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -88,6 +88,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close, and the music (which carries on between scenes) |
 | `scripts/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
 | `scripts/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |
+| `scripts/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
 | `scripts/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
 | `scripts/night_stats.gd` | The debug stats for a night: the stats panel and the nightly stats log |
 | `scripts/title.gd` | Title screen logic (and its Music slider) |

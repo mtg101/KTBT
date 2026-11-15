@@ -35,6 +35,7 @@ func before_test() -> void:
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
 	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
+	Visit.recaps = false  # (no "Previously on…" when a bar opens; recap tests turn it on)
 	_clear_folder(TEST_STATS)
 	Visit.transcript_folder = TEST_TRANSCRIPTS  # and transcripts, not into the project
 	_clear_folder(TEST_TRANSCRIPTS)
@@ -283,6 +284,23 @@ func test_reopening_a_bar_doesnt_invent_a_new_owner() -> void:
 	await _open_visit()
 	assert_array(CannedAi.scripted).override_failure_message("the AI was asked for something on opening a saved bar").is_not_empty()
 	assert_int(SaveStore.list_bars().size()).is_equal(1)
+
+
+func test_reopening_a_bar_plays_previously_on() -> void:
+	Visit.recaps = true
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 4
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+		"facts": {"people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."}]}})
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var asked: Array = []
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	scene._ai.answered.connect(func(purpose, _s, _p, _ok): asked.append(purpose))
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the recap").is_true()
+	assert_array(asked).contains(["recap"])
+	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("Previously on… Ji-ho")  # (the canned recap, from last night's facts)
 
 
 # --- Leaving and closing --------------------------------------------------------------------

@@ -8,6 +8,7 @@ const Ai = preload("res://scripts/ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const Rules = preload("res://scripts/rules.gd")
+const RecapScreen = preload("res://scripts/recap_screen.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
@@ -78,6 +79,7 @@ func after_test() -> void:
 	Visit.memories = false  # (an extra AI call per visit; memory tests turn it on)
 	Visit.reactions = false  # (an extra AI call after a spell of talk; reaction tests turn it on)
 	Visit.diaries = false  # (the 3am diary: the game writes it, rather than an AI call; diary tests turn it on)
+	Visit.recaps = false  # (no "Previously on…" when a bar opens; recap tests turn it on)
 	Visit.captions = true
 	Visit.caption_pacing = false  # every caption shows, so tests can look for them (pacing has its own rule tests)
 	Ambience.make_sound = false  # quiet tests (and quick ones)
@@ -1307,3 +1309,31 @@ func test_the_diary_can_be_read_during_a_night() -> void:
 	book._flip(-1)
 	assert_str((book.find_child("Entry", true, false) as Label).text).is_equal("The first night.")
 	book.close()
+
+
+func test_a_new_bar_opens_with_its_first_episode() -> void:
+	Visit.recaps = true
+	var runner := scene_runner(SCENE)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_number == 1)).override_failure_message("night one never started").is_true()
+	assert_str(_transcript(runner)).contains("Series opener: Under a Seoul overpass")
+
+
+func test_skip_ends_the_recap() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var screen := RecapScreen.new()
+	scene.add_child(screen)
+	var ended := [false]
+	screen.finished.connect(func(): ended[0] = true)
+	screen.play(["Ji-ho quits.", "Tae-oh stays away."], "Will he come back?", 5, "Golmok Pocha", false,
+		{"people": {"Kim Ji-ho": "김지호"}, "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}], "style": "makjang"})  # at full speed: still on the first beat
+	await get_tree().create_timer(1.0).timeout  # past the title card
+	assert_str(screen.beat_text()).is_equal("Ji-ho quits.")
+	assert_str((screen.find_child("RecapEpisode", true, false) as Label).text).is_equal("제5화")
+	assert_str(screen.who_text()).is_equal("김지호 Kim Ji-ho")  # her name tag, in Hangul too
+	assert_str(screen.style_name()).is_equal("makjang")
+	assert_str((screen.find_child("RecapTitle", true, false).get_child(0) as Label).text).is_equal(str(Rules.RECAP_STYLES["makjang"]["title"]))
+	assert_object(screen.find_child("RecapSticker", true, false)).is_not_null()  # and last time's big moment, stuck on
+	(screen.find_child("RecapSkip", true, false) as Button).pressed.emit()
+	assert_bool(ended[0]).is_true()

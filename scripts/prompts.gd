@@ -738,3 +738,32 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		lines.append("- %d %s had to walk on: every stool was taken." % [int(facts["walked_on"]), "person" if int(facts["walked_on"]) == 1 else "people"])
 	lines.append("- Takings: %s%s." % [facts.get("takings", ""), (", " + str(facts["takings_vs_usual"])) if str(facts.get("takings_vs_usual", "")) != "" else ""])
 	return "\n".join(lines)
+
+
+## Opening a bar: the "Previously on…" recap of last time, in a K-drama narrator's voice, from
+## the last diary's facts (see visit.gd _recap_facts).
+static func recap_messages(facts: Dictionary) -> Array:
+	var last: Dictionary = facts.get("last", {})
+	var lines := PackedStringArray()
+	if str(facts.get("last_entry", "")) != "":
+		lines.append("The owner's diary from last time: \"%s\"" % facts["last_entry"])
+	if not last.is_empty():
+		lines.append("What the game knows about last time:\n" + diary_facts_text(last))
+	for memory in facts.get("memories", []):
+		lines.append("- %s" % memory)
+	var request := """%s
+
+You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass. Episode %s starts now, and opens with "Previously on…": a recap of last time, over moody shots of the tent.
+
+Last time:
+%s
+
+Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question that makes the viewer want to watch ("Will he come back?").
+
+Only what's above: no other names, no numbers but the ones above, nothing invented.
+
+Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?"}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines)]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]

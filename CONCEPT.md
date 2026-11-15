@@ -25,7 +25,7 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 ### The owner
 - Invented by the AI **once per bar (save)** and then kept. They're the constant heart of the tent.
 - **How they look:** the game decides (their age range, hair, clothes and colours, always with an apron), and the AI invents someone who'd look like that.
-- **Their diary:** every night is an episode, and at 3am the owner writes it up in their diary, in their own voice, from the facts the game picked (the big moments, who came, the regulars, the takings). The diaries pile up into the bar's story, a book you can flip back through from the bar or the title screen.
+- **Their diary:** every night is an episode, and at 3am the owner writes it up in their diary, in their own voice, from the facts the game picked (the big moments, who came, the regulars, the takings). The diaries pile up into the bar's story, a book you can flip back through from the bar or the title screen. Opening a bar plays "Previously on…": a K-drama recap of last time, done over the top in a different K-TV style each time (melodrama, makjang, variety show, nostalgic).
 - **Their life is fixed:** a secret they only hint at, their family ("widowed young; a grown daughter in Daejeon") and what they did before the tent. The AI writes these once, the game keeps them, and every conversation has to fit them, so the owner's story never changes.
 - Every customer talks to the owner, and sometimes customers talk to each other too.
 - Later, the player can step into the owner's role.

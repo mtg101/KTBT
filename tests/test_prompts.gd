@@ -407,6 +407,16 @@ func test_the_diary_prompt_has_the_nights_facts() -> void:
 		assert_str(text).contains(bit)
 
 
+func test_the_recap_prompt_tells_last_time() -> void:
+	var facts := {"episode": 13, "bar": "Donghwa Pocha", "owner_data": _owner_data(), "last_entry": "Ji-ho quit. Tae-oh didn't come.",
+		"last": {"day": "Friday", "weather": "snow", "customers": 9, "takings": "₩300,000", "people": [], "missing": ["Hwang Tae-oh"]},
+		"memories": ["Lee Da-eun, a regular: nervous about her exam."]}
+	var text := _request(Prompts.recap_messages(facts))
+	for bit in ["Donghwa Pocha", "Episode 13", "Previously on", "Ji-ho quit. Tae-oh didn't come.", "Hwang Tae-oh, a regular, didn't come in",
+			"nervous about her exam", "present tense", "teaser", "\"beats\"", "no numbers but the ones above"]:
+		assert_str(text).contains(bit)
+
+
 func test_the_owners_life_is_in_every_prompt() -> void:
 	var owner := _owner_data()
 	owner["family"] = "widowed young; a grown daughter in Daejeon"
