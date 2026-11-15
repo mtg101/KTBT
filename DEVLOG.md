@@ -4,6 +4,7 @@ A running record of what we've done on KTBT and why, newest first. What's coming
 
 ## 15 November 2026
 
+- **Regulars and relationships planned:** founding regulars (two per bar, each with a role in the tent), becoming a regular and fading away, returning regulars kept rather than reinvented, who-knows-whom facts in every prompt, and friendlier terms earned on screen. Then: memories as short summaries plus a few facts that stick (job, family, where they're from, names), the same for regulars who know each other, friendlier terms after enough meetings (the game sets up the moment), and first-guess numbers. Only the build order is still to decide. The plan is in [PLAN.md](PLAN.md).
 - **Speech bubbles:** every line now also appears in a bubble over whoever's speaking (`bubble.gd`), alongside the transcript, which stays the full record.
   - **Who to whom:** the tail points down at the speaker, a header says who it's to ("→ 이민준 Lee Min-jun ♂", in the listener's colour), a curved line runs from the bubble to the listener's head, and the listener's name tag lights up. Bubbles follow their speaker (someone still walking to their stool, the owner moving round) and sit in front of the tarp and sign.
   - **Long lines:** most fit in one bubble (up to about 190 characters, in a wider bubble for long ones); a longer line is shown a page at a time, split at a sentence end or pause past halfway, with "…", and a short leftover joins the page before. The first version paged at half that, and turned most long lines into a page with a couple of words on it.
