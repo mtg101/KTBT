@@ -185,8 +185,13 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 func test_cooked_food_waits_at_the_stove() -> void:
 	var order := {"items": ["beer", "tteokbokki"], "line": "A cold beer and the tteokbokki, please."}
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME, A_LOOK, A_NAME, A_CUSTOMER, order]
+	Hooks.stay_minutes_override = 600  # (they stay till it's carried over: on a slow machine their time could run out first)
 	var runner := await _open_bar()
-	await _run_one_visit(runner)
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return _transcript(runner).contains("brings the Tteokbokki over"), 10000)).override_failure_message(_transcript(runner)).is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	var text := _transcript(runner)
 	# The beer comes straight away; the tteokbokki goes on the stove and is carried over later.
 	assert_str(text).contains("Served: Beer, with the free banchan")
