@@ -171,6 +171,10 @@ class Guest:
 const Chat = CounterChats.Chat  # (a conversation between customers at the counter: see scripts/bar/counter_chats.gd)
 
 
+## Every frame, while the tent's open: a wait for the next frame waits on this, so it's dropped
+## when the tent goes (rather than coming back to a scene that's gone).
+signal _frame_done
+
 var _ai: Ai
 var _owner := {}
 var _takings := 0
@@ -438,7 +442,7 @@ func _open_saved_bar() -> void:
 		await _invent_signatures()  # a bar whose menu came before signature dishes: theirs, once
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not _stopped:
 		await _change_menu()  # now and then, something new on the board
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		_owner_working = false
 		return
 	if not Game.bar.get("cat", {}).is_empty():  # bars saved before cats have none, for now
@@ -448,7 +452,7 @@ func _open_saved_bar() -> void:
 		_loading_note = "Writing \"Previously on…\""
 		var recap := await _write_recap()
 		_loading_note = ""
-		if _stopped or Game.bar.is_empty():
+		if _closed():
 			_owner_working = false
 			return
 		_end_loading()
@@ -456,7 +460,7 @@ func _open_saved_bar() -> void:
 	else:
 		_end_loading()
 	_owner_working = false
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		return
 	_start_night()
 
@@ -479,7 +483,7 @@ func _fill_in_hangul() -> void:
 			var reply: Dictionary = await _ai.ask_json(Prompts.hangul_messages(person_name), _validate_hangul.bind(person_name),
 				{"temperature": 0.2}, {"purpose": "hangul", "name": person_name})
 			_typing_label.text = ""
-			if _stopped or Game.bar.is_empty():
+			if _closed():
 				return  # the bar was closed while the AI was thinking
 			hangul = str(reply.get("hangul", ""))
 			if hangul == "":
@@ -583,6 +587,8 @@ func _invent_owner() -> void:
 	var result: Dictionary = await _ai.ask_json(Prompts.owner_messages(gender, look), _validate_owner.bind(gender, str(look["age_range"])), {"temperature": 0.9},
 		{"purpose": "owner", "gender": gender, "look": look})
 	_typing_label.text = ""
+	if _stopped:  # (the bar closed while it was waiting)
+		return
 	if result.is_empty():
 		_narrate("Couldn't invent the owner: %s" % _ai.last_error)
 		_try_again.visible = true
@@ -607,12 +613,12 @@ func _invent_owner() -> void:
 		await _make_founding_regulars()
 	_show_look()
 	_show_cat()
-	await get_tree().process_frame  # let the tent draw before the loading screen fades
+	await _frame_done  # let the tent draw before the loading screen fades
 	_end_loading()
 	if Hooks.recaps:
 		_before_night["recap_by"] = "game"  # (a series opener's always the game's)
 		await _play_recap(Story.series_opener(_recap_facts()), true)  # a new series: its first episode
-		if _stopped or Game.bar.is_empty():
+		if _closed():
 			return
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
@@ -626,6 +632,8 @@ func _name_bar() -> void:
 	var named: Dictionary = await _ai.ask_json(Prompts.bar_name_messages(_owner), _validate_bar_name, {"temperature": 0.9},
 		{"purpose": "bar_name", "owner_name": _owner["name"]})
 	_typing_label.text = ""
+	if _stopped:  # (the bar closed while it was waiting)
+		return
 	if named.is_empty():
 		named = BarLook.fallback_bar_name(str(_owner["name"]))
 	Game.bar = SaveStore.new_bar(str(named["name"]), str(named["meaning"]), _owner)
@@ -645,6 +653,8 @@ func _choose_look() -> void:
 		_validate_bar_look, {"temperature": 0.8}, {"purpose": "bar_look", "bar_name": Game.bar["name"],
 			"tarps": _look_offer.get("tarp", BarLook.BAR_TARPS.keys()), "shapes": _look_offer.get("shape", BarLook.TENT_SHAPES.keys())})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return
 	if look.is_empty():
 		look = BarLook.default_bar_look()
 	Game.bar["look"] = {"hangul": look["hangul"], "tarp": look["tarp"], "sign": look["sign"], "shape": look.get("shape", "classic"), "touches": look["touches"]}
@@ -682,6 +692,8 @@ func _choose_menu() -> void:
 	var chosen: Dictionary = await _ai.ask_json(Prompts.menu_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", ""))),
 		Catalogue.validate_menu, {"temperature": 0.8}, {"purpose": "menu", "bar_name": Game.bar["name"]})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return
 	var menu: Array = chosen.get("menu", [])
 	if menu.is_empty():
 		var dice := RandomNumberGenerator.new()
@@ -725,7 +737,7 @@ func _change_menu() -> void:
 	var reply: Dictionary = await _ai.ask_json(Prompts.menu_change_messages(_owner, str(Game.bar["name"]), out_name, choices),
 		MenuChanges.validate_change.bind(choices), {"temperature": 0.8}, {"purpose": "menu_change", "choices": choices})
 	_typing_label.text = ""
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		return
 	var in_id := str(reply.get("dish", choices[0]))
 	var change := {"night": night, "out": out_id, "in": in_id, "why": str(reply.get("why", "")), "by": "game" if reply.is_empty() else "ai"}
@@ -753,7 +765,7 @@ func _invent_signatures() -> void:
 	var reply: Dictionary = await _ai.ask_json(Prompts.signature_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", "")), names),
 		Signatures.validate_signatures.bind(menu), {"temperature": 0.9}, {"purpose": "signatures", "bar_name": Game.bar["name"]})
 	_typing_label.text = ""
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		return
 	var dishes: Array = reply.get("items", [])
 	Game.bar["signatures_by"] = "ai"
@@ -791,6 +803,8 @@ func _name_cat() -> void:
 	var named: Dictionary = await _ai.ask_json(Prompts.cat_name_messages(_owner, str(Game.bar["name"]), coat, personality, sex, taken),
 		_validate_cat_name.bind(taken), {"temperature": 0.9}, {"purpose": "cat_name", "taken": taken})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return
 	var cat_name := str(named["name"]) if not named.is_empty() else CatRules.fallback_cat_name(randf(), taken)
 	var cat_hangul := str(named.get("hangul", "")) if not named.is_empty() else str(Names.CAT_HANGUL.get(cat_name, ""))
 	_new_cat(cat_name, coat, personality, sex, cat_hangul)
@@ -875,7 +889,7 @@ func _say_closing() -> void:
 		Story.validate_closing.bind(owner_name, str(_owner["title"]), [owner_name] + seated, _tent_cat.fact()), {"temperature": 0.9},
 		{"purpose": "closing", "title": _owner["title"], "weather": _weather_kind})
 	_typing_label.text = ""
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		return
 	if reply.is_empty():
 		reply = Story.closing_reason(_weather_kind, randf())
@@ -1063,6 +1077,7 @@ func _start_night() -> void:
 ## the owner's free, they get on with whatever's most urgent. At 3am the owner calls last
 ## orders; the night ends once the last customer has gone.
 func _process(delta: float) -> void:
+	_frame_done.emit()  # (first: whatever's waiting a frame carries on)
 	_update_light()
 	_skyline.set_minutes(_clock)
 	if _loading != null and _loading.visible:
@@ -1222,7 +1237,7 @@ func _write_diary() -> void:
 	if Hooks.diaries:
 		var reply: Dictionary = await _ai.ask_json(Prompts.diary_messages(_owner, facts), _validate_diary.bind(facts), {"temperature": 0.8},
 			{"purpose": "diary", "facts": facts})
-		if _stopped or Game.bar.is_empty():
+		if _closed():
 			return
 		text = str(reply.get("entry", ""))
 		by = "owner" if text != "" else "game"
@@ -1270,6 +1285,8 @@ func _write_recap() -> Dictionary:
 	var facts := _recap_facts()
 	var reply: Dictionary = await _ai.ask_json(Prompts.recap_messages(facts), _validate_recap.bind(facts), {"temperature": 0.85},
 		{"purpose": "recap", "facts": facts, "tries": 2})  # (two goes, then the game's own: it's on the loading screen)
+	if _closed():  # (the bar closed while it was waiting)
+		return {}
 	_before_night["recap_by"] = "game" if reply.is_empty() else "ai"
 	if reply.is_empty():
 		reply = Story.stitched_recap(facts)
@@ -1334,7 +1351,7 @@ func _on_next_night_pressed() -> void:
 		_owner_working = true
 		await _change_menu()  # now and then, something new on the board
 		_owner_working = false
-		if _stopped or Game.bar.is_empty():
+		if _closed():
 			return
 	_start_night()
 
@@ -1575,12 +1592,16 @@ func _greet() -> void:
 		# A regular: they're known, so not reinvented.
 		_narrate("%s. %s" % [guest.arrived, _back_text(regular)])
 		customer = await _regular_tonight(regular, guest)
+		if _closed():  # (the bar closed while it was waiting)
+			return
 		look = customer["look"]
 	else:
 		_narrate("%s. Someone ducks under the tarp." % guest.arrived)
 		customer = _take_prepared()
 		if customer.is_empty():
 			customer = await _new_customer(guest.arrived)
+			if _closed():  # (the bar closed while it was waiting)
+				return
 		look = customer.get("look", {})
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
@@ -1639,6 +1660,8 @@ func _greet() -> void:
 		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7},
 		{"purpose": "order", "title": _owner["title"], "max_mains": 2 if hungry else 1, "max_drinks": 2 if rough_night else 1})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return
 	var items: Array = Orders.fallback_order()
 	if order.is_empty():
 		_narrate("(The AI couldn't come up with a valid order, so the game served %s: %s.)" % [" and ".join(PackedStringArray(items.map(func(id): return str(Menu.find(str(id))["name"]).to_lower()))), _ai.last_error])
@@ -1688,6 +1711,8 @@ func _new_customer(arrived: String, ahead: bool = false) -> Dictionary:
 	var who: Dictionary = await _ai.ask_json(
 		Prompts.customer_name_messages(_night_day, arrived, _night_weather, taken, used, gender),
 		_validate_customer_name.bind(taken, gender), {"temperature": 1.0}, {"purpose": "customer_name", "taken": taken, "gender": gender})
+	if _closed():  # (the bar closed while it was waiting)
+		return {}
 	var customer := {}
 	var look := {}
 	if not who.is_empty():
@@ -1700,6 +1725,8 @@ func _new_customer(arrived: String, ahead: bool = false) -> Dictionary:
 			Prompts.customer_messages(_night_day, arrived, _night_weather, false, str(who["name"]), str(who["gender"]), _jobs_tonight, _looks_tonight.slice(-VARIETY_LOOKS), look),
 			_validate_customer_details.bind(str(look["age_range"])), {"temperature": 0.9},
 			{"purpose": "customer", "name": who["name"], "gender": who["gender"], "look": look})
+		if _closed():  # (the bar closed while it was waiting)
+			return {}
 	if not ahead:
 		_typing_label.text = ""
 	if customer.is_empty():
@@ -1817,7 +1844,7 @@ func _carry_dish() -> void:
 		_carrying = false
 		return
 	_move_owner(_beside(guest))
-	await get_tree().create_timer(_scaled(0.4)).timeout
+	await _pause(_scaled(0.4))
 	if _stopped or not _guests.has(guest):
 		_carrying = false
 		return
@@ -1847,7 +1874,7 @@ func _settle_up(guest: Guest) -> void:
 	_attend(guest, false)
 	await _goodbye(guest)
 	await _wait_for_reader()  # let their goodbye sink in before they go
-	if _stopped or Game.bar.is_empty():
+	if _closed():
 		return  # the bar was closed while they said goodbye: nothing to record it in
 	var bill := Orders.bill(guest.order)
 	SaveStore.record_visit(Game.bar, {
@@ -1959,6 +1986,8 @@ func _next_line(guest: Guest) -> void:
 			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _tent_cat.prompt()),
 			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _tent_cat.fact(), address), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": false})
+		if _closed():  # (the bar closed while it was waiting)
+			return
 		# Out of date already (a dish arrived, or the cat came or went, while the AI was
 		# writing it)? Ask again, with things as they are now.
 		if reply.is_empty() or guest.version == version or attempt == 1:
@@ -1991,6 +2020,8 @@ func _goodbye(guest: Guest) -> void:
 				"The customer is getting up to go: see them off. " + _address_note(guest), _tent_cat.prompt()),
 			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _tent_cat.fact(), _address(null, guest)), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": true, "first": false, "last": false})
+		if _closed():  # (the bar closed while it was waiting)
+			return
 		if not send_off.is_empty():
 			await _say(guest, true, str(send_off["line"]))
 			guest.line += 1
@@ -2008,6 +2039,8 @@ func _goodbye(guest: Guest) -> void:
 		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _tent_cat.fact(), _address(guest, null)), {"temperature": 0.85},
 		{"purpose": "line", "title": _owner["title"], "owner_speaks": false, "first": false, "last": true})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return
 	if not reply.is_empty():
 		await _say(guest, false, str(reply["line"]))
 		guest.line += 1
@@ -2036,6 +2069,8 @@ func _extra_order(guest: Guest) -> bool:
 		_validate_extra_order.bind(guest.order.duplicate()), {"temperature": 0.7},
 		{"purpose": "extra_order", "title": _owner["title"], "table": guest.order.duplicate()})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return false
 	if extra.is_empty():
 		return false
 	var items: Array = extra["items"]
@@ -2214,6 +2249,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 			Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _tent_cat.prompt()),
 			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _tent_cat.fact(), address), {"temperature": 0.85},
 			{"purpose": "chat_line", "owner_speaks": owner_speaks, "first": first})
+		if _closed():  # (the bar closed while it was waiting)
+			return ""
 		if reply.is_empty() or _chat_version(chat) == version or attempt == 1:
 			break
 		_stats.stale_redone += 1  # out of date already: ask again
@@ -2227,6 +2264,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	var to := _owner_label() if addressed == null else _name_label(addressed.customer)
 	var colour := OWNER_TEXT if guest == null else guest.color.lightened(0.35)
 	await _wait_for_reader()
+	if _closed():  # (the bar closed while it was waiting)
+		return ""
 	chat.transcript.append({"speaker": speaker, "text": line})
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
@@ -2752,7 +2791,7 @@ func _kya(guest: Guest) -> void:
 	if _scenery_dice.randf() >= Talk.KYA_CHANCE:
 		return
 	_stats.rituals["kya"] = int(_stats.rituals.get("kya", 0)) + 1
-	var timer := get_tree().create_timer(_scaled(1.6))
+	var timer := _timer(_scaled(1.6))
 	timer.timeout.connect(func():
 		if _guests.has(guest) and is_instance_valid(guest.node):
 			_say_in_bubble(guest.node, null, "", OWNER_TEXT, guest.color.lightened(0.35), "Kya~!")
@@ -2852,9 +2891,9 @@ func _page_through(bubble: Bubble, pages: PackedStringArray) -> void:
 		if not is_instance_valid(bubble):
 			return
 		bubble.show_page(page)
-		await get_tree().create_timer(_scaled(Talk.page_seconds(page))).timeout
+		await _pause(_scaled(Talk.page_seconds(page)))
 	# Left up a while after the last page (dimmed once someone else speaks), then it fades.
-	await get_tree().create_timer(_scaled(6.0)).timeout
+	await _pause(_scaled(6.0))
 	if is_instance_valid(bubble) and not bubble.is_queued_for_deletion():
 		var fade := bubble.create_tween()
 		fade.tween_property(bubble, "modulate:a", 0.0, 0.6)
@@ -2863,7 +2902,30 @@ func _page_through(bubble: Bubble, pages: PackedStringArray) -> void:
 
 func _wait_for_reader() -> void:
 	while Time.get_ticks_msec() < _read_until:
-		await get_tree().process_frame
+		await _frame_done
+
+
+## Whether the bar's closed (or gone): anything that waited (on the AI, a pause, the reader)
+## checks this before carrying on, and stops if so.
+func _closed() -> bool:
+	return _stopped or Game.bar.is_empty()
+
+
+## A pause that belongs to the tent: if the tent goes (the bar's closed and the scene's
+## freed), so does the wait, rather than coming back to a scene that's gone.
+func _pause(seconds: float) -> void:
+	await _timer(seconds).timeout
+
+
+## A one-off timer that belongs to the tent (see _pause): connect to its timeout.
+func _timer(seconds: float) -> Timer:
+	var timer := Timer.new()
+	timer.one_shot = true
+	timer.wait_time = maxf(seconds, 0.001)
+	timer.timeout.connect(timer.queue_free)
+	add_child(timer)
+	timer.start()
+	return timer
 
 
 func _scaled(seconds: float) -> float:
@@ -3693,6 +3755,8 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 		Prompts.regular_tonight_messages(_night_day, guest.arrived, _night_weather, customer),
 		_validate_regular_tonight, {"temperature": 0.9}, {"purpose": "regular_tonight", "name": regular["name"]})
 	_typing_label.text = ""
+	if _closed():  # (the bar closed while it was waiting)
+		return {}
 	if tonight.is_empty():
 		tonight = {"mood": "glad to be back", "reason": "It's been a while, and this is where they unwind."}
 	customer["mood"] = tonight["mood"]
@@ -3721,7 +3785,7 @@ func _after_visit(guest: Guest) -> void:
 	var memory := {}
 	if Hooks.memories:
 		memory = await _remember(guest, verdict)
-		if _stopped or Game.bar.is_empty():
+		if _closed():
 			return
 		if not memory.is_empty():
 			verdict = str(memory["night"])
@@ -3773,6 +3837,8 @@ func _remember(guest: Guest, game_verdict: String) -> Dictionary:
 	var memory: Dictionary = await _ai.ask_json(
 		Prompts.memory_messages(_owner, guest.customer, guest.transcript, guest.chat_lines),
 		_validate_memory.bind(said), {"temperature": 0.4}, {"purpose": "memory", "verdict": game_verdict})
+	if _closed():  # (the bar closed while it was waiting)
+		return {}
 	if memory.is_empty():
 		_stats.memories_failed += 1
 	return memory

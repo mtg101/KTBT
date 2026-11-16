@@ -1769,3 +1769,20 @@ func test_skip_ends_the_recap() -> void:
 	assert_object(screen.find_child("RecapSticker", true, false)).is_not_null()  # and last time's big moment, stuck on
 	(screen.find_child("RecapSkip", true, false) as Button).pressed.emit()
 	assert_bool(ended[0]).is_true()
+
+
+func test_waits_belong_to_the_tent_and_stop_when_the_bar_closes() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(scene._closed()).is_false()
+	# A pause is the tent's own timer (gone with the tent, so the wait can't come back to it).
+	var timers_before: int = scene.get_children().filter(func(c): return c is Timer).size()
+	var timer: Timer = scene._timer(60.0)
+	assert_object(timer.get_parent()).is_same(scene)
+	assert_int(scene.get_children().filter(func(c): return c is Timer).size()).is_equal(timers_before + 1)
+	timer.stop()
+	timer.queue_free()
+	# Closing the bar: anything that was waiting sees it, and stops.
+	scene._stopped = true
+	assert_bool(scene._closed()).is_true()
+	scene._stopped = false
