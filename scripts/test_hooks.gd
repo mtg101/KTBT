@@ -50,6 +50,9 @@ static var rain_gear := {}
 static var founding_regulars := true
 ## A new bar chooses its own menu (tests keep the classic one unless they say so).
 static var bar_menus := true
+## The roll for whether tonight's the night the menu changes (MenuChanges.due), once it's been
+## long enough: -1 for the bar's own dice.
+static var menu_change_roll := -1.0
 ## >= 0: a fixed roll for whether someone becomes a regular (1.0 never, 0.0 whenever possible).
 static var regular_roll_override := -1.0
 ## false: no after-visit memory (the game's own verdict is used).
@@ -130,6 +133,7 @@ static func restore() -> void:
 	prepare_customers = true
 	founding_regulars = true
 	bar_menus = true
+	menu_change_roll = -1.0
 	regular_roll_override = -1.0
 	memories = true
 	reactions = true

@@ -38,6 +38,7 @@ const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Signatures = preload("res://scripts/rules/signatures.gd")
 const Specials = preload("res://scripts/rules/specials.gd")
+const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
 const MenuBoard = preload("res://scripts/menu_board.gd")
 const DishView = preload("res://scripts/dish_view.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
@@ -241,6 +242,7 @@ var _reaction_until := -1.0  # ...and until when it's up
 ## Tonight's specials (menu ids, rules/specials.gd): marked on the menu customers see. (What's
 ## sold out tonight is Menu.sold_out.)
 var _specials: Array = []
+var _menu_change := {}  # tonight's menu change, if there was one (MenuChanges): for the diary
 ## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
 var _owner_cat_moment := ""
 var _owner_stunned := ""  # a Talk.stunned_moment for the owner's next line
@@ -300,7 +302,10 @@ var _events: NightEvents
 var _diary_page: Control  # the 3am diary page (see diary_page.gd)
 var _summary_buttons: Array = []  # disabled while the owner writes
 var _stats_button: Button
-var _recap_said := ""  # tonight's "Previously on…", for the top of the night's transcript
+var _recap_said := ""  # tonight's "Previously on…"
+var _setup_ai: Array = []  # the AI's answers while a night's being got ready (the bar opening: its menu, own dishes, recap), counted in that night's stats
+var _getting_ready := true  # the bar's opening, or the next night's being got ready (not yet open)
+var _before_transcript := ""  # what's shown before tonight's transcript starts (the bar opening: its menu, its own dishes, the recap), for the top of it
 ## Its cliffhanger (Story.CLIFFHANGERS): {"kind", "who", "teaser", "answered"}, if tonight can answer it.
 var _cliffhanger := {}
 var _summary: PanelContainer
@@ -371,7 +376,7 @@ func _ready() -> void:
 	_build_ui()
 	_build_loading()
 	_ai.offline_started.connect(_on_offline_started)
-	_ai.answered.connect(func(purpose, seconds, problems, ok): _stats.record_ai(seconds, problems, ok, purpose))
+	_ai.answered.connect(_on_ai_answered)
 	if _ai.offline:
 		_show_offline_mode()
 	Menu.use(Menu.for_bar(Game.bar))  # this bar's own menu (the classic one if it has none)
@@ -402,6 +407,8 @@ func _open_saved_bar() -> void:
 		await _make_founding_regulars()  # a bar saved before regulars: its two, once
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not Game.bar.has("signatures_by") and not _stopped:
 		await _invent_signatures()  # a bar whose menu came before signature dishes: theirs, once
+	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not _stopped:
+		await _change_menu()  # now and then, something new on the board
 	if _stopped or Game.bar.is_empty():
 		_owner_working = false
 		return
@@ -661,6 +668,50 @@ func _choose_menu() -> void:
 	_before_night["menu_own"] = own.duplicate()
 	_narrate("On the menu: the pocha classics, and %s.%s" % [", ".join(PackedStringArray(own.slice(0, -1))) + (" and " if own.size() > 1 else "") + str(own[-1]) if not own.is_empty() else "nothing else", (" " + Text.as_sentence(str(chosen["why"]))) if chosen.has("why") else ""])
 	await _invent_signatures()
+
+
+## Every few weeks of nights, maybe (see MenuChanges): a dish of the bar's own that hardly anyone
+## orders comes off the board, and the AI chooses what goes on instead, from a few the game
+## offers (the game's first pick if it can't). Saved, on the board, told in the transcript, and
+## in tonight's stats, highlights and diary.
+func _change_menu() -> void:
+	var night := int(Game.bar.get("nights", 0)) + 1
+	var dice := RandomNumberGenerator.new()
+	dice.seed = hash(str(Game.bar.get("id", "")) + "menu" + str(night))  # (its own dice: the game's rolls don't shift)
+	if not MenuChanges.due(night - int(Game.bar.get("menu_changed_night", 0)), Hooks.menu_change_roll if Hooks.menu_change_roll >= 0.0 else dice.randf()):
+		return
+	var menu: Array = Game.bar["menu"]
+	var protected: Array = []
+	for regular in _regulars():
+		protected.append_array(Regulars.usual_of(regular))
+	var out_id := MenuChanges.going(menu, Game.bar.get("history", []), protected)
+	if out_id == "":
+		return
+	var season := Seasons.season(Seasons.day_of_year(int(Game.bar.get("first_date", Seasons.today())), night))
+	var choices := MenuChanges.offered(menu, out_id, season, dice)
+	if choices.is_empty():
+		return
+	var out_name := str(Menu.find(out_id).get("name", out_id))
+	_typing_label.text = "The owner's rubbing something off the menu board..."
+	var reply: Dictionary = await _ai.ask_json(Prompts.menu_change_messages(_owner, str(Game.bar["name"]), out_name, choices),
+		MenuChanges.validate_change.bind(choices), {"temperature": 0.8}, {"purpose": "menu_change", "choices": choices})
+	_typing_label.text = ""
+	if _stopped or Game.bar.is_empty():
+		return
+	var in_id := str(reply.get("dish", choices[0]))
+	var change := {"night": night, "out": out_id, "in": in_id, "why": str(reply.get("why", "")), "by": "game" if reply.is_empty() else "ai"}
+	Game.bar["menu"] = MenuChanges.swapped(menu, out_id, in_id)
+	Game.bar["menu_changed_night"] = night
+	var changes: Array = Game.bar.get("menu_changes", [])
+	changes.append(change)
+	Game.bar["menu_changes"] = changes
+	Game.save()
+	Menu.use(Game.bar["menu"])
+	_put_up_menu()
+	_before_night["menu_change"] = change.duplicate()  # (for the stats, the highlights and the diary)
+	var dish := Menu.find(in_id)
+	_narrate("%s's rubbed off the menu board: hardly anyone ordered it. New tonight: %s %s, %s.%s" % [out_name, dish.get("hangul", ""), dish.get("name", in_id),
+		Menu.format_won(int(dish.get("price", 0))), (" " + Text.as_sentence(change["why"])) if change["why"] != "" else ""])
 
 
 ## The owner's own dishes, one or two, from their story (the AI's, or one of the game's own if
@@ -926,9 +977,17 @@ func _start_night() -> void:
 	_events.happened.connect(_caption_for_event)
 	_events.happened.connect(_watch_cliffhanger)
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
+	for answer in _setup_ai:  # (the AI's answers before tonight opened: the menu, the recap...)
+		_stats.record_ai(float(answer[1]), answer[2], bool(answer[3]), str(answer[0]))
+	_setup_ai = []
+	_getting_ready = false
 	_stats.specials = _specials.duplicate()
 	_stats.sold_out = Menu.sold_out.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
+	_menu_change = {}
+	if _before_night.has("menu_change"):
+		_menu_change = _before_night["menu_change"].duplicate()
+		_event("menu_changed", _menu_change)
 	_stats.story["date"] = str(_night_date.get("text", ""))
 	_stats.story["weather"] = _night_weather
 	_stats.story["season"] = _date_words().get_slice(", ", 1)
@@ -981,7 +1040,7 @@ func _process(delta: float) -> void:
 		_loading.status = _loading_status()
 	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
 		"open": _night_open, "minutes": int(_clock)})
-	if not _night_open or _stopped:
+	if not _night_open or _stopped or Game.bar.is_empty():  # (no bar: closed, or a test tidied it away)
 		return
 	var seconds_per_minute := _scaled(REAL_SECONDS_PER_GAME_MINUTE)
 	_time_speed = move_toward(_time_speed, NightRules.time_speed(_people_in()), delta * SPEED_CHANGE_RATE)
@@ -1299,6 +1358,9 @@ func _call_last_orders() -> void:
 
 ## The night's over: the owner closes up, the night is saved, and a summary appears.
 func _end_night() -> void:
+	if Game.bar.is_empty():  # (the bar's gone: a test tidied it away mid-night, on a slow machine)
+		_night_open = false
+		return
 	# "Will she stay away again?": answered at closing, if she has.
 	if not _cliffhanger.is_empty() and not bool(_cliffhanger["answered"]) and _cliffhanger["kind"] == "stays_away" \
 			and not _cliffhanger["who"].any(func(person): return _names_tonight.has(person)):
@@ -1385,6 +1447,7 @@ func _diary_facts() -> Dictionary:
 		"cat": str(_cat.get("name", "")), "line": NightRules.memorable_line(_night_lines), "specials": _specials.duplicate(),
 		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
 		"closed_said": _closing_said if _closing_early else "",
+		"menu_change": _menu_change.duplicate(),
 		"cliffhanger": {} if _cliffhanger.is_empty() else {"teaser": _cliffhanger["teaser"], "kind": _cliffhanger["kind"], "answered": _cliffhanger["answered"]},
 	})
 
@@ -1472,8 +1535,26 @@ func _on_summary_stats_toggled(on: bool) -> void:
 	_stats_button.text = "Diary" if on else "Stats"  # (and back)
 
 
+## Every answer from the AI, for the stats: tonight's (and its diary, after), or, while the next
+## night's being got ready, kept for its stats, so the menu, the signature dishes and the
+## recap's rejected tries are counted too.
+func _on_ai_answered(purpose: String, seconds: float, problems: Array, ok: bool) -> void:
+	if _getting_ready:
+		_setup_ai.append([purpose, seconds, problems.duplicate(), ok])
+	else:
+		_stats.record_ai(seconds, problems, ok, purpose)
+
+
 func _on_next_night_pressed() -> void:
 	_summary.visible = false
+	_before_transcript = ""  # (the end of last night, the diary: not tonight's)
+	_getting_ready = true
+	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty():
+		_owner_working = true
+		await _change_menu()  # now and then, something new on the board
+		_owner_working = false
+		if _stopped or Game.bar.is_empty():
+			return
 	_start_night()
 
 
@@ -1685,10 +1766,13 @@ func _save_stats(finished: bool) -> void:
 ## Adds to the transcript on screen and, during a night, to tonight's transcript file.
 func _show(bbcode: String) -> void:
 	_log.append_text(Glossary.explain_hangul(bbcode))  # (any Hangul explains itself on hover)
+	# As plain text: tags stripped ([lb] is how a "[" in the AI's text is escaped).
+	var plain := _tags.sub(bbcode.replace("[lb]", "\u0001"), "", true).replace("\u0001", "[")
 	if _transcript_file != null:
-		# As plain text: tags stripped ([lb] is how a "[" in the AI's text is escaped).
-		_transcript_file.store_string(_tags.sub(bbcode.replace("[lb]", "\u0001"), "", true).replace("\u0001", "["))
+		_transcript_file.store_string(plain)
 		_transcript_file.flush()
+	else:
+		_before_transcript += plain  # (the bar opening: kept for the top of tonight's transcript)
 
 
 ## Tonight's transcript file, written as the night goes, so it's there even if the game
@@ -1716,9 +1800,9 @@ func _start_transcript() -> void:
 			"on" if _reading_toggle.button_pressed else "off"],
 		"=".repeat(70),
 	])) + "\n")
-	if _recap_said != "":
-		_transcript_file.store_string(_recap_said + "\n\n")
-		_recap_said = ""
+	_transcript_file.store_string(_before_transcript.strip_edges() + "\n\n" if _before_transcript.strip_edges() != "" else "")  # (how the bar opened: menu, own dishes, recap)
+	_before_transcript = ""
+	_recap_said = ""
 	_transcript_file.flush()
 	if Hooks.print_paths:
 		print("Night transcript: ", ProjectSettings.globalize_path(path))
@@ -1732,6 +1816,7 @@ func _finish_transcript(context: Dictionary) -> void:
 	_transcript_file.store_string("\n%s\n%s at %s.\n\nSTATS\n\n%s\n" % ["=".repeat(70), "Finished" if context["finished"] else "Cut short", context["clock"], stats])
 	_transcript_file.close()
 	_transcript_file = null
+	_before_transcript = ""
 
 
 func _on_stats_toggled(_on: bool) -> void:
@@ -3663,12 +3748,15 @@ func _validate_customer_details(data: Variant, age_range: String = "") -> String
 	return People.validate_customer_details(data, age_range)
 
 
+## (And no made-up Korean in what they say as they order: "maesilju gajin, pajeon gajin".)
 func _validate_order(data: Variant, max_mains: int, max_drinks: int) -> String:
-	return Orders.validate_order(data, max_mains, max_drinks)
+	var problem := Orders.validate_order(data, max_mains, max_drinks)
+	return problem if problem != "" else Talk.made_up_korean(str(data.get("line", "")), _names_here())
 
 
 func _validate_extra_order(data: Variant, table: Array) -> String:
-	return Orders.validate_extra_order(data, table)
+	var problem := Orders.validate_extra_order(data, table)
+	return problem if problem != "" else Talk.made_up_korean(str(data.get("line", "")), _names_here())
 
 
 func _validate_line(data: Variant, speaker: String, alias: String, items: Array, names: Array, cat: Dictionary, address: Dictionary = {}) -> String:
@@ -4152,7 +4240,7 @@ func _build_fridge(stage: Control) -> void:
 		var shape: Vector2 = shelves[row][1]
 		var count: int = shelves[row][2]
 		var floor_y := 18.0 + (row + 1) * 26.0
-		var colour := Color(str(Menu.find(drink)["color"]))
+		var colour := Color(str(Catalogue.find(drink)["color"]))  # (the catalogue's: not every bar's menu has makgeolli)
 		var gap := (80.0 - count * shape.x) / (count + 1)
 		for k in count:
 			var x := 6.0 + gap + k * (shape.x + gap)

@@ -1580,6 +1580,13 @@ func test_specials_follow_the_weather_and_the_season() -> void:
 	assert_array(Specials.tonight(Menu.ITEMS, "drizzle", "spring", [], dice)["specials"]).is_equal(["pajeon", "makgeolli"])
 
 
+func test_orders_are_checked_for_made_up_korean_too() -> void:
+	# (From a real night: an order line in made-up Korean got through, since only lines were checked.)
+	assert_str(Talk.made_up_korean("Ajusshi, makkeureo eomneunjuseyo. Beer ije gonggibap joa!")).contains("made-up Korean")
+	assert_str(Talk.made_up_korean("Ajusshi, a makgeolli and the dakgalbi, please.")).is_empty()
+	assert_str(Text.problem_kind(Talk.made_up_korean("Makkeureo eomneunjuseyo jigeum."))).is_equal("made-up Korean")
+
+
 func test_sold_out_cant_be_ordered() -> void:
 	Menu.sold_out = ["tteokbokki"]
 	assert_str(Orders.validate_order({"items": ["soju", "tteokbokki"], "line": "Soju and tteokbokki, please."})).contains("sold out tonight")

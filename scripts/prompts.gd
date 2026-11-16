@@ -171,6 +171,28 @@ Reply with ONLY a JSON object: {"dishes": [one or two dishes]}""" % [describe_ow
 	]
 
 
+## Messages asking the AI what goes on the menu in place of a dish hardly anyone orders: one
+## of a few the game offers (choices: catalogue ids).
+static func menu_change_messages(owner: Dictionary, bar_name: String, out_name: String, choices: Array) -> Array:
+	var listed := PackedStringArray()
+	for id in choices:
+		var item := Catalogue.find(str(id))
+		listed.append("- %s: %s (%s), %s" % [id, item["name"], item["desc"], ", ".join(PackedStringArray(item.get("tags", [])))])
+	var request := """%s
+
+Their tent is %s. Hardly anyone's ordered the %s lately, so it's coming off the board. Which of these goes on in its place, the way this owner would choose?
+
+%s
+
+Reply with ONLY a JSON object with exactly these keys:
+- "dish": the id of the one they choose
+- "why": one short line on why, in the owner's spirit""" % [describe_owner(owner), bar_name, out_name, "\n".join(listed)]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 ## Messages asking the AI how the tent looks, to suit its owner and name: the sign's Hangul,
 ## and choices from the game's lists (so the game can draw it).
 ## offered: the colours and shapes the game offers this bar (BarLook.look_offer); empty for all.
@@ -320,7 +342,7 @@ What does %s order? Think about who they are and why they're here tonight.%s Ord
 
 HOW PEOPLE ORDER HERE: everyone orders at least one drink and at least one food, because nobody drinks on an empty stomach. Most people order ONE main dish (marked "main" on the menu), maybe with a side (marked "side"), and ONE drink (one bottle goes a long way). Ordering two of the same main dish, or two drinks, is unusual. %s %s
 
-They've just sat down and haven't said anything yet. Their line is the very first thing they say: greet the owner in their own way (using what they call the owner) and ask for their order, in their own voice. The line must match "items" exactly: ask for everything in "items", don't mention any food or drink that isn't in it, and don't say things like "one of everything". At a pocha people order by the Korean names (tteokbokki, dakgalbi, makgeolli), not the English descriptions on the menu.
+They've just sat down and haven't said anything yet. Their line is the very first thing they say: greet the owner in their own way (using what they call the owner) and ask for their order, in their own voice. The line must match "items" exactly: ask for everything in "items", don't mention any food or drink that isn't in it, and don't say things like "one of everything". At a pocha people order the dishes by their Korean names (tteokbokki, dakgalbi, makgeolli), not the English descriptions on the menu; the rest of the line is plain English. A bowl of rice is a side to go with a dish, not a meal on its own.
 
 Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids
@@ -843,6 +865,10 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		lines.append("- Last time's cliffhanger, \"%s\", %s tonight." % [cliff["teaser"], "came true" if bool(cliff.get("answered", false)) else "didn't come true"])
 	if str(facts.get("closed_early", "")) != "":
 		lines.append("- The owner closed up early, at %s%s." % [facts["closed_early"], (", saying: \"%s\"" % facts["closed_said"]) if str(facts.get("closed_said", "")) != "" else ""])
+	var change: Dictionary = facts.get("menu_change", {})
+	if not change.is_empty():
+		lines.append("- The owner changed the menu tonight: the %s came off the board (hardly anyone ordered it), and %s went on%s." % [Catalogue.find(str(change["out"])).get("name", change["out"]),
+			Catalogue.find(str(change["in"])).get("name", change["in"]), (" (\"%s\")" % change["why"]) if str(change.get("why", "")) != "" else ""])
 	if not facts.get("specials", []).is_empty():
 		lines.append("- Tonight's specials: %s." % " and ".join(PackedStringArray(facts["specials"].map(func(id): return str(Menu.find(str(id)).get("name", id))))))
 	for moment in facts.get("moments", []):

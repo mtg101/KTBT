@@ -67,7 +67,8 @@ func test_order_prompt_lists_the_menu() -> void:
 
 func test_people_order_by_the_korean_names() -> void:
 	var text := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), []))
-	assert_str(text).contains("by the Korean names").contains("ask for everything in \"items\"")
+	assert_str(text).contains("by their Korean names").contains("the rest of the line is plain English").contains("ask for everything in \"items\"")
+	assert_str(text).contains("rice is a side to go with a dish")
 
 func test_regression_order_and_dialogue_prompts_say_its_a_first_visit() -> void:
 	# LLM-TUNING.md "Strangers acting like regulars" (interim fix).

@@ -161,6 +161,9 @@ func reply(request: Dictionary) -> Variant:
 			dice.seed = hash(str(request.get("bar_name", "")))
 			var menu := Catalogue.fallback_menu(dice)
 			return {"dishes": menu.map(func(item): return str(item["id"])), "why": "What the street's always eaten, and a few things of my own."}
+		"menu_change":
+			var choices: Array = request.get("choices", [])
+			return {"dish": str(choices[0]) if not choices.is_empty() else "", "why": "Something new for the season."}
 		"signatures":
 			# One of the game's own (by the bar's name, so it's the same each time).
 			var picked: Dictionary = Signatures.FALLBACKS[absi(hash(str(request.get("bar_name", "")))) % Signatures.FALLBACKS.size()]

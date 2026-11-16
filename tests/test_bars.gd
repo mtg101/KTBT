@@ -9,6 +9,7 @@ const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -172,6 +173,16 @@ func test_a_new_bar_chooses_its_own_menu() -> void:
 	assert_str(str(saved.get("signatures_by", ""))).is_equal("ai")
 	assert_str(_transcript(runner)).contains("The house's own: %s %s" % [own[0]["hangul"], own[0]["name"]])
 	assert_int(menu.size()).is_less_equal(Catalogue.MENU_SIZE.y + Catalogue.MIXED.size())
+	# How the bar opened is at the top of the night's transcript, and the AI's work on it in tonight's stats.
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	var files: Array = Array(DirAccess.get_files_at(_transcripts)).filter(func(f): return str(f).ends_with(".txt"))
+	assert_array(files).is_not_empty()
+	var written := FileAccess.get_file_as_string(_transcripts.path_join(str(files[-1])))
+	assert_str(written).contains("On the menu: the pocha classics").contains("The house's own: ")
+	assert_int(int(scene._stats.calls_by.get("menu", 0))).is_greater_equal(1)
+	assert_int(int(scene._stats.calls_by.get("signatures", 0))).is_greater_equal(1)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Getting ready: menu")
 	assert_array(Menu.items().map(func(item): return str(item["id"]))).is_equal(ids)  # in use tonight
 	assert_str(_transcript(runner)).contains("On the menu: the pocha classics, and ")
 	assert_str(str(saved.get("menu_why", ""))).is_not_empty()
@@ -349,3 +360,36 @@ func test_a_bar_saved_before_regulars_gets_its_two_once() -> void:
 	await _open_visit()
 	assert_array(CannedAi.scripted).is_not_empty()
 	assert_int(SaveStore.load_bar(bar["id"])["regulars"].size()).is_equal(2)
+
+
+func test_a_bars_menu_changes_slowly() -> void:
+	Hooks.bar_menus = true
+	Hooks.menu_change_roll = 0.0  # (once it's been long enough: tonight)
+	var bar := _saved_bar("Golmok Pocha", 0)
+	var dice := RandomNumberGenerator.new()
+	dice.seed = 3
+	bar["menu"] = Catalogue.fallback_menu(dice)
+	bar["signatures_by"] = "game"  # (none, and not to be invented: this is about the change)
+	bar["nights"] = MenuChanges.EVERY  # three weeks of nights, and nobody's ordered anything
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := await _open_visit()
+	var saved := SaveStore.load_bar(bar["id"])
+	assert_int(saved.get("menu_changes", []).size()).is_equal(1)
+	var change: Dictionary = saved["menu_changes"][0]
+	var ids: Array = saved["menu"].map(func(item): return str(item["id"]))
+	assert_array(ids).not_contains([change["out"]]).contains([change["in"]])
+	assert_int(ids.size()).is_equal(bar["menu"].size())
+	assert_str(Catalogue.layer(str(change["out"]))).is_equal("own")  # (never a classic, a staple or the owner's own)
+	assert_str(str(change["by"])).is_equal("ai")
+	assert_int(int(saved["menu_changed_night"])).is_equal(MenuChanges.EVERY + 1)
+	assert_str(_transcript(runner)).contains("rubbed off the menu board").contains("New tonight: ")
+	# Tonight's stats, highlights and diary know.
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._stats != null and scene._stats.story.has("menu_change"))).is_true()
+	assert_str("\n".join(PackedStringArray(scene._stats.highlights()))).contains("menu change: %s off, %s on" % [change["out"], change["in"]])
+	assert_str(str(scene._diary_facts()["menu_change"].get("in", ""))).is_equal(change["in"])
+	# Not again until it's been another few weeks.
+	Game.bar = SaveStore.load_bar(bar["id"])
+	await _open_visit()
+	assert_int(SaveStore.load_bar(bar["id"])["menu_changes"].size()).is_equal(1)

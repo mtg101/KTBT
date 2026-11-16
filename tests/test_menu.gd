@@ -360,3 +360,48 @@ func test_a_signature_dish_explains_itself() -> void:
 	assert_str(Prompts.signature_messages({"name": "Kim Mi-sook", "age": 58, "title": "Imo", "archetype": "a widow", "appearance": "Small.",
 		"personality": "warm", "speech_style": "short", "secret": "none"}, "Test Pocha", "a test", ["Soju"])[1]["content"]).contains("stone_pot").contains("noodles")
 	Menu.use([])
+
+
+# --- Menus that change slowly ---------------------------------------------------------------
+
+const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
+
+
+func test_a_dish_nobody_orders_makes_way_for_something_new() -> void:
+	# Every few weeks of nights, now and then.
+	assert_bool(MenuChanges.due(MenuChanges.EVERY - 1, 0.0)).is_false()
+	assert_bool(MenuChanges.due(MenuChanges.EVERY, 0.0)).is_true()
+	assert_bool(MenuChanges.due(MenuChanges.EVERY * 3, 0.99)).is_false()
+	var menu: Array = Catalogue.menu_from(["tteokbokki", "odeng", "sundae", "pajeon", "kimchi_jjigae", "naengmyeon", "golbaengi_muchim"])
+	var own := {"id": "own_halmeoni_kalguksu", "name": "Halmeoni Kalguksu", "kind": "food", "portion": "main", "price": 10000, "signature": true}
+	menu.append(own)
+	# What goes: the bar's own pick ordered least (never a classic, a staple or the owner's own),
+	# if hardly anyone's ordered it, and not anyone's usual.
+	var history: Array = []
+	for k in 10:
+		history.append({"order": ["soju", "kimchi_jjigae"]})
+	history.append({"order": ["beer", "golbaengi_muchim"]})
+	assert_str(MenuChanges.going(menu, history, [])).is_equal("naengmyeon")  # (never ordered)
+	assert_str(MenuChanges.going(menu, history, ["naengmyeon"])).is_equal("golbaengi_muchim")  # (a regular's usual stays)
+	assert_str(MenuChanges.going(menu, history, ["naengmyeon", "golbaengi_muchim"])).is_empty()  # (kimchi-jjigae sells: it stays)
+	# What could come on: off the menu, the same kind, best this season first; hearty if it has to be.
+	var dice := RandomNumberGenerator.new()
+	dice.seed = 5
+	var summer := MenuChanges.offered(menu, "naengmyeon", "summer", dice)
+	assert_int(summer.size()).is_equal(MenuChanges.OFFERED)
+	for id in summer:
+		assert_str(str(Catalogue.find(str(id))["kind"])).is_equal("food")
+		assert_array(menu.map(func(item): return item["id"])).not_contains([id])
+		assert_str(Catalogue.layer(str(id))).is_equal("own")
+	var only_hearty: Array = Catalogue.menu_from(["tteokbokki", "odeng", "sundae", "pajeon", "kimchi_jjigae"])
+	for id in MenuChanges.offered(only_hearty, "kimchi_jjigae", "winter", dice):
+		assert_array(Catalogue.HEARTY).contains([Catalogue.find(str(id))["category"]])  # (the house rules: a hearty main)
+	# The AI chooses one of them, with a line on why.
+	assert_str(MenuChanges.validate_change({"dish": summer[0], "why": "It's too hot for stew."}, summer)).is_empty()
+	assert_str(MenuChanges.validate_change({"dish": "pizza", "why": "Why not."}, summer)).is_not_empty()
+	assert_str(MenuChanges.validate_change({"dish": summer[0], "why": ""}, summer)).is_not_empty()
+	# Swapped in its place, at its usual price.
+	var swapped := MenuChanges.swapped(menu, "naengmyeon", str(summer[0]))
+	assert_int(swapped.size()).is_equal(menu.size())
+	assert_str(str(swapped[menu.map(func(item): return item["id"]).find("naengmyeon")]["id"])).is_equal(str(summer[0]))
+	assert_int(int(swapped[menu.map(func(item): return item["id"]).find("naengmyeon")]["price"])).is_equal(int(Catalogue.find(str(summer[0]))["price"]))

@@ -120,7 +120,7 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 			return "the diary has a number (%s) that isn't in tonight's facts" % number
 	if Talk.real_brand(entry) != "":
 		return "the diary names a real brand (%s): describe it instead" % Talk.real_brand(entry)
-	var mention := Orders.unordered_mention(entry, facts.get("ordered", []) + facts.get("specials", []))  # (specials: on all night)
+	var mention := Orders.unordered_mention(entry, facts.get("ordered", []) + facts.get("specials", []) + ([facts["menu_change"]["in"]] if not facts.get("menu_change", {}).is_empty() else []))  # (specials and a new dish: on all night)
 	if mention != "":
 		return "the diary mentions %s, but nobody ordered that tonight" % mention
 	var names: Array = here.duplicate()
@@ -489,6 +489,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
 		"closed_said": str(context.get("closed_said", "")),  # and what they told the counter, why
 		"cliffhanger": context.get("cliffhanger", {}).duplicate(),  # last time's teaser, and whether it came true
+		"menu_change": context.get("menu_change", {}).duplicate(),  # a dish off the board, and the new one (ids, and why)
 	}
 
 

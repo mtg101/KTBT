@@ -117,6 +117,7 @@ The current menu is a fixed placeholder, and becomes the **classic menu** once e
 - **Signature dishes:** one or two of the owner's own, invented from their story ("grandma's knife-cut noodles"), first on the board under 대표 메뉴.
 - **Tonight's specials:** the game picks a dish from the bar's own menu by the weather and the season (rain is always a pancake and makgeolli), now and then the owner's own dish or a drink worth pushing, never the staples or last night's again; marked on the menu customers see.
 - **Sold out:** now and then a dish has run out: struck through on the board, and it can't be ordered.
+- **Menus change slowly:** every few weeks, a dish hardly anyone orders comes off the board and the owner chooses something seasonal to go on instead (never a regular's usual, never the classics or their own dishes). The diary mentions it.
 
 **How people order** (game rules, checked on every AI order):
 

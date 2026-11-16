@@ -113,6 +113,7 @@ var rejection_reasons := {}
 const REASONS_PER_KIND := 10
 var events: Array = []  # tonight's events (NightEvents.timeline), for the log
 var gave_up_by := {}  # what the AI was being asked for -> how many times it gave up
+var calls_by := {}  # what the AI was being asked for -> how many times (the bar opening's too: menu, signatures, recap)
 var gave_up := 0  # calls that never got a usable reply
 var stale_redone := 0  # lines asked for again because things changed while the AI wrote them
 
@@ -258,6 +259,8 @@ func table_games() -> Dictionary:
 func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") -> void:
 	ai_calls += 1
 	ai_seconds.append(seconds)
+	var what := purpose if purpose != "" else "other"
+	calls_by[what] = int(calls_by.get(what, 0)) + 1
 	rejected += problems.size()
 	for problem in problems:
 		var kind := Text.problem_kind(str(problem))
@@ -373,6 +376,8 @@ func highlights() -> Array:
 				what = "%s and %s got friendlier (%s)" % [event.get("a", ""), event.get("b", ""), event.get("term", "")]
 			"closed_early":
 				what = "closed up early"
+			"menu_changed":
+				what = "menu change: %s off, %s on" % [event.get("out", ""), event.get("in", "")]
 			"sat_down":
 				if not full and int(event.get("seated", 0)) >= NightRules.SEATS:
 					full = true
@@ -491,6 +496,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]FOOD AND THE MENU[/b]")
 	if story.has("menu_by"):
 		lines.append("Menu: chosen by the %s · its own: %s" % [story["menu_by"], ", ".join(PackedStringArray(story.get("menu_own", [])))])
+	if story.has("menu_change"):
+		var change: Dictionary = story["menu_change"]
+		lines.append("Menu change: %s off, %s on (by the %s)" % [change.get("out", ""), change.get("in", ""), change.get("by", "")])
 	var house := signature_orders()
 	if not house.is_empty() or story.has("signatures_by"):
 		lines.append("Signature dishes: %s%s" % [" · ".join(PackedStringArray(house.keys().map(func(d): return "%s %d ordered" % [d, int(house[d])]))) if not house.is_empty() else "none",
@@ -506,6 +514,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("")
 	lines.append("[b]AI[/b]")
 	lines.append("Calls %d · avg %.1fs, longest %.1fs" % [ai_calls, average(ai_seconds), longest(ai_seconds)])
+	var setting_up: Array = ["menu", "signatures", "menu_change", "recap", "bar_name", "bar_look", "cat_name", "owner", "founding_regular", "hangul"].filter(func(p): return calls_by.has(p))
+	if not setting_up.is_empty():
+		lines.append("Getting ready: %s" % " · ".join(PackedStringArray(setting_up.map(func(p): return "%s %d" % [p, int(calls_by[p])]))))
 	lines.append("Voice busy %d%% · someone waiting for it %d%%" % [percent(voice_busy_seconds, real_seconds), percent(waiting_on_voice_seconds, real_seconds)])
 	lines.append("Rejected replies %d%s" % [rejected, (": " + rejection_text()) if rejected > 0 else ""])
 	lines.append("Gave up %d%s · out-of-date lines redone %d" % [gave_up,
@@ -531,7 +542,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
-			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", "")},
+			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},
 		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
@@ -566,7 +577,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"ai": {
 			"calls": ai_calls, "average_seconds": average(ai_seconds), "longest_seconds": longest(ai_seconds),
 			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up, "gave_up_by": gave_up_by.duplicate(),
-			"rejection_reasons": rejection_reasons.duplicate(true), "stale_redone": stale_redone,
+			"rejection_reasons": rejection_reasons.duplicate(true), "stale_redone": stale_redone, "calls_by": calls_by.duplicate(),
 		},
 		"time": {
 			"real_seconds": real_seconds,

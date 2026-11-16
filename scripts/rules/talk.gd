@@ -145,9 +145,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 	# No asides in brackets: a small model adds "(translations)" or stage directions there.
 	if line.contains("(") or line.contains(")"):
 		return "the line has something in brackets: write only what's said, in English, with no translations or stage directions"
-	var invented := romanised_korean(line, names + [speaker])
-	if not invented.is_empty():
-		return "the line has made-up Korean words in it (%s): everyone speaks fluent English here, with at most the odd Korean word a K-drama fan would know" % ", ".join(PackedStringArray(invented))
+	var invented := made_up_korean(line, names + [speaker])
+	if invented != "":
+		return invented
 	if not address.is_empty():
 		var wrong := Address.address_problem(line, address, names + [speaker])
 		if wrong != "":
@@ -312,6 +312,14 @@ const KOREAN_ENDINGS := ["seyo", "nida", "haeyo", "jiyo", "eoyo", "deyo"]
 
 ## The romanised-Korean-looking words in a line, if there are enough to be made-up Korean
 ## (a whole phrase rather than the odd word); [] otherwise. names: people's names, which are fine.
+## The problem with a line that has made-up Korean in it, or "" (for the order checks too).
+static func made_up_korean(line: String, names: Array = []) -> String:
+	var invented := romanised_korean(line, names)
+	if invented.is_empty():
+		return ""
+	return "the line has made-up Korean words in it (%s): everyone speaks fluent English here, with at most the odd Korean word a K-drama fan would know" % ", ".join(PackedStringArray(invented))
+
+
 static func romanised_korean(line: String, names: Array = []) -> Array:
 	var allowed := {}
 	for word in KNOWN_KOREAN + ENGLISH_LOOKALIKES:
