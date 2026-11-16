@@ -25,6 +25,7 @@ const PeopleView = preload("res://scripts/bar/people_view.gd")
 const Street = preload("res://scripts/bar/street.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Layout = preload("res://scripts/bar/layout.gd")
+const Cat = preload("res://scripts/bar/cat.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -81,7 +82,7 @@ const STATS_WIDTH := 460.0  # the debug stats panel, between the transcript and 
 
 # Where things stand in the tent (pixels, inside the stage area, which is nearly full width).
 const STAGE_SIZE := Vector2(1872, 380)
-const SEAT_X := [470.0, 760.0, 1050.0, 1340.0, 1630.0]  # the middle of each stool
+const SEAT_X := Layout.SEAT_X
 const PERSON_WIDTH := 80.0
 const CUSTOMER_Y := Layout.CUSTOMER_Y
 const OWNER_Y := 150.0
@@ -185,13 +186,31 @@ const VARIETY_LOOKS := 5  # how many recent looks the AI is shown
 ## game minutes; any later, they're from another hour (a 7pm salaryman isn't a 2am one).
 const PREPARED_FRESH_MINUTES := 60.0
 # The cat: who it is (saved with the bar) and where it is now.
-var _cat := {}  # name, coat, personality
-var _cat_spot := "stove"
-var _cat_with: Guest = null  # the customer it's on, at the feet of, or begging from
-var _cat_next := 0.0  # game minutes until it moves on
-var _cat_node: Control
-var _cat_tween: Tween
-const CAT_MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
+var _tent_cat: Cat  # the cat itself: who, where, drawing it (scripts/bar/cat.gd); these pass through to it
+var _cat: Dictionary:  # name, coat, personality
+	get:
+		return _tent_cat.info
+	set(value):
+		_tent_cat.info = value
+var _cat_spot: String:
+	get:
+		return _tent_cat.spot
+	set(value):
+		_tent_cat.spot = value
+var _cat_with: Guest:  # the customer it's on, at the feet of, or begging from
+	get:
+		return _tent_cat.with_guest
+	set(value):
+		_tent_cat.with_guest = value
+var _cat_next: float:  # game minutes until it moves on
+	get:
+		return _tent_cat.next_move
+	set(value):
+		_tent_cat.next_move = value
+var _cat_node: Control:
+	get:
+		return _tent_cat.node
+const CAT_MOVE_MINUTES := Cat.MOVE_MINUTES
 ## How often a move that's just the cat pottering about (not with a customer, not in or out
 ## of the tent) is narrated, so the transcript isn't a log of the cat's every step.
 const CAT_POTTER_NARRATED := 0.35  # every customer's name so far tonight (the AI is asked to avoid them)
@@ -360,6 +379,7 @@ var _food_rows: Array = []
 
 func _ready() -> void:
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
+	_tent_cat = Cat.new(_scenery_dice, STAGE_SIZE.x)
 	if Hooks.random_seed != 0:
 		seed(Hooks.random_seed)
 	_ai = Ai.new()
@@ -769,7 +789,7 @@ func _new_cat(cat_name: String, coat: String, personality: String, sex: String, 
 
 func _show_cat() -> void:
 	_cat = Game.bar["cat"].duplicate()
-	_paint_cat()
+	_tent_cat.paint(_cat_label())
 	_cat_node.tooltip_text = Text.tip("%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")])
 	_narrate("%s, the tent's %s cat, is %s." % [_cat["name"], _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], _cat["personality"]).get_slice(":", 0)])
 
@@ -838,7 +858,7 @@ func _say_closing() -> void:
 	_typing_label.text = "%s is thinking..." % _owner_display()
 	var reply: Dictionary = await _ai.ask_json(
 		Prompts.closing_messages(_owner, {"time": NightRules.clock_text(int(_clock)), "weather": _night_weather, "seated": seated, "customers": _night_visits}),
-		Story.validate_closing.bind(owner_name, str(_owner["title"]), [owner_name] + seated, _cat_fact()), {"temperature": 0.9},
+		Story.validate_closing.bind(owner_name, str(_owner["title"]), [owner_name] + seated, _tent_cat.fact()), {"temperature": 0.9},
 		{"purpose": "closing", "title": _owner["title"], "weather": _weather_kind})
 	_typing_label.text = ""
 	if _stopped or Game.bar.is_empty():
@@ -1016,7 +1036,7 @@ func _start_night() -> void:
 	_cat_spot = "stove"  # every night starts with the cat asleep by the stove
 	_cat_with = null
 	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
-	_place_cat()
+	_tent_cat.place()
 	_update_clock_label()
 	_start_transcript()
 	_show("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
@@ -2059,8 +2079,8 @@ func _next_line(guest: Guest) -> void:
 	for attempt in 2:
 		var version := guest.version
 		reply = await _ai.ask_json(
-			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _cat_prompt()),
-			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _cat_fact(), address), {"temperature": 0.85},
+			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, owner_speaks, direction, _tent_cat.prompt()),
+			_validate_line.bind(speaker, alias, guest.order, [str(_owner["name"]), str(guest.customer["name"])], _tent_cat.fact(), address), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": owner_speaks, "first": i == 0, "last": false})
 		# Out of date already (a dish arrived, or the cat came or went, while the AI was
 		# writing it)? Ask again, with things as they are now.
@@ -2073,7 +2093,7 @@ func _next_line(guest: Guest) -> void:
 		_narrate("(The conversation with %s fizzled out: %s.)" % [guest.customer["name"], _ai.last_error])
 		guest.stay_left = 0.0
 		return
-	_stats.record_hint(hint, str(reply["line"]), _cat_tells())
+	_stats.record_hint(hint, str(reply["line"]), _tent_cat.tells())
 	if i == 0 and owner_speaks:
 		_stats.record_opening("owner", str(reply["line"]))
 	await _say(guest, owner_speaks, str(reply["line"]))
@@ -2091,8 +2111,8 @@ func _goodbye(guest: Guest) -> void:
 		_typing_label.text = "%s is thinking..." % _owner_display()
 		var send_off: Dictionary = await _ai.ask_json(
 			Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, true,
-				"The customer is getting up to go: see them off. " + _address_note(guest), _cat_prompt()),
-			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _cat_fact(), _address(null, guest)), {"temperature": 0.85},
+				"The customer is getting up to go: see them off. " + _address_note(guest), _tent_cat.prompt()),
+			_validate_line.bind(owner_name, str(_owner["title"]), guest.order, [owner_name, speaker], _tent_cat.fact(), _address(null, guest)), {"temperature": 0.85},
 			{"purpose": "line", "title": _owner["title"], "owner_speaks": true, "first": false, "last": false})
 		if not send_off.is_empty():
 			await _say(guest, true, str(send_off["line"]))
@@ -2107,8 +2127,8 @@ func _goodbye(guest: Guest) -> void:
 		direction += " They also say goodbye to %s, who they were chatting with." % " and ".join(PackedStringArray(still_here.map(func(g): return _known_as(g, chat))))
 	_typing_label.text = "%s is reaching for their wallet..." % speaker
 	var reply: Dictionary = await _ai.ask_json(
-		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction + " " + _address_note(guest), _cat_prompt()),
-		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _cat_fact(), _address(guest, null)), {"temperature": 0.85},
+		Prompts.dialogue_messages(_owner, guest.customer, guest.moment, _table_text(guest), guest.transcript, false, direction + " " + _address_note(guest), _tent_cat.prompt()),
+		_validate_line.bind(speaker, "", guest.order, [owner_name, speaker] + partners, _tent_cat.fact(), _address(guest, null)), {"temperature": 0.85},
 		{"purpose": "line", "title": _owner["title"], "owner_speaks": false, "first": false, "last": true})
 	_typing_label.text = ""
 	if not reply.is_empty():
@@ -2380,8 +2400,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		var version := _chat_version(chat)
 		tables = chat.people.map(func(person): return _table_text(person))
 		reply = await _ai.ask_json(
-			Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _cat_prompt()),
-			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _cat_fact(), address), {"temperature": 0.85},
+			Prompts.counter_chat_messages(_owner, chat.owner_in, people, tables, moment, chat.transcript, speaker, addressee, direction, _tent_cat.prompt()),
+			_validate_line.bind(speaker, str(_owner["title"]) if owner_speaks else "", items, names, _tent_cat.fact(), address), {"temperature": 0.85},
 			{"purpose": "chat_line", "owner_speaks": owner_speaks, "first": first})
 		if reply.is_empty() or _chat_version(chat) == version or attempt == 1:
 			break
@@ -2399,7 +2419,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	chat.transcript.append({"speaker": speaker, "text": line})
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
-	_stats.record_hint(hint, line, _cat_tells())
+	_stats.record_hint(hint, line, _tent_cat.tells())
 	_stats.record_line(line, names)
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
@@ -2507,7 +2527,7 @@ func _move_cat(spot: String = "") -> void:
 	if before != null and before != with and _guests.has(before):
 		before.transcript.append({"action": "%s jumps down and wanders off." % cat_name})
 		before.version += 1
-	var text := CatRules.cat_move_text(cat_name, spot, _cat_with_name())
+	var text := CatRules.cat_move_text(cat_name, spot, _tent_cat.with_name())
 	# Moves that matter (with a customer, leaving them, going out or coming in) are always
 	# narrated; just pottering about only sometimes.
 	if with != null or before != null or spot == "street" or was_out or randf() < CAT_POTTER_NARRATED:
@@ -2515,7 +2535,7 @@ func _move_cat(spot: String = "") -> void:
 	if with != null:
 		with.transcript.append({"action": text})
 		with.version += 1
-	_place_cat()
+	_tent_cat.place()
 	var moved := {"cat": cat_name, "spot": spot, "with": str(with.customer["name"]) if with != null else "",
 		"new_lap": spot == "lap" and with != null and with != before, "was_out": was_out}
 	_event("cat_moved", moved, with.node if bool(moved["new_lap"]) else _cat_node)
@@ -2549,118 +2569,6 @@ func _cat_steals(guest: Guest) -> void:
 	if _guests.has(guest):
 		guest.cat_moment = CatRules.THEFT_MOMENT_ROBBED.replace("{cat}", cat_name)
 	_update_info()
-
-
-## The cat's name, for counting lines that talk to it (Talk.hint_taken).
-func _cat_tells() -> Array:
-	return [] if _cat.is_empty() else [str(_cat["name"]).to_lower()]
-
-
-func _cat_with_name() -> String:
-	return str(_cat_with.customer["name"]) if _cat_with != null else ""
-
-
-## Where the cat is, for the AI's prompts.
-func _cat_prompt() -> String:
-	if _cat.is_empty():
-		return ""
-	return Prompts.describe_cat(_cat, CatRules.cat_text(str(_cat["name"]), _cat_spot, _cat_with_name()))
-
-
-## Where the cat is, for checking the AI's lines.
-func _cat_fact() -> Dictionary:
-	if _cat.is_empty():
-		return {}
-	return {"name": _cat["name"], "spot": _cat_spot, "with": _cat_with_name()}
-
-
-## Moves the cat's shape to its spot (it's hidden while it's out in the street).
-func _place_cat() -> void:
-	if _cat.is_empty():
-		return
-	var target := Vector2(150, 222)  # the stove end of the counter
-	match _cat_spot:
-		"counter": target = Vector2(STAGE_SIZE.x - 160, 222)
-		"stools": target = Vector2(randf_range(SEAT_X[0] - 120, SEAT_X[NightRules.SEATS - 1] + 60), 348)
-		"street": target = Vector2(STAGE_SIZE.x + 80, 348)
-		"lap": target = Vector2(SEAT_X[_cat_with.seat] - 20, 282)
-		"feet": target = Vector2(SEAT_X[_cat_with.seat] + 18, 348)
-		"food": target = Vector2(SEAT_X[_cat_with.seat] + 48, 318)
-	_cat_node.visible = true
-	_face_cat(target.x)
-	if _cat_tween != null and _cat_tween.is_valid():
-		_cat_tween.kill()
-	_cat_tween = create_tween()
-	_cat_tween.tween_property(_cat_node, "position", target, _scaled(1.0)).set_trans(Tween.TRANS_SINE)
-	if _cat_spot == "street":
-		_cat_tween.tween_callback(func(): _cat_node.visible = _cat_spot != "street")
-	elif _cat_spot in ["stools", "feet"]:
-		_cat_tween.tween_callback(_prowl)  # it doesn't just sit there
-
-
-## Faces the cat the way it's going (it's drawn facing right; flipped, it faces left).
-func _face_cat(to_x: float) -> void:
-	if absf(to_x - _cat_node.position.x) > 1.0:
-		_cat_node.scale.x = 1.0 if to_x > _cat_node.position.x else -1.0
-		(_cat_node.get_node("Tag") as Label).scale.x = _cat_node.scale.x  # turned back, so the name still reads
-
-
-## Prowling under the stools: a pause to sniff about, then padding off somewhere else along
-## the floor, again and again until it goes somewhere new. Winding round someone's ankles,
-## the same but back and forth around their feet. (Scenery dice: see _scenery_dice.)
-func _prowl() -> void:
-	if not is_instance_valid(_cat_node) or not (_cat_spot in ["stools", "feet"]):
-		return
-	var to: Vector2
-	if _cat_spot == "feet" and _cat_with != null:
-		var feet_x: float = SEAT_X[_cat_with.seat] + 18
-		to = Vector2(feet_x + _scenery_dice.randf_range(-34.0, 34.0), 348)
-	else:
-		to = Vector2(_scenery_dice.randf_range(SEAT_X[0] - 120, SEAT_X[NightRules.SEATS - 1] + 60), 348)
-	var pause := _scenery_dice.randf_range(0.6, 2.4) if _cat_spot == "stools" else _scenery_dice.randf_range(0.2, 0.7)
-	var pace := 110.0 if _cat_spot == "stools" else 60.0  # pixels a second: ambling, or slow and close
-	_cat_tween = create_tween()
-	_cat_tween.tween_interval(_scaled(pause))
-	_cat_tween.tween_callback(_face_cat.bind(to.x))
-	_cat_tween.tween_property(_cat_node, "position", to, _scaled(maxf(0.3, _cat_node.position.distance_to(to) / pace))).set_trans(Tween.TRANS_SINE)
-	_cat_tween.tween_callback(_prowl)
-
-
-## A grey-box cat: body, head, ears and tail, in its coat colour (calico and tabby get patches).
-func _build_cat(stage: Control) -> void:
-	_cat_node = Control.new()
-	_cat_node.name = "Cat"
-	_cat_node.position = Vector2(150, 222)
-	_cat_node.size = Vector2(46, 28)
-	_cat_node.z_index = 1  # in front of customers, so it shows on a lap
-	_cat_node.pivot_offset = _cat_node.size / 2  # so flipping it to face left keeps it in place
-	_cat_node.mouse_filter = Control.MOUSE_FILTER_STOP
-	_cat_node.visible = false
-	stage.add_child(_cat_node)
-	for part in [["Tail", Vector2(-10, 10), Vector2(12, 4)], ["Body", Vector2(0, 10), Vector2(32, 16)], ["Head", Vector2(28, 2), Vector2(15, 14)],
-			["EarLeft", Vector2(29, -2), Vector2(4, 5)], ["EarRight", Vector2(38, -2), Vector2(4, 5)], ["Patch", Vector2(8, 12), Vector2(10, 7)]]:
-		_rect(_cat_node, part[1], part[2], Color.WHITE).name = part[0]
-	var tag := Label.new()  # its name, above it (centred on the cat, so it stays put when it turns)
-	tag.name = "Tag"
-	tag.position = Vector2(-77, -24)
-	tag.size = Vector2(200, 18)
-	tag.pivot_offset = tag.size / 2
-	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tag.add_theme_font_size_override("font_size", 13)
-	tag.add_theme_constant_override("outline_size", 5)
-	tag.add_theme_color_override("font_outline_color", Color.BLACK)
-	_cat_node.add_child(tag)
-
-
-func _paint_cat() -> void:
-	(_cat_node.get_node("Tag") as Label).text = _cat_label()
-	var coat := Color(str(CatRules.CAT_COATS.get(_cat["coat"], "9c7a52")))
-	for part in ["Tail", "Body", "Head", "EarLeft", "EarRight"]:
-		(_cat_node.get_node(part) as ColorRect).color = coat
-	var patch := _cat_node.get_node("Patch") as ColorRect
-	patch.visible = _cat["coat"] in ["calico", "tabby"]
-	patch.color = Color("d9883a") if _cat["coat"] == "calico" else coat.darkened(0.35)
 
 
 ## What's on a guest's table, as the AI is told it, including what's still cooking.
@@ -3408,7 +3316,7 @@ func _update_info() -> void:
 	if not _cat.is_empty():
 		t += "\n[color=#%s][b]THE CAT[/b][/color]\n" % accent
 		t += "[b]%s[/b], %s, %s\n" % [_esc(_cat_label()), _cat["coat"], _cat["personality"]]
-		t += "[color=#%s]%s[/color]\n" % [muted, _esc(CatRules.cat_text(str(_cat["name"]), _cat_spot, _cat_with_name()))]
+		t += "[color=#%s]%s[/color]\n" % [muted, _esc(CatRules.cat_text(str(_cat["name"]), _cat_spot, _tent_cat.with_name()))]
 	var seated := _guests.duplicate()
 	seated.sort_custom(func(a, b): return a.seat < b.seat)
 	if not seated.is_empty():
@@ -3902,7 +3810,7 @@ func _build_stage(stage: Control) -> void:
 	_tent_view.roof.name = "Tarp"
 	_tent_view.roof.polygon = PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
 	_tent_view.roof.color = ACCENT
-	_build_cat(stage)
+	_tent_cat.build(stage)
 	stage.add_child(_tent_view.roof)
 	_tent_view.roof_stripes = _layer(stage, "TarpStripes")
 	_tent_view.roof_edge = _rect(stage, Vector2(22, 112), Vector2(w - 44, 10), Color("c8612a"))

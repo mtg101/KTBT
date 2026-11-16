@@ -83,7 +83,7 @@ Most of the risk in this stage is in rules the game owns, so most of it can be t
 
 ## Coverage so far
 
-All 515 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 518 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
@@ -101,6 +101,7 @@ All 515 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 | The tent's look (`bar/tent_view.gd`) | `tests/test_tent_view.gd` | ✅ 3: the bar's look (the sign, the touches, every shape of cover); the light by the hour, the weather and closing up (dimmer, the far bulb off); the weather falling (rain and drips, snow, fog) and the bulbs swinging, last night's cleared | Covered by `test_visit.gd` |
 | Drawing people (`bar/people_view.gd`) | `tests/test_people_view.gd` | ✅ 3: a person dressed in their look, both ways round (facing us, from behind), the name on top; a phone; an umbrella (its canopy, snow settling on it, rain running off it, shaken off and folded); running for it with a bag over their head, and stopping, back on the ground | Covered by `test_visit.gd` |
 | The street (`bar/street.gd`) | `tests/test_street.gd` | ✅ 3: people walking by, together, on the pavement, counted in the stats, and more as time passes (a few at most however long a frame); a passer-by who wanted in walking on; rain gear only when it's wet, an umbrella counted, not when they're going home | Covered by `test_visit.gd` |
+| The cat (`bar/cat.gd`) | `tests/test_cat.gd` | ✅ 3: drawn in its coat with its name; where it is for the AI's prompts and the checks (and who with: their lap, at their stool), nothing at a bar without one; facing the way it's going, its name still reading | Covered by `test_visit.gd` |
 | Debug stats (`night_stats.gd`) | `tests/test_night_stats.gd` | ✅ 11: the night's highlights (rare moments in order, with their times; a table game offered marked taken up only by its own game; a full house once) and the panel's tabs, one per section; the panel in sections, with POCHA LIFE on its own (rituals, table games by game, double-takes, the chorus) and the log's matching groups; who came in (genders, ages, moods for company) and the night's story (loading time, recap style, the diary's stamp, and who wrote them); every event counted by kind; orders, hints and how many were taken up, Korean words said and the commonest openings; AI calls counted (including how often the owner was free) and rejections grouped; averages with nothing yet; the panel's sections; the log saved as JSON; the actual rejection reasons kept; how full the tent was; chat chances | Covered by `test_visit.gd` and `test_night.gd` |
 
 *Updated as tests are added.*

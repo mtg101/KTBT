@@ -601,7 +601,7 @@ func test_the_cat_on_a_lap_is_in_the_conversation() -> void:
 	assert_str(_transcript(runner)).contains("%s jumps up onto %s's lap" % [cat_name, guest.customer["name"]])
 	assert_int(int(scene._stats.captions.get("cat_lap", 0))).is_equal(1)  # a TV caption
 	assert_bool(guest.transcript.any(func(e): return e.has("action") and str(e["action"]).contains("lap"))).is_true()
-	assert_str(scene._cat_prompt()).contains("on %s's lap" % guest.customer["name"])
+	assert_str(scene._tent_cat.prompt()).contains("on %s's lap" % guest.customer["name"])
 	# When they leave, the cat jumps down.
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
