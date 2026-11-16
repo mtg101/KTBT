@@ -30,6 +30,7 @@ const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
+const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -103,10 +104,10 @@ const OFFSCREEN_RIGHT_X := Layout.OFFSCREEN_RIGHT_X
 const CHAT_CHANCE := 0.5
 ## ...and when it's busy (People.BUSY_COUNTER or more in), when there are most people to talk to.
 const BUSY_CHAT_CHANCE := 0.75
-const JOIN_CHANCE := 0.4  # how often another customer joins an ongoing chat
+const JOIN_CHANCE := CounterChats.JOIN_CHANCE
 const OWNER_JOINS_CHANCE := 0.35  # how often the owner joins a customer chat
 const CHAT_LINES := Vector2i(3, 5)  # lines in a spell of customer chat
-const CHAT_MIN_STAY_LEFT := 10.0  # game minutes
+const CHAT_MIN_STAY_LEFT := CounterChats.CHAT_MIN_STAY_LEFT
 const CHAT_LINES_BEFORE_INTERRUPTING := 3  # a chat gets this many lines before anything can cut in
 const COMPANY_LABEL := {"chatty": "chatty", "quiet": "keeps to themselves", "owner": "here to talk"}
 
@@ -163,16 +164,7 @@ class Guest:
 
 
 ## Customers chatting to each other at the counter (the owner sometimes joins in).
-class Chat:
-	extends RefCounted
-	var people: Array = []  # Guest
-	var owner_in := false
-	var transcript: Array = []  # what's been said in this chat, and what happened
-	var last_speaker := ""  # a name
-	var topic := ""  # what it's turning to this spell (see Talk.pick_chat_topic)
-	var shared := false  # had its sharing moment (see Talk.sharing_moment)
-	var game := ""  # the table game it was offered (see Talk.TABLE_GAMES), once a chat
-	var game_on := false  # ... and took up
+const Chat = CounterChats.Chat  # (a conversation between customers at the counter: see scripts/bar/counter_chats.gd)
 
 
 var _ai: Ai
@@ -181,7 +173,10 @@ var _takings := 0
 
 # Who's here and what the owner's doing
 var _guests: Array = []  # Guest: whoever's on a stool
-var _chats: Array = []  # Chat: customer conversations going on at the counter
+var _counter_chats := CounterChats.new()  # customers chatting: who's in which chat, choosing the next spell (scripts/bar/counter_chats.gd)
+var _chats: Array:  # Chat: customer conversations going on at the counter
+	get:
+		return _counter_chats.chats
 var _names_tonight: Array = []
 var _jobs_tonight: Array = []  # tonight's customers' jobs and looks, so newcomers are different
 var _looks_tonight: Array = []
@@ -2128,43 +2123,31 @@ func _extra_order(guest: Guest) -> bool:
 
 # --- Customers chatting to each other -------------------------------------------
 
-## Someone who can be drawn into a chat right now: not keeping to themselves, settled in
-## (served), and not about to leave (nobody starts a chat with ten minutes to go).
+## Someone who can be drawn into a chat right now (see CounterChats.can_chat).
 func _can_chat(guest: Guest) -> bool:
-	return People.joins_chats(guest.company) and guest.stay_left >= CHAT_MIN_STAY_LEFT and not guest.order.is_empty()
+	return _counter_chats.can_chat(guest)
 
 
 func _chat_of(guest: Guest) -> Chat:
-	for chat in _chats:
-		if chat.people.has(guest):
-			return chat
-	return null
+	return _counter_chats.chat_of(guest)
 
 
 ## People free to start a new chat, or join one.
 func _free_to_chat() -> Array:
-	return _guests.filter(func(guest): return _can_chat(guest) and _chat_of(guest) == null)
+	return _counter_chats.free_to_chat(_guests)
 
 
 ## The customers in a chat who can still take part.
 func _chat_voices(chat: Chat) -> Array:
-	return chat.people.filter(func(guest): return _can_chat(guest))
+	return _counter_chats.voices(chat)
 
 
 func _chat_possible() -> bool:
-	if _last_orders:
-		return false
-	for chat in _chats:
-		if _chat_voices(chat).size() >= 2:
-			return true
-	return _free_to_chat().size() >= 2
+	return _counter_chats.possible(_guests, _last_orders)
 
 
 func _leave_chats(guest: Guest) -> void:
-	for chat in _chats.duplicate():
-		chat.people.erase(guest)
-		if chat.people.size() < 2:
-			_chats.erase(chat)
+	_counter_chats.leave(guest)
 
 
 ## A spell of customers chatting: carry on a chat already going (sometimes someone else
@@ -2172,26 +2155,21 @@ func _leave_chats(guest: Guest) -> void:
 ## A few lines, cut short if something more urgent comes up.
 func _counter_chat() -> void:
 	_owner_working = true
-	var chat: Chat = null
-	var ongoing := _chats.filter(func(c): return _chat_voices(c).size() >= 2)
-	var free := _free_to_chat()
-	if not ongoing.is_empty() and (free.size() < 2 or randf() < 0.6):
-		chat = ongoing.pick_random()
-		_event("chat_continued", {"people": chat.people.map(func(g): return str(g.customer["name"]))})
-		if not free.is_empty() and randf() < JOIN_CHANCE:
-			var joiner: Guest = free.pick_random()
-			chat.people.append(joiner)
+	var spell := _counter_chats.choose_spell(_guests)  # (carry one on, someone joining in, or strangers getting talking)
+	var chat: Chat = spell["chat"]
+	var joiner: Guest = spell["joiner"]
+	if chat != null and bool(spell["started"]):
+		var a: Guest = chat.people[0]
+		var b: Guest = chat.people[1]
+		_narrate("%s gets talking to %s." % [a.customer["name"], b.customer["name"]])
+		_event("chat_started", {"name": str(a.customer["name"]), "friend": str(b.customer["name"])}, a.node)
+		chat.transcript.append({"action": "%s turns to %s, a stranger a few stools along, and starts a conversation." % [a.customer["name"], b.customer["name"]]})
+	elif chat != null:
+		_event("chat_continued", {"people": chat.people.filter(func(g): return g != joiner).map(func(g): return str(g.customer["name"]))})
+		if joiner != null:
 			_narrate("%s joins in." % joiner.customer["name"])
 			_event("joined_chat", {"gender": str(joiner.customer.get("gender", "")), "name": str(joiner.customer["name"])}, joiner.node)
 			chat.transcript.append({"action": "%s, from further along the counter, joins the conversation." % joiner.customer["name"]})
-	elif free.size() >= 2:
-		free.shuffle()
-		chat = Chat.new()
-		chat.people = [free[0], free[1]]
-		_chats.append(chat)
-		_narrate("%s gets talking to %s." % [free[0].customer["name"], free[1].customer["name"]])
-		_event("chat_started", {"name": str(free[0].customer["name"]), "friend": str(free[1].customer["name"])}, free[0].node)
-		chat.transcript.append({"action": "%s turns to %s, a stranger a few stools along, and starts a conversation." % [free[0].customer["name"], free[1].customer["name"]]})
 	if chat == null:
 		_task_done()
 		return
@@ -2417,10 +2395,7 @@ func _to_label(line: String, speaker: Guest, listener: Guest, label: String) -> 
 
 ## Changes anyone in a chat can see, added up (see Guest.version).
 func _chat_version(chat: Chat) -> int:
-	var total := 0
-	for person in chat.people:
-		total += person.version
-	return total
+	return _counter_chats.version(chat)
 
 
 func _guest_named(customer_name: String) -> Guest:
