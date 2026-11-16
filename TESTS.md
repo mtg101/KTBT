@@ -83,7 +83,7 @@ Most of the risk in this stage is in rules the game owns, so most of it can be t
 
 ## Coverage so far
 
-All 523 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 526 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
@@ -104,6 +104,7 @@ All 523 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 | The cat (`bar/cat.gd`) | `tests/test_cat.gd` | ✅ 3: drawn in its coat with its name; where it is for the AI's prompts and the checks (and who with: their lap, at their stool), nothing at a bar without one; facing the way it's going, its name still reading | Covered by `test_visit.gd` |
 | The stove (`bar/kitchen.gd`) | `tests/test_kitchen.gd` | ✅ 2: one cook, so dishes queue (cooking and waiting on the stove's row, the spare minutes going to the next, ready to carry over, a long frame finishing more than one); dishes and the banchan drawn with their names | Covered by `test_visit.gd` |
 | TV captions on screen (`bar/captions_on_screen.gd`) | `tests/test_captions_on_screen.gd` | ✅ 3: a caption popping up with its sting, in the transcript (escaped) and the stats, a new one replacing the last; an emergency flashing the red light; captions paced, routine ones waiting while a reaction's up, an emergency not | Covered by `test_visit.gd` |
+| The night as a story (`bar/story_keeper.gd`) | `tests/test_story_keeper.gd` | ✅ 3: the transcript with its header, how the bar opened, the night (tags stripped, escaped brackets back) and how it ended with the stats; last night's ending not tomorrow's opening; "Previously on…" written from the last diary and the regulars (or, before diaries, their latest memories) | Covered by `test_visit.gd` and `test_bars.gd` |
 | Debug stats (`night_stats.gd`) | `tests/test_night_stats.gd` | ✅ 11: the night's highlights (rare moments in order, with their times; a table game offered marked taken up only by its own game; a full house once) and the panel's tabs, one per section; the panel in sections, with POCHA LIFE on its own (rituals, table games by game, double-takes, the chorus) and the log's matching groups; who came in (genders, ages, moods for company) and the night's story (loading time, recap style, the diary's stamp, and who wrote them); every event counted by kind; orders, hints and how many were taken up, Korean words said and the commonest openings; AI calls counted (including how often the owner was free) and rejections grouped; averages with nothing yet; the panel's sections; the log saved as JSON; the actual rejection reasons kept; how full the tent was; chat chances | Covered by `test_visit.gd` and `test_night.gd` |
 
 *Updated as tests are added.*

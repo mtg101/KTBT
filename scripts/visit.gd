@@ -28,6 +28,7 @@ const Layout = preload("res://scripts/bar/layout.gd")
 const Cat = preload("res://scripts/bar/cat.gd")
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
+const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -301,8 +302,7 @@ var _stats: NightStats:
 		_night.stats = value
 var _stats_refresh := 0.0
 ## Tonight's transcript file, written line by line as the night goes (see _start_transcript).
-var _transcript_file: FileAccess
-var _tags := RegEx.create_from_string("\\[[^\\]]*\\]")  # BBCode tags, stripped for the file
+var _story := StoryKeeper.new()  # tonight's transcript file, and what "Previously on…" is written from (scripts/bar/story_keeper.gd)
 var _stopped := false
 ## The most recent customer to pay, and everything they ordered.
 var _customer := {}
@@ -334,7 +334,6 @@ var _stats_button: Button
 var _recap_said := ""  # tonight's "Previously on…"
 var _setup_ai: Array = []  # the AI's answers while a night's being got ready (the bar opening: its menu, own dishes, recap), counted in that night's stats
 var _getting_ready := true  # the bar's opening, or the next night's being got ready (not yet open)
-var _before_transcript := ""  # what's shown before tonight's transcript starts (the bar opening: its menu, its own dishes, the recap), for the top of it
 ## Its cliffhanger (Story.CLIFFHANGERS): {"kind", "who", "teaser", "answered"}, if tonight can answer it.
 var _cliffhanger := {}
 var _summary: PanelContainer
@@ -931,7 +930,7 @@ func _show_closing_up() -> void:
 func _leave() -> void:
 	if _night_open:
 		_save_stats(false)  # a night cut short still gets a log
-	elif _transcript_file != null and _transcript_file.is_open():
+	elif _story.is_writing():
 		_save_stats(true)  # closed while the owner was still writing the diary
 	_stopped = true
 	_night_open = false
@@ -1252,36 +1251,9 @@ func _diary_facts() -> Dictionary:
 	})
 
 
-## "Previously on…": what the recap's written from: the last diary entry and its facts, the
-## regulars (and each one's latest memory, for a bar from before diaries), and who may be named.
+## "Previously on…": what the recap's written from (see StoryKeeper.recap_facts).
 func _recap_facts() -> Dictionary:
-	var diary: Array = Game.bar.get("diary", [])
-	var last: Dictionary = diary[-1] if not diary.is_empty() else {}
-	var regulars: Array = _regulars()
-	var names: Array = [str(_owner.get("name", ""))]
-	for regular in regulars:
-		names.append(str(regular["name"]))
-	var latest_memories: Array = []
-	if last.is_empty():
-		for regular in regulars:
-			var kept: Array = regular.get("memories", [])
-			if not kept.is_empty():
-				latest_memories.append("%s, a regular: %s" % [regular["name"], kept[-1].get("owner", "")])
-	var last_facts: Dictionary = last.get("facts", {})
-	var hangul := {str(_owner.get("name", "")): str(_owner.get("hangul", ""))}  # for the recap's name tags
-	for regular in regulars:
-		hangul[str(regular["name"])] = str(regular.get("hangul", ""))
-	for person in last_facts.get("people", []):
-		names.append(str(person["name"]))
-		if not hangul.has(str(person["name"])) or str(hangul[str(person["name"])]) == "":
-			hangul[str(person["name"])] = str(person.get("hangul", ""))
-	return {
-		"episode": int(Game.bar.get("nights", 0)) + 1, "bar": str(Game.bar.get("name", "")), "owner": str(_owner.get("name", "")),
-		"archetype": str(_owner.get("archetype", "")), "owner_data": _owner.duplicate(true), "cat": str(Game.bar.get("cat", {}).get("name", "")),
-		"regulars": regulars.map(func(r): return str(r["name"])), "names": names,
-		"last": last_facts, "last_entry": str(last.get("text", "")), "memories": latest_memories, "hangul": hangul,
-		"teaser_example": Story.RECAP_TEASER_EXAMPLES[_scenery_dice.randi() % Story.RECAP_TEASER_EXAMPLES.size()],
-	}
+	return StoryKeeper.recap_facts(Game.bar, _owner, _regulars(), _scenery_dice)
 
 
 ## The recap for tonight: the AI's, checked, or the game's own from the same facts.
@@ -1347,7 +1319,7 @@ func _on_ai_answered(purpose: String, seconds: float, problems: Array, ok: bool)
 
 func _on_next_night_pressed() -> void:
 	_summary.visible = false
-	_before_transcript = ""  # (the end of last night, the diary: not tonight's)
+	_story.forget_before()  # (the end of last night, the diary: not tonight's)
 	_getting_ready = true
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty():
 		_owner_working = true
@@ -1554,60 +1526,31 @@ func _save_stats(finished: bool) -> void:
 	_finish_transcript(context)
 
 
-## Adds to the transcript on screen and, during a night, to tonight's transcript file.
+## Adds to the transcript on screen and, during a night, to tonight's transcript file (before
+## it, kept for the top of it: see StoryKeeper).
 func _show(bbcode: String) -> void:
 	_log.append_text(Glossary.explain_hangul(bbcode))  # (any Hangul explains itself on hover)
-	# As plain text: tags stripped ([lb] is how a "[" in the AI's text is escaped).
-	var plain := _tags.sub(bbcode.replace("[lb]", "\u0001"), "", true).replace("\u0001", "[")
-	if _transcript_file != null:
-		_transcript_file.store_string(plain)
-		_transcript_file.flush()
-	else:
-		_before_transcript += plain  # (the bar opening: kept for the top of tonight's transcript)
+	_story.record(bbcode)
 
 
-## Tonight's transcript file, written as the night goes, so it's there even if the game
-## closes mid-night: a header saying which bar and night, and with what AI settings, then
-## everything said and done, and (see _finish_transcript) the night's stats. In the
-## project's logs/transcripts/ folder when running from the editor (handy for reading and
-## sharing; .gitignore keeps them out of commits).
+## Tonight's transcript file, written as the night goes (see StoryKeeper): a header saying which
+## bar and night, and with what AI settings, how the bar opened, then everything said and done.
 func _start_transcript() -> void:
-	_transcript_file = null
-	var folder := Hooks.transcript_folder
-	if folder == "":
-		folder = "res://logs/transcripts/" if OS.has_feature("editor") else "user://logs/transcripts/"
-	DirAccess.make_dir_recursive_absolute(folder)
-	var now := Time.get_datetime_string_from_system(false, true)
-	var stamp := now.replace(":", "").replace(" ", "_").left(15)
-	var path := folder.path_join("%s_%s_night%d.txt" % [stamp, str(Game.bar.get("id", "bar")), _night_number])
-	_transcript_file = FileAccess.open(path, FileAccess.WRITE)
-	if _transcript_file == null:
-		return
 	var model := " / " + str(_ai.settings.get("model", "")) if not _ai.offline else ""
-	_transcript_file.store_string("\n".join(PackedStringArray([
+	var path := _story.start(str(Game.bar.get("id", "bar")), _night_number, [
 		"KTBT transcript: %s, night %d" % [Game.bar.get("name", ""), _night_number],
-		"%s, %s. Started %s." % [_night_day, _night_weather, now],
+		"%s, %s. Started %s." % [_night_day, _night_weather, Time.get_datetime_string_from_system(false, true)],
 		"AI: %s%s (%s), reading pauses %s." % [_ai.settings.get("backend", ""), model, "offline" if _ai.offline else "online",
 			"on" if _reading_toggle.button_pressed else "off"],
-		"=".repeat(70),
-	])) + "\n")
-	_transcript_file.store_string(_before_transcript.strip_edges() + "\n\n" if _before_transcript.strip_edges() != "" else "")  # (how the bar opened: menu, own dishes, recap)
-	_before_transcript = ""
+	])
 	_recap_said = ""
-	_transcript_file.flush()
-	if Hooks.print_paths:
+	if path != "" and Hooks.print_paths:
 		print("Night transcript: ", ProjectSettings.globalize_path(path))
 
 
 ## The end of the night (or the bar closed early): how it ended, and the night's stats.
 func _finish_transcript(context: Dictionary) -> void:
-	if _transcript_file == null:
-		return
-	var stats := _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size()).replace("[b]", "").replace("[/b]", "")
-	_transcript_file.store_string("\n%s\n%s at %s.\n\nSTATS\n\n%s\n" % ["=".repeat(70), "Finished" if context["finished"] else "Cut short", context["clock"], stats])
-	_transcript_file.close()
-	_transcript_file = null
-	_before_transcript = ""
+	_story.finish(bool(context["finished"]), str(context["clock"]), _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size()).replace("[b]", "").replace("[/b]", ""))
 
 
 func _on_stats_toggled(_on: bool) -> void:
