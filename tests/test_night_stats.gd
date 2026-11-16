@@ -2,6 +2,7 @@ extends GdUnitTestSuite
 ## Tests for scripts/night_stats.gd: the debug stats and the night log.
 
 const NightStats = preload("res://scripts/night_stats.gd")
+const Menu = preload("res://scripts/menu.gd")
 
 const TEST_FOLDER := "user://test_stats/"
 
@@ -238,6 +239,13 @@ func test_the_pocha_life_has_a_section_of_its_own() -> void:
 	assert_int(int(logged["pocha_life"]["hwaiting_chorus"])).is_equal(1)
 	assert_str(str(logged["tonight"]["season"])).is_equal("late autumn")
 	assert_int(int(logged["menu"]["board_opened"])).is_equal(0)
+	# The bar's signature dishes, and how often they're ordered.
+	Menu.use(Menu.ITEMS + [{"id": "own_halmeoni_kalguksu", "name": "Halmeoni Kalguksu", "hangul": "할머니 칼국수", "kind": "food", "price": 9000, "signature": true}])
+	stats.ordered["own_halmeoni_kalguksu"] = 2
+	stats.story["signatures_by"] = "ai"
+	assert_str(stats.panel_text(0, 0)).contains("Signature dishes: Halmeoni Kalguksu 2 ordered (new tonight, by the ai)")
+	assert_int(int(stats.summary({})["menu"]["signatures"]["Halmeoni Kalguksu"])).is_equal(2)
+	Menu.use([])
 
 
 

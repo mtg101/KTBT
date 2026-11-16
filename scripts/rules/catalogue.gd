@@ -36,8 +36,12 @@ const MENU_SIZE := Vector2i(12, 16)
 const SIGNATURES := 2
 
 
-## Which layer a dish is in: "always", "classic" (one of the classics, or makgeolli) or "own".
+## Which layer a dish is in: "always", "classic" (one of the classics, or makgeolli), "own"
+## (chosen from the catalogue to suit the owner) or "signature" (the owner's own invention:
+## see rules/signatures.gd).
 static func layer(id: String) -> String:
+	if id.begins_with("own_"):
+		return "signature"
 	if ALWAYS.has(id) or MIXED.has(id):
 		return "always"
 	if id == "makgeolli":

@@ -88,6 +88,12 @@ static var _hangul_pattern: RegEx = null
 static var _menu_version := -1  # the menu these tables were built from (see Menu.version)
 
 
+## A dish's hover: its Hangul, name, what the name means (a signature dish's) and what it is.
+static func _dish_tip(item: Dictionary) -> String:
+	var meaning := str(item.get("meaning", ""))
+	return "%s %s%s: %s" % [item.get("hangul", ""), item["name"], (" (\"%s\")" % meaning) if meaning != "" else "", item.get("desc", "")]
+
+
 ## Builds the tables again if the menu's changed since (another bar opened).
 static func _keep_up_with_menu() -> void:
 	if _menu_version == Menu.version:
@@ -114,7 +120,7 @@ static func lookup() -> Dictionary:
 	for item in Menu.items():
 		if MENU_PLAIN.has(item["id"]):
 			continue
-		var tip := "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]
+		var tip := _dish_tip(item)
 		var spellings: Array = [str(item["name"]).to_lower()]
 		spellings.append_array(MENU_SPELLINGS.get(item["id"], []))
 		for spelling in spellings:
@@ -124,7 +130,7 @@ static func lookup() -> Dictionary:
 	for item in Catalogue.all():
 		if MENU_PLAIN.has(item["id"]):
 			continue
-		var tip := "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]
+		var tip := _dish_tip(item)
 		for spelling in [str(item["name"]).to_lower(), str(item.get("word", ""))]:
 			if spelling != "" and not found.has(spelling):
 				found[spelling] = {"tip": tip, "colour": WORD_COLOUR, "word": str(item["name"])}
@@ -220,7 +226,7 @@ static func _hangul_known(run: String) -> String:
 		# 안녕 and 안녕하세요 both).
 		var sources: Array = []
 		for item in Menu.items() + Catalogue.all():
-			sources.append([str(item.get("hangul", "")), "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]])
+			sources.append([str(item.get("hangul", "")), _dish_tip(item)])
 		for id in WORDS:
 			sources.append([str(WORDS[id]["hangul"]), "%s %s: %s" % [WORDS[id]["hangul"], str(WORDS[id]["spellings"][0]).capitalize() if not WORDS[id]["spellings"].is_empty() else id, WORDS[id]["means"]]])
 		for id in Address.TERMS:

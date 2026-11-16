@@ -791,7 +791,7 @@ func test_the_menu_board_opens_the_whole_menu() -> void:
 	var written := MenuBoard.menu_text(Menu.board_order(["pajeon"]), ["pajeon"], ["sundae"], "tteokbokki", "Byeolbit Pocha")
 	assert_int(written.find("Pajeon")).is_less(written.find("Tteokbokki"))
 	assert_str(written).contains("TONIGHT'S SPECIALS").contains("인기").contains("품절").contains("[s]").contains("Byeolbit Pocha")
-	assert_str(written).contains("Somaek? Order a soju and a beer").not_contains("[b]Somaek[/b]")  # (never on the menu itself)
+	assert_str(written).not_contains("Somaek")  # (never on the menu: everyone knows to mix it)
 	assert_str(MenuBoard.style_for("a bar")).is_equal(MenuBoard.style_for("a bar"))  # (the same every night)
 
 

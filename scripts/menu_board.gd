@@ -59,8 +59,10 @@ func show_menu(items: Array, specials: Array = [], sold_out: Array = [], favouri
 ## The whole menu, as BBCode: a title, then tonight's specials, the food and the drinks, each
 ## line the Hangul, the English name and what it is, and the price.
 static func menu_text(items: Array, specials: Array, sold_out: Array, favourite: String, bar_name: String) -> String:
-	var sections := [["오늘의 특선", "TONIGHT'S SPECIALS", items.filter(func(item): return specials.has(item["id"]))],
-		["안주", "FOOD", items.filter(func(item): return item["kind"] == "food" and not specials.has(item["id"]))],
+	var own := func(item: Dictionary) -> bool: return bool(item.get("signature", false))
+	var sections := [["대표 메뉴", "THE HOUSE'S OWN", items.filter(func(item): return own.call(item))],
+		["오늘의 특선", "TONIGHT'S SPECIALS", items.filter(func(item): return specials.has(item["id"]) and not own.call(item))],
+		["안주", "FOOD", items.filter(func(item): return item["kind"] == "food" and not specials.has(item["id"]) and not own.call(item))],
 		["주류", "DRINKS", items.filter(func(item): return item["kind"] == "drink" and not specials.has(item["id"]))]]
 	var t := "[center][font_size=26][b]메뉴 MENU[/b][/font_size]\n[color=#8a8578]%s[/color][/center]\n" % bar_name
 	for section in sections:
@@ -74,13 +76,14 @@ static func menu_text(items: Array, specials: Array, sold_out: Array, favourite:
 				marks += "  [color=#d8452f][b]인기[/b][/color]"
 			if sold_out.has(id):
 				marks += "  [color=#c8362a][b]품절[/b][/color]"
-			var name_bit := "[b]%s[/b]%s\n[color=#8a8578][font_size=13]%s[/font_size][/color]" % [item["name"], marks, item.get("desc", "")]
+			var about := str(item.get("desc", ""))
+			if str(item.get("meaning", "")) != "":
+				about = "\"%s\": %s" % [item["meaning"], about]
+			var name_bit := "[b]%s[/b]%s\n[color=#8a8578][font_size=13]%s[/font_size][/color]" % [item["name"], marks, about]
 			if sold_out.has(id):
 				name_bit = "[s]%s[/s]" % name_bit
 			t += "[cell][font_size=20]%s[/font_size]   [/cell][cell]%s   [/cell][cell][color=#c8362a]%s[/color][/cell]" % [item.get("hangul", ""), name_bit, Menu.format_won(int(item["price"]))]
 		t += "[/table]\n"
-	if items.any(func(item): return item["id"] == "soju") and items.any(func(item): return item["id"] == "beer"):
-		t += "\n[center][color=#8a8578][i]소맥 Somaek? Order a soju and a beer, and mix your own.[/i][/color][/center]\n"
 	return t
 
 

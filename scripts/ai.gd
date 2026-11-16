@@ -40,10 +40,18 @@ var _auto_fallback := false
 var _checking_server := false
 
 signal _server_checked
+## Every frame, while this node's alive. Waits are on it rather than on the scene tree, so a wait
+## that's going on when the bar closes (the scene freed, in a test) is simply dropped, rather
+## than resuming in a node that's gone (Godot's "class instance is gone" error).
+signal _frame
 ## After every ask_json(), for the stats: what it was for, how long it took (retries
 ## included), the problems with any replies that were rejected, and whether it got a
 ## usable reply in the end.
 signal answered(purpose: String, seconds: float, problems: Array, ok: bool)
+
+
+func _process(_delta: float) -> void:
+	_frame.emit()
 
 
 func _ready() -> void:
@@ -81,7 +89,7 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 	for attempt in int(request.get("tries", max_attempts)):
 		var reply: Array
 		if simulate_unreachable:
-			await get_tree().process_frame
+			await _frame
 			reply = [false, "Can't reach Ollama (simulated for a test)."]
 		else:
 			_client.chat(convo, true, options)
@@ -110,9 +118,11 @@ func _ask_canned(validator: Callable, request: Dictionary, problems: Array) -> D
 	last_error = ""
 	for attempt in int(request.get("tries", max_attempts)):
 		# A frame's pause, so the game behaves the same as with a real (slower) AI.
-		await get_tree().process_frame
-		if canned_think_seconds > 0.0:
-			await get_tree().create_timer(canned_think_seconds).timeout
+		await _frame
+		var thinking := canned_think_seconds
+		while thinking > 0.0:
+			thinking -= get_process_delta_time()
+			await _frame
 		var data = _canned.reply(request)
 		var problem: String = validator.call(data)
 		if problem == "":
@@ -128,7 +138,7 @@ func _ask_canned(validator: Callable, request: Dictionary, problems: Array) -> D
 func _check_server() -> void:
 	_checking_server = true
 	# Wait a frame so the game has connected to offline_started before we might emit it.
-	await get_tree().process_frame
+	await _frame
 	var reachable := false
 	if not simulate_unreachable:
 		var http := HTTPRequest.new()

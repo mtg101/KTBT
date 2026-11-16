@@ -36,6 +36,8 @@ const Skyline = preload("res://scripts/rules/skyline.gd")
 const SkylineView = preload("res://scripts/skyline_view.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const Signatures = preload("res://scripts/rules/signatures.gd")
+const Specials = preload("res://scripts/rules/specials.gd")
 const MenuBoard = preload("res://scripts/menu_board.gd")
 const DishView = preload("res://scripts/dish_view.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
@@ -236,7 +238,8 @@ var _dawn_shown := false  # ...and 2am feelings
 var _red_flashes := 0  # emergencies flashed (for tests)
 var _reaction_last := -1.0  # real seconds when the last reaction showed
 var _reaction_until := -1.0  # ...and until when it's up
-## Tonight's specials (menu ids, Orders.pick_specials): marked on the menu customers see.
+## Tonight's specials (menu ids, rules/specials.gd): marked on the menu customers see. (What's
+## sold out tonight is Menu.sold_out.)
 var _specials: Array = []
 ## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
 var _owner_cat_moment := ""
@@ -397,6 +400,8 @@ func _open_saved_bar() -> void:
 	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
 	if Hooks.founding_regulars and not Game.bar.has("regulars") and not _stopped:
 		await _make_founding_regulars()  # a bar saved before regulars: its two, once
+	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not Game.bar.has("signatures_by") and not _stopped:
+		await _invent_signatures()  # a bar whose menu came before signature dishes: theirs, once
 	if _stopped or Game.bar.is_empty():
 		_owner_working = false
 		return
@@ -617,10 +622,21 @@ func _choose_look() -> void:
 		" and ".join(touches) if not touches.is_empty() else "not much else"])
 
 
+## Tonight's board, in the transcript: the specials, and anything sold out.
+func _narrate_board() -> void:
+	var said := PackedStringArray()
+	if not _specials.is_empty():
+		said.append("Tonight's special%s, chalked on the board: %s." % ["s" if _specials.size() > 1 else "", " and ".join(PackedStringArray(_specials.map(func(id): return str(Menu.find(str(id)).get("name", id)))))])
+	for id in Menu.sold_out:
+		said.append("%s is crossed out: sold out." % Menu.find(str(id)).get("name", id))
+	if not said.is_empty():
+		_narrate(" ".join(said))
+
+
 ## The menu board, in the bar's style: tonight's menu (click it to read it), with tonight's
 ## specials and the house favourite.
 func _put_up_menu() -> void:
-	_menu_board.show_menu(Menu.board_order(_specials), _specials, [], Menu.favourite(Game.bar.get("history", [])), str(Game.bar.get("id", "")), str(Game.bar.get("name", "")))
+	_menu_board.show_menu(Menu.board_order(_specials), _specials, Menu.sold_out, Menu.favourite(Game.bar.get("history", [])), str(Game.bar.get("id", "")), str(Game.bar.get("name", "")))
 
 
 ## A new bar's menu: the owner chooses it, from the catalogue, within the house rules (the
@@ -644,6 +660,36 @@ func _choose_menu() -> void:
 	var own: Array = menu.filter(func(item): return Catalogue.layer(str(item["id"])) == "own").map(func(item): return str(item["name"]))
 	_before_night["menu_own"] = own.duplicate()
 	_narrate("On the menu: the pocha classics, and %s.%s" % [", ".join(PackedStringArray(own.slice(0, -1))) + (" and " if own.size() > 1 else "") + str(own[-1]) if not own.is_empty() else "nothing else", (" " + Text.as_sentence(str(chosen["why"]))) if chosen.has("why") else ""])
+	await _invent_signatures()
+
+
+## The owner's own dishes, one or two, from their story (the AI's, or one of the game's own if
+## it can't): added to the bar's menu, saved, on the board, and told in the transcript.
+## A bar whose menu was chosen before there were signature dishes gets them once, when it opens.
+func _invent_signatures() -> void:
+	var menu: Array = Game.bar.get("menu", [])
+	var names: Array = menu.filter(func(item): return not bool(item.get("mixed", false))).map(func(item): return str(item["name"]))
+	_typing_label.text = "The owner's thinking about what only they make..."
+	var reply: Dictionary = await _ai.ask_json(Prompts.signature_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", "")), names),
+		Signatures.validate_signatures.bind(menu), {"temperature": 0.9}, {"purpose": "signatures", "bar_name": Game.bar["name"]})
+	_typing_label.text = ""
+	if _stopped or Game.bar.is_empty():
+		return
+	var dishes: Array = reply.get("items", [])
+	Game.bar["signatures_by"] = "ai"
+	if dishes.is_empty():
+		var dice := RandomNumberGenerator.new()
+		dice.seed = hash(str(Game.bar.get("id", ""))) + 1  # (its own dice: the game's rolls don't shift)
+		dishes = Signatures.fallback(dice, menu)
+		Game.bar["signatures_by"] = "game"
+	Game.bar["menu"] = menu.filter(func(item): return not Signatures.is_signature(item)) + dishes
+	Game.save()
+	Menu.use(Game.bar["menu"])
+	_put_up_menu()
+	_before_night["signatures_by"] = str(Game.bar["signatures_by"])  # (for the stats)
+	_before_night["signatures"] = dishes.map(func(item): return str(item["name"]))
+	for dish in dishes:
+		_narrate("The house's own: %s %s (\"%s\"), %s. %s" % [dish["hangul"], dish["name"], dish["meaning"], Menu.format_won(int(dish["price"])), Text.as_sentence(str(dish["desc"]))])
 
 
 func _validate_bar_look(data: Variant) -> String:
@@ -861,8 +907,15 @@ func _start_night() -> void:
 	var bar_id := str(Game.bar.get("id", ""))
 	if _skyline.seed_for != bar_id:
 		_skyline.show_city(Skyline.plan(STAGE_SIZE.x, hash(bar_id)), bar_id)  # (its own dice: the game's rolls don't shift)
-	_specials = Orders.pick_specials(NightRules.weather_kind(_night_weather), randf(), randf())
-	_put_up_menu()  # (with tonight's specials)
+	var board_dice := RandomNumberGenerator.new()
+	board_dice.seed = hash([randf(), randf()])  # (two rolls of the game's dice, as before: its other rolls don't shift)
+	var board := Specials.tonight(Menu.items(), NightRules.weather_kind(_night_weather), str(_night_date.get("season", "")),
+		Game.bar.get("last_specials", []), board_dice)
+	_specials = board["specials"]
+	Menu.sold_out = board["sold_out"]
+	Game.bar["last_specials"] = _specials.duplicate()  # (not the same again tomorrow; saved with the night)
+	_put_up_menu()  # (with tonight's specials, and anything sold out)
+	_narrate_board()
 	_clock = float(NightRules.OPEN_MINUTES)
 	_night_visits = 0
 	_night_takings = 0
@@ -874,6 +927,7 @@ func _start_night() -> void:
 	_events.happened.connect(_watch_cliffhanger)
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	_stats.specials = _specials.duplicate()
+	_stats.sold_out = Menu.sold_out.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
 	_stats.story["date"] = str(_night_date.get("text", ""))
 	_stats.story["weather"] = _night_weather

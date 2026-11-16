@@ -114,7 +114,9 @@ The current menu is a fixed placeholder, and becomes the **classic menu** once e
 - **Mains:** tteokbokki, sundae, dakgalbi, pajeon, ramyeon
 - **Sides:** odeng (fish cake skewers), gyeran-mari, gonggibap (a bowl of rice), bokkeumbap (fried rice made in the leftover sauce; only ordered later, after a main)
 - **Free banchan** (kimchi and pickled radish) comes with every order and isn't on the bill.
-- **Tonight's specials:** the game picks one or two from the weather (rain is always pajeon and makgeolli; odeng or dakgalbi on a cold night), marked on the menu customers see.
+- **Signature dishes:** one or two of the owner's own, invented from their story ("grandma's knife-cut noodles"), first on the board under 대표 메뉴.
+- **Tonight's specials:** the game picks a dish from the bar's own menu by the weather and the season (rain is always a pancake and makgeolli), now and then the owner's own dish or a drink worth pushing, never the staples or last night's again; marked on the menu customers see.
+- **Sold out:** now and then a dish has run out: struck through on the board, and it can't be ordered.
 
 **How people order** (game rules, checked on every AI order):
 

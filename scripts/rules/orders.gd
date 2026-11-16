@@ -56,6 +56,8 @@ static func validate_order(data: Variant, max_mains: int = 1, max_drinks: int = 
 		var id := Menu.resolve(str(entry))
 		if id == "":
 			return "\"%s\" isn't on the menu" % str(entry)
+		if Menu.sold_out.has(id):
+			return "%s is sold out tonight" % Menu.find(id)["name"]
 		ids.append(id)
 	var line := Text.unquote(Text.tidy_text(data.get("line", "")))
 	if line == "":
@@ -107,6 +109,8 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 		var id := Menu.resolve(str(entry))
 		if id == "":
 			return "\"%s\" isn't on the menu" % str(entry)
+		if Menu.sold_out.has(id):
+			return "%s is sold out tonight" % Menu.find(id)["name"]
 		var item := Menu.find(id)
 		if item.get("portion", "") == "main":
 			return "%s is a main dish, and a later order is a drink, a side or rice" % item["name"]
@@ -153,39 +157,6 @@ static func validate_extra_order(data: Variant, table: Array) -> String:
 	data["items"] = ids
 	data["line"] = line
 	return ""
-
-
-## Tonight's specials, by the weather (NightRules.weather_kind): what the owner's pushing
-## tonight, the way any pocha does. Rain is always pajeon and makgeolli (everyone in Korea
-## craves them when it rains); otherwise one dish from the weather's list and, now and then, a
-## drink. Customers see them marked on the menu: nobody's told to order them.
-const RAINY_SPECIALS := ["pajeon", "makgeolli"]
-const SPECIAL_DISHES := {
-	"snow": ["odeng", "ramyeon", "dakgalbi"],
-	"cold": ["odeng", "dakgalbi", "sundae"],
-	"muggy": ["gyeran_mari", "pajeon"],
-	"breeze": ["dakgalbi", "pajeon", "gyeran_mari"],
-	"fog": ["sundae", "ramyeon", "odeng"],
-	"": ["dakgalbi", "sundae", "pajeon", "gyeran_mari"],
-}
-const SPECIAL_DRINKS := {"snow": "soju", "cold": "soju", "muggy": "somaek", "breeze": "beer", "fog": "makgeolli", "": "somaek"}
-const SPECIAL_DRINK_CHANCE := 0.5
-
-
-## Tonight's specials (menu ids). weather: NightRules.weather_kind. dish_roll: which dish;
-## drink_roll: whether there's a drink special too.
-static func pick_specials(weather: String, dish_roll: float, drink_roll: float) -> Array:
-	return _pick_specials(weather, dish_roll, drink_roll).filter(func(id): return not Menu.find(str(id)).is_empty())  # (only what this bar serves)
-
-
-static func _pick_specials(weather: String, dish_roll: float, drink_roll: float) -> Array:
-	if weather in ["rain", "drizzle"]:
-		return RAINY_SPECIALS.duplicate()
-	var dishes: Array = SPECIAL_DISHES.get(weather, SPECIAL_DISHES[""])
-	var specials: Array = [dishes[mini(int(dish_roll * dishes.size()), dishes.size() - 1)]]
-	if drink_roll < SPECIAL_DRINK_CHANCE:
-		specials.append(SPECIAL_DRINKS.get(weather, SPECIAL_DRINKS[""]))
-	return specials
 
 
 ## How many later orders a customer makes, from a random roll between 0 and 1 (see EXTRA_ORDER_ODDS).
@@ -401,9 +372,9 @@ static func bill(items: Array) -> int:
 ## When the AI can't come up with an order: soju and odeng, the pocha's standby, or (at a tent
 ## without odeng) soju and its first side, or its first food.
 static func fallback_order() -> Array:
-	if not Menu.find("odeng").is_empty():
+	if not Menu.find("odeng").is_empty() and not Menu.sold_out.has("odeng"):
 		return ["soju", "odeng"]
-	var foods: Array = Menu.items().filter(func(item): return item["kind"] == "food" and not bool(item.get("extra_only", false)))
+	var foods: Array = Menu.items().filter(func(item): return item["kind"] == "food" and not bool(item.get("extra_only", false)) and not Menu.sold_out.has(item["id"]))
 	var sides: Array = foods.filter(func(item): return item.get("portion", "") == "side")
 	var food: Dictionary = sides[0] if not sides.is_empty() else (foods[0] if not foods.is_empty() else {})
 	return ["soju"] if food.is_empty() else ["soju", str(food["id"])]

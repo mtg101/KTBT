@@ -5,6 +5,7 @@ const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const Specials = preload("res://scripts/rules/specials.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Prompts = preload("res://scripts/prompts.gd")
@@ -151,7 +152,8 @@ func test_each_bar_can_have_its_own_menu() -> void:
 	# catalogue dish explains itself at any bar; one of the bar's own, only while it's open.)
 	assert_bool(Glossary.lookup().has("halmeoni-guksu")).is_true()
 	assert_bool(Glossary.lookup().has("tteokbokki")).is_true()
-	assert_array(Orders.pick_specials("rain", 0.0, 0.0)).is_empty()  # (no pajeon or makgeolli here)
+	var dice := RandomNumberGenerator.new()
+	assert_array(Specials.tonight(Menu.items(), "rain", "winter", [], dice)["specials"]).is_equal(["halmeoni_guksu"])  # (no pancake or makgeolli here: its own dish)
 	# And back to the classic menu.
 	Menu.use([])
 	assert_array(Menu.items()).is_equal(Menu.ITEMS)
@@ -271,3 +273,90 @@ func test_the_board_shows_the_menu_the_way_a_pocha_writes_it() -> void:
 	assert_str(Menu.favourite(history)).is_equal("tteokbokki")
 	assert_str(Menu.favourite(history.slice(0, 2))).is_empty()  # (not enough yet)
 	assert_str(Menu.favourite([{"order": ["soju"]}, {"order": ["soju"]}, {"order": ["soju"]}])).is_empty()  # (food only)
+
+
+# --- Signature dishes ---------------------------------------------------------------------
+
+const Signatures = preload("res://scripts/rules/signatures.gd")
+const MenuBoard = preload("res://scripts/menu_board.gd")
+
+const A_SIGNATURE := {"name": "Halmeoni Kalguksu", "hangul": "할머니 칼국수", "meaning": "grandma's knife-cut noodles",
+	"desc": "hand-cut noodles in anchovy broth, her grandmother's recipe", "category": "noodles", "vessel": "bowl", "bits": "noodles",
+	"garnish": "seaweed", "colour": "#E9DCC0"}
+
+
+func _signature(changes: Dictionary) -> Dictionary:
+	var dish := A_SIGNATURE.duplicate()
+	dish.merge(changes, true)
+	return {"dishes": [dish]}
+
+
+func test_a_signature_dish_is_the_ais_words_and_the_games_facts() -> void:
+	var data := {"dishes": [A_SIGNATURE]}
+	assert_str(Signatures.validate_signatures(data, Menu.ITEMS)).is_empty()
+	var item: Dictionary = data["items"][0]
+	assert_str(str(item["id"])).is_equal("own_halmeoni_kalguksu")
+	assert_str(Catalogue.layer(str(item["id"]))).is_equal("signature")
+	assert_bool(Signatures.is_signature(item)).is_true()
+	# The game's price (the usual for its kind, and a little more: it's the house's own) and cooking time.
+	assert_int(int(item["price"])).is_equal(Signatures.price_for("noodles"))
+	assert_int(int(item["price"])).is_greater(Signatures.price_for("noodles") - Signatures.PREMIUM - 1)
+	assert_int(int(item["cook"])).is_greater_equal(4)
+	assert_str(str(item["portion"])).is_equal("main")
+	assert_str(str(item["color"])).is_equal("e9dcc0")
+	assert_str(str(item["art"]["vessel"])).is_equal("bowl")
+	assert_str(str(item["art"]["fill"])).is_equal("e9dcc0")
+	assert_array(item["aliases"]).contains(["grandma's knife-cut noodles"])  # (ordered by what it means, too)
+	assert_bool(DishArt.shapes(item["art"], Color(str(item["color"])), str(item["id"])).is_empty()).is_false()  # drawn
+	# Two is fine; three is too many, none too few.
+	var two := {"dishes": [A_SIGNATURE, _signature({"name": "Eomma Son-mat Jjigae", "hangul": "엄마 손맛 찌개", "category": "stew", "vessel": "stone_pot"})["dishes"][0]]}
+	assert_str(Signatures.validate_signatures(two)).is_empty()
+	assert_str(Signatures.validate_signatures({"dishes": two["dishes"] + [A_SIGNATURE]})).is_not_empty()
+	assert_str(Signatures.validate_signatures({"dishes": []})).is_not_empty()
+	assert_str(Signatures.validate_signatures({"dishes": [A_SIGNATURE, A_SIGNATURE]})).contains("already")  # (two of the same)
+
+
+func test_a_signature_dish_is_checked() -> void:
+	for wrong in [
+			{"hangul": "할머니 냉면"},  # (the Hangul isn't the name)
+			{"hangul": "할머니칼국수"},  # (word for word)
+			{"hangul": "halmeoni"},
+			{"name": "할머니 칼국수"},  # (the name in English letters)
+			{"name": "Tteokbokki", "hangul": "떡볶이"},  # (already a dish)
+			{"meaning": "할머니 칼국수"},  # (in English)
+			{"meaning": ""},
+			{"desc": "noodles"},  # (too short to say what it is)
+			{"category": "dessert"},
+			{"vessel": "bottle"},  # (food comes in a dish)
+			{"bits": "sprinkles"},
+			{"garnish": "glitter"},
+			{"colour": "reddish"}]:
+		assert_str(Signatures.validate_signatures(_signature(wrong), Menu.ITEMS)).override_failure_message("passed: %s" % wrong).is_not_empty()
+	var brand: String = Talk.REAL_BRANDS[0]
+	assert_str(Signatures.validate_signatures(_signature({"desc": "noodles the way %s makes them, but better" % brand}))).contains("brand")
+	assert_str(Signatures.validate_signatures(_signature({"bits": "", "garnish": ""}))).is_empty()  # (bits and garnish are optional)
+	# The game's own all pass, and one is always found.
+	for dish in Signatures.FALLBACKS:
+		assert_str(Signatures.validate_signatures({"dishes": [dish]}, Menu.ITEMS)).override_failure_message(str(dish["name"])).is_empty()
+	var dice := RandomNumberGenerator.new()
+	dice.seed = 7
+	assert_int(Signatures.fallback(dice, Menu.ITEMS).size()).is_equal(1)
+
+
+func test_a_signature_dish_explains_itself() -> void:
+	var data := {"dishes": [A_SIGNATURE]}
+	Signatures.validate_signatures(data)
+	var item: Dictionary = data["items"][0]
+	Menu.use(Menu.ITEMS + [item])
+	assert_str(Menu.resolve("Halmeoni Kalguksu")).is_equal(str(item["id"]))
+	assert_str(Menu.resolve("grandma's knife-cut noodles")).is_equal(str(item["id"]))
+	assert_str(Menu.prompt_list([str(item["id"])])).contains("\"grandma's knife-cut noodles\"").contains("THE OWNER'S OWN DISH")
+	assert_str(Glossary.hangul_tip("할머니 칼국수")).contains("Halmeoni Kalguksu").contains("grandma's knife-cut noodles")
+	assert_str(Talk.off_menu_here("Have you tried the kalguksu here?")).is_empty()  # (it's served here)
+	assert_array(Talk.romanised_korean("Halmeoni Kalguksu, please, and soju.")).is_empty()  # (real: it's on the menu)
+	var board := MenuBoard.menu_text(Menu.board_order(), [], [], "", "Test Pocha")
+	assert_str(board).contains("대표 메뉴").contains("Halmeoni Kalguksu").contains("grandma's knife-cut noodles")
+	assert_int(board.find("대표 메뉴")).is_less(board.find("안주"))  # (the house's own first)
+	assert_str(Prompts.signature_messages({"name": "Kim Mi-sook", "age": 58, "title": "Imo", "archetype": "a widow", "appearance": "Small.",
+		"personality": "warm", "speech_style": "short", "secret": "none"}, "Test Pocha", "a test", ["Soju"])[1]["content"]).contains("stone_pot").contains("noodles")
+	Menu.use([])

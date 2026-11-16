@@ -18,6 +18,7 @@ const Names = preload("res://scripts/rules/names.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const Signatures = preload("res://scripts/rules/signatures.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 static var scripted: Array = []
@@ -160,6 +161,10 @@ func reply(request: Dictionary) -> Variant:
 			dice.seed = hash(str(request.get("bar_name", "")))
 			var menu := Catalogue.fallback_menu(dice)
 			return {"dishes": menu.map(func(item): return str(item["id"])), "why": "What the street's always eaten, and a few things of my own."}
+		"signatures":
+			# One of the game's own (by the bar's name, so it's the same each time).
+			var picked: Dictionary = Signatures.FALLBACKS[absi(hash(str(request.get("bar_name", "")))) % Signatures.FALLBACKS.size()]
+			return {"dishes": [picked.duplicate(true)]}
 		"reaction":
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])

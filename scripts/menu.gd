@@ -8,6 +8,8 @@ extends RefCounted
 ## visit, e.g. fried rice made in the leftover sauce of a main dish).
 ## "mixed": made at the table, not ordered off the menu (somaek: a soju and a beer), so it's never
 ## on the board, and every bar with soju and beer has it.
+## A bar's signature dishes (rules/signatures.gd) also have "signature": true and "meaning" (what
+## their Korean name means), and ids starting "own_".
 ## "art" is how it looks on the table: what it comes in and what's in it (see rules/dish_art.gd).
 ## "cook" is how many game minutes a dish takes on the stove. There's one cook, so cooked
 ## dishes queue; anything without it (drinks, odeng from the simmering pot, a bowl of rice)
@@ -33,6 +35,10 @@ const ITEMS := [
 
 static var _items: Array = []  # the open bar's menu ([]: the classic one)
 
+## What's run out tonight (ids, from rules/specials.gd): still on the board, struck through, and
+## can't be ordered. Cleared whenever a menu's put up. (A stopgap, like _items.)
+static var sold_out: Array = []
+
 ## Goes up whenever the menu changes, so anything built from it (the glossary's tables) knows
 ## to build itself again.
 static var version := 0
@@ -57,6 +63,7 @@ static func use(menu: Array) -> void:
 				copy[key] = int(copy[key])
 		tidied.append(copy)
 	_items = tidied
+	sold_out = []
 	version += 1
 
 
@@ -95,7 +102,7 @@ static func resolve(text: String) -> String:
 ## The menu as a list for the AI to read.
 ## order: the ids in the order to list them (shuffled for each order, so whatever's first on
 ## the list doesn't get ordered most: small models lean that way); [] for the menu's own order.
-## specials: tonight's specials (Orders.pick_specials), marked.
+## specials: tonight's specials (rules/specials.gd), marked; anything sold out says so.
 static func prompt_list(order: Array = [], specials: Array = []) -> String:
 	var lines := PackedStringArray()
 	var ids: Array = order if not order.is_empty() else items().map(func(item): return str(item["id"]))
@@ -106,8 +113,12 @@ static func prompt_list(order: Array = [], specials: Array = []) -> String:
 		var kind := str(item["kind"])
 		if item.has("portion"):
 			kind += ", " + str(item["portion"])
-		lines.append("- %s: %s (%s), %s, %s%s" % [item["id"], item["name"], item["desc"], format_won(item["price"]), kind,
-			" (TONIGHT'S SPECIAL)" if specials.has(item["id"]) else ""])
+		var about := str(item["desc"]) if str(item.get("meaning", "")) == "" else "\"%s\": %s" % [item["meaning"], item["desc"]]
+		if sold_out.has(item["id"]):
+			lines.append("- %s: %s: SOLD OUT TONIGHT (it's run out: can't be ordered)" % [item["id"], item["name"]])
+			continue
+		lines.append("- %s: %s (%s), %s, %s%s%s" % [item["id"], item["name"], about, format_won(item["price"]), kind,
+			" (TONIGHT'S SPECIAL)" if specials.has(item["id"]) else "", " (THE OWNER'S OWN DISH)" if bool(item.get("signature", false)) else ""])
 	return "\n".join(lines)
 
 

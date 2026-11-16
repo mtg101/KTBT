@@ -25,6 +25,10 @@ static func pick_weighted(weights: Dictionary, roll: float, skip: String) -> Str
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
+	if p.begins_with("the signature dish"):
+		return "signature dishes"
+	if p.contains("sold out tonight"):
+		return "sold out"
 	if p.contains("the caption"):
 		return "TV reactions"
 	if p.contains("made-up korean"):

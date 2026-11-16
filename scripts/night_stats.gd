@@ -9,6 +9,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Menu = preload("res://scripts/menu.gd")
 
 ## Where the logs go: "" for the default (the project's logs/stats/ when playing from the
 ## editor, beside the transcripts, so a night's log can be read and checked; otherwise stats/
@@ -72,6 +73,7 @@ var rituals := {}  # drinking rituals seen: tornado, kya, turned_away (and table
 var street := {}
 var cravings := 0  # ...of which with a craving (Talk.craving)
 var specials: Array = []  # tonight's specials (menu ids)
+var sold_out: Array = []  # what's run out tonight (menu ids)
 
 # Regulars
 var regular_pulls := {}  # name -> pull, for everyone on the books
@@ -380,6 +382,15 @@ func highlights() -> Array:
 	return found
 
 
+## The bar's signature dishes on tonight's menu, and how many of each were ordered: {name: count}.
+func signature_orders() -> Dictionary:
+	var found := {}
+	for item in Menu.items():
+		if bool(item.get("signature", false)):
+			found[str(item["name"])] = int(ordered.get(str(item["id"]), 0))
+	return found
+
+
 ## The panel's tabs: each section's short name (the panel shows one section at a time).
 const TAB_NAMES := {"HIGHLIGHTS": "Highlights", "TONIGHT": "Tonight", "PEOPLE": "People", "TALK": "Talk",
 	"POCHA LIFE": "Pocha life", "REGULARS": "Regulars", "THE STORY": "Story", "TV CAPTIONS": "TV",
@@ -480,10 +491,16 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]FOOD AND THE MENU[/b]")
 	if story.has("menu_by"):
 		lines.append("Menu: chosen by the %s · its own: %s" % [story["menu_by"], ", ".join(PackedStringArray(story.get("menu_own", [])))])
+	var house := signature_orders()
+	if not house.is_empty() or story.has("signatures_by"):
+		lines.append("Signature dishes: %s%s" % [" · ".join(PackedStringArray(house.keys().map(func(d): return "%s %d ordered" % [d, int(house[d])]))) if not house.is_empty() else "none",
+			(" (new tonight, by the %s)" % story["signatures_by"]) if story.has("signatures_by") else ""])
 	lines.append("Menu board opened: %d" % menu_opened)
 	lines.append("Orders %d first, %d more%s · %s" % [first_orders, extra_orders, ((" · sides added %d" % sides_added) if sides_added > 0 else "") + ((" · unsaid dropped %d" % unsaid_dropped) if unsaid_dropped > 0 else ""), counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
 	if not specials.is_empty():
 		lines.append("Specials: %s · cravings given %d" % [" · ".join(PackedStringArray(specials.map(func(id): return "%s %d ordered" % [id, int(ordered.get(id, 0))]))), cravings])
+	if not sold_out.is_empty():
+		lines.append("Sold out: %s · asked for anyway %d" % [", ".join(PackedStringArray(sold_out)), int(rejections.get("sold out", 0))])
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
 	lines.append("Wait for food: avg %d min, longest %d" % [roundi(average(food_waits)), roundi(longest(food_waits))])
 	lines.append("")
@@ -513,7 +530,8 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened},
+		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
+			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", "")},
 		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
@@ -541,7 +559,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
-			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
+			"specials": specials.duplicate(), "sold_out": sold_out.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},

@@ -39,6 +39,8 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/seasons.gd` | The calendar (each bar's nights through the year), Korea's seasons and the monsoon, and tonight's weather following on from last night's |
 | `rules/skyline.gd` | The city behind the tent: each bar's skyline (APT blocks, office towers, churches) and its windows going dark through the night |
 | `rules/catalogue.gd` | Every dish and drink a pocha might serve, by layer (always, the classics, the bar's own), and a bar's menu: the house rules the AI's choice is checked against, and the game's own menu when it can't choose |
+| `rules/signatures.gd` | A bar's signature dishes: the AI's (named in romanised Korean and Hangul, with what the name means, from the owner's story) checked, the game's price and cooking time set, and the game's own when the AI can't |
+| `rules/specials.gd` | Tonight's specials and what's sold out, from the bar's own menu: by the weather and the season, never a staple or last night's again, now and then the owner's own dish |
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 
 ## Tests

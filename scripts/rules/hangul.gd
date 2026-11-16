@@ -171,6 +171,7 @@ const MEANINGS := {
 	# The menu board (menu_board.gd)
 	"특선": "teukseon: tonight's special",
 	"오늘의 특선": "oneurui teukseon: tonight's specials",
+	"대표 메뉴": "daepyo menyu: the house's signature dishes",
 	"메뉴": "menyu: the menu",
 	"주류": "juryu: drinks (the alcohol)",
 	"인기": "ingi: popular, the house favourite",

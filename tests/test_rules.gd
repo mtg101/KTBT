@@ -11,6 +11,7 @@ const Memories = preload("res://scripts/rules/memories.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
+const Specials = preload("res://scripts/rules/specials.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Story = preload("res://scripts/rules/story.gd")
@@ -18,6 +19,7 @@ const Talk = preload("res://scripts/rules/talk.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Skyline = preload("res://scripts/rules/skyline.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
@@ -1529,19 +1531,64 @@ func test_order_and_opener_situations_only_say_what_is_true() -> void:
 	assert_float(Talk.ORDER_MOMENT_CHANCE).is_less_equal(0.5)  # the AI's own way stays in the mix
 
 
-func test_specials_follow_the_weather() -> void:
-	assert_array(Orders.pick_specials("rain", 0.5, 0.9)).is_equal(["pajeon", "makgeolli"])  # rain: always
-	assert_array(Orders.pick_specials("drizzle", 0.0, 0.0)).is_equal(["pajeon", "makgeolli"])
-	for weather in Orders.SPECIAL_DISHES:
-		for roll in [0.0, 0.5, 0.99]:
-			var specials := Orders.pick_specials(weather, roll, roll)
-			assert_int(specials.size()).is_between(1, 2)
-			assert_str(str(Menu.find(str(specials[0])).get("kind", ""))).is_equal("food")
-			if specials.size() == 2:
-				assert_str(str(Menu.find(str(specials[1])).get("kind", ""))).is_equal("drink")
-			for id in specials:
-				assert_bool(bool(Menu.find(str(id)).get("extra_only", false))).is_false()  # orderable from the start
-	assert_int(Orders.pick_specials("snow", 0.0, 0.9).size()).is_equal(1)  # a drink only now and then
+func test_specials_follow_the_weather_and_the_season() -> void:
+	var dice := RandomNumberGenerator.new()
+	var menu: Array = Catalogue.menu_from(["tteokbokki", "odeng", "sundae", "pajeon", "gyeran_mari", "makgeolli", "kimchi_jjigae", "naengmyeon", "golbaengi_muchim", "bokbunja"])
+	# Rain: a pancake and makgeolli, every time (even if it rained yesterday).
+	for k in 10:
+		dice.seed = k
+		assert_array(Specials.tonight(menu, "rain", "summer", ["pajeon", "makgeolli"], dice)["specials"]).is_equal(["pajeon", "makgeolli"])
+	# Otherwise a dish (never the staples, never last night's), and now and then a drink worth pushing.
+	var counts := {}
+	var drinks := 0
+	for k in 300:
+		dice.seed = k
+		var tonight: Dictionary = Specials.tonight(menu, "snow", "winter", ["tteokbokki"], dice)
+		var specials: Array = tonight["specials"]
+		assert_int(specials.size()).is_between(1, 2)
+		assert_str(str(Menu.find(str(specials[0])).get("kind", "food"))).is_equal("food")
+		assert_array(specials).not_contains(["tteokbokki", "soju", "beer", "somaek", "gonggibap", "saida"])
+		counts[specials[0]] = int(counts.get(specials[0], 0)) + 1
+		if specials.size() == 2:
+			drinks += 1
+			assert_array(["makgeolli", "bokbunja"]).contains([specials[1]])
+		for id in tonight["sold_out"]:
+			assert_array(specials).not_contains([id])  # (a special's never sold out)
+	assert_int(drinks).is_between(30, 150)  # (now and then)
+	assert_int(int(counts.get("kimchi_jjigae", 0))).is_greater(int(counts.get("naengmyeon", 0)) * 3)  # snow: a stew, not cold noodles
+	# In summer, the other way round.
+	var summer := {}
+	for k in 300:
+		dice.seed = k
+		var first: String = Specials.tonight(menu, "muggy", "summer", [], dice)["specials"][0]
+		summer[first] = int(summer.get(first, 0)) + 1
+	assert_int(int(summer.get("naengmyeon", 0))).is_greater(int(summer.get("kimchi_jjigae", 0)))
+	# The owner's own dish, now and then; something sold out, now and then (never their own).
+	var own := {"id": "own_halmeoni_kalguksu", "name": "Halmeoni Kalguksu", "kind": "food", "portion": "main", "price": 10000, "signature": true, "category": "noodles"}
+	var theirs := 0
+	var sold := 0
+	for k in 300:
+		dice.seed = k
+		var tonight: Dictionary = Specials.tonight(menu + [own], "", "autumn", [], dice)
+		theirs += 1 if tonight["specials"][0] == own["id"] else 0
+		sold += tonight["sold_out"].size()
+		assert_array(tonight["sold_out"]).not_contains([own["id"]])
+	assert_int(theirs).is_between(40, 140)
+	assert_int(sold).is_between(30, 100)
+	# The classic menu works too (its dishes get the catalogue's categories).
+	dice.seed = 1
+	assert_array(Specials.tonight(Menu.ITEMS, "drizzle", "spring", [], dice)["specials"]).is_equal(["pajeon", "makgeolli"])
+
+
+func test_sold_out_cant_be_ordered() -> void:
+	Menu.sold_out = ["tteokbokki"]
+	assert_str(Orders.validate_order({"items": ["soju", "tteokbokki"], "line": "Soju and tteokbokki, please."})).contains("sold out tonight")
+	assert_str(Text.problem_kind("Tteokbokki is sold out tonight")).is_equal("sold out")
+	assert_str(Menu.prompt_list(["tteokbokki"])).contains("SOLD OUT TONIGHT").not_contains("₩")
+	Menu.sold_out = ["odeng"]
+	assert_array(Orders.fallback_order()).not_contains(["odeng"])  # (the game's own order too)
+	Menu.use([])  # (a menu put up clears it)
+	assert_array(Menu.sold_out).is_empty()
 
 
 func test_cravings_only_say_what_is_true() -> void:
@@ -1863,7 +1910,7 @@ func test_any_hangul_explains_itself() -> void:
 	# And every bit of Hangul in the game's code, wherever it's shown: a new caption or sign
 	# can't reach the screen unexplained. (Not names, which are told to the Glossary as they're
 	# known, the AI's prompts, which aren't shown, or the places the meanings come from.)
-	var not_shown := ["canned_ai.gd", "names.gd", "prompts.gd", "pipeline_test.gd", "hangul.gd", "glossary.gd", "address.gd", "menu.gd"]
+	var not_shown := ["canned_ai.gd", "names.gd", "prompts.gd", "pipeline_test.gd", "hangul.gd", "glossary.gd", "address.gd", "menu.gd", "signatures.gd"]  # (a signature dish carries its own meaning)
 	var literal := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
 	var run := RegEx.create_from_string("[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+(?:[ 0-9]*[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+)*")
 	for path in _scripts("res://scripts"):

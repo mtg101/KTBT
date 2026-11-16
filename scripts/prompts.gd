@@ -14,6 +14,8 @@ const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const DishArt = preload("res://scripts/rules/dish_art.gd")
+const Signatures = preload("res://scripts/rules/signatures.gd")
 const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/regulars.gd")
@@ -133,6 +135,36 @@ Reply with ONLY a JSON object with exactly these keys:
 - "prices": the price in won of any dish you're pricing, by id (e.g. {"tteokbokki": 12000}); leave out the rest
 - "why": one line on why this is their menu, in the owner's spirit""" % [describe_owner(owner), bar_name, meaning, Catalogue.CLASSICS_AT_LEAST,
 		Catalogue.OWN_PICKS.x, Catalogue.OWN_PICKS.y, Catalogue.MENU_SIZE.y - Catalogue.SIGNATURES - Catalogue.ALWAYS.size(), Catalogue.prompt_list()]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## Messages asking the AI for the owner's signature dishes: their own, from their story, named
+## in romanised Korean and Hangul, with how they look from the game's lists. menu: the names of
+## what's already on the menu (a signature is something else).
+static func signature_messages(owner: Dictionary, bar_name: String, meaning: String, menu: Array) -> Array:
+	var request := """%s
+
+Their tent is called %s (%s). Its menu already has: %s.
+
+Every owner has one or two dishes of their own that nobody else makes quite the same: a recipe from their mother or grandmother, the dish from where they grew up, the thing they cooked when times were hard, what a regular they lost always ordered. What are this owner's? Real Korean home cooking, made their way; not anything already on the menu.
+
+For each dish, give:
+- "name": its name in Korean, written in English letters (e.g. "Halmeoni Kalguksu"), a few words
+- "hangul": the same name in Hangul (e.g. "할머니 칼국수"), word for word with the name
+- "meaning": what the name means in English, in a few words (e.g. "grandma's knife-cut noodles")
+- "desc": what it is, in one short line in English, and whose recipe or why it's theirs
+- "category": one of %s
+- "vessel": what it comes in, one of %s
+- "bits": what's in it, one of %s (or "")
+- "garnish": one of %s (or "")
+- "colour": the colour of the food, as a hex colour (e.g. "c8452f")
+
+Reply with ONLY a JSON object: {"dishes": [one or two dishes]}""" % [describe_owner(owner), bar_name, meaning, ", ".join(PackedStringArray(menu)),
+		", ".join(PackedStringArray(Signatures.CATEGORIES)), ", ".join(PackedStringArray(Signatures.food_vessels())),
+		", ".join(PackedStringArray(DishArt.BITS)), ", ".join(PackedStringArray(DishArt.GARNISHES))]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

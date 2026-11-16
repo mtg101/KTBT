@@ -164,7 +164,14 @@ func test_a_new_bar_chooses_its_own_menu() -> void:
 	var menu: Array = saved.get("menu", [])
 	var ids: Array = menu.map(func(item): return str(item["id"]))
 	assert_array(ids).contains(["soju", "beer", "gonggibap"])  # (every pocha)
-	assert_str(Catalogue.validate_menu({"dishes": ids, "why": "Checked again."})).is_empty()  # (the house rules)
+	var chosen: Array = ids.filter(func(id): return not str(id).begins_with("own_"))
+	assert_str(Catalogue.validate_menu({"dishes": chosen, "why": "Checked again."})).is_empty()  # (the house rules)
+	# And the owner's own signature dish, invented from their story (the canned AI gives one of the game's).
+	var own: Array = menu.filter(func(item): return bool(item.get("signature", false)))
+	assert_int(own.size()).is_equal(1)
+	assert_str(str(saved.get("signatures_by", ""))).is_equal("ai")
+	assert_str(_transcript(runner)).contains("The house's own: %s %s" % [own[0]["hangul"], own[0]["name"]])
+	assert_int(menu.size()).is_less_equal(Catalogue.MENU_SIZE.y + Catalogue.MIXED.size())
 	assert_array(Menu.items().map(func(item): return str(item["id"]))).is_equal(ids)  # in use tonight
 	assert_str(_transcript(runner)).contains("On the menu: the pocha classics, and ")
 	assert_str(str(saved.get("menu_why", ""))).is_not_empty()
