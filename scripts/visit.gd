@@ -35,6 +35,7 @@ const Friendliness = preload("res://scripts/bar/friendliness.gd")
 const Conversation = preload("res://scripts/bar/conversation.gd")
 const Scenery = preload("res://scripts/bar/scenery.gd")
 const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
+const SaveUpgrades = preload("res://scripts/save_upgrades.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -421,6 +422,8 @@ func _ready() -> void:
 
 ## A bar from a save: its owner is back behind the counter, and the takings carry on.
 func _open_saved_bar() -> void:
+	if not SaveUpgrades.upgrade(Game.bar).is_empty():  # a bar saved by an older version: what the game fills in itself, once
+		Game.save()
 	_owner = Game.bar["owner"].duplicate(true)
 	_takings = int(Game.bar.get("takings", 0))
 	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
@@ -432,14 +435,14 @@ func _open_saved_bar() -> void:
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
 	_owner_working = true  # busy until it's done (it may ask the AI)
-	if People.fill_owner_life(Game.bar["owner"], randf()):  # a bar saved before owners had a fixed life: the game picks one, once
-		_owner = Game.bar["owner"].duplicate(true)
-		Game.save()
-	await _fill_in_hangul()  # bars saved before names had Hangul, or whose first try didn't fit
-	if Hooks.founding_regulars and not Game.bar.has("regulars") and not _stopped:
-		await _make_founding_regulars()  # a bar saved before regulars: its two, once
-	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not Game.bar.has("signatures_by") and not _stopped:
-		await _invent_signatures()  # a bar whose menu came before signature dishes: theirs, once
+	# What an older bar still needs the AI for, once (see SaveUpgrades).
+	var needs := SaveUpgrades.ai_needs(Game.bar, Hooks.bar_menus, Hooks.founding_regulars)
+	if needs.has("hangul"):
+		await _fill_in_hangul()  # names from before they had Hangul, or whose first try didn't fit
+	if needs.has("founding_regulars") and not _stopped:
+		await _make_founding_regulars()  # a bar from before regulars: its two
+	if needs.has("signatures") and not _stopped:
+		await _invent_signatures()  # a menu from before signature dishes: the owner's own
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not _stopped:
 		await _change_menu()  # now and then, something new on the board
 	if _closed():
@@ -3641,16 +3644,10 @@ func _rect(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) -> 
 # --- Drawing people -----------------------------------------------------------------------
 
 
-## The owner's look: chosen with the bar and saved; bars from before looks get one now,
-## from the owner's age, without asking the AI.
+## The owner's look: chosen with the bar and saved (a bar from before looks gets one as it
+## opens: see SaveUpgrades).
 func _owner_look() -> Dictionary:
-	if not _owner.has("look"):
-		var range_id := Looks.age_range_of(int(_owner.get("age", 55)))
-		_owner["look"] = Looks.pick_look(str(_owner.get("gender", "woman")), range_id, "", true)
-		if not Game.bar.is_empty():
-			Game.bar["owner"]["look"] = _owner["look"]
-			Game.save()
-	return _owner["look"]
+	return _owner.get("look", {})
 
 
 # --- Regulars --------------------------------------------------------------------------------

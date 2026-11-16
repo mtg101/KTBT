@@ -56,6 +56,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `bar/conversation.gd` | What each line is given: the situations and moments for the owner's conversations and the customers' chats, how strangers know each other, who spoke last (part 10, second half, split out of `visit.gd`) |
 | `bar/scenery.gd` | The tent's fixtures: the drinks fridge, the odeng pot, the karaoke neon across the street, steam off a hot dish (part 11 split out of `visit.gd`) |
 | `bar/stats_panel.gd` | The debug stats panel's contents: a tab per section, one at a time (part 11) |
+| `save_upgrades.gd` | Bars saved by older versions, brought up to date in one place: what the game fills in itself, and what still needs the AI, once (refactor step 6) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (its weather, its stats, and the owner's moments waiting for their next line; it grows as parts move out) |
 | `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |

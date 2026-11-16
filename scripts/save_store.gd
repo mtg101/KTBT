@@ -13,6 +13,7 @@ extends RefCounted
 const VERSION := 1
 const HISTORY_LIMIT := 100
 const NIGHT_LOG_LIMIT := 100
+const DIARY_LIMIT := 200  # diary entries kept (the oldest go): about seven months of nights
 const REQUIRED := ["id", "name", "owner"]
 
 ## Where saves live. Tests point this somewhere else so they never touch real bars.
@@ -145,6 +146,8 @@ static func record_diary(bar: Dictionary, entry: Dictionary) -> void:
 	var diary: Array = bar.get("diary", [])
 	diary = diary.filter(func(e): return int(e.get("night", 0)) != int(entry.get("night", 0)))
 	diary.append(entry.duplicate(true))
+	while diary.size() > DIARY_LIMIT:
+		diary.pop_front()
 	bar["diary"] = diary
 
 
