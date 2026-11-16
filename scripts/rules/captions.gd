@@ -102,6 +102,12 @@ const CAPTIONS := {
 	"closing_early": {"words": [["조기 마감!", "JOGI MAGAM! CLOSING EARLY!"], ["오늘은 여기까지", "<THAT'S ALL|THAT'S IT> FOR TONIGHT!"],
 		["영업 종료!", "<TARP DOWN|SHUTTERS DOWN|LIGHTS OUT> EARLY!"]],
 		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true},
+	# Someone says hwaiting, and the counter joins in.
+	"hwaiting": {"words": [["화이팅!", "HWAITING! <GO FOR IT|YOU'VE GOT THIS|EVERYONE'S WITH YOU>!"], ["다 같이!", "ALL TOGETHER NOW!"]],
+		"icon": "✊", "colour": "ffd23f", "sound": "sparkle", "emergency": false, "always": true},
+	# 첫눈: the first snow of winter (in K-dramas, whoever you see it with is the one).
+	"first_snow": {"words": [["첫눈!", "CHEONNUN! THE FIRST SNOW!"], ["첫눈이다!", "IT'S THE FIRST SNOW!"], ["첫눈 오는 날", "THE FIRST SNOW <FALLS|IS HERE>"]],
+		"icon": "❄", "colour": "dfe8ff", "sound": "sparkle", "emergency": false, "always": true},
 	# The owner's own reason for closing early (the AI's, or the game's: see Story.closing_reason).
 	# fill_first: a wording with the reason whenever there is one (the plain one only without).
 	"closing_reason": {"words": [["조기 마감!", "{reason}"], ["오늘은 여기까지", "{reason}"], ["영업 종료!", "{reason}"], ["조기 마감!", "CLOSING EARLY!"]],
@@ -390,6 +396,10 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 				return {"kind": "cat_out", "fill": {"cat": facts.get("cat", "")}}
 			if bool(facts.get("was_out", false)) and spot != "street":
 				return {"kind": "cat_back", "fill": {"cat": facts.get("cat", "")}}
+		"first_snow":
+			return {"kind": "first_snow", "fill": {}}
+		"cheered_on":
+			return {"kind": "hwaiting", "fill": {}}
 		"closed_early":
 			if str(facts.get("reason", "")) != "":
 				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}

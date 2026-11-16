@@ -30,11 +30,15 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/orders.gd` | Orders and later orders (checked; a side the line asks for is added), which food a line mentions, what's served straight away and what's cooked, tonight's specials, the bill |
 | `rules/talk.gd` | The checks every line of dialogue passes, what conversations turn to, speech bubble pages, made-up Korean, and the situations a line is given now and then (food moments, table customs, sharing, how someone orders, cravings, how the owner opens) |
 | `rules/address.gd` | Who calls whom what (oppa, imo, sajangnim...), and their colours on screen |
-| `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), and counting which are said |
+| `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), any Hangul too (names as they're known), and counting which are said |
+| `rules/hangul.gd` | What the game's own Hangul means (captions, reactions, stamps, days, titles, signs), romanised, for its hovers |
 | `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about (and the moments for talking to it), its name |
 | `rules/memories.gd` | What's remembered after a visit, and the things that stick |
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
-| `rules/story.gd` | The owner's diary at 3am, and "Previously on..." |
+| `rules/story.gd` | The owner's diary at 3am, "Previously on...", and the owner's reason for closing early |
+| `rules/seasons.gd` | The calendar (each bar's nights through the year), Korea's seasons and the monsoon, and tonight's weather following on from last night's |
+| `rules/skyline.gd` | The city behind the tent: each bar's skyline (APT blocks, office towers, churches) and its windows going dark through the night |
+| `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 
 ## Tests
 

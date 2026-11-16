@@ -47,6 +47,10 @@ static func problem_kind(problem: String) -> String:
 		return "not on the menu"
 	if p.contains("real brand"):
 		return "real brands"
+	if p.contains("too dark a turn of phrase"):
+		return "dark turns of phrase"
+	if p.contains("gives something away"):
+		return "giving things away"
 	if p.contains("doesn't ask for it"):
 		return "line doesn't match the order"
 	if p.contains("sounds like a first order"):
@@ -192,6 +196,6 @@ static func shorten(text: String, most: int) -> String:
 	if clean.length() <= most:
 		return clean
 	var cut := clean.left(most - 1)
-	if cut.rfind(" ") > most / 2:
+	if cut.rfind(" ") > most / 2.0:  # (at a space only past halfway, or too much would go)
 		cut = cut.left(cut.rfind(" "))
 	return cut.rstrip(" ,.;:·") + "…"

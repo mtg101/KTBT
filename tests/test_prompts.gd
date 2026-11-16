@@ -64,6 +64,11 @@ func test_order_prompt_lists_the_menu() -> void:
 		assert_str(text).contains(str(item["id"]))
 
 
+
+func test_people_order_by_the_korean_names() -> void:
+	var text := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), []))
+	assert_str(text).contains("by the Korean names").contains("ask for everything in \"items\"")
+
 func test_regression_order_and_dialogue_prompts_say_its_a_first_visit() -> void:
 	# LLM-TUNING.md "Strangers acting like regulars" (interim fix).
 	var order := _request(Prompts.order_messages(_owner_data(), _customer_data(), _moment(), Menu.prompt_list(), []))
@@ -294,7 +299,7 @@ func test_dialogue_is_english_with_the_odd_korean_word() -> void:
 	var text := str(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "")[0]["content"])
 	assert_str(text).contains("Write in English")
 	assert_str(text).contains("Western fans of K-dramas")
-	assert_str(text).contains("never whole sentences in Korean")
+	assert_str(text).contains("Never whole sentences in Korean")
 
 
 func test_nobody_knows_what_they_havent_been_told() -> void:

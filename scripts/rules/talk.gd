@@ -9,6 +9,7 @@ const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Names = preload("res://scripts/rules/names.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 
 
@@ -131,6 +132,12 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 	var brand := real_brand(line)
 	if brand != "":
 		return "the line names a real brand (%s): describe it instead (\"mix coffee\", \"the green bottle\", \"the convenience store\")" % brand
+	var dark := dark_idiom(line)
+	if dark != "":
+		return "the line says \"%s\": too dark a turn of phrase for a cosy tent bar, even said lightly: say it another way" % dark
+	var given := freebie(line)
+	if given != "":
+		return "the line gives something away (\"%s\"): nothing here is free but the banchan, and the bill is the game's: leave prices and paying out of it" % given
 	var elsewhere := off_menu_here(line)
 	if elsewhere != "":
 		return "the line talks about %s as if it's served here, but it isn't on the menu: talk about it only as somewhere else's, or someone's cooking at home" % elsewhere
@@ -220,7 +227,40 @@ const ENGLISH_LOOKALIKES := ["people", "someone", "anyone", "everyone", "video",
 const REAL_BRANDS := ["chamisul", "jinro", "chum churum", "cheoeum cheoreom", "good day soju", "hite", "cass", "terra",
 	"kloud", "maxim", "kanu", "starbucks", "ediya", "mega coffee", "paik's", "emart", "e-mart", "lotte", "olive young",
 	"daiso", "samsung", "hyundai", "lg", "kakao", "kakaotalk", "naver", "coupang", "baemin", "binggrae", "nongshim",
-	"shin ramyun", "choco pie", "pepero", "bacchus", "chilsung", "milkis", "melona", "honey butter chip"]
+	"shin ramyun", "choco pie", "pepero", "bacchus", "chilsung", "milkis", "melona", "honey butter chip",
+	# Apps, sites and shops anyone would know (and the biggest pop acts: real people).
+	"instagram", "insta", "facebook", "youtube", "tiktok", "netflix", "twitter", "whatsapp", "google", "iphone",
+	"uber", "spotify", "amazon", "discord", "mcdonald's", "kfc", "gs25", "seven eleven", "tving",
+	"disney", "bts", "blackpink"]
+
+
+## Turns of phrase too dark for a cosy tent bar, even said lightly ("a job that doesn't make you
+## want to jump off a bridge"). Real sadness is fine; these images aren't.
+const DARK_IDIOMS := ["jump off a bridge", "jump off the bridge", "jump off a roof", "jump off the roof",
+	"kill myself", "kill yourself", "end it all", "want to die", "wanna die", "slit my wrists", "hang myself",
+	"shoot myself", "off myself"]
+
+
+## A dark turn of phrase the text uses, or "" (see DARK_IDIOMS).
+static func dark_idiom(text: String) -> String:
+	var lower := " " + " ".join(Text.words(text.replace("'", ""))) + " "
+	for idiom in DARK_IDIOMS:
+		if lower.contains(" " + " ".join(Text.words(str(idiom))) + " "):
+			return str(idiom)
+	return ""
+
+
+## Giving something away: only the bill decides what's paid for, and the owner doesn't give
+## the tent's food and drink away (and a customer certainly can't).
+const FREEBIE_PHRASES := ["on the house", "free of charge", "no charge", "free for first-timers", "free for first timers"]
+
+
+static func freebie(text: String) -> String:
+	var lower := " " + " ".join(Text.words(text)) + " "
+	for phrase in FREEBIE_PHRASES:
+		if lower.contains(" " + " ".join(Text.words(str(phrase))) + " "):
+			return str(phrase)
+	return ""
 
 
 ## A brand the text names, or "" (see REAL_BRANDS).
@@ -459,7 +499,45 @@ const HINT_TELLS := {
 	"odeng": ["broth", "warm"], "more_food": ["share", "have some", "try", "take some", "help yourself"],
 	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
+	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
 }
+
+
+## The door: what the owner calls out as someone ducks in, by how close they are (a
+## Regulars.closeness_mark): polite for a stranger, casual for an old friend. Korean, as said
+## (it explains itself on hover).
+const DOOR_WELCOME := {"": "어서오세요!", "☆": "또 오셨네요!", "★": "또 오셨네요!", "★★": "왔어?"}
+
+## And on the way out: the customer's thanks (now and then), and the owner's goodbye.
+const DOOR_THANKS := "잘 먹었습니다!"
+const DOOR_GOODBYE := {"": "안녕히 가세요!", "☆": "안녕히 가세요!", "★": "조심히 가세요!", "★★": "조심히 가!"}
+const DOOR_THANKS_CHANCE := 0.6
+
+
+static func door_welcome(mark: String) -> String:
+	return str(DOOR_WELCOME.get(mark, DOOR_WELCOME[""]))
+
+
+static func door_goodbye(mark: String) -> String:
+	return str(DOOR_GOODBYE.get(mark, DOOR_GOODBYE[""]))
+
+
+## Someone said hwaiting (go for it!): the counter joins in. At most this many others.
+const CHORUS_MOST := 3
+const CHORUS := "화이팅!"
+
+
+static func says_hwaiting(line: String, names: Array = []) -> bool:
+	return Glossary.words_in(line, names).has("Hwaiting")
+
+
+## A big shock just now (a TV reaction rated it so): whoever else heard it is stunned, for their
+## next line. The situation, never the words: the AI finds its own "Mwo?!".
+const STUNNED_MOMENT := "What {who} just said has stunned them: they can hardly believe their ears."
+
+
+static func stunned_moment(who: String) -> String:
+	return STUNNED_MOMENT.replace("{who}", Names.given_name(who))
 
 
 ## Whether a line seems to have taken up a hint of this kind (see HINT_TELLS). extra: more

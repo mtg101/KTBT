@@ -12,6 +12,8 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Seasons = preload("res://scripts/rules/seasons.gd")
+const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 
@@ -46,7 +48,7 @@ const DIALOGUE_RULES := """You write one line of dialogue at a time for a scene 
 
 They're speaking Korean, which we show in English: everyone speaks fluent, natural English in their own voice (blunt, rambling, slangy, whatever suits them), never broken English.
 
-Write in English. People can drop in the odd Korean word or exclamation that Western fans of K-dramas would know, but never whole sentences in Korean or romanised Korean, and never translations in brackets."""
+Write in English. People can drop in the odd Korean word or exclamation that Western fans of K-dramas would know, the way people really do: aigoo at a bother or a sore back, mwo?! or mworago?! when they can't believe their ears, heol when they're stunned, jinjja? for really?, daebak at something amazing, hwaiting to cheer someone on, jjan for a toast. Now and then, not in every line. Never whole sentences in Korean or romanised Korean, and never translations in brackets."""
 
 
 ## How customers address the owner. The game fixes the owner's title by gender (it's a
@@ -257,7 +259,7 @@ What does %s order? Think about who they are and why they're here tonight.%s Ord
 
 HOW PEOPLE ORDER HERE: everyone orders at least one drink and at least one food, because nobody drinks on an empty stomach. Most people order ONE main dish (marked "main" on the menu), maybe with a side (marked "side"), and ONE drink (one bottle goes a long way). Ordering two of the same main dish, or two drinks, is unusual. %s %s
 
-They've just sat down and haven't said anything yet. Their line is the very first thing they say: greet the owner in their own way (using what they call the owner) and ask for their order, in their own voice. The line must match "items" exactly: don't mention any food or drink that isn't in "items", and don't say things like "one of everything".
+They've just sat down and haven't said anything yet. Their line is the very first thing they say: greet the owner in their own way (using what they call the owner) and ask for their order, in their own voice. The line must match "items" exactly: ask for everything in "items", don't mention any food or drink that isn't in it, and don't say things like "one of everything". At a pocha people order by the Korean names (tteokbokki, dakgalbi, makgeolli), not the English descriptions on the menu.
 
 Reply with ONLY a JSON object with exactly these keys:
 - "items": an array of menu ids
@@ -443,7 +445,14 @@ Reply with ONLY a JSON object with one key:
 static func describe_moment(moment: Dictionary) -> String:
 	# (The only weather tonight: memories and last night's recap can carry the night before's,
 	# and the owner said "Fog's coming in" on a drizzly night.)
-	return "TONIGHT: %s, %s, with %s (tonight's only weather, whatever it was before)." % [moment["day"], moment["time"], moment["weather"]]
+	var day := str(moment["day"])
+	if str(moment.get("date", "")) != "":
+		day = "%s %s" % [day, moment["date"]]  # ("Wednesday 14 November, late autumn")
+	var snow := ""
+	if str(moment["weather"]) == FIRST_SNOW:
+		# (The situation, not the words: the dramas' first snow, for anyone who wants it.)
+		snow = " It's the first snow of the winter: in Korea a small occasion of its own. People make a wish, text whoever they're thinking of, and in the dramas whoever you see it with is the one."
+	return "TONIGHT: %s, %s, with %s (tonight's only weather, whatever it was before).%s" % [day, moment["time"], moment["weather"], snow]
 
 
 static func describe_owner(owner: Dictionary) -> String:
@@ -712,6 +721,8 @@ static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
 		early = "\n\nThey closed up early tonight, at %s, long before the usual 3am. Say why, in a sentence, in their own words: a reason of their own that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, a night that had nothing left in it). It's about them, not anyone else." % closed
 	var request := """%s
 
+(When customers call the owner %s, Imo or Ajumma, they mean the owner: in the diary that's "me", not someone else.)
+
 It's %s and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
 %s
 
@@ -719,7 +730,7 @@ Write their diary entry for tonight, in their own voice (first person, the way t
 
 Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
 
-Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), closed if closed != "" else "3am", owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", ""), early]
+Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), owner.get("title", "Ajumma"), closed if closed != "" else "3am", owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", ""), early]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -751,7 +762,7 @@ Reply with ONLY a JSON object: {"line": "what they say", "caption": "THE CAPTION
 ## The night's facts as lines for a prompt.
 static func diary_facts_text(facts: Dictionary) -> String:
 	var lines := PackedStringArray()
-	lines.append("- %s, %s." % [facts.get("day", ""), facts.get("weather", "")])
+	lines.append("- %s%s, %s." % [facts.get("day", ""), (" " + str(facts["date"])) if str(facts.get("date", "")) != "" else "", facts.get("weather", "")])
 	var people: Array = facts.get("people", [])
 	var who := PackedStringArray()
 	for person in people:

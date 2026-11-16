@@ -6,6 +6,7 @@ extends Control
 
 const Story = preload("res://scripts/rules/story.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 const Ktv = preload("res://scripts/ktv_style.gd")
 const PAPER := Ktv.PAPER
@@ -116,7 +117,7 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 		_pen_tween.kill()
 	_pen.visible = false
 	_writing.visible = false
-	_body.text = Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK)
+	_body.text = Glossary.explain_hangul(Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK))
 	_body.visible = true
 	_set_stamp(str(entry.get("stamp", "soju")))
 	_stamp.visible = true
@@ -145,6 +146,8 @@ func _names_in(entry: Dictionary) -> Array:
 func _set_header(episode: int, day: String, weather: String, whose: String) -> void:
 	_episode.text = "EP. %d" % episode
 	_day.text = "%s %s · %s" % [Story.DAY_HANGUL.get(day, ""), day, weather]
+	_day.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
+	_day.tooltip_text = Text.tip(Glossary.hangul_tip(str(Story.DAY_HANGUL.get(day, ""))))
 	_whose.text = whose
 
 
@@ -167,6 +170,8 @@ func _set_stamp(key: String) -> void:
 	hangul.size = Vector2(160, 60)
 	hangul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hangul.text = str(data["hangul"])
+	hangul.mouse_filter = Control.MOUSE_FILTER_STOP
+	hangul.tooltip_text = Text.tip(Glossary.hangul_tip(str(data["hangul"])))
 	_stamp.add_child(hangul)
 	var english := _label(12, colour)
 	english.position = Vector2(20, 104)

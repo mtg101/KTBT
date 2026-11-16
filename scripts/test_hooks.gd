@@ -72,6 +72,9 @@ static var print_paths := true
 ## Where night transcripts go: "" for the default (logs/transcripts/ in the project folder
 ## when running from the editor, or the user data folder otherwise).
 static var transcript_folder := ""
+## The day of the year a bar's first night falls on (-1: today's date, for a new bar). Tests fix
+## it, so tonight's season, and so the weather, are the same whenever they run.
+static var first_date := -1
 
 
 ## The test state, before every test: quick, repeatable, quiet, offline (the canned AI with
@@ -81,6 +84,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	restore()
 	pause_scale_override = 0.01
 	random_seed = 1234
+	first_date = 318  # 15 November: late autumn
 	strollers = true
 	offer_every_look = true
 	founding_regulars = false
@@ -110,6 +114,7 @@ static func restore() -> void:
 	random_seed = 0
 	run_clock = true
 	stay_minutes_override = -1
+	first_date = -1
 	company_override = ""
 	chat_chance_override = -1.0
 	gender_override = ""

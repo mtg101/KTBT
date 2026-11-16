@@ -25,6 +25,14 @@ const EXTRA_ORDER_ODDS := [0.5, 0.4, 0.1]
 const REFERRING_WORDS := ["this", "these", "that", "the", "my", "our"]
 
 
+## Words in an order's line that leave the choosing to the owner ("what's good tonight?",
+## "something crispy", "the usual"), so whatever the AI put in "items" stands, said or not.
+const LEAVE_IT_WORDS := ["good", "recommend", "whatever", "usual", "surprise", "something", "anything", "choose", "pick", "special", "specials", "suggest"]
+
+## Words that ask for a drink without naming it ("a bottle", "something to drink").
+const ANY_DRINK_WORDS := ["bottle", "drink", "drinks", "glass", "usual"]
+
+
 const MORE_WORDS := ["more", "another", "also", "too", "again", "extra", "add", "refill", "same", "seconds"]
 
 
@@ -63,6 +71,12 @@ static func validate_order(data: Variant, max_mains: int = 1, max_drinks: int = 
 	var asked_for := ids.size()
 	add_mentioned_sides(line, ids, MAX_ORDER_ITEMS, func(more: Array): return check_order_shape(more, max_mains, max_drinks) == "")
 	data["added_sides"] = ids.size() - asked_for  # (for the stats)
+	# And what they get must be what they asked for: anything in "items" the line never asks
+	# for is taken off, if the order still keeps the rules without it (the line wins, again).
+	# Unless the line leaves it to the owner ("what's good tonight?").
+	var before_dropping := ids.size()
+	drop_unsaid(line, ids, func(fewer: Array): return check_order_shape(fewer, max_mains, max_drinks) == "")
+	data["dropped_unsaid"] = before_dropping - ids.size()  # (for the stats)
 	var mention := unordered_mention(line, ids, true)
 	if mention != "":
 		return "the line mentions %s, but that isn't in \"items\"" % mention
@@ -292,6 +306,31 @@ static func add_mentioned_sides(line: String, ids: Array, most: int, fits: Calla
 		var more := ids + [id]
 		if fits.call(more):
 			ids.append(id)
+
+
+## Takes out of ids anything the line never asks for (by name or another name: "spicy
+## stir-fried chicken" is dakgalbi), last first, as long as fits(ids without it) says the
+## order's still allowed. A line that leaves the choosing to the owner keeps everything; one
+## asking for "a bottle" or "a drink" keeps its drink.
+static func drop_unsaid(line: String, ids: Array, fits: Callable) -> void:
+	var said_words := Text.words(line)
+	for word in LEAVE_IT_WORDS:
+		if word in said_words:
+			return
+	var said: Array = with_somaek_parts(mentions(line, true).map(func(found): return str(found["id"])))
+	var any_drink := false
+	for word in ANY_DRINK_WORDS:
+		any_drink = any_drink or word in said_words
+	for k in range(ids.size() - 1, -1, -1):
+		var id := str(ids[k])
+		if said.has(id) or (id == "somaek" and said.has("soju") and said.has("beer")):
+			continue
+		if any_drink and Menu.find(id).get("kind", "") == "drink":
+			continue
+		var fewer := ids.duplicate()
+		fewer.remove_at(k)
+		if fits.call(fewer):
+			ids.remove_at(k)
 
 
 ## Somaek ordered, but the line doesn't ask for it: "" if it does (or there's no somaek).

@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest:** Close the bar now closes up early (no hurry for whoever's here, nobody new, a 마감 sign out front, and the owner's reason on TV and in the diary), hover over a customer for a quick summary of them, a greedy cat that steals fish cakes (with the red light) and prowls under the stools, a flickering neon sign and steaming dishes, customers who sway after a couple of bottles, snow and rain on umbrellas, and a stormy "Previously on…" after a night of heavy rain. Before that: a playtest review and what came of it (Korean words on hover, tonight's specials and cravings, orders that don't all sound the same, customers invented ahead), and no real people, brands or shows by name.
+✅ **Latest:** a review of how real and tropey it is, and what came of it (the 어서오세요! at the door, a hwaiting chorus, the Mwo?! double-take, orders that get what was asked for); seasons (a calendar, monsoon, weather that follows on, the first snow), a city behind the tent (APT blocks whose windows go dark through the night, office towers, neon crosses), dishes drawn from what they come in; before that, Close the bar closes up early (no hurry for whoever's here, nobody new, a 마감 sign out front, and the owner's reason on TV and in the diary), hover over a customer for a quick summary of them, a greedy cat that steals fish cakes (with the red light) and prowls under the stools, a flickering neon sign and steaming dishes, customers who sway after a couple of bottles, snow and rain on umbrellas, and a stormy "Previously on…" after a night of heavy rain. Before that: a playtest review and what came of it (Korean words on hover, tonight's specials and cravings, orders that don't all sound the same, customers invented ahead), and no real people, brands or shows by name.
 
 **Next up:** see [PLAN.md](PLAN.md): the night as a story is done; next could be the refactor, real art and sound, or the game itself. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
@@ -17,13 +17,13 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Customers:** invented by the AI, each with a look the game decides (age range, hair, clothes, colours) and a name in Hangul too ("김지호 Kim Ji-ho"). They order from the menu, get drinks straight away while cooked dishes queue at the one stove, chat with the owner, sometimes talk to each other, and leave when their time's up.
 - **Regulars:** two founding regulars per bar, and new customers can become regulars: they come back as themselves (★), remember what was said last time, get to know each other (∞), and fade away if they stop coming.
 - **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth.
-- **Korean words:** the menu, pocha words (banchan, jjan, aigoo, daebak…) and terms of address explain themselves on hover, in the transcript and the diary.
+- **Korean words:** the menu, pocha words (banchan, jjan, aigoo, daebak…) and terms of address explain themselves on hover, in the transcript and the diary, and so does any Hangul (captions, names, stamps).
 - **The owner:** AI-invented, with a secret and a fixed life (family, what they did before) the AI keeps to.
 - **The cat:** with a personality, going where it likes, and a greedy one steals fish cakes; everyone talks about it (and now and then to it) as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 471 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 483 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -85,6 +85,8 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scripts/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
 | `scripts/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
 | `scripts/bubble.gd` | A speech bubble: over the speaker, who it's to, a line to the listener, and long lines a page at a time |
+| `scripts/skyline_view.gd` | The city behind the tent, drawn in one go (its windows going dark through the night), with hovers for what each building is |
+| `scripts/dish_view.gd` | A dish or drink on the table, drawn from its shapes (see `rules/dish_art.gd`) |
 | `scripts/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
 | `scripts/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
 | `scripts/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |

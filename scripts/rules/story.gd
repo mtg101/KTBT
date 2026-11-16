@@ -399,7 +399,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 			not_here.append(regular_name)
 	var before: Array = context.get("before", [])
 	return {
-		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
+		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "date": str(context.get("date", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
 		"customers": int(context.get("customers", 0)), "takings": Menu.format_won(int(context.get("takings", 0))),
 		"takings_vs_usual": takings_word(int(context.get("takings", 0)), before.slice(-7)),
 		"busiest": ("%s, with %d at the counter" % [NightRules.clock_text(peak_at), peak]) if peak_at >= 0 else "",

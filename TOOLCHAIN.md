@@ -196,7 +196,9 @@ model="llama3.1:8b"
 
 That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 
-**Autocomplete, hover docs and error underlining (optional):** keep the Godot editor open with the KTBT project loaded. The extension connects to it automatically (port 6005), and the status bar shows when it's connected.
+**Autocomplete, hover docs and error underlining (optional):** keep the Godot editor open with the KTBT project loaded, and the extension connects to it automatically; the status bar shows when it's connected. Or, without the editor: turn on **Godot Tools › LSP: Headless** (`godotTools.lsp.headless`), and the extension starts a hidden Godot of its own just for this.
+
+**Playing from VS Code (F5):** the extension can start the game itself, with its debugger (errors and `print()` in the Debug Console), so the Godot editor needn't be open to play. Set **Godot Tools › Editor Path: Godot4** in VS Code's settings to your Godot `.exe`, then add `.vscode/launch.json` with one configuration: `"type": "godot"`, `"request": "launch"`, `"project": "${workspaceFolder}"`, `"port": 6010` (not 6007, which the editor uses when it's open). F5, or **Run → Start Debugging**, plays the game. The `.vscode` folder isn't in git (it holds local paths), so each machine sets this up once.
 
 **Opening scripts from Godot in VS Code (optional):** in Godot, go to **Editor → Editor Settings → Text Editor → External**, tick **Use External Editor**, and set **Exec Path** to VS Code's `Code.exe`.
 

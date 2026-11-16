@@ -120,14 +120,14 @@ static func night_light(minutes: float) -> Dictionary:
 ## "breeze" (from the weather text), or "" if it's none of those.
 static func weather_kind(weather: String) -> String:
 	var w := weather.to_lower()
-	if w.contains("heavy rain"):
+	if w.contains("heavy rain") or w.contains("downpour") or w.contains("typhoon"):
 		return "rain"
 	if w.contains("drizzle") or w.contains("rain"):
 		return "drizzle"
 	if w.contains("snow"):
 		return "snow"
-	if w.contains("fog"):
-		return "fog"
+	if w.contains("fog") or w.contains("dust") or w.contains("haze"):
+		return "fog"  # (yellow dust, 황사, blown in from the west in spring: a haze like fog)
 	if w.contains("cold"):
 		return "cold"
 	if w.contains("muggy") or w.contains("heat"):

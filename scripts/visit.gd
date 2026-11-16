@@ -31,6 +31,11 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Seasons = preload("res://scripts/rules/seasons.gd")
+const Skyline = preload("res://scripts/rules/skyline.gd")
+const SkylineView = preload("res://scripts/skyline_view.gd")
+const DishArt = preload("res://scripts/rules/dish_art.gd")
+const DishView = preload("res://scripts/dish_view.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
@@ -52,15 +57,6 @@ const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough
 ## Free side dishes served with every first order, as at a real pojangmacha. Not on the bill.
 const BANCHAN := "kimchi and pickled radish"
 
-const WEATHER := [
-	"light drizzle",
-	"heavy rain drumming on the tarp",
-	"clear, bitterly cold air",
-	"the first snow of winter",
-	"a muggy summer heat",
-	"thick fog",
-	"a warm spring breeze",
-]
 
 const ACCENT := Ktv.ORANGE
 const MUTED := Ktv.MUTED
@@ -134,6 +130,7 @@ class Guest:
 	var food_news := false  # something's been served since the last topic was picked
 	var food_moment := ""  # a Talk.served_moment direction for their next line, now and then after something arrives
 	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
+	var stunned := ""  # a Talk.stunned_moment for their next line, after a shock they heard
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
@@ -237,6 +234,7 @@ var _reaction_until := -1.0  # ...and until when it's up
 var _specials: Array = []
 ## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
 var _owner_cat_moment := ""
+var _owner_stunned := ""  # a Talk.stunned_moment for the owner's next line
 ## A reaction check put off because the owner was needed ({lines, names, items, at}: the latest
 ## one only), asked as soon as she's free (see _next_task).
 var _reaction_pending := {}
@@ -280,6 +278,7 @@ var busy: bool:
 var _night_open := false
 var _night_number := 0
 var _night_day := ""
+var _night_date := {}  # Seasons.date: the day, month, its text ("14 November") and the season
 var _night_weather := ""
 var _clock := float(NightRules.OPEN_MINUTES)  # game minutes since midnight at the start of the night
 var _next_arrival := 0.0
@@ -325,6 +324,7 @@ var _sky: ColorRect  # behind everything: dusk to deep night
 var _scenery_dice := RandomNumberGenerator.new()
 var _neon: Label  # the karaoke sign on the pillar
 var _glow: ColorRect  # the tent's warm glow
+var _skyline: SkylineView  # the city behind the tent
 var _bulbs: Array = []  # the hanging bulbs (they swing)
 var _bulb_lights: Array = []
 var _sways: Array = []  # the bulbs' swinging (replaced each night)
@@ -779,11 +779,45 @@ func _leave() -> void:
 
 # --- The night -------------------------------------------------------------
 
+## Tonight's date and weather: each bar's nights run a day at a time through the year (from
+## its first_date: a new bar's is today's date), and the weather follows on from last night's
+## (see Seasons.next_weather), with one roll of the dice, as when it was picked at random.
+func _pick_weather() -> void:
+	if not Game.bar.has("first_date"):
+		# A new bar starts tonight's date (a bar from before the calendar too: tonight's today).
+		var today := Hooks.first_date if Hooks.first_date >= 0 else Seasons.today()
+		Game.bar["first_date"] = posmod(today - (_night_number - 1), Seasons.YEAR_DAYS)
+	var first_date := int(Game.bar["first_date"])
+	var doy := Seasons.day_of_year(first_date, _night_number)
+	_night_date = Seasons.date(doy)
+	var winter := Seasons.winter_number(first_date, _night_number)
+	var snowed := int(Game.bar.get("snowed_winter", -1)) == winter
+	_night_weather = Seasons.next_weather(doy, str(Game.bar.get("last_weather", "")), randf(), snowed)
+	if _night_weather.contains("snow"):
+		Game.bar["snowed_winter"] = winter
+	Game.bar["last_weather"] = _night_weather
+
+
+## Tonight's date as the prompts say it: "14 November, late autumn".
+func _date_words() -> String:
+	if _night_date.is_empty():
+		return ""
+	return "%s, %s" % [_night_date["text"], Seasons.season_words(Seasons.day_of_year(int(Game.bar.get("first_date", 0)), _night_number))]
+
+
+## "14 Nov", for the top bar.
+func _short_date() -> String:
+	return "" if _night_date.is_empty() else "%d %s" % [int(_night_date["day"]), str(Seasons.MONTHS[int(_night_date["month"]) - 1]).substr(0, 3)]
+
+
 ## The tent opens at 6pm: a new night number, its day and its weather.
 func _start_night() -> void:
 	_night_number = int(Game.bar.get("nights", 0)) + 1
 	_night_day = NightRules.night_day(int(Game.bar.get("first_day", 4)), _night_number)
-	_night_weather = WEATHER.pick_random()
+	_pick_weather()
+	var bar_id := str(Game.bar.get("id", ""))
+	if _skyline.seed_for != bar_id:
+		_skyline.show_city(Skyline.plan(STAGE_SIZE.x, hash(bar_id)), bar_id)  # (its own dice: the game's rolls don't shift)
 	_specials = Orders.pick_specials(NightRules.weather_kind(_night_weather), randf(), randf())
 	_clock = float(NightRules.OPEN_MINUTES)
 	_night_visits = 0
@@ -796,6 +830,8 @@ func _start_night() -> void:
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	_stats.specials = _specials.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
+	_stats.story["date"] = str(_night_date.get("text", ""))
+	_stats.story["season"] = _date_words().get_slice(", ", 1)
 	_before_night = {}
 	_waiting.clear()
 	_waiting_who.clear()
@@ -817,6 +853,7 @@ func _start_night() -> void:
 	_rush_shown = false
 	_dawn_shown = false
 	_attending = null
+	_owner_stunned = ""
 	_night_open = true
 	_next_arrival = _clock + NightRules.next_arrival_gap(int(_clock), randf())
 	_show_weather(NightRules.weather_kind(_night_weather))
@@ -827,7 +864,9 @@ func _start_night() -> void:
 	_update_clock_label()
 	_start_transcript()
 	_show("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
-	_narrate("%s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, NightRules.clock_text(NightRules.OPEN_MINUTES), Text.sentence_case(_night_weather)])
+	_narrate("%s %s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, _night_date.get("text", ""), NightRules.clock_text(NightRules.OPEN_MINUTES), Text.sentence_case(_night_weather)])
+	if _night_weather == Seasons.FIRST_SNOW:
+		_event("first_snow")
 
 
 ## Every frame: the clock and the stove move on, people turn up (or give up waiting), and if
@@ -835,6 +874,7 @@ func _start_night() -> void:
 ## orders; the night ends once the last customer has gone.
 func _process(delta: float) -> void:
 	_update_light()
+	_skyline.set_minutes(_clock)
 	if _loading != null and _loading.visible:
 		_loading.status = _loading_status()
 	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
@@ -1229,7 +1269,7 @@ func _validate_diary(data: Variant, facts: Dictionary) -> String:
 ## for the diary book and "Previously on…".
 func _diary_facts() -> Dictionary:
 	return Story.diary_facts(_events.timeline, {
-		"episode": _night_number, "day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]),
+		"episode": _night_number, "day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]), "date": _date_words(),
 		"owner_gender": str(_owner.get("gender", "")), "customers": _night_visits, "takings": _night_takings,
 		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
@@ -1328,7 +1368,7 @@ func _on_next_night_pressed() -> void:
 func _update_clock_label() -> void:
 	if _night_number == 0:
 		return
-	_moment_label.text = "Night %d  ·  %s  ·  %s  ·  %s" % [_night_number, _night_day, NightRules.clock_text(int(_clock)), _night_weather]
+	_moment_label.text = "Night %d  ·  %s %s  ·  %s  ·  %s" % [_night_number, _night_day, _short_date(), NightRules.clock_text(int(_clock)), _night_weather]
 	if _night_open and _time_speed > 1.05:
 		_moment_label.text += "  ·  ▶▶ %.0f×" % _time_speed  # time's running fast: the tent's quiet
 
@@ -1488,7 +1528,7 @@ func _save_stats(finished: bool) -> void:
 
 ## Adds to the transcript on screen and, during a night, to tonight's transcript file.
 func _show(bbcode: String) -> void:
-	_log.append_text(bbcode)
+	_log.append_text(Glossary.explain_hangul(bbcode))  # (any Hangul explains itself on hover)
 	if _transcript_file != null:
 		# As plain text: tags stripped ([lb] is how a "[" in the AI's text is escaped).
 		_transcript_file.store_string(_tags.sub(bbcode.replace("[lb]", "\u0001"), "", true).replace("\u0001", "["))
@@ -1584,7 +1624,7 @@ func _greet() -> void:
 	guest.seat = _free_seats().pick_random()
 	guest.arrived = NightRules.clock_text(int(_clock))
 	guest.arrived_minutes = int(_clock)
-	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather}
+	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather, "date": _date_words()}
 	_show("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
 	var customer := {}
 	var look := {}
@@ -1638,6 +1678,7 @@ func _greet() -> void:
 	var at_stool := Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60)  # (they're still walking to it)
 	var rushing: bool = regular.is_empty() and not _rush_shown and _guests.size() >= Captions.RUSH_SEATED
 	_event("sat_down", sat, null, Vector2(-1, -1) if rushing else at_stool)
+	_welcome_at_door(guest)
 	if regular.is_empty():  # a regular's look is known by now
 		_narrate(Text.as_sentence(str(customer["appearance"])))
 	_attend(guest, false)
@@ -1661,6 +1702,7 @@ func _greet() -> void:
 	else:
 		items = order["items"]
 		_stats.sides_added += int(order.get("added_sides", 0))
+		_stats.unsaid_dropped += int(order.get("dropped_unsaid", 0))
 		_stats.record_opening("order", str(order["line"]))
 		if situation != "":
 			_stats.order_situations += 1
@@ -1887,6 +1929,7 @@ func _settle_up(guest: Guest) -> void:
 	_customer = guest.customer
 	_order = guest.order.duplicate()
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
+	_goodbye_at_door(guest)
 	_ambience.play("cash")
 	_ambience.play("scrape", 0.9, 0.5)
 	_event("paid", {"name": str(guest.customer["name"]), "hangul": str(guest.customer.get("hangul", "")), "job": str(guest.customer.get("job", "")),
@@ -1974,7 +2017,15 @@ func _next_line(guest: Guest) -> void:
 	elif guest.topic != "":
 		direction = Talk.topic_hint(guest.topic)
 	var hint := ""  # what kind of hint this line was given, for the stats
-	if i > 0 and guest.food_moment != "":
+	var stunned := _owner_stunned if owner_speaks else guest.stunned
+	if stunned != "":  # (first: they've just heard something they can't believe)
+		direction = (stunned + " " + direction).strip_edges()
+		hint = "stunned"
+		if owner_speaks:
+			_owner_stunned = ""
+		else:
+			guest.stunned = ""
+	elif i > 0 and guest.food_moment != "":
 		direction = (guest.food_moment + " " + direction).strip_edges()
 		hint = Talk.moment_kind(guest.food_moment)
 		guest.food_moment = ""  # once
@@ -2255,7 +2306,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	for guest in chat.people:
 		items.append_array(guest.order)
 		names.append(str(guest.customer["name"]))
-	var moment := {"day": _night_day, "time": NightRules.clock_text(int(_clock)), "weather": _night_weather}
+	var moment := {"day": _night_day, "time": NightRules.clock_text(int(_clock)), "weather": _night_weather, "date": _date_words()}
 	var direction := "This is the first thing they've ever said to each other." if first else Talk.topic_hint(chat.topic, true)
 	var owner_speaks := speaker == owner_name
 	var speaking: Guest = _guest_named(speaker)
@@ -2277,6 +2328,15 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 			direction = sharing + " " + direction
 			hint = Talk.moment_kind(sharing)
 			chat.shared = true
+	# Something just said has stunned them.
+	var heard := _owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
+	if heard != "" and not first:
+		direction = heard + " " + direction
+		hint = "stunned"
+		if owner_speaks:
+			_owner_stunned = ""
+		else:
+			speaking.stunned = ""
 	# The cat's come to the speaker (or it's up to something the owner has to deal with).
 	if hint == "" and not first:
 		var with_cat := _owner_cat_moment if owner_speaks else (speaking.cat_moment if speaking != null else "")
@@ -2319,6 +2379,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
 	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)])
+	_cheer_along(guest, line, names)
 	var listener_colour := OWNER_TEXT if addressed == null else addressed.color.lightened(0.35)
 	_give_time_to_read(line, _say_in_bubble(_owner_node if guest == null else guest.node, _owner_node if addressed == null else addressed.node,
 		_to_label(line, guest, addressed, to), listener_colour, colour, line))
@@ -2798,22 +2859,18 @@ func _table_item_count() -> int:
 	return count
 
 
-## A small unlabelled shape for a menu item (a bottle for a drink, a bowl for food), with
-## its name on hover.
+## A menu item on the table, drawn from its "art" (what it comes in and what's in it: see
+## rules/dish_art.gd), with its name on hover. (Without art: a bottle for a drink, a bowl for
+## food, in its colour.)
 func _dish_shape(id: String) -> Control:
 	var item := Menu.find(id)
 	var colour := Color(str(item["color"]))
-	var shape := Control.new()
+	var art: Dictionary = item.get("art", {"vessel": "bottle"} if item["kind"] == "drink" else {"vessel": "bowl", "fill": str(item["color"])})
+	var shape := DishView.new()
 	shape.tooltip_text = str(item["name"])
 	shape.mouse_filter = Control.MOUSE_FILTER_STOP
-	if item["kind"] == "drink":
-		shape.custom_minimum_size = Vector2(14, 34)
-		_rect(shape, Vector2(4, 0), Vector2(6, 9), colour.darkened(0.25))  # the neck
-		_rect(shape, Vector2(0, 9), Vector2(14, 25), colour)  # the bottle
-	else:
-		shape.custom_minimum_size = Vector2(30, 34)
-		_rect(shape, Vector2(3, 17), Vector2(24, 11), colour)  # the food
-		_rect(shape, Vector2(0, 26), Vector2(30, 8), Color("d9d6e8"))  # the bowl
+	shape.custom_minimum_size = DishArt.size(art)
+	shape.shapes = DishArt.shapes(art, colour, id)
 	return shape
 
 
@@ -2842,6 +2899,7 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
 	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
+	_cheer_along(null if owner_speaks else guest, text, [_owner["name"], guest.customer["name"]])
 	# (Their node may have gone while the line was on its way, e.g. they've walked off: a freed
 	# node can't be passed as a Control, so it's null then, and the bubble skips or points nowhere.)
 	var them: Control = guest.node if is_instance_valid(guest.node) else null
@@ -2994,8 +3052,65 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	if who != str(_owner["name"]):
 		var guest: Guest = _guest_named(who)
 		about = guest.node if guest != null else null
+	if mood == "shock":
+		_stun_listeners(who, names)
 	var data: Dictionary = Captions.REACTIONS[mood]
 	_pop_caption(Captions.reaction_words(mood, str(reply["caption"]), randf()), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
+
+
+## The door: as someone ducks in, the owner calls out to them, polite for a stranger and casual
+## for an old friend (Talk.door_welcome): a quick bubble and a line in the transcript, and
+## their conversation knows they've been welcomed.
+func _welcome_at_door(guest: Guest) -> void:
+	var welcome := Talk.door_welcome(Regulars.closeness_mark(guest.customer.get("regular", {})))
+	_narrate("\"%s\" %s calls out%s." % [welcome, _owner_display(), " from the stove" if _owner_working else ""])
+	_say_in_bubble(_owner_node, guest.node, "", guest.color.lightened(0.35), OWNER_TEXT, welcome)
+	guest.transcript.append({"action": "%s called out \"%s\" as they came in." % [_owner["name"], welcome]})
+
+
+## And on the way out: their thanks now and then (잘 먹었습니다!), and the owner's goodbye.
+func _goodbye_at_door(guest: Guest) -> void:
+	var goodbye := Talk.door_goodbye(Regulars.closeness_mark(guest.customer.get("regular", {})))
+	if _scenery_dice.randf() < Talk.DOOR_THANKS_CHANCE:  # (scenery's dice: the game's rolls don't shift)
+		_say_in_bubble(guest.node, _owner_node, "", OWNER_TEXT, guest.color.lightened(0.35), Talk.DOOR_THANKS)
+		_narrate("\"%s\" says %s. \"%s\" says %s." % [Talk.DOOR_THANKS, Names.given_name(str(guest.customer["name"])), goodbye, _owner_display()])
+	else:
+		_narrate("\"%s\" says %s." % [goodbye, _owner_display()])
+	_say_in_bubble(_owner_node, guest.node, "", guest.color.lightened(0.35), OWNER_TEXT, goodbye)
+
+
+## Someone said hwaiting (go for it!): the counter joins in, a few of them at once, with a TV
+## caption. The game's own (no AI), and only when it's actually said, so it stays a treat.
+## speaker: who said it (null for the owner).
+func _cheer_along(speaker: Variant, line: String, names: Array) -> void:
+	if not Talk.says_hwaiting(line, names):
+		return
+	var joining: Array = _guests.filter(func(g): return g != speaker).slice(0, Talk.CHORUS_MOST)
+	if speaker != null and joining.size() < Talk.CHORUS_MOST:
+		joining.append(null)  # (the owner joins in too)
+	if joining.is_empty():
+		return
+	for each in joining:
+		var node: Variant = _owner_node if each == null else each.node
+		_say_in_bubble(node, null, "", OWNER_TEXT, OWNER_TEXT if each == null else each.color.lightened(0.35), Talk.CHORUS)
+	_narrate("Everyone at the counter joins in: \"%s\"" % Talk.CHORUS)
+	for guest in _guests:
+		guest.transcript.append({"action": "Everyone at the counter joined in: \"Hwaiting!\""})
+	_event("cheered_on", {"seated": _guests.size()})
+
+
+## A shock (a TV reaction said so): everyone else who heard it is stunned, for their next line.
+func _stun_listeners(who: String, names: Array) -> void:
+	var stunned := Talk.stunned_moment(who)
+	for person in names:
+		if str(person) == who:
+			continue
+		if not _owner.is_empty() and str(person) == str(_owner["name"]):
+			_owner_stunned = stunned
+		else:
+			var guest: Guest = _guest_named(str(person))
+			if guest != null:
+				guest.stunned = stunned
 
 
 ## The owner's free: the reaction check that was put off, if it's still fresh.
@@ -3128,6 +3243,7 @@ func _cat_label() -> String:
 ## A name with its Hangul first, like the sign: "김지호 Kim Ji-ho" (just the name if there's none).
 func _with_hangul(person: Dictionary) -> String:
 	var hangul := str(person.get("hangul", ""))
+	Glossary.remember(hangul, "%s: %s's name, in Hangul" % [hangul, person["name"]])
 	return str(person["name"]) if hangul == "" else "%s %s" % [hangul, person["name"]]
 
 
@@ -3264,7 +3380,7 @@ func _update_info() -> void:
 	var queueing := _waiting.size() - _free_seats().size()
 	if queueing > 0:
 		t += "\n[color=#%s]Waiting for a stool: %d[/color]\n" % [muted, queueing]
-	_info.text = t
+	_info.text = Glossary.explain_hangul(t)
 
 
 # --- Checking the AI's replies (the rules live in scripts/rules/) ------------
@@ -3631,6 +3747,10 @@ func _build_stage(stage: Control) -> void:
 	var w := STAGE_SIZE.x
 	_sky = _rect(stage, Vector2.ZERO, STAGE_SIZE, Color("3c3a72"))  # the night sky, changing with the hour
 	_sky.name = "Sky"
+	_skyline = SkylineView.new()
+	_skyline.name = "Skyline"
+	_skyline.size = STAGE_SIZE
+	stage.add_child(_skyline)
 	_weather_back = _layer(stage, "WeatherBack")
 	_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a"))  # the overpass
 	_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36"))  # pillars
@@ -3932,6 +4052,7 @@ func _show_look() -> void:
 		else:
 			label.add_theme_constant_override("outline_size", 0)
 	_sign_hangul.text = str(look["hangul"])
+	Glossary.remember(str(look["hangul"]), "%s: the bar's name, %s%s" % [look["hangul"], Game.bar.get("name", ""), (" (%s)" % Game.bar["name_meaning"]) if str(Game.bar.get("name_meaning", "")) != "" else ""])
 	_sign_english.text = str(Game.bar.get("name", "")).to_upper()
 	_sign.tooltip_text = Text.tip("%s · %s (%s)" % [look["hangul"], Game.bar.get("name", ""), Game.bar.get("name_meaning", "")])
 	_sign.visible = true

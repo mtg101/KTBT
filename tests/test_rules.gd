@@ -18,6 +18,9 @@ const Talk = preload("res://scripts/rules/talk.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Seasons = preload("res://scripts/rules/seasons.gd")
+const Skyline = preload("res://scripts/rules/skyline.gd")
+const DishArt = preload("res://scripts/rules/dish_art.gd")
 
 
 # --- Sample replies, as the AI might send them --------------------------------------
@@ -965,6 +968,116 @@ func test_weather_kinds() -> void:
 	assert_str(NightRules.weather_kind("a warm spring breeze")).is_equal("breeze")
 
 
+func test_the_calendar_runs_through_the_seasons() -> void:
+	assert_str(str(Seasons.date(0)["text"])).is_equal("1 January")
+	assert_str(str(Seasons.date(318)["text"])).is_equal("15 November")
+	assert_str(str(Seasons.date(364)["text"])).is_equal("31 December")
+	assert_str(str(Seasons.date(59)["text"])).is_equal("1 March")
+	assert_int(Seasons.day_of_year(318, 1)).is_equal(318)
+	assert_int(Seasons.day_of_year(318, 48)).is_equal(0)  # (night 48 is new year's day)
+	assert_str(Seasons.season(318)).is_equal("autumn")
+	assert_str(Seasons.season(10)).is_equal("winter")
+	assert_str(Seasons.season(100)).is_equal("spring")
+	assert_str(Seasons.season(180)).is_equal("monsoon")  # (late June to late July)
+	assert_str(Seasons.season(220)).is_equal("summer")
+	assert_str(Seasons.season(340)).is_equal("winter")
+	assert_str(Seasons.season_words(318)).is_equal("late autumn")
+	assert_str(Seasons.season_words(340)).is_equal("early winter")
+	assert_str(Seasons.season_words(10)).is_equal("midwinter")
+	assert_str(Seasons.season_words(180)).contains("monsoon")
+	# A winter runs from December into the new year.
+	assert_int(Seasons.winter_number(318, 1)).is_equal(0)
+	assert_int(Seasons.winter_number(318, 17)).is_equal(1)  # 1 December
+	assert_int(Seasons.winter_number(318, 60)).is_equal(1)  # mid-January: the same winter
+	assert_int(Seasons.today()).is_between(0, 364)
+
+
+func test_the_weather_follows_on_through_the_seasons() -> void:
+	# Every kind of weather reads as what it is.
+	var kinds := {"monsoon downpour: heavy rain hammering the tarp": "rain", "a typhoon's edge: heavy rain and wind": "rain",
+		"yellow dust hazing the streetlights": "fog", "freezing fog": "fog", "a raw, cold wind off the river": "cold",
+		"snow falling steadily on the tarp": "snow", "cherry blossom petals on the breeze": "breeze", "a sticky, muggy night with thunder far off": "muggy",
+		"crisp, clear autumn air": "", "a mild, clear evening": "", "a warm, clear night": "", "a cool breeze": "breeze"}
+	for text in kinds:
+		assert_str(NightRules.weather_kind(text)).override_failure_message(text).is_equal(kinds[text])
+	# Only the season's, within their dates.
+	var spring_texts: Array = Seasons.options(95).map(func(option): return option["text"])
+	assert_array(spring_texts).contains(["cherry blossom petals on the breeze"])
+	assert_array(Seasons.options(140).map(func(option): return option["text"])).not_contains(["cherry blossom petals on the breeze"])
+	for roll in [0.0, 0.2, 0.5, 0.7, 0.99]:
+		assert_bool(Seasons.options(318).map(func(option): return option["text"]).has(Seasons.next_weather(318, "", roll))).is_true()
+	# The same again now and then, if it can be this season.
+	assert_str(Seasons.next_weather(318, "thick fog", 0.1)).is_equal("thick fog")
+	assert_str(Seasons.next_weather(318, "a muggy summer heat", 0.1)).is_not_equal("a muggy summer heat")
+	# The first snow of each winter.
+	var first_snows := 0
+	var snows := 0
+	for k in 100:
+		var roll := k / 100.0
+		if Seasons.next_weather(10, "", roll, false) == Seasons.FIRST_SNOW:
+			first_snows += 1
+		if Seasons.next_weather(10, "", roll, true).contains("snow"):
+			snows += 1
+			assert_str(Seasons.next_weather(10, "", roll, true)).is_not_equal(Seasons.FIRST_SNOW)
+	assert_int(first_snows).is_greater(0).is_equal(snows)
+	assert_str(Seasons.next_weather(10, Seasons.FIRST_SNOW, 0.1)).is_equal("snow falling steadily on the tarp")  # (only the once)
+	assert_str(str(Captions.for_event("first_snow", {})["kind"])).is_equal("first_snow")
+	# The season in the prompts.
+	assert_str(Prompts.describe_moment({"day": "Wednesday", "time": "9:40pm", "weather": "thick fog", "date": "15 November, late autumn"})).starts_with("TONIGHT: Wednesday 15 November, late autumn, 9:40pm, with thick fog")
+	assert_str(Prompts.describe_moment({"day": "Wednesday", "time": "9:40pm", "weather": "thick fog"})).starts_with("TONIGHT: Wednesday, 9:40pm")
+
+
+func test_the_skyline_behind_the_tent() -> void:
+	var city := Skyline.plan(1872.0, 42)
+	assert_str(str(city)).is_equal(str(Skyline.plan(1872.0, 42)))  # each bar's own, the same every night
+	assert_str(str(city)).is_not_equal(str(Skyline.plan(1872.0, 43)))
+	var last: Dictionary = city[-1]
+	assert_float(float(last["x"]) + float(last["width"])).is_greater_equal(1872.0)  # right across
+	var kinds: Array = city.map(func(building): return building["kind"])
+	assert_array(kinds).contains(["apt"])
+	assert_int(kinds.count("tower")).is_less_equal(2)
+	var numbers: Array = city.filter(func(building): return building["kind"] == "apt").map(func(building): return int(building["number"]))
+	for k in range(1, numbers.size()):
+		assert_int(numbers[k]).is_equal(numbers[k - 1] + 1)  # 101동, 102동, 103동...
+	for building in city:
+		for window in building["windows"]:
+			assert_float(float(window["x"]) + Skyline.WINDOW.x).is_less_equal(float(building["width"]))
+			assert_float(float(window["y"]) + Skyline.WINDOW.y).is_less_equal(float(building["height"]))
+	# Windows go dark through the night.
+	assert_float(Skyline.lit_share(18 * 60)).is_equal_approx(0.45, 0.001)
+	assert_float(Skyline.lit_share(21 * 60)).is_greater(Skyline.lit_share(26 * 60))
+	assert_float(Skyline.lit_share(26 * 60 + 30)).is_between(Skyline.lit_share(27 * 60), Skyline.lit_share(26 * 60))
+	var at_nine := 0
+	var at_two := 0
+	for building in city:
+		for window in building["windows"]:
+			at_nine += 1 if Skyline.lit(window, 21 * 60) else 0
+			at_two += 1 if Skyline.lit(window, 26 * 60) else 0
+	assert_int(at_nine).is_greater(at_two * 3)
+	assert_str(Skyline.block_label(103)).is_equal("103동")
+
+
+func test_dishes_are_drawn_from_what_they_come_in() -> void:
+	for item in Menu.ITEMS:
+		var id := str(item["id"])
+		var art: Dictionary = item.get("art", {})
+		assert_bool(DishArt.VESSELS.has(str(art.get("vessel", "")))).override_failure_message("%s: no vessel" % id).is_true()
+		if art.has("bits"):
+			assert_array(DishArt.BITS).contains([art["bits"]])
+		if art.has("garnish"):
+			assert_array(DishArt.GARNISHES).contains([art["garnish"]])
+		var box := DishArt.size(art)
+		var drawn := DishArt.shapes(art, Color(str(item["color"])), id)
+		assert_array(drawn).is_not_empty()
+		for shape in drawn:
+			var at: Vector2 = shape["pos"]
+			var end: Vector2 = at + shape["size"]
+			assert_bool(at.x >= 0 and at.y >= 0 and end.x <= box.x + 0.01 and end.y <= box.y + 0.01).override_failure_message("%s: %s is outside its %s box" % [id, str(shape), str(box)]).is_true()
+		assert_str(str(drawn)).is_equal(str(DishArt.shapes(art, Color(str(item["color"])), id)))  # the same every time
+	assert_str(str(DishArt.size({"vessel": "a wok"}))).is_equal(str(DishArt.VESSELS["bowl"]["size"]))  # (an unknown vessel's a bowl)
+	assert_array(DishArt.shapes({"vessel": "a wok", "fill": "d8452f"}, Color.RED, "x")).is_not_empty()
+
+
 func test_tent_shapes_and_colours_come_from_the_games_lists() -> void:
 	var data := _look({"shape": "Scalloped", "tarp": "blue_stripes"})
 	assert_str(BarLook.validate_bar_look(data)).is_empty()
@@ -1597,6 +1710,145 @@ func test_hover_tips_never_break_their_tag() -> void:
 	label.text = Text.hint(long_tip, "Kim Ji-ho")
 	assert_str(label.get_parsed_text()).is_equal("Kim Ji-ho")
 	assert_str(Text.hint(long_tip, "x")).contains("\n")
+
+
+func test_orders_get_what_was_asked_for() -> void:
+	# Food the line never asks for is taken off (the line wins), if the order still keeps the rules.
+	var quiet := {"items": ["soju", "gonggibap", "gyeran_mari"], "line": "Ajumma, just a quiet soju and some rice, please."}
+	assert_str(Orders.validate_order(quiet)).is_empty()
+	assert_array(quiet["items"]).contains_exactly(["soju", "gonggibap"])
+	assert_int(int(quiet["dropped_unsaid"])).is_equal(1)
+	var thirsty := {"items": ["beer", "soju", "tteokbokki"], "line": "Ajumma, one beer and the tteokbokki, please."}
+	assert_str(Orders.validate_order(thirsty, 1, 2)).is_empty()
+	assert_array(thirsty["items"]).contains_exactly(["beer", "tteokbokki"])
+	# Not when it can't go (an order needs a food), or when the choosing's left to the owner.
+	var lonely := {"items": ["soju", "odeng"], "line": "Ajumma, a soju, please."}
+	assert_str(Orders.validate_order(lonely)).is_empty()
+	assert_array(lonely["items"]).contains_exactly(["soju", "odeng"])
+	var good := {"items": ["soju", "pajeon"], "line": "Ajumma, what's good tonight?"}
+	assert_str(Orders.validate_order(good)).is_empty()
+	assert_array(good["items"]).contains_exactly(["soju", "pajeon"])
+	var bottle := {"items": ["soju", "tteokbokki"], "line": "A bottle and the tteokbokki, Imo."}
+	assert_str(Orders.validate_order(bottle)).is_empty()
+	assert_array(bottle["items"]).contains_exactly(["soju", "tteokbokki"])  # (a bottle is a drink)
+	# The menu's descriptions are its other names: the chicken asked for isn't sundae.
+	var swapped := {"items": ["somaek", "sundae", "tteokbokki"], "line": "I'm starving: the spicy stir-fried chicken and the spicy rice cakes, and a shot of soju in my beer."}
+	assert_str(Orders.validate_order(swapped, 2)).contains("Dakgalbi")
+	assert_str(Menu.resolve("rolled omelette")).is_equal("gyeran_mari")
+	assert_str(Menu.resolve("milky rice wine")).is_equal("makgeolli")
+	assert_str(Menu.resolve("fish cakes")).is_equal("odeng")
+	assert_str(str(Orders.mentions("the spring onion pancake, please", true)[0]["id"])).is_equal("pajeon")
+	assert_str(str(Orders.mentions("some rice wine", true)[0]["id"])).is_equal("makgeolli")  # (not rice)
+
+
+func test_lines_never_too_dark_or_giving_things_away() -> void:
+	var dark := {"line": "You'll find a job that doesn't make you want to jump off a bridge."}
+	assert_str(Talk.validate_line(dark, "Park Mi-sook", "Ajumma")).contains("too dark")
+	assert_str(Text.problem_kind(Talk.validate_line(dark, "Park Mi-sook", "Ajumma"))).is_equal("dark turns of phrase")
+	var free := {"line": "The soju's on the house for first-timers."}
+	assert_str(Talk.validate_line(free, "Kim Ji-ho", "")).contains("gives something away")
+	assert_str(Text.problem_kind(Talk.validate_line(free, "Kim Ji-ho", ""))).is_equal("giving things away")
+	assert_str(Talk.validate_line({"line": "I saw it on Instagram."}, "Kim Ji-ho", "")).contains("real brand")
+	assert_str(Talk.validate_line({"line": "My feed's all food photos."}, "Kim Ji-ho", "")).is_empty()
+	assert_str(Talk.validate_line({"line": "The banchan's free, help yourself."}, "Park Mi-sook", "Ajumma")).is_empty()  # (it is)
+	assert_str(Talk.validate_line({"line": "My feet are killing me."}, "Park Mi-sook", "Ajumma")).is_empty()
+
+
+func test_korean_exclamations_and_the_double_take() -> void:
+	assert_str(Prompts.DIALOGUE_RULES).contains("mwo?!").contains("hwaiting").contains("not in every line")
+	assert_array(Glossary.words_in("Mwo?! Mworago? Heol.")).contains_exactly(["Mwo", "Mworago", "Heol"])
+	assert_array(Talk.romanised_korean("Mwo?! Mworago? You quit?")).is_empty()  # (real Korean)
+	var stunned := Talk.stunned_moment("Kim Ji-ho")
+	assert_str(stunned).contains("Ji-ho").contains("hardly believe")
+	assert_bool(Talk.hint_taken("stunned", "Mwo?! You quit your job?")).is_true()
+	# The first snow, as an occasion; the diary knows who Imo is.
+	assert_str(Prompts.describe_moment({"day": "Friday", "time": "9pm", "weather": Seasons.FIRST_SNOW})).contains("make a wish")
+	assert_str(Prompts.describe_moment({"day": "Friday", "time": "9pm", "weather": "thick fog"})).not_contains("wish")
+	var the_owner := {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "x", "appearance": "x", "personality": "x", "speech_style": "blunt", "secret": "x"}
+	assert_str(str(Prompts.diary_messages(the_owner, Story.diary_facts([], {"owner": "Park Mi-sook"}))[1]["content"])).contains("they mean the owner")
+
+
+func test_the_door_and_the_chorus() -> void:
+	# Polite for a stranger, casual for an old friend.
+	assert_str(Talk.door_welcome("")).is_equal("어서오세요!")
+	assert_str(Talk.door_welcome("☆")).is_equal("또 오셨네요!")
+	assert_str(Talk.door_welcome("★★")).is_equal("왔어?")
+	assert_str(Talk.door_goodbye("")).is_equal("안녕히 가세요!")
+	assert_str(Talk.door_goodbye("★★")).is_equal("조심히 가!")
+	for said in [Talk.DOOR_THANKS, Talk.CHORUS] + Talk.DOOR_WELCOME.values() + Talk.DOOR_GOODBYE.values():
+		assert_str(Glossary.hangul_tip(str(said))).override_failure_message(str(said)).is_not_empty()
+	# Hwaiting, said, gets the counter joining in.
+	assert_bool(Talk.says_hwaiting("Hwaiting, Ji-ho! You've got this.")).is_true()
+	assert_bool(Talk.says_hwaiting("That's the fighting spirit.")).is_false()
+	assert_str(str(Captions.for_event("cheered_on", {})["kind"])).is_equal("hwaiting")
+
+
+func test_any_hangul_explains_itself() -> void:
+	# Everything the game writes in Hangul has a meaning to show: captions, reactions, stamps, days, titles, seasons.
+	var hangul: Array = []
+	for kind in Captions.CAPTIONS:
+		for wording in Captions.CAPTIONS[kind]["words"]:
+			hangul.append(str(wording[0]).replace("{term_hangul}", "언니"))  # (filled in with the term)
+	for mood in Captions.REACTIONS:
+		hangul.append_array(Captions.REACTIONS[mood]["hangul"])
+	for key in Story.DIARY_STAMPS:
+		hangul.append(str(Story.DIARY_STAMPS[key]["hangul"]))
+	hangul.append_array(Story.DAY_HANGUL.values())
+	for style in Story.RECAP_STYLES:
+		hangul.append(str(Story.RECAP_STYLES[style]["title"]).get_slice(" · ", 0))
+	for season in Seasons.SEASONS:
+		hangul.append(str(Seasons.SEASONS[season]["hangul"]))
+	for each in hangul:
+		assert_str(Glossary.hangul_tip(str(each))).override_failure_message("no meaning for %s" % each).is_not_empty()
+	# And every bit of Hangul in the game's code, wherever it's shown: a new caption or sign
+	# can't reach the screen unexplained. (Not names, which are told to the Glossary as they're
+	# known, the AI's prompts, which aren't shown, or the places the meanings come from.)
+	var not_shown := ["canned_ai.gd", "names.gd", "prompts.gd", "pipeline_test.gd", "hangul.gd", "glossary.gd", "address.gd", "menu.gd"]
+	var literal := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
+	var run := RegEx.create_from_string("[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+(?:[ 0-9]*[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+)*")
+	for path in _scripts("res://scripts"):
+		if not_shown.has(path.get_file()):
+			continue
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			if line.strip_edges().begins_with("#"):
+				continue
+			for found in literal.search_all(line.get_slice("  #", 0)):
+				var text := found.get_string(1).replace("\\n", "").replace("%d", "1")
+				for piece in run.search_all(text):
+					assert_str(Glossary.hangul_tip(piece.get_string())).override_failure_message("%s: no meaning for %s" % [path.get_file(), piece.get_string()]).is_not_empty()
+	# In a line: a hint round the Hangul, and the line reads the same.
+	var label: RichTextLabel = auto_free(RichTextLabel.new())
+	label.bbcode_enabled = true
+	var caption := Glossary.explain_hangul("[color=#ffd23f][b][TV] 짠! JJAN! BOTTOMS UP![/b][/color]")
+	assert_str(caption).contains("[hint=짠! jjan!: cheers!")
+	label.text = caption
+	assert_str(label.get_parsed_text()).is_equal("[TV] 짠! JJAN! BOTTOMS UP!")
+	assert_int(Glossary.explain_hangul("새벽 2시: 2AM").count("[hint=")).is_equal(1)  # (one run, digits and all)
+	# Names, once they're known; the menu and terms of address by their Hangul; anything else is still marked Korean.
+	Glossary.remember("박서준", "박서준: Park Seo-jun's name, in Hangul")
+	assert_str(Glossary.explain_hangul("[b]박서준 Park Seo-jun:[/b] Hi.")).contains("Park Seo-jun’s name, in Hangul")
+	assert_str(Glossary.hangul_tip("떡볶이")).contains("Tteokbokki")
+	assert_str(Glossary.hangul_tip("이모")).contains("Imo")
+	assert_str(Glossary.hangul_tip("잘 먹겠습니다")).contains("Jal Meokgesseumnida")
+	assert_str(Glossary.hangul_tip("잘")).is_empty()  # (not filed under its first word)
+	assert_str(Glossary.hangul_tip("안녕하세요")).contains("hello")
+	assert_str(Glossary.explain_hangul("뷁")).contains("Korean, in Hangul")
+	# Never inside another hint: a word's tip (with its Hangul) isn't hinted again.
+	var word := Glossary.explain("Thanks, Imo.")
+	assert_int(Glossary.explain_hangul(word).count("[hint=")).is_equal(1)
+	label.text = Glossary.explain_hangul(word)
+	assert_str(label.get_parsed_text()).is_equal("Thanks, Imo.")
+
+
+## Every script under a folder, its subfolders too.
+func _scripts(folder: String) -> Array:
+	var found: Array = []
+	for file in DirAccess.get_files_at(folder):
+		if file.ends_with(".gd"):
+			found.append(folder.path_join(file))
+	for sub in DirAccess.get_directories_at(folder):
+		found.append_array(_scripts(folder.path_join(sub)))
+	return found
 
 
 func test_every_hover_is_a_sensible_width() -> void:

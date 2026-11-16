@@ -55,6 +55,7 @@ var openings := {"order": {}, "owner": {}}
 var order_situations := 0  # first orders given a situation (Talk.order_moment and/or a craving)
 var opener_situations := 0  # the owner's first proper words given a situation (Talk.opener_moment)
 var sides_added := 0  # sides an order line asked for that the AI left out, added (Orders.add_mentioned_sides)
+var unsaid_dropped := 0  # things in an order the line never asked for, taken off (Orders.drop_unsaid)
 ## Out in the street and coming in: who walked by (alone, in twos, in threes), on phones,
 ## under which umbrellas, sharing one, running for it; customers under umbrellas or running in.
 var street := {}
@@ -353,7 +354,7 @@ func panel_text(seated: int, cooking: int) -> String:
 		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
 	lines.append("")
 	lines.append("[b]FOOD[/b]")
-	lines.append("Orders %d first, %d more%s · %s" % [first_orders, extra_orders, (" · sides added %d" % sides_added) if sides_added > 0 else "", counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
+	lines.append("Orders %d first, %d more%s · %s" % [first_orders, extra_orders, ((" · sides added %d" % sides_added) if sides_added > 0 else "") + ((" · unsaid dropped %d" % unsaid_dropped) if unsaid_dropped > 0 else ""), counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
 	if not specials.is_empty():
 		lines.append("Specials: %s · cravings given %d" % [" · ".join(PackedStringArray(specials.map(func(id): return "%s %d ordered" % [id, int(ordered.get(id, 0))]))), cravings])
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
@@ -408,7 +409,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
-			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added,
+			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},

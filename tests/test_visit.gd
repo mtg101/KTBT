@@ -3,6 +3,7 @@ extends "res://tests/support/bar_test.gd"
 ## simulated mouse input, and check what happens. The AI is offline mode (the canned AI),
 ## sometimes with scripted replies, so these run without Ollama, quickly and repeatably.
 
+const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
 const Ai = preload("res://scripts/ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
@@ -735,6 +736,55 @@ func test_the_night_has_neon_and_steam() -> void:
 	scene._add_dish(guest, "soju")
 	assert_object(guest.food_row.get_child(guest.food_row.get_child_count() - 1).find_child("Steam", true, false)).is_not_null()
 	assert_object(guest.drinks_row.get_child(guest.drinks_row.get_child_count() - 1).find_child("Steam", true, false)).is_null()
+	# Each drawn from what it comes in.
+	assert_array(guest.food_row.get_child(guest.food_row.get_child_count() - 1).shapes).is_not_empty()
+	assert_str(guest.food_row.get_child(guest.food_row.get_child_count() - 1).tooltip_text).is_equal("Tteokbokki")
+
+
+func test_the_door_the_chorus_and_the_double_take() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).is_true()
+	assert_str(_transcript(runner)).contains("\"어서오세요!\"")  # strangers, welcomed politely
+	var first = scene._guests[0]
+	var second = scene._guests[1]
+	# Someone says hwaiting: the counter joins in, with a caption.
+	scene._cheer_along(first, "Hwaiting, you've got this!", [])
+	assert_str(_transcript(runner)).contains("Everyone at the counter joins in")
+	assert_int(int(scene._stats.event_counts.get("cheered_on", 0))).is_equal(1)
+	assert_int(int(scene._stats.captions.get("hwaiting", 0))).is_equal(1)
+	assert_bool(second.transcript.any(func(entry): return str(entry.get("action", "")).contains("Hwaiting"))).is_true()
+	scene._cheer_along(first, "Have a good night.", [])
+	assert_int(int(scene._stats.event_counts.get("cheered_on", 0))).is_equal(1)  # (only when it's said)
+	# A shock: everyone else who heard it is stunned for their next line.
+	var said_it := str(first.customer["name"])
+	scene._stun_listeners(said_it, [said_it, str(second.customer["name"]), str(scene._owner["name"])])
+	assert_str(second.stunned).contains("hardly believe")
+	assert_str(scene._owner_stunned).contains("hardly believe")
+	assert_str(first.stunned).is_empty()
+
+
+func test_the_city_behind_the_tent_and_tonights_date() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var city = runner.find_child("Skyline", true, false)
+	assert_array(city.buildings).is_not_empty()
+	city.set_minutes(21 * 60)
+	var at_nine: int = city.lit_count()
+	city.set_minutes(26 * 60)
+	assert_int(city.lit_count()).is_less(at_nine)  # windows going dark
+	var apt: Dictionary = city.buildings.filter(func(building): return building["kind"] == "apt")[0]
+	var over := Vector2(float(apt["x"]) + 10, city.ground - 5)
+	assert_str(city._get_tooltip(over)).contains("%d동" % int(apt["number"])).contains("APT")  # Korean on screen explains itself
+	# Tonight's date, in the season (the tests' calendar starts on 15 November).
+	assert_str(str(scene._night_date["text"])).is_equal("15 November")
+	assert_str((runner.find_child("MomentLabel", true, false) as Label).text).contains("15 Nov")
+	assert_str(_transcript(runner)).contains("15 November, 6:00pm")
+	assert_bool(Seasons.options(318).map(func(option): return option["text"]).has(scene._night_weather)).is_true()
+	assert_str(str(Game.bar["last_weather"])).is_equal(scene._night_weather)
+	assert_int(int(Game.bar["first_date"])).is_equal(318)
 
 
 func test_the_cat_wanders_by_itself() -> void:

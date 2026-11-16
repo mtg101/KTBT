@@ -6,6 +6,7 @@ extends RefCounted
 const Address = preload("res://scripts/rules/address.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Hangul = preload("res://scripts/rules/hangul.gd")
 
 ## Words that aren't on the menu or terms of address. "spellings" are lower case; the first
 ## one, capitalised, is how the hover names it.
@@ -37,6 +38,9 @@ const WORDS := {
 	"mianhae": {"spellings": ["mianhae", "mianhaeyo", "mianhamnida", "joesonghamnida"], "hangul": "미안해", "means": "sorry (mianhae to a friend; joesonghamnida very politely)."},
 	"gwaenchana": {"spellings": ["gwaenchana", "gwaenchanayo", "gwenchana", "kwenchana"], "hangul": "괜찮아", "means": "it's okay / are you okay?"},
 	"saranghae": {"spellings": ["saranghae", "saranghaeyo"], "hangul": "사랑해", "means": "I love you."},
+	"mwo": {"spellings": ["mwo", "mwoya", "mwo-ya", "mweo", "mwoh"], "hangul": "뭐", "means": "what?! The K-drama double-take (mwoya: what is this?!)."},
+	"mworago": {"spellings": ["mworago", "mwolago", "mwo-rago"], "hangul": "뭐라고", "means": "what did you say?! (can't believe their ears)."},
+	"heol": {"spellings": ["heol"], "hangul": "헐", "means": "whoa, what?! (stunned, or appalled)."},
 	"jebal": {"spellings": ["jebal"], "hangul": "제발", "means": "please! (begging)."},
 	"eotteoke": {"spellings": ["eotteoke", "eotteokhae", "otteoke"], "hangul": "어떡해", "means": "what do I do?! (panicking)."},
 	"jeogiyo": {"spellings": ["jeogiyo", "yeogiyo"], "hangul": "저기요", "means": "excuse me! (calling someone over)."},
@@ -67,6 +71,10 @@ const WORD_COLOUR := "e8d9a8"
 
 static var _lookup := {}
 static var _pattern: RegEx = null
+static var _known_hangul := {}  # Hangul -> its whole hover tip (see hangul_tip)
+static var _remembered := {}  # names in Hangul, as they're known (see remember)
+static var _hangul_pattern: RegEx = null
+static var _tag_pattern: RegEx = null
 
 
 ## Every explained spelling (lower case): {"tip": hover text, "colour": hex, "word": the word
@@ -121,6 +129,97 @@ static func explain(bbcode: String, names: Array = [], ink: String = "") -> Stri
 			out += Text.hint(str(known["tip"]), "[color=#%s]%s[/color]" % [known["colour"] if ink == "" else ink, word])
 		at = found.get_end()
 	return out + bbcode.substr(at)
+
+
+## Any Hangul in a line of BBCode given a hover hint saying what it is (so you can tell a
+## translation from something else): the game's own (Hangul.MEANINGS), the menu, pocha words
+## and terms of address, and names as they're known (see remember). Steps round tags, and
+## leaves anything already inside a hint alone. A run it doesn't know is still marked as
+## Korean.
+static func explain_hangul(bbcode: String) -> String:
+	if _tag_pattern == null:
+		_tag_pattern = RegEx.create_from_string("\\[[^\\]]*\\]")
+	var out := ""
+	var at := 0
+	var inside := 0  # hints we're in
+	for tag in _tag_pattern.search_all(bbcode):
+		var text := bbcode.substr(at, tag.get_start() - at)
+		out += text if inside > 0 else _hint_hangul(text)
+		var said := tag.get_string()
+		if said.begins_with("[hint"):
+			inside += 1
+		elif said == "[/hint]":
+			inside = maxi(0, inside - 1)
+		out += said
+		at = tag.get_end()
+	var rest := bbcode.substr(at)
+	return out + (rest if inside > 0 else _hint_hangul(rest))
+
+
+## A name (or the bar's) in Hangul, as it's known: its hover says whose it is.
+static func remember(hangul: String, tip: String) -> void:
+	if hangul.strip_edges() != "":
+		_remembered[hangul.strip_edges()] = tip
+
+
+## The hover for a run of Hangul: what it says, as fully as the game knows. "" if it has
+## nothing on any of it (the caller still marks it as Korean).
+static func hangul_tip(run: String) -> String:
+	var whole := _hangul_known(run)
+	if whole != "":
+		return whole
+	var parts := PackedStringArray()
+	var any := false
+	for word in run.split(" ", false):
+		var known := _hangul_known(word)
+		any = any or known != ""
+		parts.append(known if known != "" else word)
+	return "; ".join(parts) if any else ""
+
+
+static func _hangul_known(run: String) -> String:
+	var bare := _bare(run)
+	if _remembered.has(bare):
+		return str(_remembered[bare])
+	if _known_hangul.is_empty():
+		for key in Hangul.MEANINGS:
+			_known_hangul[_bare(str(key))] = "%s %s" % [key, Hangul.MEANINGS[key]]
+		# The menu, pocha words and terms of address, by their own Hangul ("안녕(하세요)" as
+		# 안녕 and 안녕하세요 both).
+		var sources: Array = []
+		for item in Menu.ITEMS:
+			sources.append([str(item["hangul"]), "%s %s: %s" % [item["hangul"], item["name"], item["desc"]]])
+		for id in WORDS:
+			sources.append([str(WORDS[id]["hangul"]), "%s %s: %s" % [WORDS[id]["hangul"], str(WORDS[id]["spellings"][0]).capitalize() if not WORDS[id]["spellings"].is_empty() else id, WORDS[id]["means"]]])
+		for id in Address.TERMS:
+			sources.append([str(Address.TERMS[id]["hangul"]), "%s %s: %s" % [Address.TERMS[id]["hangul"], str(id).capitalize(), Address.TERMS[id]["means"]]])
+		for source in sources:
+			var hangul := str(source[0])
+			for key in [hangul, hangul.replace("(", "").replace(")", ""), hangul.get_slice("(", 0)]:
+				if key != "" and not _known_hangul.has(_bare(key)):
+					_known_hangul[_bare(key)] = str(source[1])
+	return str(_known_hangul.get(bare, ""))
+
+
+## Hangul without the punctuation round it ("만석!" and "만석" are the same word).
+static func _bare(run: String) -> String:
+	return run.strip_edges().rstrip("!?~…. ").lstrip("(").rstrip(")")
+
+
+static func _hint_hangul(text: String) -> String:
+	if _hangul_pattern == null:
+		# A run of Hangul (syllables, or ㅋㅋㅋ), with spaces or digits between its words, and
+		# the punctuation after it ("새벽 2시", "주문 폭주!").
+		_hangul_pattern = RegEx.create_from_string("[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+(?:[ 0-9]*[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+)*[!?~…]*")
+	var out := ""
+	var at := 0
+	for found in _hangul_pattern.search_all(text):
+		var run := found.get_string()
+		out += text.substr(at, found.get_start() - at)
+		var tip := hangul_tip(run)
+		out += Text.hint(tip if tip != "" else "%s: Korean, in Hangul" % run, run)
+		at = found.get_end()
+	return out + text.substr(at)
 
 
 ## The Korean words in some plain text, one entry per time it's said (as lookup()'s "word").

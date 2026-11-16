@@ -158,7 +158,7 @@ static func _read(path: String) -> Dictionary:
 		if not data.has(key):
 			return {}
 	# JSON has no integers, so whole numbers come back as floats: put them back.
-	for key in ["version", "takings", "visits", "nights", "first_day", "created", "last_played"]:
+	for key in ["version", "takings", "visits", "nights", "first_day", "first_date", "snowed_winter", "created", "last_played"]:
 		if data.has(key):
 			data[key] = int(data[key])
 	if data["owner"] is Dictionary and data["owner"].has("age"):

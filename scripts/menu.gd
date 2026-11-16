@@ -5,24 +5,25 @@ extends RefCounted
 ## "hangul" is its name in Hangul (for the hover hints and, later, the menu board).
 ## Optional: "aliases" (other names the AI might use) and "extra_only" (only ordered later in a
 ## visit, e.g. fried rice made in the leftover sauce of a main dish).
+## "art" is how it looks on the table: what it comes in and what's in it (see rules/dish_art.gd).
 ## "cook" is how many game minutes a dish takes on the stove. There's one cook, so cooked
 ## dishes queue; anything without it (drinks, odeng from the simmering pot, a bowl of rice)
 ## comes straight away.
 
 const ITEMS := [
-	{"id": "soju", "hangul": "소주", "name": "Soju", "desc": "the classic green bottle", "price": 5000, "kind": "drink", "color": "3fae6a"},
-	{"id": "makgeolli", "hangul": "막걸리", "name": "Makgeolli", "desc": "milky rice wine", "price": 6000, "kind": "drink", "color": "e9e4d4"},
-	{"id": "beer", "hangul": "맥주", "name": "Beer", "desc": "a cold lager", "price": 5000, "kind": "drink", "color": "e0b23c"},
-	{"id": "somaek", "hangul": "소맥", "name": "Somaek", "desc": "a shot of soju dropped into beer", "price": 9000, "kind": "drink", "color": "c9d86a", "aliases": ["somaeck", "somac", "so maek"]},
-	{"id": "tteokbokki", "hangul": "떡볶이", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6, "aliases": ["rice cakes", "rice cake", "spicy rice cakes"]},
-	{"id": "odeng", "hangul": "오뎅", "name": "Odeng", "desc": "fish cake skewers in hot broth", "price": 8000, "kind": "food", "portion": "side", "color": "c9a26b"},
-	{"id": "sundae", "hangul": "순대", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a", "cook": 4},
-	{"id": "dakgalbi", "hangul": "닭갈비", "name": "Dakgalbi", "desc": "spicy stir-fried chicken, with lettuce leaves to wrap it in", "price": 18000, "kind": "food", "portion": "main", "color": "c4572e", "cook": 12},
-	{"id": "pajeon", "hangul": "파전", "name": "Pajeon", "desc": "spring onion pancake", "price": 15000, "kind": "food", "portion": "main", "color": "d9b44a", "cook": 9},
-	{"id": "ramyeon", "hangul": "라면", "name": "Ramyeon", "desc": "instant noodles, made to order", "price": 5000, "kind": "food", "portion": "main", "color": "e07a3a", "cook": 5},
-	{"id": "gyeran_mari", "hangul": "계란말이", "name": "Gyeran-mari", "desc": "rolled omelette", "price": 9000, "kind": "food", "portion": "side", "color": "f2d36b", "cook": 6},
-	{"id": "gonggibap", "hangul": "공기밥", "name": "Gonggibap", "desc": "a bowl of steamed rice", "price": 1000, "kind": "food", "portion": "side", "color": "f4f1e8", "aliases": ["rice", "steamed rice", "bowl of rice"]},
-	{"id": "bokkeumbap", "hangul": "볶음밥", "name": "Bokkeumbap", "desc": "fried rice made in the leftover sauce of a main dish; only ordered later, once a main is on the table", "price": 3000, "kind": "food", "portion": "side", "color": "c98a3a", "aliases": ["fried rice"], "extra_only": true, "cook": 6},
+	{"id": "soju", "hangul": "소주", "name": "Soju", "desc": "the classic green bottle", "price": 5000, "kind": "drink", "color": "3fae6a", "art": {"vessel": "bottle"}},
+	{"id": "makgeolli", "hangul": "막걸리", "name": "Makgeolli", "desc": "milky rice wine", "price": 6000, "kind": "drink", "color": "e9e4d4", "aliases": ["makkeolli", "makgeoli", "milky rice wine", "rice wine"], "art": {"vessel": "kettle"}},
+	{"id": "beer", "hangul": "맥주", "name": "Beer", "desc": "a cold lager", "price": 5000, "kind": "drink", "color": "e0b23c", "aliases": ["lager", "maekju"], "art": {"vessel": "glass", "foam": true}},
+	{"id": "somaek", "hangul": "소맥", "name": "Somaek", "desc": "a shot of soju dropped into beer", "price": 9000, "kind": "drink", "color": "c9d86a", "aliases": ["somaeck", "somac", "so maek"], "art": {"vessel": "glass", "foam": true}},
+	{"id": "tteokbokki", "hangul": "떡볶이", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6, "aliases": ["rice cakes", "rice cake", "spicy rice cakes"], "art": {"vessel": "plate", "fill": "d8452f", "bits": "cylinders", "bits_colour": "f3e3cf", "garnish": "spring_onion"}},
+	{"id": "odeng", "hangul": "오뎅", "name": "Odeng", "desc": "fish cake skewers in hot broth", "price": 8000, "kind": "food", "portion": "side", "color": "c9a26b", "aliases": ["fish cake", "fish cakes", "fishcake", "fishcakes", "eomuk"], "art": {"vessel": "cup", "bits": "skewers"}},
+	{"id": "sundae", "hangul": "순대", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a", "cook": 4, "aliases": ["blood sausage", "soondae"], "art": {"vessel": "plate", "bits": "slices", "garnish": "sesame"}},
+	{"id": "dakgalbi", "hangul": "닭갈비", "name": "Dakgalbi", "desc": "spicy stir-fried chicken, with lettuce leaves to wrap it in", "price": 18000, "kind": "food", "portion": "main", "color": "c4572e", "cook": 12, "aliases": ["spicy stir-fried chicken", "stir-fried chicken", "chicken", "dak galbi"], "art": {"vessel": "pan", "fill": "c4572e", "bits": "chunks", "bits_colour": "eab07a", "garnish": "lettuce"}},
+	{"id": "pajeon", "hangul": "파전", "name": "Pajeon", "desc": "spring onion pancake, with a soy dipping sauce", "price": 15000, "kind": "food", "portion": "main", "color": "d9b44a", "cook": 9, "aliases": ["spring onion pancake", "green onion pancake", "pancake", "pa jeon"], "art": {"vessel": "plate", "bits": "pancake", "garnish": "spring_onion"}},
+	{"id": "ramyeon", "hangul": "라면", "name": "Ramyeon", "desc": "instant noodles, made to order", "price": 5000, "kind": "food", "portion": "main", "color": "e07a3a", "cook": 5, "aliases": ["ramen", "ramyun", "instant noodles", "noodles"], "art": {"vessel": "pot", "fill": "e07a3a", "bits": "noodles", "bits_colour": "f2d38a"}},
+	{"id": "gyeran_mari", "hangul": "계란말이", "name": "Gyeran-mari", "desc": "rolled omelette", "price": 9000, "kind": "food", "portion": "side", "color": "f2d36b", "cook": 6, "aliases": ["rolled omelette", "omelette", "egg roll", "gyeranmari"], "art": {"vessel": "plate", "bits": "rolls"}},
+	{"id": "gonggibap", "hangul": "공기밥", "name": "Gonggibap", "desc": "a bowl of steamed rice", "price": 1000, "kind": "food", "portion": "side", "color": "f4f1e8", "aliases": ["rice", "steamed rice", "bowl of rice"], "art": {"vessel": "steel_bowl", "bits": "mound"}},
+	{"id": "bokkeumbap", "hangul": "볶음밥", "name": "Bokkeumbap", "desc": "fried rice made in the leftover sauce of a main dish; only ordered later, once a main is on the table", "price": 3000, "kind": "food", "portion": "side", "color": "c98a3a", "aliases": ["fried rice"], "extra_only": true, "cook": 6, "art": {"vessel": "pan", "bits": "mound", "garnish": "seaweed"}},
 ]
 
 
