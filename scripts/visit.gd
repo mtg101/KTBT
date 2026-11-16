@@ -20,6 +20,7 @@ extends Control
 ## the AI owns the flavour (who the people are and what they say).
 
 const Ai = preload("res://scripts/ai.gd")
+const TentView = preload("res://scripts/bar/tent_view.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -86,8 +87,6 @@ const OWNER_BESIDE_X := -165.0  # where the owner stands to see to a stool (just
 # Off-stage spots either side (far enough out that the name tag is hidden too).
 const OFFSCREEN_LEFT_X := -200.0
 const OFFSCREEN_RIGHT_X := 2072.0
-const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
-const CLOSING_GLOW := 0.6  # the tent's glow with one bulb off
 const PEEK_X := 865.0  # where a passer-by stops to look in: the gap between the second and third stools
 
 ## The test hooks are in test_hooks.gd (as Hooks.<name>): tests set them; the game only reads them.
@@ -261,7 +260,6 @@ var _loading_opened := 0.0  # real seconds when the loading screen went up (for 
 ## night's stats exist, and handed to them when it starts (NightStats.story).
 var _before_night := {}
 var _look_offer: Dictionary = {}  # the colours and shapes a new bar is offered
-var _tent: Array[CanvasItem] = []  # the tent's pieces: hidden until its look is known
 var _strollers := 0  # people walking along the street, not coming in (also names their nodes)
 var _stroll_next := 0.0  # game minutes until the next one
 const STROLL_Y := CUSTOMER_Y + 38  # the pavement: a little lower (nearer to us) than the stools
@@ -336,30 +334,14 @@ var _owner_node: Control
 var _owner_tag: Label
 var _stove_row: HBoxContainer
 # The look of the tent and the night (placeholder art, drawn in code)
-var _sky: ColorRect  # behind everything: dusk to deep night
 ## Its own dice for scenery that comes and goes by itself (the neon sign, steam, the cat
 ## prowling), so it never shifts the game's own rolls (tests fix those with a seed).
 var _scenery_dice := RandomNumberGenerator.new()
 var _neon: Label  # the karaoke sign on the pillar
-var _glow: ColorRect  # the tent's warm glow
 var _skyline: SkylineView  # the city behind the tent
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
-var _bulbs: Array = []  # the hanging bulbs (they swing)
-var _bulb_lights: Array = []
-var _sways: Array = []  # the bulbs' swinging (replaced each night)
-var _weather_back: Control  # rain or snow falling behind the tent
-var _weather_front: Control  # fog, haze and drips, in front
 var _weather_kind := ""
-var _roof: Polygon2D
-var _roof_edge: ColorRect
-var _roof_stripes: Control
-var _decor_back: Control  # the bar's touches: on the poles and back wall...
-var _decor_counter: Control  # ...on the counter...
-var _decor_roof: Control  # ...and hanging from the tarp
-var _sign: Control
-var _sign_board: ColorRect
-var _sign_hangul: Label
-var _sign_english: Label
+var _tent_view := TentView.new(STAGE_SIZE)  # the tent's look: tarp, sign, touches, sky, light, bulbs, weather (scripts/bar/tent_view.gd)
 var _drinks_rows: Array = []  # one per stool
 var _food_rows: Array = []
 
@@ -898,8 +880,8 @@ func _show_closing_up() -> void:
 	var pop := _closed_sign.create_tween()
 	pop.tween_property(_closed_sign, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# The far bulb flickers, and goes off.
-	if not _bulb_lights.is_empty():
-		var bulb: ColorRect = _bulb_lights[-1]
+	if not _tent_view.bulb_lights.is_empty():
+		var bulb: ColorRect = _tent_view.bulb_lights[-1]
 		var off := bulb.create_tween()
 		for k in 2:
 			off.tween_property(bulb, "modulate:a", 0.25, 0.06)
@@ -4102,19 +4084,19 @@ func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:
 ## are added as they arrive, so they stand in front of the counter).
 func _build_stage(stage: Control) -> void:
 	var w := STAGE_SIZE.x
-	_sky = _rect(stage, Vector2.ZERO, STAGE_SIZE, Color("3c3a72"))  # the night sky, changing with the hour
-	_sky.name = "Sky"
+	_tent_view.sky = _rect(stage, Vector2.ZERO, STAGE_SIZE, Color("3c3a72"))  # the night sky, changing with the hour
+	_tent_view.sky.name = "Sky"
 	_skyline = SkylineView.new()
 	_skyline.name = "Skyline"
 	_skyline.size = STAGE_SIZE
 	stage.add_child(_skyline)
-	_weather_back = _layer(stage, "WeatherBack")
+	_tent_view.weather_back = _layer(stage, "WeatherBack")
 	_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a"))  # the overpass
 	_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36"))  # pillars
 	_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36"))
 	_build_neon(stage)
-	_glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
-	_glow.name = "Glow"
+	_tent_view.glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
+	_tent_view.glow.name = "Glow"
 	_rect(stage, Vector2(0, 372), Vector2(w, 8), Color("2a2840"))  # wet street
 	var tent_from := stage.get_child_count()  # from here on is the tent (the cat and sign aside)
 
@@ -4124,13 +4106,13 @@ func _build_stage(stage: Control) -> void:
 		bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(bulb)
 		_rect(bulb, Vector2(-1, 0), Vector2(2, 36), Color("55536b"))  # bulb wire
-		_bulb_lights.append(_rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT))  # the bulb
-		_bulbs.append(bulb)
-	_decor_back = _layer(stage, "DecorBack")
+		_tent_view.bulb_lights.append(_rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT))  # the bulb
+		_tent_view.bulbs.append(bulb)
+	_tent_view.decor_back = _layer(stage, "DecorBack")
 	_menu_board = MenuBoard.new()
 	_menu_board.name = "MenuBoard"
 	stage.add_child(_menu_board)
-	stage.move_child(_menu_board, _bulbs[0].get_index())  # (behind the bulbs, which swing in front)
+	stage.move_child(_menu_board, _tent_view.bulbs[0].get_index())  # (behind the bulbs, which swing in front)
 	_menu_board.opened.connect(func(): _stats.menu_opened += 1)
 	_build_fridge(stage)
 
@@ -4145,7 +4127,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))  # the stove
 	_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a"))  # a flame
 	_build_odeng_pot(stage)
-	_decor_counter = _layer(stage, "DecorCounter")
+	_tent_view.decor_counter = _layer(stage, "DecorCounter")
 
 	# What's cooking (and what's ready to carry over), at the stove.
 	_stove_row = HBoxContainer.new()
@@ -4179,25 +4161,25 @@ func _build_stage(stage: Control) -> void:
 		_rect(stage, Vector2(x - 35, 340), Vector2(70, 12), Color("9a9ab0"))  # stool
 		_rect(stage, Vector2(x - 6, 352), Vector2(12, 20), Color("6e6e86"))
 
-	_roof = Polygon2D.new()
-	_roof.name = "Tarp"
-	_roof.polygon = PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
-	_roof.color = ACCENT
+	_tent_view.roof = Polygon2D.new()
+	_tent_view.roof.name = "Tarp"
+	_tent_view.roof.polygon = PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
+	_tent_view.roof.color = ACCENT
 	_build_cat(stage)
-	stage.add_child(_roof)
-	_roof_stripes = _layer(stage, "TarpStripes")
-	_roof_edge = _rect(stage, Vector2(22, 112), Vector2(w - 44, 10), Color("c8612a"))
-	_decor_roof = _layer(stage, "DecorRoof")
+	stage.add_child(_tent_view.roof)
+	_tent_view.roof_stripes = _layer(stage, "TarpStripes")
+	_tent_view.roof_edge = _rect(stage, Vector2(22, 112), Vector2(w - 44, 10), Color("c8612a"))
+	_tent_view.decor_roof = _layer(stage, "DecorRoof")
 	for k in range(tent_from, stage.get_child_count()):
 		var piece := stage.get_child(k) as CanvasItem
 		if piece != _owner_node and piece != _cat_node:
-			_tent.append(piece)
-	_glow.visible = false
-	for piece in _tent:
+			_tent_view.tent.append(piece)
+	_tent_view.glow.visible = false
+	for piece in _tent_view.tent:
 		piece.visible = false  # until the bar's look is known: no template tent while the AI thinks
-	_build_sign(stage)
-	_weather_front = _layer(stage, "WeatherFront")
-	_weather_front.z_index = 2  # in front of everyone
+	_tent_view.build_sign(stage)
+	_tent_view.weather_front = _layer(stage, "WeatherFront")
+	_tent_view.weather_front.z_index = 2  # in front of everyone
 	_bubble_layer = _layer(stage, "Bubbles")
 	_bubble_layer.z_index = 4  # in front of the tarp, the weather and the owner's name
 	_caption_layer = _layer(stage, "Captions")
@@ -4332,263 +4314,21 @@ func _layer(stage: Control, layer_name: String) -> Control:
 
 # --- How the tent and the night look ------------------------------------------------
 
-## The sign over the tarp: the name in Hangul, big, with the romanised name under it.
-func _build_sign(stage: Control) -> void:
-	_sign = Control.new()
-	_sign.name = "Sign"
-	_sign.position = Vector2(STAGE_SIZE.x / 2 - 210, 46)
-	_sign.size = Vector2(420, 62)
-	_sign.mouse_filter = Control.MOUSE_FILTER_STOP
-	_sign.visible = false
-	stage.add_child(_sign)
-	_sign_board = _rect(_sign, Vector2.ZERO, _sign.size, Color("7a5230"))
-	_sign_hangul = Label.new()
-	_sign_hangul.name = "SignHangul"
-	_sign_hangul.position = Vector2(0, 2)
-	_sign_hangul.size = Vector2(420, 38)
-	_sign_hangul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sign_hangul.add_theme_font_size_override("font_size", 28)
-	_sign.add_child(_sign_hangul)
-	_sign_english = Label.new()
-	_sign_english.name = "SignEnglish"
-	_sign_english.position = Vector2(0, 38)
-	_sign_english.size = Vector2(420, 20)
-	_sign_english.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sign_english.add_theme_font_size_override("font_size", 13)
-	_sign.add_child(_sign_english)
-
-
-## The bar's look (saved with it): tarp, sign and touches. Bars from before looks get a
-## plain one.
+## The bar's look (saved with it): tarp, sign and touches (see TentView).
 func _show_look() -> void:
-	var look: Dictionary = Game.bar.get("look", {})
-	if look.is_empty():
-		look = BarLook.default_bar_look()
-	_glow.visible = true
-	for piece in _tent:
-		piece.visible = true
-	var tarp: Array = BarLook.BAR_TARPS.get(look["tarp"], BarLook.BAR_TARPS["orange"])
-	var colour := Color(tarp[0])
-	var shape := str(look.get("shape", "classic"))
-	_roof.polygon = _tent_shape(shape)
-	_roof.color = colour
-	_roof_edge.color = colour.darkened(0.2)
-	_roof_edge.visible = shape != "awning"
-	_clear(_roof_stripes)
-	var w := STAGE_SIZE.x
-	if str(tarp[1]) != "":  # stripes, cut to the shape of the cover
-		var stripes := 14
-		for k in stripes:
-			var a := 22 + (k + 0.25) / stripes * (w - 44)
-			var b := 22 + (k + 0.6) / stripes * (w - 44)
-			var band := PackedVector2Array([Vector2(a, 0), Vector2(b, 0), Vector2(b, 140), Vector2(a, 140)])
-			for piece in Geometry2D.intersect_polygons(band, _roof.polygon):
-				var stripe := Polygon2D.new()
-				stripe.polygon = piece
-				stripe.color = Color(tarp[1])
-				_roof_stripes.add_child(stripe)
-	match shape:
-		"scalloped":  # a row of scallops hanging from the front edge
-			for x in range(22, int(w) - 22, 52):
-				var scallop := Polygon2D.new()
-				var points := PackedVector2Array()
-				for step in 9:
-					var t: float = step / 8.0
-					points.append(Vector2(x + t * 52, 122 + sin(t * PI) * 14))
-				scallop.polygon = points
-				scallop.color = colour.darkened(0.2)
-				_roof_stripes.add_child(scallop)
-		"awning":  # a zigzag valance under the flat awning
-			for x in range(22, int(w) - 22, 40):
-				var tooth := Polygon2D.new()
-				tooth.polygon = PackedVector2Array([Vector2(x, 112), Vector2(x + 40, 112), Vector2(x + 20, 130)])
-				tooth.color = Color(tarp[1]) if str(tarp[1]) != "" else colour.darkened(0.25)
-				_roof_stripes.add_child(tooth)
-	var style: Array = BarLook.SIGN_STYLES.get(look["sign"], BarLook.SIGN_STYLES["wood"])
-	_sign_board.color = Color(style[0])
-	for label in [_sign_hangul, _sign_english]:
-		label.add_theme_color_override("font_color", Color(style[1]))
-		if look["sign"] == "neon":  # a glowing tube: a soft halo round the letters
-			label.add_theme_constant_override("outline_size", 8)
-			label.add_theme_color_override("font_outline_color", Color(style[1]).darkened(0.5))
-		else:
-			label.add_theme_constant_override("outline_size", 0)
-	_sign_hangul.text = str(look["hangul"])
-	Glossary.remember(str(look["hangul"]), "%s: the bar's name, %s%s" % [look["hangul"], Game.bar.get("name", ""), (" (%s)" % Game.bar["name_meaning"]) if str(Game.bar.get("name_meaning", "")) != "" else ""])
-	_sign_english.text = str(Game.bar.get("name", "")).to_upper()
-	_sign.tooltip_text = Text.tip("%s · %s (%s)" % [look["hangul"], Game.bar.get("name", ""), Game.bar.get("name_meaning", "")])
-	_sign.visible = true
-	for layer in [_decor_back, _decor_counter, _decor_roof]:
-		_clear(layer)
-	for id in look["touches"]:
-		_add_touch(str(id))
+	_tent_view.show_look(Game.bar)
 
 
-## The outline of the tent's cover, by shape (the front edge is always at y = 112).
-func _tent_shape(shape: String) -> PackedVector2Array:
-	var w := STAGE_SIZE.x
-	match shape:
-		"peaked":
-			return PackedVector2Array([Vector2(22, 112), Vector2(160, 62), Vector2(w / 2, 26), Vector2(w - 160, 62), Vector2(w - 22, 112)])
-		"awning":
-			return PackedVector2Array([Vector2(22, 72), Vector2(w - 22, 72), Vector2(w - 22, 112), Vector2(22, 112)])
-		"rounded":
-			var points := PackedVector2Array()
-			for step in 25:
-				var t: float = step / 24.0
-				points.append(Vector2(22 + t * (w - 44), 112 - sin(t * PI) * 80))
-			return points
-	return PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
-
-
-func _clear(node: Node) -> void:
-	for child in node.get_children():
-		node.remove_child(child)
-		child.queue_free()
-
-
-## One of the bar's little touches, as simple shapes.
-func _add_touch(id: String) -> void:
-	var w := STAGE_SIZE.x
-	match id:
-		"string_lights":
-			var colours := ["ffd27f", "ff7aa8", "7ad3ff", "a8ff7a"]
-			var i := 0
-			for x in range(40, int(w) - 40, 56):
-				_rect(_decor_roof, Vector2(x, 120), Vector2(6, 6), Color(colours[i % colours.size()]))
-				i += 1
-		"lanterns":
-			for x in [330.0, w / 2, w - 330.0]:
-				_rect(_decor_roof, Vector2(x - 1, 122), Vector2(2, 8), Color("55536b"))
-				_rect(_decor_roof, Vector2(x - 11, 130), Vector2(22, 28), Color("d8352f"))
-				_rect(_decor_roof, Vector2(x - 11, 142), Vector2(22, 3), Color("f2c14a"))
-		"radio":
-			_rect(_decor_counter, Vector2(w - 270, 226), Vector2(42, 24), Color("6b4a2e"))
-			_rect(_decor_counter, Vector2(w - 262, 232), Vector2(12, 12), Color("2b2a33"))
-			_rect(_decor_counter, Vector2(w - 244, 234), Vector2(10, 4), Color("e0c48a"))
-			_rect(_decor_counter, Vector2(w - 236, 208), Vector2(2, 18), Color("9a9ab0"))
-		"plants":
-			for x in [92.0, w - 128.0]:
-				_rect(_decor_back, Vector2(x + 6, 352), Vector2(24, 20), Color("8a5a33"))
-				_rect(_decor_back, Vector2(x, 318), Vector2(36, 36), Color("3f8f4a"))
-				_rect(_decor_back, Vector2(x + 8, 304), Vector2(20, 18), Color("4fa85a"))
-		"calendar":
-			_rect(_decor_back, Vector2(49, 160), Vector2(26, 34), Color("f2ead8"))
-			_rect(_decor_back, Vector2(49, 160), Vector2(26, 7), Color("c8443a"))
-		"lucky_cat":
-			_rect(_decor_counter, Vector2(w - 205, 230), Vector2(18, 20), Color("f5f2ea"))
-			_rect(_decor_counter, Vector2(w - 203, 222), Vector2(14, 10), Color("f5f2ea"))
-			_rect(_decor_counter, Vector2(w - 188, 216), Vector2(5, 12), Color("f5f2ea"))  # the waving paw
-			_rect(_decor_counter, Vector2(w - 205, 233), Vector2(18, 3), Color("c8443a"))
-		"photos":
-			for k in 3:
-				_rect(_decor_back, Vector2(w - 78, 150 + k * 30), Vector2(16, 20), Color("c9a87a").darkened(k * 0.1))
-		"fishing_net":
-			for k in 8:
-				_rect(_decor_back, Vector2(w - 300 + k * 22, 128), Vector2(1, 80), Color(0.85, 0.78, 0.6, 0.45))
-			for k in 5:
-				_rect(_decor_back, Vector2(w - 300, 130 + k * 16), Vector2(156, 1), Color(0.85, 0.78, 0.6, 0.45))
-		"knife_rack":
-			_rect(_decor_back, Vector2(200, 172), Vector2(76, 12), Color("3a2a1e"))
-			for k in 5:
-				_rect(_decor_back, Vector2(208 + k * 14, 184), Vector2(3, 18), Color("c8c8d8"))
-
-
-## The sky, the tent's glow and the bulbs, by the hour. Cold nights look bluer, fog greys
-## everything, and a muggy night's a little warmer.
+## The sky, the tent's glow and the bulbs, by the hour and the weather; dimmer, with one bulb
+## off, while closing up early (see _show_closing_up).
 func _update_light(closing_dim: bool = false) -> void:
-	var light := NightRules.night_light(_clock)
-	var sky: Color = light["sky"]
-	match _weather_kind:
-		"cold": sky = sky.lerp(Color("1c2c4c"), 0.35)
-		"fog": sky = sky.lerp(Color("4a4a58"), 0.35)
-		"muggy": sky = sky.lerp(Color("4a2e2a"), 0.25)
-	_sky.color = sky
-	var closing := closing_dim or (_closing_early and _night_open)  # (the far bulb's off: see _show_closing_up)
-	_glow.color = Color(0.91, 0.51, 0.23, float(light["glow"]) * (CLOSING_GLOW if closing else 1.0))
-	for bulb in _bulb_lights:
-		bulb.color = light["bulb"]
-	if closing and not _bulb_lights.is_empty():
-		_bulb_lights[-1].color = BULB_OFF
+	_tent_view.update_light(_clock, _weather_kind, closing_dim or (_closing_early and _night_open))
 
 
-## Tonight's weather, as you'd see it: rain or snow falling, fog drifting, a warm haze, and
-## the bulbs swinging (more in a breeze).
+## Tonight's weather, as you'd see it (see TentView).
 func _show_weather(kind: String) -> void:
 	_weather_kind = kind
-	_clear(_weather_back)
-	_clear(_weather_front)
-	var w := STAGE_SIZE.x
-	match kind:
-		"drizzle", "rain":
-			var heavy := kind == "rain"
-			var rain := _particles("Rain", _weather_back, _dot_texture(2, 16 if heavy else 12, Color(0.75, 0.82, 1.0, 0.55)))
-			rain.amount = 260 if heavy else 70
-			rain.lifetime = 0.55
-			rain.direction = Vector2(0.12, 1)
-			rain.spread = 2.0
-			rain.initial_velocity_min = 800.0 if heavy else 600.0
-			rain.initial_velocity_max = 950.0 if heavy else 700.0
-			if heavy:  # drips off the edge of the tarp, in front
-				var drips := _particles("Drips", _weather_front, _dot_texture(2, 6, Color(0.75, 0.82, 1.0, 0.7)))
-				drips.position = Vector2(w / 2, 124)
-				drips.emission_rect_extents = Vector2(w / 2 - 30, 1)
-				drips.amount = 40
-				drips.lifetime = 0.45
-				drips.direction = Vector2(0, 1)
-				drips.initial_velocity_min = 200.0
-				drips.initial_velocity_max = 260.0
-				drips.gravity = Vector2(0, 900)
-		"snow":
-			var snow := _particles("Snow", _weather_back, _dot_texture(4, 4, Color(1, 1, 1, 0.85)))
-			snow.amount = 140
-			snow.lifetime = 8.0
-			snow.direction = Vector2(0.2, 1)
-			snow.spread = 25.0
-			snow.initial_velocity_min = 35.0
-			snow.initial_velocity_max = 60.0
-			snow.scale_amount_min = 0.6
-			snow.scale_amount_max = 1.3
-			_rect(_weather_front, Vector2(0, 368), Vector2(w, 4), Color(0.95, 0.96, 1.0, 0.7))  # settling on the street
-		"fog":
-			for k in 4:
-				var band := _rect(_weather_front, Vector2(-400 + k * 300, 70 + k * 80), Vector2(1200, 70), Color(0.75, 0.75, 0.85, 0.10))
-				band.name = "Fog%d" % k
-				var drift := band.create_tween().set_loops()
-				drift.tween_property(band, "position:x", band.position.x + 500, 30.0 + k * 6).set_trans(Tween.TRANS_SINE)
-				drift.tween_property(band, "position:x", band.position.x, 30.0 + k * 6).set_trans(Tween.TRANS_SINE)
-		"muggy":
-			_rect(_weather_front, Vector2.ZERO, STAGE_SIZE, Color(1.0, 0.6, 0.3, 0.05)).name = "Haze"
-	var swing := 7.0 if kind == "breeze" else (3.0 if kind == "rain" else 1.5)
-	for old in _sways:
-		if old.is_valid():
-			old.kill()
-	_sways.clear()
-	for bulb in _bulbs:
-		bulb.rotation = 0.0
-		var sway: Tween = bulb.create_tween().set_loops()
-		_sways.append(sway)
-		sway.tween_property(bulb, "rotation_degrees", swing, 1.6 + randf()).set_trans(Tween.TRANS_SINE)
-		sway.tween_property(bulb, "rotation_degrees", -swing, 1.6 + randf()).set_trans(Tween.TRANS_SINE)
-
-
-func _particles(node_name: String, layer: Control, texture: Texture2D) -> CPUParticles2D:
-	var p := CPUParticles2D.new()
-	p.name = node_name
-	p.texture = texture
-	p.position = Vector2(STAGE_SIZE.x / 2, -20)
-	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	p.emission_rect_extents = Vector2(STAGE_SIZE.x / 2 + 60, 4)
-	p.gravity = Vector2.ZERO
-	p.preprocess = 4.0  # already falling when the night opens
-	layer.add_child(p)
-	return p
-
-
-func _dot_texture(width: int, height: int, colour: Color) -> ImageTexture:
-	var image := Image.create(width, height, false, Image.FORMAT_RGBA8)
-	image.fill(colour)
-	return ImageTexture.create_from_image(image)
+	_tent_view.show_weather(kind)
 
 
 func _rect(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) -> ColorRect:

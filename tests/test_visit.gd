@@ -1105,7 +1105,7 @@ func test_the_tent_cover_has_the_chosen_shape() -> void:
 		top = minf(top, point.y)
 	assert_float(top).is_less(40.0)  # higher in the middle than the classic tarp
 	for shape in BarLook.TENT_SHAPES:
-		assert_int(scene._tent_shape(shape).size()).is_greater_equal(4)
+		assert_int(scene._tent_view.tent_shape(shape).size()).is_greater_equal(4)
 
 
 func test_stripes_are_cut_to_the_shape() -> void:
