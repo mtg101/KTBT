@@ -44,7 +44,8 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/menu_changes.gd` | Menus that change slowly: when a dish hardly anyone orders comes off (never a classic, a staple, the owner's own or a regular's usual), and the seasonal dishes offered in its place |
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 | `bar/tent_view.gd` | The tent's look: the tarp, the sign, the bar's touches, the sky and light by the hour, the bulbs and tonight's weather (the first part split out of `visit.gd`) |
-| `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer) |
+| `bar/people_view.gd` | Drawing people: a person dressed in their look, facing us or seated from behind, a phone, an umbrella (with the snow or rain on it) or a bag over their head, running for it (part 2 split out of `visit.gd`) |
+| `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |
 
 ## Tests
 

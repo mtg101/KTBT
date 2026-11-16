@@ -5,6 +5,7 @@ extends "res://tests/support/bar_test.gd"
 
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
+const PeopleView = preload("res://scripts/bar/people_view.gd")
 const Ai = preload("res://scripts/ai.gd")
 const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
@@ -1193,8 +1194,8 @@ func test_people_in_the_street_walk_together_and_look_at_phones() -> void:
 	for i in [1, 2]:
 		assert_float(absf(group[i].position.x - group[0].position.x)).is_equal_approx(62.0 * i, 0.5)
 	# Phones: a person on one has a lit screen in front of them.
-	var person: Control = scene._person(scene._stage, Vector2(0, Visit.STROLL_Y), Color.WHITE)
-	scene._phone(person)
+	var person: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.STROLL_Y), Color.WHITE)
+	scene._people_view.add_phone(person)
 	assert_object(person.find_child("Phone", true, false)).is_not_null()
 	assert_object(person.find_child("Screen", true, false)).is_not_null()
 	assert_bool(person.get_meta("on_phone", false)).is_true()
@@ -1209,11 +1210,11 @@ func test_people_in_the_street_walk_together_and_look_at_phones() -> void:
 		if second.find_child("Umbrella", true, false) == null:
 			var umbrella := first.find_child("Umbrella", true, false) as Node2D
 			assert_object(umbrella).is_not_null()
-			assert_float(absf(umbrella.position.x - Visit.UMBRELLA_HAND.x)).is_greater(10.0)
+			assert_float(absf(umbrella.position.x - PeopleView.UMBRELLA_HAND.x)).is_greater(10.0)
 			shared = true
 			break
 		# Not sharing: both have their own (nobody in a group runs off and leaves the other).
-		assert_bool(scene._is_running(first) or scene._is_running(second)).is_false()
+		assert_bool(scene._people_view.is_running(first) or scene._people_view.is_running(second)).is_false()
 	assert_bool(shared).override_failure_message("no pair ever shared an umbrella").is_true()
 
 
@@ -1230,19 +1231,19 @@ func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
 	assert_bool(await _wait_until(func(): return not guest.walk.is_running())).is_true()
 	assert_object(guest.node.find_child("Umbrella", true, false)).is_null()
 	# The helpers, step by step: up in the street, down under the tarp.
-	var person: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	var person: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
 	scene._gear_up(person, Hooks.rain_gear, true)
 	var umbrella := person.find_child("Umbrella", true, false) as Node2D
 	assert_object(umbrella).is_not_null()
 	assert_str(str(umbrella.get_meta("shape"))).is_equal("wide")
-	scene._gear_down(person)
+	scene._people_view.gear_down(person)
 	assert_object(person.find_child("Umbrella", true, false)).is_null()
 	# Running for it: the bobbing and leaning stop once they're in.
 	scene._gear_up(person, {"umbrella": false}, true)
-	assert_bool(scene._is_running(person)).is_true()
+	assert_bool(scene._people_view.is_running(person)).is_true()
 	assert_float(person.rotation).is_not_equal(0.0)
-	scene._gear_down(person)
-	assert_bool(scene._is_running(person)).is_false()
+	scene._people_view.gear_down(person)
+	assert_bool(scene._people_view.is_running(person)).is_false()
 	assert_float(person.rotation).is_equal(0.0)
 	assert_float(person.position.y).is_equal(Visit.CUSTOMER_Y)
 	assert_object(person.find_child("OverHead", true, false)).is_null()
@@ -1256,22 +1257,22 @@ func test_the_weather_lands_on_umbrellas() -> void:
 	var scene = runner.scene()
 	var gear := {"umbrella": true, "shape": "dome", "size": 1.0, "tilt": 0.0}
 	# Snow builds up on top, and gets shaken off under the tarp.
-	scene._weather_kind = "snow"
-	var snowy: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._people_view.weather_kind = "snow"  # (what the people view draws by: told it as the night opens)
+	var snowy: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
 	scene._gear_up(snowy, gear, true)
 	assert_object(snowy.find_child("SnowCap", true, false)).is_not_null()
 	assert_object(snowy.find_child("Drip", true, false)).is_null()
-	scene._gear_down(snowy)
+	scene._people_view.gear_down(snowy)
 	assert_object(snowy.find_child("ShakenOff", true, false)).is_not_null()
 	# Rain runs off the rim.
-	scene._weather_kind = "rain"
-	var wet: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._people_view.weather_kind = "rain"
+	var wet: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
 	scene._gear_up(wet, gear, true)
 	assert_object(wet.find_child("Drip", true, false)).is_not_null()
 	assert_object(wet.find_child("SnowCap", true, false)).is_null()
 	# A clear night: nothing lands on it.
-	scene._weather_kind = "clear"
-	var dry: Control = scene._person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
+	scene._people_view.weather_kind = "clear"
+	var dry: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
 	scene._gear_up(dry, gear, true)
 	assert_object(dry.find_child("Drip", true, false)).is_null()
 	assert_object(dry.find_child("SnowCap", true, false)).is_null()
@@ -1311,7 +1312,7 @@ func test_a_customer_with_no_umbrella_runs_in() -> void:
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
 	var guest = scene._guests[0]
 	assert_bool(await _wait_until(func(): return not guest.walk.is_running())).is_true()
-	assert_bool(scene._is_running(guest.node)).is_false()  # stopped, and sat down
+	assert_bool(scene._people_view.is_running(guest.node)).is_false()  # stopped, and sat down
 	assert_float(guest.node.position.y).is_equal(Visit.CUSTOMER_Y)
 
 
