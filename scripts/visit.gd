@@ -32,6 +32,7 @@ const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Friendliness = preload("res://scripts/bar/friendliness.gd")
+const Conversation = preload("res://scripts/bar/conversation.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -268,8 +269,16 @@ var _red_flashes: int:  # emergencies flashed (for tests)
 var _specials: Array = []
 var _menu_change := {}  # tonight's menu change, if there was one (MenuChanges): for the diary
 ## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
-var _owner_cat_moment := ""
-var _owner_stunned := ""  # a Talk.stunned_moment for the owner's next line
+var _owner_cat_moment: String:  # (kept by the night)
+	get:
+		return _night.owner_cat_moment
+	set(value):
+		_night.owner_cat_moment = value
+var _owner_stunned: String:  # a Talk.stunned_moment for the owner's next line (kept by the night)
+	get:
+		return _night.owner_stunned
+	set(value):
+		_night.owner_stunned = value
 ## A reaction check put off because the owner was needed ({lines, names, items, at}: the latest
 ## one only), asked as soon as she's free (see _next_task).
 var _reaction_pending := {}
@@ -1971,40 +1980,11 @@ func _next_line(guest: Guest) -> void:
 			guest.line += 1
 			return
 	var owner_speaks := i % 2 == 0
-	var direction := ""
-	if i == 0 and guest.quick_greeting:
-		direction = "It's been busy: this is the owner's first proper word with them since taking their order."
-	elif i == 0:
-		direction = "They've just been served: what's ready is on the table, and anything else is still cooking."
-		var known: Dictionary = guest.customer.get("regular", {})
-		var opener := Talk.opener_moment(not known.is_empty(), known.is_empty(), _late(), Looks.wet(_weather_kind), randf(), randf())
-		if opener != "" and owner_speaks:
-			direction += " " + opener
-			_stats.opener_situations += 1
-	elif guest.stay_left < 10.0:
-		direction = "The customer is nearly ready to leave."
-	elif guest.topic != "":
-		direction = Talk.topic_hint(guest.topic)
-	var hint := ""  # what kind of hint this line was given, for the stats
-	var stunned := _owner_stunned if owner_speaks else guest.stunned
-	if stunned != "":  # (first: they've just heard something they can't believe)
-		direction = (stunned + " " + direction).strip_edges()
-		hint = "stunned"
-		if owner_speaks:
-			_owner_stunned = ""
-		else:
-			guest.stunned = ""
-	elif i > 0 and guest.food_moment != "":
-		direction = (guest.food_moment + " " + direction).strip_edges()
-		hint = Talk.moment_kind(guest.food_moment)
-		guest.food_moment = ""  # once
-	elif i > 0 and (_owner_cat_moment if owner_speaks else guest.cat_moment) != "":
-		direction = ((_owner_cat_moment if owner_speaks else guest.cat_moment) + " " + direction).strip_edges()
-		hint = "cat"
-		if owner_speaks:
-			_owner_cat_moment = ""
-		else:
-			guest.cat_moment = ""
+	var given := Conversation.owner_line(_night, guest, i, _late(), Looks.wet(_weather_kind))  # (what this line's given: see Conversation)
+	var direction := str(given["direction"])
+	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
+	if bool(given["opener"]):
+		_stats.opener_situations += 1
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
 	direction = (direction + " " + _address_note(guest)).strip_edges()
@@ -2075,32 +2055,14 @@ func _goodbye(guest: Guest) -> void:
 			other.transcript.append({"action": "%s, who they were chatting with, says goodbye and leaves." % (leaver.substr(0, 1).to_upper() + leaver.substr(1))})
 
 
-## How someone in a chat is known to the others: by name if it's been said there (their full
-## name or their given name), otherwise as anyone can see them ("the woman in the beige
-## trench coat"), since nobody knows a stranger's name.
+## How someone in a chat is known to the others (see Conversation.known_as).
 func _known_as(guest: Guest, chat: Chat) -> String:
-	var full := str(guest.customer["name"])
-	# Founding regulars have known each other for years.
-	if chat != null and bool(guest.customer.get("regular", {}).get("founding", false)):
-		for other in chat.people:
-			if other != guest and bool(other.customer.get("regular", {}).get("founding", false)):
-				return full
-	var parts := full.split(" ", false)
-	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
-	if chat != null:
-		for entry in chat.transcript:
-			var text := str(entry.get("text", "")).to_lower()
-			if text.contains(full.to_lower()) or text.contains(given.to_lower()):
-				return full
-	return Looks.seen_as(guest.customer)
+	return Conversation.known_as(guest, chat)
 
 
 ## Who spoke last in a transcript ("" if nobody has).
 static func _last_speaker(transcript: Array) -> String:
-	for i in range(transcript.size() - 1, -1, -1):
-		if transcript[i].has("text"):
-			return str(transcript[i]["speaker"])
-	return ""
+	return Conversation.last_speaker(transcript)
 
 
 ## The customer orders more partway through. Returns false if the AI couldn't manage it,
@@ -2259,57 +2221,26 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		items.append_array(guest.order)
 		names.append(str(guest.customer["name"]))
 	var moment := {"day": _night_day, "time": NightRules.clock_text(int(_clock)), "weather": _night_weather, "date": _date_words()}
-	var direction := "This is the first thing they've ever said to each other." if first else Talk.topic_hint(chat.topic, true)
 	var owner_speaks := speaker == owner_name
 	var speaking: Guest = _guest_named(speaker)
 	var listening: Guest = _guest_named(addressee)
-	if first and speaking != null and listening != null and not _friend(speaking, listening).is_empty():
-		direction = "They've met here before: they pick up where they left off."
+	var both := speaking != null and listening != null
 	# Two regulars who've got to know each other: is it time for "can I call you eonni?"
 	var moment_term := _friendly_moment(speaking, listening)
-	if moment_term != "":
-		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s?" % [speaker, addressee, moment_term.capitalize()]
-	var close := moment_term != "" or (speaking != null and listening != null and _close(speaking, listening))
-	var hint := ""  # what kind of hint this line was given, for the stats
-	# Now and then, once a chat: something to share (a bite, a refill).
-	if not first and moment_term == "" and not chat.shared and speaking != null and listening != null \
-			and _served_of(speaking, "food") > 0:
-		var sharing := Talk.sharing_moment(speaker, addressee, close, _served_of(speaking, "food") > _served_of(listening, "food"),
-			_served_of(speaking, "drink") > 0 and _served_of(listening, "drink") > 0, randf(), randf())
-		if sharing != "":
-			direction = sharing + " " + direction
-			hint = Talk.moment_kind(sharing)
-			chat.shared = true
-	# Late on, a few drinks in: a table game now and then, once a chat (the AI takes it up, or doesn't).
-	if hint == "" and not first and chat.game == "" and speaking != null:
-		var fewest := 99
-		for drinker in chat.people:
-			fewest = mini(fewest, _drinks_had(drinker))
-		var game := Talk.table_game(chat.people.size(), fewest, close, _clock >= Talk.TABLE_GAME_FROM, _scenery_dice.randf(), _scenery_dice.randf())
-		if game != "":
-			direction = str(Talk.TABLE_GAMES[game]["situation"]) + " " + direction
-			hint = "game_" + game
-			chat.game = game
-			_event("table_game_offered", {"game": game, "name": speaker})
-	# Something just said has stunned them.
-	var heard := _owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
-	if heard != "" and not first:
-		direction = heard + " " + direction
-		hint = "stunned"
-		if owner_speaks:
-			_owner_stunned = ""
-		else:
-			speaking.stunned = ""
-	# The cat's come to the speaker (or it's up to something the owner has to deal with).
-	if hint == "" and not first:
-		var with_cat := _owner_cat_moment if owner_speaks else (speaking.cat_moment if speaking != null else "")
-		if with_cat != "":
-			direction = with_cat + " " + direction
-			hint = "cat"
-			if owner_speaks:
-				_owner_cat_moment = ""
-			else:
-				speaking.cat_moment = ""
+	var close := moment_term != "" or (both and _close(speaking, listening))
+	var fewest := 99
+	for drinker in chat.people:
+		fewest = mini(fewest, _drinks_had(drinker))
+	var food := [_served_of(speaking, "food") if speaking != null else 0, _served_of(listening, "food") if listening != null else 0,
+		both and _served_of(speaking, "drink") > 0 and _served_of(listening, "drink") > 0]
+	if listening == null:
+		food[0] = 0  # (sharing's between two customers)
+	var given := Conversation.chat_line(_night, chat, speaker, addressee, first, speaking, owner_speaks, close, moment_term,
+		both and not _friend(speaking, listening).is_empty(), food, fewest, _clock >= Talk.TABLE_GAME_FROM, _scenery_dice)  # (what this line's given: see Conversation)
+	var direction := str(given["direction"])
+	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
+	if str(given["game"]) != "":
+		_event("table_game_offered", {"game": str(given["game"]), "name": speaker})
 	direction += " " + _chat_notes(chat) + " " + Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close)
 	var address := _address(speaking, listening, close)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
