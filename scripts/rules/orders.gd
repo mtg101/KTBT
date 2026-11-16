@@ -175,6 +175,10 @@ const SPECIAL_DRINK_CHANCE := 0.5
 ## Tonight's specials (menu ids). weather: NightRules.weather_kind. dish_roll: which dish;
 ## drink_roll: whether there's a drink special too.
 static func pick_specials(weather: String, dish_roll: float, drink_roll: float) -> Array:
+	return _pick_specials(weather, dish_roll, drink_roll).filter(func(id): return not Menu.find(str(id)).is_empty())  # (only what this bar serves)
+
+
+static func _pick_specials(weather: String, dish_roll: float, drink_roll: float) -> Array:
 	if weather in ["rain", "drizzle"]:
 		return RAINY_SPECIALS.duplicate()
 	var dishes: Array = SPECIAL_DISHES.get(weather, SPECIAL_DISHES[""])
@@ -360,7 +364,7 @@ static func with_somaek_parts(items: Array) -> Array:
 static func mentions(line: String, with_aliases: bool) -> Array:
 	var said := Text.words(line)
 	var phrases: Array = []
-	for item in Menu.ITEMS:
+	for item in Menu.items():
 		phrases.append({"id": item["id"], "words": [Text.words(str(item["name"]))[0]]})
 		if with_aliases:
 			for alias in item.get("aliases", []):
@@ -392,6 +396,17 @@ static func bill(items: Array) -> int:
 	for id in items:
 		total += int(Menu.find(id).get("price", 0))
 	return total
+
+
+## When the AI can't come up with an order: soju and odeng, the pocha's standby, or (at a tent
+## without odeng) soju and its first side, or its first food.
+static func fallback_order() -> Array:
+	if not Menu.find("odeng").is_empty():
+		return ["soju", "odeng"]
+	var foods: Array = Menu.items().filter(func(item): return item["kind"] == "food" and not bool(item.get("extra_only", false)))
+	var sides: Array = foods.filter(func(item): return item.get("portion", "") == "side")
+	var food: Dictionary = sides[0] if not sides.is_empty() else (foods[0] if not foods.is_empty() else {})
+	return ["soju"] if food.is_empty() else ["soju", str(food["id"])]
 
 
 ## ["soju", "soju", "tteokbokki"] -> "2x Soju, Tteokbokki"

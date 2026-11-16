@@ -8,6 +8,7 @@ const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 const Menu = preload("res://scripts/menu.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -154,6 +155,24 @@ func test_a_new_bar_is_named_and_saved_straight_away() -> void:
 	assert_str(str(bar["owner"]["name"])).is_equal(str(runner.scene()._owner["name"]))
 	assert_str((runner.find_child("BarName") as Label).text).contains(str(bar["name"]))
 	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("The sign over the tarp reads %s" % bar["name"])
+
+
+func test_a_new_bar_chooses_its_own_menu() -> void:
+	Hooks.bar_menus = true
+	var runner := await _open_visit()
+	var saved := SaveStore.load_bar(Game.bar["id"])
+	var menu: Array = saved.get("menu", [])
+	var ids: Array = menu.map(func(item): return str(item["id"]))
+	assert_array(ids).contains(["soju", "beer", "gonggibap"])  # (every pocha)
+	assert_str(Catalogue.validate_menu({"dishes": ids, "why": "Checked again."})).is_empty()  # (the house rules)
+	assert_array(Menu.items().map(func(item): return str(item["id"]))).is_equal(ids)  # in use tonight
+	assert_str(_transcript(runner)).contains("On the menu: the pocha classics, and ")
+	assert_str(str(saved.get("menu_why", ""))).is_not_empty()
+	# Customers order from it, and pay for it.
+	await _run_one_visit(runner)
+	assert_int(int(SaveStore.load_bar(Game.bar["id"])["visits"])).is_equal(1)
+	for id in SaveStore.load_bar(Game.bar["id"])["history"][0]["order"]:
+		assert_array(ids).contains([id])
 
 
 func test_a_bad_bar_name_falls_back_to_the_owners_name() -> void:

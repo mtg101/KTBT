@@ -12,6 +12,7 @@ const AiSettings = preload("res://scripts/ai_settings.gd")
 const CannedAi = preload("res://scripts/canned_ai.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
+const Menu = preload("res://scripts/menu.gd")
 
 # --- Time and chance ----------------------------------------------------------------------
 ## >= 0 scales every pause and the clock (0.01 runs a visit in a blink).
@@ -47,6 +48,8 @@ static var rain_gear := {}
 # --- Things that would use up scripted AI replies -------------------------------------------
 ## false: a new (or older) bar gets no founding regulars.
 static var founding_regulars := true
+## A new bar chooses its own menu (tests keep the classic one unless they say so).
+static var bar_menus := true
 ## >= 0: a fixed roll for whether someone becomes a regular (1.0 never, 0.0 whenever possible).
 static var regular_roll_override := -1.0
 ## false: no after-visit memory (the game's own verdict is used).
@@ -88,6 +91,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	strollers = true
 	offer_every_look = true
 	founding_regulars = false
+	bar_menus = false
 	prepare_customers = false
 	regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	memories = false
@@ -110,6 +114,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 
 ## Everything back to how the game runs normally.
 static func restore() -> void:
+	Menu.use([])  # (the classic menu)
 	pause_scale_override = -1.0
 	random_seed = 0
 	run_clock = true
@@ -124,6 +129,7 @@ static func restore() -> void:
 	rain_gear = {}
 	prepare_customers = true
 	founding_regulars = true
+	bar_menus = true
 	regular_roll_override = -1.0
 	memories = true
 	reactions = true

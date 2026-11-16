@@ -35,6 +35,8 @@ const Seasons = preload("res://scripts/rules/seasons.gd")
 const Skyline = preload("res://scripts/rules/skyline.gd")
 const SkylineView = preload("res://scripts/skyline_view.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const MenuBoard = preload("res://scripts/menu_board.gd")
 const DishView = preload("res://scripts/dish_view.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
@@ -325,6 +327,7 @@ var _scenery_dice := RandomNumberGenerator.new()
 var _neon: Label  # the karaoke sign on the pillar
 var _glow: ColorRect  # the tent's warm glow
 var _skyline: SkylineView  # the city behind the tent
+var _menu_board: MenuBoard  # the menu, taped up on the back wall
 var _bulbs: Array = []  # the hanging bulbs (they swing)
 var _bulb_lights: Array = []
 var _sways: Array = []  # the bulbs' swinging (replaced each night)
@@ -360,6 +363,7 @@ func _ready() -> void:
 	_ai.answered.connect(func(purpose, seconds, problems, ok): _stats.record_ai(seconds, problems, ok, purpose))
 	if _ai.offline:
 		_show_offline_mode()
+	Menu.use(Menu.for_bar(Game.bar))  # this bar's own menu (the classic one if it has none)
 	if Game.bar.is_empty():
 		_invent_owner()  # A new bar: invent the owner, then name the tent and save it.
 	else:
@@ -548,6 +552,8 @@ func _invent_owner() -> void:
 	await _name_bar()
 	await _name_cat()
 	await _choose_look()
+	if Hooks.bar_menus:
+		await _choose_menu()
 	if Hooks.founding_regulars:
 		await _make_founding_regulars()
 	_show_look()
@@ -601,6 +607,35 @@ func _choose_look() -> void:
 	var shape: String = BarLook.TENT_SHAPES.get(look.get("shape", "classic"), "a tarp")
 	_narrate("The tent: %s, in %s. A %s sign reading %s, and %s." % [shape, colour, look["sign"], look["hangul"],
 		" and ".join(touches) if not touches.is_empty() else "not much else"])
+
+
+## The menu board, in the bar's style: tonight's menu (click it to read it), with tonight's
+## specials and the house favourite.
+func _put_up_menu() -> void:
+	_menu_board.show_menu(Menu.board_order(_specials), _specials, [], Menu.favourite(Game.bar.get("history", [])), str(Game.bar.get("id", "")), str(Game.bar.get("name", "")))
+
+
+## A new bar's menu: the owner chooses it, from the catalogue, within the house rules (the
+## game builds one by the same rules if the AI can't). Saved with the bar, and in use.
+func _choose_menu() -> void:
+	_typing_label.text = "The AI is writing the menu..."
+	var chosen: Dictionary = await _ai.ask_json(Prompts.menu_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", ""))),
+		Catalogue.validate_menu, {"temperature": 0.8}, {"purpose": "menu", "bar_name": Game.bar["name"]})
+	_typing_label.text = ""
+	var menu: Array = chosen.get("menu", [])
+	if menu.is_empty():
+		var dice := RandomNumberGenerator.new()
+		dice.seed = hash(str(Game.bar.get("id", "")))  # (its own dice: the game's rolls don't shift)
+		menu = Catalogue.fallback_menu(dice)
+	Game.bar["menu"] = menu
+	Game.bar["menu_why"] = str(chosen.get("why", ""))
+	_before_night["menu_by"] = "ai" if chosen.has("menu") else "game"  # (for the stats)
+	Game.save()
+	Menu.use(menu)
+	_put_up_menu()
+	var own: Array = menu.filter(func(item): return Catalogue.layer(str(item["id"])) == "own").map(func(item): return str(item["name"]))
+	_before_night["menu_own"] = own.duplicate()
+	_narrate("On the menu: the pocha classics, and %s.%s" % [", ".join(PackedStringArray(own.slice(0, -1))) + (" and " if own.size() > 1 else "") + str(own[-1]) if not own.is_empty() else "nothing else", (" " + Text.as_sentence(str(chosen["why"]))) if chosen.has("why") else ""])
 
 
 func _validate_bar_look(data: Variant) -> String:
@@ -819,6 +854,7 @@ func _start_night() -> void:
 	if _skyline.seed_for != bar_id:
 		_skyline.show_city(Skyline.plan(STAGE_SIZE.x, hash(bar_id)), bar_id)  # (its own dice: the game's rolls don't shift)
 	_specials = Orders.pick_specials(NightRules.weather_kind(_night_weather), randf(), randf())
+	_put_up_menu()  # (with tonight's specials)
 	_clock = float(NightRules.OPEN_MINUTES)
 	_night_visits = 0
 	_night_takings = 0
@@ -1696,9 +1732,9 @@ func _greet() -> void:
 		_validate_order.bind(2 if hungry else 1, 2 if rough_night else 1), {"temperature": 0.7},
 		{"purpose": "order", "title": _owner["title"], "max_mains": 2 if hungry else 1, "max_drinks": 2 if rough_night else 1})
 	_typing_label.text = ""
-	var items: Array = ["soju", "odeng"]
+	var items: Array = Orders.fallback_order()
 	if order.is_empty():
-		_narrate("(The AI couldn't come up with a valid order, so the game served soju and odeng: %s.)" % _ai.last_error)
+		_narrate("(The AI couldn't come up with a valid order, so the game served %s: %s.)" % [" and ".join(PackedStringArray(items.map(func(id): return str(Menu.find(str(id))["name"]).to_lower()))), _ai.last_error])
 	else:
 		items = order["items"]
 		_stats.sides_added += int(order.get("added_sides", 0))
@@ -2840,7 +2876,7 @@ func _add_dish(guest: Guest, id: String) -> void:
 	var row := guest.drinks_row if Menu.find(id)["kind"] == "drink" else guest.food_row
 	var shape := _dish_shape(id)
 	row.add_child(shape)
-	if HOT_DISHES.has(id):
+	if HOT_DISHES.has(id) or ["stew", "pancake", "grill", "fried"].has(str(Catalogue.find(id).get("category", ""))):
 		_steam(shape)
 
 
@@ -3062,8 +3098,10 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 ## for an old friend (Talk.door_welcome): a quick bubble and a line in the transcript, and
 ## their conversation knows they've been welcomed.
 func _welcome_at_door(guest: Guest) -> void:
-	var welcome := Talk.door_welcome(Regulars.closeness_mark(guest.customer.get("regular", {})))
-	_narrate("\"%s\" %s calls out%s." % [welcome, _owner_display(), " from the stove" if _owner_working else ""])
+	var mark := Regulars.closeness_mark(guest.customer.get("regular", {}))
+	var welcome := Talk.door_welcome(mark)
+	if mark != "" or _scenery_dice.randf() < Talk.DOOR_WELCOME_WRITTEN:  # (scenery's dice: the game's rolls don't shift)
+		_narrate("\"%s\" %s calls out%s." % [welcome, _owner_display(), " from the stove" if not _kitchen.is_empty() else ""])
 	_say_in_bubble(_owner_node, guest.node, "", guest.color.lightened(0.35), OWNER_TEXT, welcome)
 	guest.transcript.append({"action": "%s called out \"%s\" as they came in." % [_owner["name"], welcome]})
 
@@ -3074,8 +3112,6 @@ func _goodbye_at_door(guest: Guest) -> void:
 	if _scenery_dice.randf() < Talk.DOOR_THANKS_CHANCE:  # (scenery's dice: the game's rolls don't shift)
 		_say_in_bubble(guest.node, _owner_node, "", OWNER_TEXT, guest.color.lightened(0.35), Talk.DOOR_THANKS)
 		_narrate("\"%s\" says %s. \"%s\" says %s." % [Talk.DOOR_THANKS, Names.given_name(str(guest.customer["name"])), goodbye, _owner_display()])
-	else:
-		_narrate("\"%s\" says %s." % [goodbye, _owner_display()])
 	_say_in_bubble(_owner_node, guest.node, "", guest.color.lightened(0.35), OWNER_TEXT, goodbye)
 
 
@@ -3770,6 +3806,11 @@ func _build_stage(stage: Control) -> void:
 		_bulb_lights.append(_rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT))  # the bulb
 		_bulbs.append(bulb)
 	_decor_back = _layer(stage, "DecorBack")
+	_menu_board = MenuBoard.new()
+	_menu_board.name = "MenuBoard"
+	stage.add_child(_menu_board)
+	stage.move_child(_menu_board, _bulbs[0].get_index())  # (behind the bulbs, which swing in front)
+	_menu_board.opened.connect(func(): _stats.menu_opened += 1)
 	_build_fridge(stage)
 
 	_owner_node = _person(stage, Vector2(OWNER_HOME_X, OWNER_Y), OWNER_COLOR)
@@ -3902,7 +3943,7 @@ func _build_odeng_pot(stage: Control) -> void:
 	pot.position = Vector2(108, 212)
 	pot.mouse_filter = Control.MOUSE_FILTER_STOP
 	pot.size = Vector2(60, 32)
-	pot.tooltip_text = Text.tip("Odeng: %s" % Menu.find("odeng")["desc"])
+	pot.tooltip_text = Text.tip("Odeng: %s" % Catalogue.find("odeng")["desc"])  # (every tent's pot, on the menu or not)
 	stage.add_child(pot)
 	for k in 4:  # skewers, at a slant
 		var skewer := _rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
@@ -4600,7 +4641,7 @@ func _validate_founding(data: Variant, taken: Array, gender: String, age_range: 
 
 
 func _menu_pick(kind: String) -> String:
-	var choices: Array = Menu.ITEMS.filter(func(item): return (item.get("kind", "") == "drink") if kind == "drink" else (item.get("portion", "") == "main"))
+	var choices: Array = Menu.items().filter(func(item): return (item.get("kind", "") == "drink") if kind == "drink" else (item.get("portion", "") == "main"))
 	return str(choices.pick_random()["id"])
 
 

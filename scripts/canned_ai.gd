@@ -17,6 +17,7 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 static var scripted: Array = []
@@ -153,6 +154,12 @@ func reply(request: Dictionary) -> Variant:
 			return {"entry": Story.stitched_diary(request.get("facts", {}))}
 		"closing":
 			return Story.closing_reason(str(request.get("weather", "")), randf())
+		"menu":
+			# The game's own menu, as ids (the canned AI chooses like the game would).
+			var dice := RandomNumberGenerator.new()
+			dice.seed = hash(str(request.get("bar_name", "")))
+			var menu := Catalogue.fallback_menu(dice)
+			return {"dishes": menu.map(func(item): return str(item["id"])), "why": "What the street's always eaten, and a few things of my own."}
 		"reaction":
 			# Mostly nothing; now and then a big moment, about one of the people talking.
 			var names: Array = request.get("names", [])
@@ -263,13 +270,16 @@ func _extra_order(title: String, table: Array) -> Dictionary:
 			options.append({"items": [id], "line": "%s, one more %s, please." % [title, drink_name]})
 			options.append({"items": [id], "line": "Another %s, %s. It's that kind of night." % [drink_name, title]})
 			break
-	options.append({"items": ["gonggibap"], "line": "Could I get a bowl of rice too, %s?" % title})
+	if not Menu.find("gonggibap").is_empty():  # (on every menu so far, but only if it's this bar's)
+		options.append({"items": ["gonggibap"], "line": "Could I get a bowl of rice too, %s?" % title})
 	var has_main := false
 	for id in table:
 		if Menu.find(id).get("portion", "") == "main":
 			has_main = true
-	if has_main and not table.has("bokkeumbap"):
+	if has_main and not table.has("bokkeumbap") and not Menu.find("bokkeumbap").is_empty():
 		options.append({"items": ["bokkeumbap"], "line": "%s, could you make fried rice in this sauce too?" % title})
+	if options.is_empty():
+		return {}
 	return options.pick_random().duplicate(true)
 
 ## Customers chatting to each other: strangers, so polite, and no food or names.
@@ -303,7 +313,7 @@ func _line(title: String, owner_speaks: bool, first: bool, last: bool) -> String
 ## Menu ids of items that match.
 func _ids(matches: Callable) -> Array:
 	var ids: Array = []
-	for item in Menu.ITEMS:
+	for item in Menu.items():
 		if matches.call(item):
 			ids.append(item["id"])
 	return ids

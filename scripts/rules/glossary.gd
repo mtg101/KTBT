@@ -7,6 +7,7 @@ const Address = preload("res://scripts/rules/address.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 
 ## Words that aren't on the menu or terms of address. "spellings" are lower case; the first
 ## one, capitalised, is how the hover names it.
@@ -38,6 +39,12 @@ const WORDS := {
 	"mianhae": {"spellings": ["mianhae", "mianhaeyo", "mianhamnida", "joesonghamnida"], "hangul": "미안해", "means": "sorry (mianhae to a friend; joesonghamnida very politely)."},
 	"gwaenchana": {"spellings": ["gwaenchana", "gwaenchanayo", "gwenchana", "kwenchana"], "hangul": "괜찮아", "means": "it's okay / are you okay?"},
 	"saranghae": {"spellings": ["saranghae", "saranghaeyo"], "hangul": "사랑해", "means": "I love you."},
+	"eoseo oseyo": {"spellings": ["eoseo oseyo", "eoseo-oseyo", "eoseooseyo"], "hangul": "어서오세요", "means": "welcome! (called out as someone comes in)."},
+	"tto osyeonneyo": {"spellings": ["tto osyeonneyo"], "hangul": "또 오셨네요", "means": "you came again! (polite, to a familiar face)."},
+	"wasseo": {"spellings": ["wasseo", "wasseoyo"], "hangul": "왔어", "means": "you're here? (casual: to an old friend)."},
+	"jal meogeosseumnida": {"spellings": ["jal meogeosseumnida", "jal meogeotseumnida", "jal meogeosseoyo"], "hangul": "잘 먹었습니다", "means": "\"I ate well\": thanks for the food, said as you leave."},
+	"annyeonghi gaseyo": {"spellings": ["annyeonghi gaseyo", "annyeonghi-gaseyo"], "hangul": "안녕히 가세요", "means": "go in peace: goodbye, to someone leaving."},
+	"josimhi ga": {"spellings": ["josimhi ga", "josimhi gaseyo", "josimhi"], "hangul": "조심히 가", "means": "get home safe (josimhi gaseyo, politely)."},
 	"mwo": {"spellings": ["mwo", "mwoya", "mwo-ya", "mweo", "mwoh"], "hangul": "뭐", "means": "what?! The K-drama double-take (mwoya: what is this?!)."},
 	"mworago": {"spellings": ["mworago", "mwolago", "mwo-rago"], "hangul": "뭐라고", "means": "what did you say?! (can't believe their ears)."},
 	"heol": {"spellings": ["heol"], "hangul": "헐", "means": "whoa, what?! (stunned, or appalled)."},
@@ -74,12 +81,24 @@ static var _pattern: RegEx = null
 static var _known_hangul := {}  # Hangul -> its whole hover tip (see hangul_tip)
 static var _remembered := {}  # names in Hangul, as they're known (see remember)
 static var _hangul_pattern: RegEx = null
+static var _menu_version := -1  # the menu these tables were built from (see Menu.version)
+
+
+## Builds the tables again if the menu's changed since (another bar opened).
+static func _keep_up_with_menu() -> void:
+	if _menu_version == Menu.version:
+		return
+	_menu_version = Menu.version
+	_lookup = {}
+	_pattern = null
+	_known_hangul = {}
 static var _tag_pattern: RegEx = null
 
 
 ## Every explained spelling (lower case): {"tip": hover text, "colour": hex, "word": the word
 ## it's a spelling of (for counting: "ramen" and "ramyeon" are both "Ramyeon")}.
 static func lookup() -> Dictionary:
+	_keep_up_with_menu()
 	if not _lookup.is_empty():
 		return _lookup
 	var found := {}
@@ -88,14 +107,22 @@ static func lookup() -> Dictionary:
 		var tip := "%s %s: %s" % [term["hangul"], str(id).capitalize(), term["means"]]
 		for spelling in term["spellings"]:
 			found[spelling] = {"tip": tip, "colour": Address.WARMTH_COLOURS[term["warmth"]], "word": str(id).capitalize()}
-	for item in Menu.ITEMS:
+	for item in Menu.items():
 		if MENU_PLAIN.has(item["id"]):
 			continue
-		var tip := "%s %s: %s" % [item["hangul"], item["name"], item["desc"]]
+		var tip := "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]
 		var spellings: Array = [str(item["name"]).to_lower()]
 		spellings.append_array(MENU_SPELLINGS.get(item["id"], []))
 		for spelling in spellings:
 			if not found.has(spelling):
+				found[spelling] = {"tip": tip, "colour": WORD_COLOUR, "word": str(item["name"])}
+	# Every other pocha dish too (another bar's, talked about), after tonight's menu.
+	for item in Catalogue.all():
+		if MENU_PLAIN.has(item["id"]):
+			continue
+		var tip := "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]
+		for spelling in [str(item["name"]).to_lower(), str(item.get("word", ""))]:
+			if spelling != "" and not found.has(spelling):
 				found[spelling] = {"tip": tip, "colour": WORD_COLOUR, "word": str(item["name"])}
 	for id in WORDS:
 		var word: Dictionary = WORDS[id]
@@ -178,6 +205,7 @@ static func hangul_tip(run: String) -> String:
 
 
 static func _hangul_known(run: String) -> String:
+	_keep_up_with_menu()
 	var bare := _bare(run)
 	if _remembered.has(bare):
 		return str(_remembered[bare])
@@ -187,8 +215,8 @@ static func _hangul_known(run: String) -> String:
 		# The menu, pocha words and terms of address, by their own Hangul ("안녕(하세요)" as
 		# 안녕 and 안녕하세요 both).
 		var sources: Array = []
-		for item in Menu.ITEMS:
-			sources.append([str(item["hangul"]), "%s %s: %s" % [item["hangul"], item["name"], item["desc"]]])
+		for item in Menu.items() + Catalogue.all():
+			sources.append([str(item.get("hangul", "")), "%s %s: %s" % [item.get("hangul", ""), item["name"], item.get("desc", "")]])
 		for id in WORDS:
 			sources.append([str(WORDS[id]["hangul"]), "%s %s: %s" % [WORDS[id]["hangul"], str(WORDS[id]["spellings"][0]).capitalize() if not WORDS[id]["spellings"].is_empty() else id, WORDS[id]["means"]]])
 		for id in Address.TERMS:
@@ -236,6 +264,7 @@ static func words_in(text: String, names: Array = []) -> Array:
 
 ## Every spelling, longest first, as one pattern (made once).
 static func _word_pattern() -> RegEx:
+	_keep_up_with_menu()
 	if _pattern == null:
 		var spellings: Array = lookup().keys()
 		spellings.sort_custom(func(a, b): return str(a).length() > str(b).length())

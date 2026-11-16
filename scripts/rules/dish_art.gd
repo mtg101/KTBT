@@ -18,14 +18,16 @@ const VESSELS := {
 	"steel_bowl": {"size": Vector2(30, 34), "food": Rect2(6, 13, 18, 10)},
 	"cup": {"size": Vector2(30, 34), "food": Rect2(9, 2, 12, 17)},  # a paper cup, skewers sticking out
 	"bowl": {"size": Vector2(30, 34), "food": Rect2(3, 17, 24, 11)},
+	"stone_pot": {"size": Vector2(30, 34), "food": Rect2(5, 15, 20, 5)},  # a ttukbaegi: a stew, bubbling
 }
-const BITS := ["cylinders", "slices", "pancake", "chunks", "noodles", "rolls", "mound", "skewers"]
+const BITS := ["cylinders", "slices", "pancake", "chunks", "noodles", "rolls", "mound", "skewers", "shells", "tofu", "strips"]
 const GARNISHES := ["spring_onion", "lettuce", "seaweed", "sesame"]
 
 const PLATE := Color("eae6dc")
 const PAN := Color("2b2b31")
 const POT := Color("d9b24c")
 const STEEL := Color("b9bdc9")
+const STONE := Color("4a3428")
 const PAPER := Color("efe6d6")
 const KETTLE := Color("c9a64a")
 const FOAM := Color("fbf5e6")
@@ -84,6 +86,10 @@ static func shapes(art: Dictionary, colour: Color, id: String) -> Array:
 				out.append(_rect(food.position, food.size, fill))  # the broth, at the rim
 		"steel_bowl":
 			pass  # (the food first: it heaps up over the rim)
+		"stone_pot":
+			out.append(_ellipse(Vector2(1, 28), Vector2(28, 6), Color("2b2b31")))  # its wooden stand, dark
+			if art.has("fill"):
+				out.append(_rect(food.position, food.size, fill))  # the stew, at the rim
 		"cup":
 			pass
 	out.append_array(_bits(str(art.get("bits", "")), food, bits_colour, dice))
@@ -94,6 +100,11 @@ static func shapes(art: Dictionary, colour: Color, id: String) -> Array:
 			out.append(_rect(Vector2(0, 19), Vector2(3, 3), POT.darkened(0.3)))  # handles
 			out.append(_rect(Vector2(29, 19), Vector2(3, 3), POT.darkened(0.3)))
 			out.append(_rect(Vector2(8, 22), Vector2(4, 4), POT.darkened(0.12)))  # dented, as they all are
+		"stone_pot":
+			out.append(_rect(Vector2(4, 18), Vector2(22, 12), STONE))
+			out.append(_rect(Vector2(3, 17), Vector2(24, 3), STONE.lightened(0.15)))  # the rim
+			out.append(_rect(Vector2(1, 19), Vector2(3, 3), STONE.darkened(0.2)))  # its little handles
+			out.append(_rect(Vector2(26, 19), Vector2(3, 3), STONE.darkened(0.2)))
 		"steel_bowl":
 			out.append(_rect(Vector2(4, 21), Vector2(22, 11), STEEL))
 			out.append(_rect(Vector2(3, 20), Vector2(24, 2), STEEL.lightened(0.2)))
@@ -137,6 +148,18 @@ static func _bits(kind: String, food: Rect2, colour: Color, dice: RandomNumberGe
 		"mound":
 			out.append(_ellipse(food.position, food.size, colour))
 			out.append(_ellipse(food.position + Vector2(food.size.x * 0.25, 1), Vector2(food.size.x * 0.4, 3), colour.lightened(0.25)))
+		"shells":  # clams: pale ovals, each with its dark edge
+			for _k in 5:
+				var at := _spot(food, Vector2(6, 4), dice)
+				out.append(_ellipse(at, Vector2(6, 4), colour.darkened(0.3)))
+				out.append(_ellipse(at + Vector2(1, 0), Vector2(4, 3), colour))
+		"tofu":  # white squares, with stir-fried kimchi heaped beside them
+			for k in 3:
+				out.append(_rect(Vector2(food.position.x + 1 + k * 6, food.position.y + 3), Vector2(5, 5), Color("f4f0e4")))
+			out.append(_ellipse(Vector2(food.end.x - 7, food.position.y + 1), Vector2(7, 6), colour))
+		"strips":  # squid or whelks, in curls
+			for _k in 6:
+				out.append(_rect(_spot(food, Vector2(5, 2), dice), Vector2(5, 2), colour))
 		"skewers":  # odeng: folded fish cake up each stick
 			for k in 3:
 				var stick := food.position.x + 1 + k * 5

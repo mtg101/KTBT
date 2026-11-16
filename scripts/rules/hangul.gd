@@ -156,6 +156,13 @@ const MEANINGS := {
 	"제1화": "je il hwa: episode 1 (제…화, episode…)",
 	"새벽 감성": "saebyeok gamseong: the small-hours mood, when people get honest",
 	"동": "dong: a block of an apartment complex",
+	# The menu board (menu_board.gd)
+	"특선": "teukseon: tonight's special",
+	"오늘의 특선": "oneurui teukseon: tonight's specials",
+	"메뉴": "menyu: the menu",
+	"주류": "juryu: drinks (the alcohol)",
+	"인기": "ingi: popular, the house favourite",
+	"품절": "pumjeol: sold out",
 	"다 같이!": "da gachi!: all together!",
 	"화이팅!": "hwaiting!: go for it! (from the English \"fighting\")",
 	# At the door (rules/talk.gd DOOR_*)

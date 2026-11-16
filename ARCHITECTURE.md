@@ -38,6 +38,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/story.gd` | The owner's diary at 3am, "Previously on...", and the owner's reason for closing early |
 | `rules/seasons.gd` | The calendar (each bar's nights through the year), Korea's seasons and the monsoon, and tonight's weather following on from last night's |
 | `rules/skyline.gd` | The city behind the tent: each bar's skyline (APT blocks, office towers, churches) and its windows going dark through the night |
+| `rules/catalogue.gd` | Every dish and drink a pocha might serve, by layer (always, the classics, the bar's own), and a bar's menu: the house rules the AI's choice is checked against, and the game's own menu when it can't choose |
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 
 ## Tests
@@ -49,3 +50,14 @@ See [TESTS.md](TESTS.md). Every test hook is in `scripts/test_hooks.gd` (the gam
 - **A new rule or check:** the rules file for its area (or a new one, if it's a new area), with a test in `tests/test_rules.gd`.
 - **A new kind of AI request:** its prompt in `prompts.gd`, its check in the rules, its canned reply in `canned_ai.gd` (so offline mode and the tests have one), and a test that the canned reply passes the check.
 - **A new switch for tests:** `scripts/test_hooks.gd`, with its test value in `for_tests()` and its default in `restore()`.
+
+## Definition of done
+
+A change isn't finished until it has all of these:
+
+- **Tests:** new behaviour has tests (rules in `tests/test_rules.gd` or their own file, scenes in the click-through tests), anything a test depends on is pinned with a hook rather than left to the seed, and the whole suite passes.
+- **Stats:** whatever the change adds that happens during a night (an event, a hint, a choice the AI or the game makes, something the player clicks) is counted in `night_stats.gd`: on the debug panel and in the night's log, so real nights show whether it's working.
+- **Docs:** the DEVLOG (what and why), TESTS.md (the new tests and the count), PLAN.md (what's done, and anything it leaves for later), ARCHITECTURE.md and README.md for new files, CONCEPT.md if the game itself changes, LLM-TUNING.md if it's about how the AI behaves.
+- **On screen:** any Korean shown explains itself on hover (Hangul meanings in `rules/hangul.gd`, romanised words in the glossary), and every hover goes through `Text.tip`.
+- **Safe to share:** no real people, brands or shows by name, and no private details (names, paths, accounts, session links) in code, docs or commit messages.
+

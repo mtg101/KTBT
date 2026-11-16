@@ -23,6 +23,7 @@ const DiaryPage = preload("res://scripts/diary_page.gd")
 const Regulars = preload("res://scripts/regulars.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
+const MenuBoard = preload("res://scripts/menu_board.gd")
 const SaveStore = preload("res://scripts/save_store.gd")
 const NightStats = preload("res://scripts/night_stats.gd")
 
@@ -747,9 +748,9 @@ func test_the_door_the_chorus_and_the_double_take() -> void:
 	Hooks.stay_minutes_override = 600
 	_crowd(scene, 2)
 	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).is_true()
-	assert_str(_transcript(runner)).contains("\"어서오세요!\"")  # strangers, welcomed politely
 	var first = scene._guests[0]
 	var second = scene._guests[1]
+	assert_bool(first.transcript.any(func(entry): return str(entry.get("action", "")).contains("Eoseo oseyo"))).is_true()  # strangers, welcomed politely
 	# Someone says hwaiting: the counter joins in, with a caption.
 	scene._cheer_along(first, "Hwaiting, you've got this!", [])
 	assert_str(_transcript(runner)).contains("Everyone at the counter joins in")
@@ -764,6 +765,31 @@ func test_the_door_the_chorus_and_the_double_take() -> void:
 	assert_str(second.stunned).contains("hardly believe")
 	assert_str(scene._owner_stunned).contains("hardly believe")
 	assert_str(first.stunned).is_empty()
+
+
+func test_the_menu_board_opens_the_whole_menu() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var board = runner.find_child("MenuBoard", true, false)
+	assert_array(board.shown_ids).is_equal(Menu.board_order(scene._specials).map(func(item): return str(item["id"])))
+	assert_array(MenuBoard.STYLE_ORDER).contains([board.style])
+	assert_str(board.tooltip_text).contains("메뉴").contains("Click")  # Korean on screen explains itself
+	assert_int(board.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# Click it: the whole menu, over the tent.
+	board.open()
+	assert_bool(board.panel.visible).is_true()
+	assert_int(scene._stats.menu_opened).is_equal(1)  # (counted)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Menu board opened: 1")
+	var text: String = (board.panel.find_child("MenuText", true, false) as RichTextLabel).get_parsed_text()
+	assert_str(text).contains("떡볶이").contains("Tteokbokki").contains("₩").contains("DRINKS")
+	(board.panel.find_child("CloseMenu", true, false) as Button).pressed.emit()
+	assert_bool(board.panel.visible).is_false()
+	# Specials first, the favourite and sold out marked.
+	var written := MenuBoard.menu_text(Menu.board_order(["pajeon"]), ["pajeon"], ["sundae"], "tteokbokki", "Byeolbit Pocha")
+	assert_int(written.find("Pajeon")).is_less(written.find("Tteokbokki"))
+	assert_str(written).contains("TONIGHT'S SPECIALS").contains("인기").contains("품절").contains("[s]").contains("Byeolbit Pocha")
+	assert_str(written).contains("Somaek? Order a soju and a beer").not_contains("[b]Somaek[/b]")  # (never on the menu itself)
+	assert_str(MenuBoard.style_for("a bar")).is_equal(MenuBoard.style_for("a bar"))  # (the same every night)
 
 
 func test_the_city_behind_the_tent_and_tonights_date() -> void:
@@ -1541,6 +1567,7 @@ func test_the_owner_uses_a_well_known_regulars_given_name() -> void:
 
 func test_noteworthy_moments_get_tv_captions() -> void:
 	Hooks.stay_minutes_override = 600  # nobody leaves, so the tent stays full
+	Hooks.cat_wanders = false  # (a cat making off with a fish cake would be a second red light)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	_crowd(scene, 6)

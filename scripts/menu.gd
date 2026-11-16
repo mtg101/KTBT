@@ -1,20 +1,24 @@
 extends RefCounted
-## Tonight's menu. The game owns these facts: the AI can only order what's listed here,
-## and the bill is always worked out from these prices.
+## Tonight's menu: the open bar's own (see use), or the classic menu below. The game owns these
+## facts: the AI can only order what's listed here, and the bill is always worked out from
+## these prices.
 ## Food has a portion: "main" (a proper dish; most people order one) or "side" (a small plate).
 ## "hangul" is its name in Hangul (for the hover hints and, later, the menu board).
 ## Optional: "aliases" (other names the AI might use) and "extra_only" (only ordered later in a
 ## visit, e.g. fried rice made in the leftover sauce of a main dish).
+## "mixed": made at the table, not ordered off the menu (somaek: a soju and a beer), so it's never
+## on the board, and every bar with soju and beer has it.
 ## "art" is how it looks on the table: what it comes in and what's in it (see rules/dish_art.gd).
 ## "cook" is how many game minutes a dish takes on the stove. There's one cook, so cooked
 ## dishes queue; anything without it (drinks, odeng from the simmering pot, a bowl of rice)
 ## comes straight away.
 
+## The classic menu: every bar's until it has its own (and the tests').
 const ITEMS := [
 	{"id": "soju", "hangul": "소주", "name": "Soju", "desc": "the classic green bottle", "price": 5000, "kind": "drink", "color": "3fae6a", "art": {"vessel": "bottle"}},
 	{"id": "makgeolli", "hangul": "막걸리", "name": "Makgeolli", "desc": "milky rice wine", "price": 6000, "kind": "drink", "color": "e9e4d4", "aliases": ["makkeolli", "makgeoli", "milky rice wine", "rice wine"], "art": {"vessel": "kettle"}},
 	{"id": "beer", "hangul": "맥주", "name": "Beer", "desc": "a cold lager", "price": 5000, "kind": "drink", "color": "e0b23c", "aliases": ["lager", "maekju"], "art": {"vessel": "glass", "foam": true}},
-	{"id": "somaek", "hangul": "소맥", "name": "Somaek", "desc": "a shot of soju dropped into beer", "price": 9000, "kind": "drink", "color": "c9d86a", "aliases": ["somaeck", "somac", "so maek"], "art": {"vessel": "glass", "foam": true}},
+	{"id": "somaek", "hangul": "소맥", "name": "Somaek", "desc": "a shot of soju dropped into beer, mixed at the table from a soju and a beer (never on the menu: you just ask)", "price": 9000, "kind": "drink", "mixed": true, "color": "c9d86a", "aliases": ["somaeck", "somac", "so maek"], "art": {"vessel": "glass", "foam": true}},
 	{"id": "tteokbokki", "hangul": "떡볶이", "name": "Tteokbokki", "desc": "spicy rice cakes", "price": 12000, "kind": "food", "portion": "main", "color": "d8452f", "cook": 6, "aliases": ["rice cakes", "rice cake", "spicy rice cakes"], "art": {"vessel": "plate", "fill": "d8452f", "bits": "cylinders", "bits_colour": "f3e3cf", "garnish": "spring_onion"}},
 	{"id": "odeng", "hangul": "오뎅", "name": "Odeng", "desc": "fish cake skewers in hot broth", "price": 8000, "kind": "food", "portion": "side", "color": "c9a26b", "aliases": ["fish cake", "fish cakes", "fishcake", "fishcakes", "eomuk"], "art": {"vessel": "cup", "bits": "skewers"}},
 	{"id": "sundae", "hangul": "순대", "name": "Sundae", "desc": "Korean blood sausage", "price": 13000, "kind": "food", "portion": "main", "color": "6b3a3a", "cook": 4, "aliases": ["blood sausage", "soondae"], "art": {"vessel": "plate", "bits": "slices", "garnish": "sesame"}},
@@ -27,9 +31,44 @@ const ITEMS := [
 ]
 
 
+static var _items: Array = []  # the open bar's menu ([]: the classic one)
+
+## Goes up whenever the menu changes, so anything built from it (the glossary's tables) knows
+## to build itself again.
+static var version := 0
+
+
+## Tonight's menu: the open bar's, or the classic one.
+static func items() -> Array:
+	return ITEMS if _items.is_empty() else _items
+
+
+## A bar opens with its own menu (its dishes in full, as saved: see for_bar); [] for the
+## classic one. Whole numbers come back from a save as decimals, so they're put back.
+## (A stopgap: the refactor's Night object will own the open bar's menu.)
+static func use(menu: Array) -> void:
+	var tidied: Array = []
+	for item in menu:
+		if typeof(item) != TYPE_DICTIONARY or str(item.get("id", "")) == "":
+			continue
+		var copy: Dictionary = item.duplicate(true)
+		for key in ["price", "cook"]:
+			if copy.has(key):
+				copy[key] = int(copy[key])
+		tidied.append(copy)
+	_items = tidied
+	version += 1
+
+
+## A bar's menu, as saved with it ("menu": its dishes in full), or [] for the classic one.
+static func for_bar(bar: Dictionary) -> Array:
+	var saved: Variant = bar.get("menu", [])
+	return saved if saved is Array else []
+
+
 ## The item with this id, or {} if there isn't one.
 static func find(id: String) -> Dictionary:
-	for item in ITEMS:
+	for item in items():
 		if item["id"] == id:
 			return item
 	return {}
@@ -44,7 +83,7 @@ static func cook_minutes(id: String) -> int:
 ## Returns "" if it isn't on the menu.
 static func resolve(text: String) -> String:
 	var key := _normalise(text)
-	for item in ITEMS:
+	for item in items():
 		if key == item["id"] or key == _normalise(item["name"]):
 			return item["id"]
 		for alias in item.get("aliases", []):
@@ -59,7 +98,7 @@ static func resolve(text: String) -> String:
 ## specials: tonight's specials (Orders.pick_specials), marked.
 static func prompt_list(order: Array = [], specials: Array = []) -> String:
 	var lines := PackedStringArray()
-	var ids: Array = order if not order.is_empty() else ITEMS.map(func(item): return str(item["id"]))
+	var ids: Array = order if not order.is_empty() else items().map(func(item): return str(item["id"]))
 	for id in ids:
 		var item := find(str(id))
 		if item.is_empty():
@@ -74,9 +113,46 @@ static func prompt_list(order: Array = [], specials: Array = []) -> String:
 
 ## Every id, in a new order each time (see prompt_list).
 static func shuffled_ids() -> Array:
-	var ids: Array = ITEMS.map(func(item): return str(item["id"]))
+	var ids: Array = items().map(func(item): return str(item["id"]))
 	ids.shuffle()
 	return ids
+
+
+## The menu in board order, the way a pocha writes it up: tonight's specials first, then the
+## food (mains, then sides and rice), then the drinks. Fried rice made in the leftover sauce
+## isn't on the board (you ask for it), and nor is somaek (you mix it at the table).
+static func board_order(specials: Array = []) -> Array:
+	var shown: Array = items().filter(func(item): return not bool(item.get("extra_only", false)) and not bool(item.get("mixed", false)))
+	var rank := func(item: Dictionary) -> int:
+		if specials.has(item["id"]):
+			return 0
+		if item["kind"] == "drink":
+			return 3
+		return 1 if item.get("portion", "") == "main" else 2
+	var ordered: Array = []
+	for wanted in 4:
+		for item in shown:
+			if rank.call(item) == wanted:
+				ordered.append(item)
+	return ordered
+
+
+## The house favourite: the food ordered most in the bar's recent visits (its history), if
+## anything's been ordered at least FAVOURITE_AT_LEAST times and is still on the menu; "".
+const FAVOURITE_AT_LEAST := 3
+
+
+static func favourite(history: Array) -> String:
+	var counts := {}
+	for visit in history:
+		for id in visit.get("order", []):
+			if find(str(id)).get("kind", "") == "food":
+				counts[str(id)] = int(counts.get(str(id), 0)) + 1
+	var best := ""
+	for id in counts:
+		if int(counts[id]) >= FAVOURITE_AT_LEAST and (best == "" or int(counts[id]) > int(counts[best])):
+			best = str(id)
+	return best
 
 
 ## 12000 -> "₩12,000"

@@ -10,6 +10,7 @@ const Menu = preload("res://scripts/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Names = preload("res://scripts/rules/names.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 
 
@@ -289,8 +290,16 @@ const HERE_BEFORE_DISH := ["the", "your", "this", "that", "another", "more"]
 static func off_menu_here(line: String) -> String:
 	var said := Text.words(line)
 	var served_here := SERVED_HERE_WORDS.any(func(word): return word in said)
+	# Not this bar's: the list above, and any catalogue dish it doesn't serve (another bar's) ...
+	var elsewhere: Array = OFF_MENU_DISHES + Catalogue.off_menu_words()
+	# ... but never a word of tonight's menu (a bar with kimchi-jjigae serves jjigae).
+	var ours := {}
+	for item in Menu.items():
+		for called in [str(item["name"]), str(item.get("word", ""))] + Array(item.get("aliases", [])):
+			for part in Text.words(str(called)):
+				ours[part] = true
 	for i in said.size():
-		if OFF_MENU_DISHES.has(said[i]) and (served_here or (i > 0 and HERE_BEFORE_DISH.has(said[i - 1]))):
+		if elsewhere.has(said[i]) and not ours.has(said[i]) and (served_here or (i > 0 and HERE_BEFORE_DISH.has(said[i - 1]))):
 			return said[i]
 	return ""
 
@@ -310,7 +319,10 @@ static func romanised_korean(line: String, names: Array = []) -> Array:
 	for person in names:
 		for part in Text.words(str(person)):
 			allowed[part] = true
-	for item in Menu.ITEMS:
+	for item in Catalogue.all():  # (every pocha dish is real Korean, served here or not)
+		for part in Text.words(str(item["name"])):
+			allowed[part] = true
+	for item in Menu.items():
 		for part in Text.words(str(item["name"])):
 			allowed[part] = true
 	for spelling in Glossary.lookup():  # every Korean word the game knows is real
@@ -504,14 +516,18 @@ const HINT_TELLS := {
 
 
 ## The door: what the owner calls out as someone ducks in, by how close they are (a
-## Regulars.closeness_mark): polite for a stranger, casual for an old friend. Korean, as said
-## (it explains itself on hover).
-const DOOR_WELCOME := {"": "어서오세요!", "☆": "또 오셨네요!", "★": "또 오셨네요!", "★★": "왔어?"}
+## Regulars.closeness_mark): polite for a stranger, casual for an old friend. Romanised, like
+## any Korean said (it explains itself on hover: see the glossary).
+const DOOR_WELCOME := {"": "Eoseo oseyo!", "☆": "Tto osyeonneyo!", "★": "Tto osyeonneyo!", "★★": "Wasseo?"}
 
 ## And on the way out: the customer's thanks (now and then), and the owner's goodbye.
-const DOOR_THANKS := "잘 먹었습니다!"
-const DOOR_GOODBYE := {"": "안녕히 가세요!", "☆": "안녕히 가세요!", "★": "조심히 가세요!", "★★": "조심히 가!"}
+const DOOR_THANKS := "Jal meogeosseumnida!"
+const DOOR_GOODBYE := {"": "Annyeonghi gaseyo!", "☆": "Annyeonghi gaseyo!", "★": "Josimhi gaseyo!", "★★": "Josimhi ga!"}
 const DOOR_THANKS_CHANCE := 0.6
+
+## How often a stranger's welcome goes in the transcript (the bubble's every time; a
+## regular's always does, since how they're greeted says how close they are).
+const DOOR_WELCOME_WRITTEN := 0.3
 
 
 static func door_welcome(mark: String) -> String:
@@ -524,7 +540,7 @@ static func door_goodbye(mark: String) -> String:
 
 ## Someone said hwaiting (go for it!): the counter joins in. At most this many others.
 const CHORUS_MOST := 3
-const CHORUS := "화이팅!"
+const CHORUS := "Hwaiting!"
 
 
 static func says_hwaiting(line: String, names: Array = []) -> bool:

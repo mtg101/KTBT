@@ -13,6 +13,7 @@ const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
+const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/regulars.gd")
@@ -104,6 +105,34 @@ Name this pojangmacha. Real tents have short, warm Korean names, written here in
 Reply with ONLY a JSON object with exactly these keys:
 - "name": the tent's name in romanised Korean
 - "meaning": what the name means in English, in a few words""" % describe_owner(owner)
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## A new bar's menu: the owner chooses what their tent serves, from the catalogue of real pocha
+## food, within the house rules (see Catalogue.validate_menu). The game adds soju, beer and
+## rice itself.
+static func menu_messages(owner: Dictionary, bar_name: String, meaning: String) -> Array:
+	var request := """%s
+
+Their tent is called %s (%s). What's on its menu? Every pocha serves soju, beer and a bowl of rice, so those are already on it. From the dishes below, choose the rest, the way this owner would: what they can cook, what they grew up on, what their regulars would come back for, and what they'd charge.
+
+THE HOUSE RULES:
+- Keep at least %d of the pocha classics (marked A CLASSIC: tteokbokki, a fish cake, sundae, a pancake, gyeran-mari, a late-night noodle); every tent has most of them. Makgeolli's usual too.
+- Then %d to %d dishes of their own, beyond the classics, that say who this owner is, including at least one hearty main (a stew, something from the grill, or seafood).
+- No more than %d dishes and drinks in all, as well as the soju, beer and rice.
+- A price for anything you like, within its range (a fancier tent charges more; a struggling one less).
+
+THE DISHES:
+%s
+
+Reply with ONLY a JSON object with exactly these keys:
+- "dishes": the ids of the dishes they serve (the classics they keep and their own)
+- "prices": the price in won of any dish you're pricing, by id (e.g. {"tteokbokki": 12000}); leave out the rest
+- "why": one line on why this is their menu, in the owner's spirit""" % [describe_owner(owner), bar_name, meaning, Catalogue.CLASSICS_AT_LEAST,
+		Catalogue.OWN_PICKS.x, Catalogue.OWN_PICKS.y, Catalogue.MENU_SIZE.y - Catalogue.SIGNATURES - Catalogue.ALWAYS.size(), Catalogue.prompt_list()]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

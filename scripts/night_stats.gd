@@ -56,6 +56,7 @@ var order_situations := 0  # first orders given a situation (Talk.order_moment a
 var opener_situations := 0  # the owner's first proper words given a situation (Talk.opener_moment)
 var sides_added := 0  # sides an order line asked for that the AI left out, added (Orders.add_mentioned_sides)
 var unsaid_dropped := 0  # things in an order the line never asked for, taken off (Orders.drop_unsaid)
+var menu_opened := 0  # times the menu board was clicked open
 ## Out in the street and coming in: who walked by (alone, in twos, in threes), on phones,
 ## under which umbrellas, sharing one, running for it; customers under umbrellas or running in.
 var street := {}
@@ -343,6 +344,11 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds" % int(story["loading_seconds"])) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
+	if story.has("date"):
+		lines.append("Date: %s, %s" % [story["date"], story.get("season", "")])
+	if story.has("menu_by"):
+		lines.append("Menu: chosen by the %s · its own: %s" % [story["menu_by"], ", ".join(PackedStringArray(story.get("menu_own", [])))])
+	lines.append("Menu board opened: %d" % menu_opened)
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
@@ -409,7 +415,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
-			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
+			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped, "menu_opened": menu_opened,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},

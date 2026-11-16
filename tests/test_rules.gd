@@ -1770,13 +1770,14 @@ func test_korean_exclamations_and_the_double_take() -> void:
 
 func test_the_door_and_the_chorus() -> void:
 	# Polite for a stranger, casual for an old friend.
-	assert_str(Talk.door_welcome("")).is_equal("어서오세요!")
-	assert_str(Talk.door_welcome("☆")).is_equal("또 오셨네요!")
-	assert_str(Talk.door_welcome("★★")).is_equal("왔어?")
-	assert_str(Talk.door_goodbye("")).is_equal("안녕히 가세요!")
-	assert_str(Talk.door_goodbye("★★")).is_equal("조심히 가!")
+	assert_str(Talk.door_welcome("")).is_equal("Eoseo oseyo!")
+	assert_str(Talk.door_welcome("☆")).is_equal("Tto osyeonneyo!")
+	assert_str(Talk.door_welcome("★★")).is_equal("Wasseo?")
+	assert_str(Talk.door_goodbye("")).is_equal("Annyeonghi gaseyo!")
+	assert_str(Talk.door_goodbye("★★")).is_equal("Josimhi ga!")
+	# Romanised, like any Korean said, and every one explains itself on hover.
 	for said in [Talk.DOOR_THANKS, Talk.CHORUS] + Talk.DOOR_WELCOME.values() + Talk.DOOR_GOODBYE.values():
-		assert_str(Glossary.hangul_tip(str(said))).override_failure_message(str(said)).is_not_empty()
+		assert_array(Glossary.words_in(str(said))).override_failure_message(str(said)).is_not_empty()
 	# Hwaiting, said, gets the counter joining in.
 	assert_bool(Talk.says_hwaiting("Hwaiting, Ji-ho! You've got this.")).is_true()
 	assert_bool(Talk.says_hwaiting("That's the fighting spirit.")).is_false()
