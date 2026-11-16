@@ -47,6 +47,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `bar/people_view.gd` | Drawing people: a person dressed in their look, facing us or seated from behind, a phone, an umbrella (with the snow or rain on it) or a bag over their head, running for it (part 2 split out of `visit.gd`) |
 | `bar/street.gd` | The street in front of the tent: strollers, passers-by who look in and walk on, and rain gear for anyone out in the weather (part 3 split out of `visit.gd`) |
 | `bar/cat.gd` | The tent's cat: who it is, where it is and who with, drawing it and moving it there (prowling, winding round ankles), and what the AI's told and checked against (part 4 split out of `visit.gd`) |
+| `bar/kitchen.gd` | The stove: the queue of dishes cooking and waiting, those ready to carry over, the stove's row, and how a dish or the free banchan looks on the table (part 5 split out of `visit.gd`) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (so far its weather and its stats; it grows as parts move out) |
 | `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |

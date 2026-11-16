@@ -26,6 +26,7 @@ const Street = preload("res://scripts/bar/street.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Layout = preload("res://scripts/bar/layout.gd")
 const Cat = preload("res://scripts/bar/cat.gd")
+const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -66,7 +67,7 @@ const Ktv = preload("res://scripts/ktv_style.gd")
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
 const ROUGH_NIGHT_CHANCE := 0.2  # How often a customer is having a rough enough night to order two drinks.
 ## Free side dishes served with every first order, as at a real pojangmacha. Not on the bill.
-const BANCHAN := "kimchi and pickled radish"
+const BANCHAN := Kitchen.BANCHAN
 
 
 const ACCENT := Ktv.ORANGE
@@ -218,8 +219,13 @@ var _waiting: Array = []  # when each person waiting for a stool (or to be greet
 var _waiting_who: Array = []  # ...and who they are: a regular's id, or "" for someone new
 var _regulars_due: Array = []  # {"time", "id"}: regulars coming in tonight, soonest first
 var _skip_arrivals := 0  # a regular came in instead of someone new
-var _kitchen: Array = []  # {"guest", "id", "left"}: the first is on the stove, the rest queue
-var _ready_dishes: Array = []  # {"guest", "id"}: cooked, waiting to be carried over
+var _kitchen_part := Kitchen.new()  # the stove: what's cooking, waiting and ready (scripts/bar/kitchen.gd)
+var _kitchen: Array:  # (the stove's queue: the first is on, the rest wait)
+	get:
+		return _kitchen_part.queue
+var _ready_dishes: Array:  # (cooked, waiting to be carried over)
+	get:
+		return _kitchen_part.ready
 ## The owner's voice: one AI call at a time, so one conversation task at a time.
 var _owner_working := false
 var _greeting := false  # the owner's greeting someone who isn't on their stool yet
@@ -356,7 +362,6 @@ var _info: RichTextLabel
 var _stage: Control
 var _owner_node: Control
 var _owner_tag: Label
-var _stove_row: HBoxContainer
 # The look of the tent and the night (placeholder art, drawn in code)
 ## Its own dice for scenery that comes and goes by itself (the neon sign, steam, the cat
 ## prowling), so it never shifts the game's own rolls (tests fix those with a seed).
@@ -1061,7 +1066,8 @@ func _process(delta: float) -> void:
 	_time_speed = move_toward(_time_speed, NightRules.time_speed(_people_in()), delta * SPEED_CHANGE_RATE)
 	var minutes := delta * _time_speed / seconds_per_minute if seconds_per_minute > 0.0 else 60.0
 	_count_time(delta)
-	_cook(minutes)
+	if _kitchen_part.cook(minutes):
+		_update_info()
 	# Everyone's stay runs down, even when tests hold the clock.
 	for guest in _guests:
 		guest.stay_left -= minutes
@@ -1424,7 +1430,7 @@ func _free_seats() -> Array:
 ## Someone whose time is up and isn't waiting for any food.
 func _ready_to_pay() -> Guest:
 	for guest in _guests:
-		if guest.time_up() and _food_coming(guest).is_empty():
+		if guest.time_up() and _kitchen_part.food_coming(guest).is_empty():
 			return guest
 	return null
 
@@ -1440,15 +1446,6 @@ func _left_alone_longest() -> Guest:
 
 func _neediness(guest: Guest) -> int:
 	return guest.attended - (3 if guest.company == "owner" else 0)
-
-
-## A guest's dishes that are on the stove, queued, or ready to carry over.
-func _food_coming(guest: Guest) -> Array:
-	var ids: Array = []
-	for dish in _kitchen + _ready_dishes:
-		if dish["guest"] == guest:
-			ids.append(dish["id"])
-	return ids
 
 
 func _task_done() -> void:
@@ -1857,7 +1854,7 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	guest.version += 1
 	guest.food_news = true
 	if first_order:
-		guest.drinks_row.add_child(_banchan_shape())
+		guest.drinks_row.add_child(_kitchen_part.banchan_shape())
 	if guest.food_moment == "":
 		guest.food_moment = Talk.served_moment(now, randf(), randf())
 	if now.any(func(id): return Menu.find(id).get("kind", "") == "drink"):
@@ -1874,12 +1871,10 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	elif not now.is_empty():
 		_ambience.play("clink", 0.55)  # a bowl of odeng or rice set down
 	var was_backed := _kitchen.size() >= Captions.STOVE_BACKED
-	for id in later:
-		_kitchen.append({"guest": guest, "id": id, "left": float(Menu.cook_minutes(id)), "ordered": _clock})
+	_kitchen_part.put_on(guest, later, _clock)
 	if not was_backed and _kitchen.size() >= Captions.STOVE_BACKED:
 		_event("stove_backed", {"dishes": _kitchen.size()})
 	_typing_label.text = ""
-	_update_stove()
 	var said := ""
 	var done := ""
 	if first_order:
@@ -1903,10 +1898,9 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 ## to whoever they were talking to.
 func _carry_dish() -> void:
 	_carrying = true
-	var dish: Dictionary = _ready_dishes.pop_front()
+	var dish: Dictionary = _kitchen_part.take_ready()
 	var guest: Guest = dish["guest"]
 	var id := str(dish["id"])
-	_update_stove()
 	if not _guests.has(guest):
 		_carrying = false
 		return
@@ -1991,7 +1985,7 @@ func _talk(guest: Guest) -> void:
 	_owner_working = true
 	_attend(guest, true)
 	var remembered: bool = not guest.customer.get("regular", {}).get("memories", []).is_empty()
-	guest.topic = Talk.pick_owner_topic(randf(), guest.food_news or not _food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered)
+	guest.topic = Talk.pick_owner_topic(randf(), guest.food_news or not _kitchen_part.food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered)
 	# The cat's just come to them (or it's up to something): the talk turns to it. (Given only as
 	# a situation, the AI let it go by every time: 0 of 4 one night.)
 	if guest.cat_moment != "" or _owner_cat_moment != "":
@@ -2573,45 +2567,10 @@ func _cat_steals(guest: Guest) -> void:
 
 ## What's on a guest's table, as the AI is told it, including what's still cooking.
 func _table_text(guest: Guest) -> String:
-	return Orders.table_text(guest.served, _food_coming(guest), BANCHAN)
+	return Orders.table_text(guest.served, _kitchen_part.food_coming(guest), BANCHAN)
 
 
 # --- The stove ---------------------------------------------------------------
-
-## One cook: the first dish in the queue cooks; when it's done it waits to be carried over
-## and the next one goes on.
-func _cook(minutes: float) -> void:
-	if _kitchen.is_empty():
-		return
-	var changed := false
-	_kitchen[0]["left"] -= minutes
-	while not _kitchen.is_empty() and float(_kitchen[0]["left"]) <= 0.0:
-		var spare := -float(_kitchen[0]["left"])
-		var done: Dictionary = _kitchen.pop_front()
-		_ready_dishes.append({"guest": done["guest"], "id": done["id"], "ordered": done["ordered"]})
-		if not _kitchen.is_empty():
-			_kitchen[0]["left"] -= spare
-		changed = true
-	if changed:
-		_update_stove()
-		_update_info()
-
-
-func _update_stove() -> void:
-	for child in _stove_row.get_children():
-		_stove_row.remove_child(child)
-		child.queue_free()
-	for dish in _ready_dishes:
-		var shape := _dish_shape(str(dish["id"]))
-		shape.tooltip_text += " for %s (ready)" % dish["guest"].customer["name"]
-		_stove_row.add_child(shape)
-	for i in _kitchen.size():
-		var dish: Dictionary = _kitchen[i]
-		var shape := _dish_shape(str(dish["id"]))
-		shape.tooltip_text += " for %s (%s)" % [dish["guest"].customer["name"], "cooking" if i == 0 else "waiting"]
-		if i > 0:
-			shape.modulate = Color(1, 1, 1, 0.5)
-		_stove_row.add_child(shape)
 
 
 # --- Things happening in the scene -----------------------------------------
@@ -2718,7 +2677,7 @@ func _free_color() -> Color:
 ## Drinks go to the left of the customer, food to the right.
 func _add_dish(guest: Guest, id: String) -> void:
 	var row := guest.drinks_row if Menu.find(id)["kind"] == "drink" else guest.food_row
-	var shape := _dish_shape(id)
+	var shape := _kitchen_part.dish_shape(id)
 	row.add_child(shape)
 	if id == "soju":
 		_tornado(shape)
@@ -2741,32 +2700,6 @@ func _table_item_count() -> int:
 	for row in _drinks_rows + _food_rows:
 		count += row.get_child_count()
 	return count
-
-
-## A menu item on the table, drawn from its "art" (what it comes in and what's in it: see
-## rules/dish_art.gd), with its name on hover. (Without art: a bottle for a drink, a bowl for
-## food, in its colour.)
-func _dish_shape(id: String) -> Control:
-	var item := Menu.find(id)
-	var colour := Color(str(item["color"]))
-	var art: Dictionary = item.get("art", {"vessel": "bottle"} if item["kind"] == "drink" else {"vessel": "bowl", "fill": str(item["color"])})
-	var shape := DishView.new()
-	shape.tooltip_text = str(item["name"])
-	shape.mouse_filter = Control.MOUSE_FILTER_STOP
-	shape.custom_minimum_size = DishArt.size(art)
-	shape.shapes = DishArt.shapes(art, colour, id)
-	return shape
-
-
-## The free banchan: three little dishes.
-func _banchan_shape() -> Control:
-	var shape := Control.new()
-	shape.tooltip_text = Text.tip("Banchan: %s (free)" % BANCHAN)
-	shape.mouse_filter = Control.MOUSE_FILTER_STOP
-	shape.custom_minimum_size = Vector2(26, 34)
-	for i in 3:
-		_rect(shape, Vector2(i * 9, 25), Vector2(8, 9), Color("c8452f") if i != 1 else Color("efe9cf"))
-	return shape
 
 
 ## Shows a line of dialogue, adds it to the guest's transcript, then pauses long enough to
@@ -3269,7 +3202,7 @@ func _hover_text(guest: Guest) -> String:
 	lines.append("Company: %s" % COMPANY_LABEL.get(guest.company, guest.company))
 	if not guest.served.is_empty():
 		lines.append("On the table: %s" % Orders.item_names(guest.served))
-	var coming := _food_coming(guest)
+	var coming := _kitchen_part.food_coming(guest)
 	if not coming.is_empty():
 		lines.append("Cooking: %s" % Orders.item_names(coming))
 	if _drinks_had(guest) >= TIPSY_DRINKS:
@@ -3346,7 +3279,7 @@ func _update_info() -> void:
 			t += "[color=#%s]Talking with %s[/color]\n" % [muted, _esc(", ".join(PackedStringArray(others)))]
 		if not guest.order.is_empty():
 			t += "Table: %s" % Glossary.explain(_esc(Orders.item_names(guest.served) if not guest.served.is_empty() else "banchan"))
-			var coming := _food_coming(guest)
+			var coming := _kitchen_part.food_coming(guest)
 			if not coming.is_empty():
 				t += "  ·  [color=#%s]cooking: %s[/color]" % [accent, Glossary.explain(_esc(Orders.item_names(coming)))]
 			t += "  ·  %s\n" % Menu.format_won(Orders.bill(guest.order))
@@ -3775,13 +3708,13 @@ func _build_stage(stage: Control) -> void:
 	_tent_view.decor_counter = _layer(stage, "DecorCounter")
 
 	# What's cooking (and what's ready to carry over), at the stove.
-	_stove_row = HBoxContainer.new()
-	_stove_row.name = "Stove"
-	_stove_row.position = Vector2(176, 207)  # beside the odeng pot
-	_stove_row.size = Vector2(160, 34)
-	_stove_row.add_theme_constant_override("separation", 4)
-	_stove_row.clip_contents = true
-	stage.add_child(_stove_row)
+	_kitchen_part.stove_row = HBoxContainer.new()
+	_kitchen_part.stove_row.name = "Stove"
+	_kitchen_part.stove_row.position = Vector2(176, 207)  # beside the odeng pot
+	_kitchen_part.stove_row.size = Vector2(160, 34)
+	_kitchen_part.stove_row.add_theme_constant_override("separation", 4)
+	_kitchen_part.stove_row.clip_contents = true
+	stage.add_child(_kitchen_part.stove_row)
 
 	# Each stool's place at the counter: drinks and banchan to the customer's left, food to the right.
 	for seat in NightRules.SEATS:
