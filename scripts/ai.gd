@@ -102,7 +102,8 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 			last_error = str(reply[1])
 			return {}
 		var content := str(reply[1])
-		var data = JSON.parse_string(content)
+		var json := JSON.new()  # (quietly: a reply that isn't JSON is retried like any other bad reply)
+		var data = json.data if json.parse(content) == OK else null
 		var problem: String = validator.call(data)
 		if problem == "":
 			return data

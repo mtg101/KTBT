@@ -173,7 +173,8 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	# They really walk past: on screen now, gone once they've walked on.
 	var passer := runner.find_child("PasserBy1", true, false) as Control
 	assert_object(passer).is_not_null()
-	assert_bool(await _wait_until(func(): return not is_instance_valid(passer))).override_failure_message("the passer-by never left").is_true()
+	var passer_id := passer.get_instance_id() if passer != null else 0  # (watched by id: a wait holding the node itself complains once it's freed)
+	assert_bool(await _wait_until(func(): return not is_instance_id_valid(passer_id))).override_failure_message("the passer-by never left").is_true()
 	Hooks.pause_scale_override = 0.01
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy, 30000)).is_true()
@@ -867,6 +868,7 @@ func test_the_cat_wanders_by_itself() -> void:
 	Hooks.run_clock = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
+	scene._cat_next = 2.0  # (soon: on a slow machine, half an hour of game time can take a while)
 	var moved: bool = await _wait_until(func(): return scene._cat_spot != "stove")
 	assert_bool(moved).override_failure_message("the cat never moved").is_true()
 

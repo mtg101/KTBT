@@ -151,7 +151,10 @@ static func record_diary(bar: Dictionary, entry: Dictionary) -> void:
 static func _read(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var json := JSON.new()  # (not JSON.parse_string, which prints an error for a broken file: skipping it is enough)
+	if json.parse(FileAccess.get_file_as_string(path)) != OK:
+		return {}
+	var data = json.data
 	if typeof(data) != TYPE_DICTIONARY:
 		return {}
 	for key in REQUIRED:

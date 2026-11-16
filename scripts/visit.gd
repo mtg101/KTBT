@@ -1040,7 +1040,7 @@ func _process(delta: float) -> void:
 		_loading.status = _loading_status()
 	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
 		"open": _night_open, "minutes": int(_clock)})
-	if not _night_open or _stopped or Game.bar.is_empty():  # (no bar: closed, or a test tidied it away)
+	if not _night_open or _stopped:
 		return
 	var seconds_per_minute := _scaled(REAL_SECONDS_PER_GAME_MINUTE)
 	_time_speed = move_toward(_time_speed, NightRules.time_speed(_people_in()), delta * SPEED_CHANGE_RATE)
@@ -1358,7 +1358,7 @@ func _call_last_orders() -> void:
 
 ## The night's over: the owner closes up, the night is saved, and a summary appears.
 func _end_night() -> void:
-	if Game.bar.is_empty():  # (the bar's gone: a test tidied it away mid-night, on a slow machine)
+	if str(Game.bar.get("id", "")) == "":  # (the bar's gone: a test tidied it away mid-night, on a slow machine)
 		_night_open = false
 		return
 	# "Will she stay away again?": answered at closing, if she has.

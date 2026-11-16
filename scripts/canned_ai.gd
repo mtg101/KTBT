@@ -124,8 +124,9 @@ const REACTION_CAPTIONS := {"shock": "WAIT, WHAT?!", "sad": "THAT ONE HURT", "sw
 func reply(request: Dictionary) -> Variant:
 	if not scripted.is_empty():
 		var next = scripted.pop_front()
-		if typeof(next) == TYPE_STRING:
-			return JSON.parse_string(next)
+		if typeof(next) == TYPE_STRING:  # (a reply as the AI would write it, maybe not JSON at all: read quietly)
+			var json := JSON.new()
+			return json.data if json.parse(next) == OK else null
 		# A copy, so the game can tidy it without touching the test's original.
 		return next.duplicate(true) if typeof(next) == TYPE_DICTIONARY else next
 	var title := str(request.get("title", "Ajumma"))
