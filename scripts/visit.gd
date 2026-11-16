@@ -27,6 +27,7 @@ const Night = preload("res://scripts/bar/night.gd")
 const Layout = preload("res://scripts/bar/layout.gd")
 const Cat = preload("res://scripts/bar/cat.gd")
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
+const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -255,15 +256,15 @@ var _captions_toggle: CheckBox
 var _music_toggle: CheckBox
 var _options_button: Button  # the top bar's Options button...
 var _options_panel: PanelContainer  # ...and the panel it drops down
-var _caption_shown: Control  # the one up now (a new one replaces it)
-var _red_frame: Panel  # flashes round the tent for an emergency
-var _caption_last := -1.0  # real seconds when the last caption showed (-1: none yet)
-var _caption_last_kind := {}  # kind -> real seconds when one of those last showed
+var _captions_part: CaptionsOnScreen  # TV captions on screen: pacing, popping, the red light (scripts/bar/captions_on_screen.gd)
+var _caption_shown: Control:  # the one up now
+	get:
+		return _captions_part.shown
 var _rush_shown := false  # tonight's after-work rush has been and gone
 var _dawn_shown := false  # ...and 2am feelings
-var _red_flashes := 0  # emergencies flashed (for tests)
-var _reaction_last := -1.0  # real seconds when the last reaction showed
-var _reaction_until := -1.0  # ...and until when it's up
+var _red_flashes: int:  # emergencies flashed (for tests)
+	get:
+		return _captions_part.red_flashes
 ## Tonight's specials (menu ids, rules/specials.gd): marked on the menu customers see. (What's
 ## sold out tonight is Menu.sold_out.)
 var _specials: Array = []
@@ -2776,19 +2777,6 @@ func _caption_for_event(kind: String, facts: Dictionary, about: Variant, spot: V
 func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: Vector2 = Vector2(-1, -1)) -> void:
 	if not Hooks.captions or _captions_toggle == null or not _captions_toggle.button_pressed or not Captions.CAPTIONS.has(kind):
 		return
-	var always := bool(Captions.CAPTIONS[kind].get("always", false))  # (closing early: never held back)
-	if Hooks.caption_pacing and not always and randf() >= float(Captions.CAPTIONS[kind].get("chance", 1.0)):
-		return  # a kind that comes up all night: only now and then
-	var now := Time.get_ticks_msec() / 1000.0
-	var reaction_up := now < _reaction_until and not bool(Captions.CAPTIONS[kind]["emergency"])  # a reaction's up: routine ones wait
-	if Hooks.caption_pacing and not always and (reaction_up or not Captions.caption_allowed(kind, now, _caption_last, float(_caption_last_kind.get(kind, -1.0)), _scaled(Captions.CAPTION_GAP), _scaled(Captions.CAPTION_SAME_GAP))):
-		_stats.captions_held_back += 1
-		return
-	_caption_last = now
-	_caption_last_kind[kind] = now
-	_stats.captions[kind] = int(_stats.captions.get(kind, 0)) + 1
-	var data: Dictionary = Captions.CAPTIONS[kind]
-	var roll := randf()  # which of its words, for a kind with several
 	fill = fill.duplicate()
 	if not fill.has("owner") and not _owner.is_empty():
 		fill["owner"] = _owner["name"]
@@ -2798,33 +2786,7 @@ func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: 
 		fill["cat"] = _cat["name"]
 	if _weather_kind in ["drizzle", "rain"]:
 		fill["weather"] = "rain"
-	_pop_caption(Captions.caption_words(kind, fill, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), bool(data["emergency"]), about, spot, Captions.CAPTION_SECONDS)
-
-
-## Puts a caption up (see _caption and _react): in the transcript, popped up on the stage
-## (replacing the last), with its sting, and the red light for an emergency.
-func _pop_caption(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Variant, spot: Vector2, hold: float) -> void:
-	_show("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [colour, _esc("[TV] %s %s" % [words["hangul"], words["english"]])])
-	if is_instance_valid(_caption_shown):
-		_caption_shown.name = "OldCaption"  # (so it's never mistaken for the new one while it goes)
-		_caption_shown.queue_free()
-	var caption := CaptionPopup.new()
-	caption.name = "Caption"
-	caption.time_scale = _scaled(1.0)
-	caption.stage_width = STAGE_SIZE.x
-	if spot.x >= 0.0:
-		caption.at = spot
-	elif is_instance_valid(about):
-		caption.at = (about as Control).position + Vector2(40, -60)
-	else:
-		caption.at = Vector2(STAGE_SIZE.x / 2, 150)
-	caption.setup(words, icon, Color(colour))
-	_caption_layer.add_child(caption)
-	caption.pop(hold)
-	_caption_shown = caption
-	_ambience.sting(sound)
-	if emergency:
-		_flash_red()
+	_captions_part.show_caption(kind, fill, about, spot)
 
 
 ## A TV reaction: asks the AI whether anything in the latest lines was a big moment (usually
@@ -2842,8 +2804,7 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 		_reaction_pending = {"lines": lines.duplicate(true), "names": names.duplicate(), "items": items.duplicate(), "at": _clock}
 		_stats.reactions_put_off += 1
 		return
-	var now := Time.get_ticks_msec() / 1000.0
-	if Hooks.caption_pacing and _reaction_last >= 0.0 and now - _reaction_last < _scaled(Captions.REACTION_GAP):
+	if not _captions_part.reaction_ready():
 		return
 	_stats.reactions_asked += 1
 	var reply: Dictionary = await _ai.ask_json(Prompts.reaction_messages(lines.slice(-Captions.REACTION_LINES), names),
@@ -2857,10 +2818,7 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	if mood == "none":
 		_stats.reactions_none += 1
 		return
-	now = Time.get_ticks_msec() / 1000.0
-	_reaction_last = now
-	_reaction_until = now + _scaled(Captions.REACTION_SECONDS)
-	_caption_last = now  # (routine captions wait their usual gap after it)
+	_captions_part.reaction_shown()  # (routine captions wait while it's up, and their usual gap after)
 	var who := str(reply["who"])
 	var theirs: Array = lines.filter(func(e): return str(e.get("speaker", "")) == who)
 	_event("big_moment", {"who": who, "mood": mood, "caption": str(reply["caption"]),
@@ -2872,7 +2830,7 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	if mood == "shock":
 		_stun_listeners(who, names)
 	var data: Dictionary = Captions.REACTIONS[mood]
-	_pop_caption(Captions.reaction_words(mood, str(reply["caption"]), randf()), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
+	_captions_part.pop(Captions.reaction_words(mood, str(reply["caption"]), randf()), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
 
 
 ## The door: as someone ducks in, the owner calls out to them, polite for a stranger and casual
@@ -3033,18 +2991,6 @@ func _ask_pending_reaction() -> void:
 
 func _validate_reaction(data: Variant, names: Array, items: Array) -> String:
 	return Captions.validate_reaction(data, names, items)
-
-
-## The emergency light: the red border flashing three times round the tent.
-func _flash_red() -> void:
-	_red_flashes += 1
-	_red_frame.visible = true
-	_red_frame.modulate.a = 0.0
-	var tween := _red_frame.create_tween()
-	for _flash in 3:
-		tween.tween_property(_red_frame, "modulate:a", 1.0, _scaled(0.18))
-		tween.tween_property(_red_frame, "modulate:a", 0.0, _scaled(0.3))
-	tween.tween_callback(func(): _red_frame.visible = false)
 
 
 ## Shows a line in a speech bubble over the speaker, a page at a time, with who it's to and
@@ -3760,19 +3706,22 @@ func _build_stage(stage: Control) -> void:
 	_tent_view.weather_front.z_index = 2  # in front of everyone
 	_bubble_layer = _layer(stage, "Bubbles")
 	_bubble_layer.z_index = 4  # in front of the tarp, the weather and the owner's name
+	_captions_part = CaptionsOnScreen.new(_night, STAGE_SIZE.x, _show, _ambience.sting)
 	_caption_layer = _layer(stage, "Captions")
 	_caption_layer.z_index = 5  # in front of everything, bubbles included
-	_red_frame = Panel.new()
-	_red_frame.name = "RedFrame"
-	_red_frame.size = STAGE_SIZE
-	_red_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_captions_part.layer = _caption_layer
+	var red_frame := Panel.new()
+	red_frame.name = "RedFrame"
+	red_frame.size = STAGE_SIZE
+	red_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var red := StyleBoxFlat.new()
 	red.bg_color = Color(1.0, 0.1, 0.1, 0.12)
 	red.border_color = Color("ff2a2a")
 	red.set_border_width_all(10)
-	_red_frame.add_theme_stylebox_override("panel", red)
-	_red_frame.visible = false
-	_caption_layer.add_child(_red_frame)
+	red_frame.add_theme_stylebox_override("panel", red)
+	red_frame.visible = false
+	_caption_layer.add_child(red_frame)
+	_captions_part.red_frame = red_frame
 
 
 ## The drinks fridge at the back, by the stove (the owner's station), behind the owner: a
