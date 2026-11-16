@@ -5,9 +5,9 @@ extends RefCounted
 ## The tent's scene decides who orders what and carries it over; this keeps the queue.
 ## (Part 5 of splitting visit.gd: see PLAN.md, "A proper refactor".)
 
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
-const DishView = preload("res://scripts/dish_view.gd")
+const DishView = preload("res://scripts/ui/dish_view.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 

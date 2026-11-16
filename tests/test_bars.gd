@@ -3,11 +3,11 @@ extends "res://tests/support/bar_test.gd"
 ## autosave. Like test_visit.gd, these use offline mode and their own save folder.
 
 const Visit = preload("res://scripts/visit.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
-const CannedAi = preload("res://scripts/canned_ai.gd")
-const SaveStore = preload("res://scripts/save_store.gd")
-const NightStats = preload("res://scripts/night_stats.gd")
-const Menu = preload("res://scripts/menu.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
+const CannedAi = preload("res://scripts/ai/canned_ai.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
 

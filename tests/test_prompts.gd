@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
-## Tests for scripts/prompts.gd: the facts the game puts into prompts must actually be there.
+## Tests for scripts/ai/prompts.gd: the facts the game puts into prompts must actually be there.
 ## These don't call the AI; they only check the text the game would send.
 
-const Prompts = preload("res://scripts/prompts.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Prompts = preload("res://scripts/ai/prompts.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Story = preload("res://scripts/rules/story.gd")

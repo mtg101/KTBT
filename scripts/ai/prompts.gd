@@ -7,7 +7,7 @@ const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
@@ -18,7 +18,7 @@ const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Signatures = preload("res://scripts/rules/signatures.gd")
 const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
-const Regulars = preload("res://scripts/regulars.gd")
+const Regulars = preload("res://scripts/rules/regulars.gd")
 
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
 

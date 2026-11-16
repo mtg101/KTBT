@@ -4,7 +4,7 @@ extends RefCounted
 ## stand out). The tent's scene builds the panel, places it and says when to refresh.
 ## (Part 11 of splitting visit.gd: see PLAN.md, "A proper refactor".)
 
-const NightStats = preload("res://scripts/night_stats.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
 
 var text: RichTextLabel  # the section showing
 var tabs: HFlowContainer  # one button per section, and All

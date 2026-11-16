@@ -3,7 +3,7 @@ extends Control
 ## the given areas: for the title and loading screens (the bar's own captions come from what
 ## happens: see visit.gd _caption). Each line: [Hangul, English, icon, colour].
 
-const CaptionPopup = preload("res://scripts/caption.gd")
+const CaptionPopup = preload("res://scripts/ui/caption.gd")
 
 var lines: Array = []
 var areas: Array = []  # Rect2s: where captions may pop up (their bottom middle)

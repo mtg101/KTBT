@@ -4,7 +4,7 @@ extends RefCounted
 ## Grows a field at a time, as the parts that need them move out of visit.gd (see PLAN.md,
 ## "A proper refactor").
 
-const NightStats = preload("res://scripts/night_stats.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
 
 var weather_kind := ""  # tonight's weather, as NightRules.weather_kind says it ("rain", "snow"...)
 var stats := NightStats.new()  # tonight's debug stats (a new one each night)

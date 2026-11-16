@@ -4,10 +4,10 @@ extends RefCounted
 ## prompts, how they're announced as they duck in, the night's end (those who stayed away drift
 ## further; too far and they're not regulars any more), and what the owner remembers of them.
 ## The tent's scene asks the AI (founding regulars, tonight's mood, memories after a visit),
-## narrates and saves; this works it out. The rules themselves are in scripts/regulars.gd.
+## narrates and saves; this works it out. The rules themselves are in scripts/rules/regulars.gd.
 ## (Part 8 of splitting visit.gd: see PLAN.md, "A proper refactor".)
 
-const Regulars = preload("res://scripts/regulars.gd")
+const Regulars = preload("res://scripts/rules/regulars.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Text = preload("res://scripts/rules/text.gd")

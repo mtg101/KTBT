@@ -6,7 +6,7 @@ extends RefCounted
 
 const Address = preload("res://scripts/rules/address.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Names = preload("res://scripts/rules/names.gd")

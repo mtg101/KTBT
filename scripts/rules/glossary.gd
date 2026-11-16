@@ -4,7 +4,7 @@ extends RefCounted
 ## address (which are also coloured by warmth, see Address.WARMTH_COLOURS).
 
 const Address = preload("res://scripts/rules/address.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")

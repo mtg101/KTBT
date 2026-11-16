@@ -1,14 +1,14 @@
 extends GdUnitTestSuite
-## Tests for scripts/menu.gd: the menu and prices are game facts, so they must be right.
+## Tests for scripts/rules/menu.gd: the menu and prices are game facts, so they must be right.
 
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Specials = preload("res://scripts/rules/specials.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
-const Prompts = preload("res://scripts/prompts.gd")
+const Prompts = preload("res://scripts/ai/prompts.gd")
 
 
 func test_resolve_accepts_exact_id() -> void:
@@ -278,7 +278,7 @@ func test_the_board_shows_the_menu_the_way_a_pocha_writes_it() -> void:
 # --- Signature dishes ---------------------------------------------------------------------
 
 const Signatures = preload("res://scripts/rules/signatures.gd")
-const MenuBoard = preload("res://scripts/menu_board.gd")
+const MenuBoard = preload("res://scripts/ui/menu_board.gd")
 
 const A_SIGNATURE := {"name": "Halmeoni Kalguksu", "hangul": "할머니 칼국수", "meaning": "grandma's knife-cut noodles",
 	"desc": "hand-cut noodles in anchovy broth, her grandmother's recipe", "category": "noodles", "vessel": "bowl", "bits": "noodles",

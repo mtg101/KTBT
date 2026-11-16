@@ -75,40 +75,40 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 | `scenes/title.tscn` | The title screen: New bar, or open a saved one |
 | `scenes/visit.tscn` | The bar itself: owner, customers, orders and conversation (its UI, the tent and the people are drawn in code) |
 | `scenes/pipeline_test.tscn` | The pipeline test, kept as a quick AI check (open it and press F6) |
-| `scripts/ollama_client.gd` | Talks to Ollama's local HTTP API |
-| `scripts/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
-| `scripts/ai_settings.gd` | Reads each machine's `ai_settings.cfg` (backend, server, model) |
-| `scripts/canned_ai.gd` | Offline mode: pre-written owners, customers, orders and lines, built to pass the game's rules; also the tests' fake AI |
-| `scripts/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
-| `scripts/loading_screen.gd` | The loading screen shown while a new bar is set up |
-| `scripts/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
-| `scripts/night_events.gd` | The night's events, announced once each, for the stats, captions and diary |
-| `scripts/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
-| `scripts/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
-| `scripts/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
-| `scripts/bubble.gd` | A speech bubble: over the speaker, who it's to, a line to the listener, and long lines a page at a time |
-| `scripts/skyline_view.gd` | The city behind the tent, drawn in one go (its windows going dark through the night), with hovers for what each building is |
-| `scripts/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
-| `scripts/dish_view.gd` | A dish or drink on the table, drawn from its shapes (see `rules/dish_art.gd`) |
-| `scripts/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
-| `scripts/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
-| `scripts/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |
-| `scripts/rules/` | The game's rules, one file per area (see [ARCHITECTURE.md](ARCHITECTURE.md)): pure functions and their tables, no scene or AI, so easy to test |
+| `logs/` | Night transcripts, written when playing from the editor (not committed) |
 | `scripts/game.gd` | The `Game` autoload: which bar is open, opening and closing bars, saving on close, and the music (which carries on between scenes) |
-| `scripts/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
-| `scripts/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |
-| `scripts/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
-| `scripts/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
-| `scripts/night_stats.gd` | The debug stats for a night: the stats panel and the nightly stats log |
+| `scripts/pipeline_test.gd` | Pipeline test logic |
+| `scripts/test_hooks.gd` | Every test hook in one place (the game only reads them) |
 | `scripts/title.gd` | Title screen logic (and its Music slider) |
 | `scripts/visit.gd` | The bar's logic: new or saved bar, the night and its clock, five stools, the stove's queue, what the owner does next, arrivals, orders, conversations and customer chats, stays, bills, the night summary, debug stats, autosave; and drawing it all: the tent and its look, the light and weather, passers-by, the cat, and everyone in their look |
-| `scripts/bar/` | The tent's parts, split out of `visit.gd` one at a time: so far the tent's look (`tent_view.gd`), drawing people (`people_view.gd`), the street (`street.gd`), the cat (`cat.gd`), the stove (`kitchen.gd`), TV captions on screen (`captions_on_screen.gd`), the transcript and the recap's facts (`story_keeper.gd`), regulars tonight (`regulars_tonight.gd`), customer chats (`counter_chats.gd`), who calls whom (`friendliness.gd`), what each line is given (`conversation.gd`), the tent's fixtures (`scenery.gd`), the stats panel's tabs (`stats_panel.gd`), tonight's shared state (`night.gd`), the stage's layout (`layout.gd`) and small drawing helpers (`draw.gd`) |
-| `scripts/pipeline_test.gd` | Pipeline test logic |
-| `logs/` | Night transcripts, written when playing from the editor (not committed) |
-| `scripts/test_hooks.gd` | Every test hook in one place (the game only reads them) |
-| `.github/workflows/tests.yml` | Runs all the tests on GitHub on every push |
 | `tests/` | GdUnit4 tests (with a shared base in `tests/support/`): rules, menu, prompts, offline mode, saves, stats, and click-through visits, bars and nights (see [TESTS.md](TESTS.md)) |
+| `.github/workflows/tests.yml` | Runs all the tests on GitHub on every push |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
+| `scripts/ai/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
+| `scripts/ai/ai_settings.gd` | Reads each machine's `ai_settings.cfg` (backend, server, model) |
+| `scripts/ai/canned_ai.gd` | Offline mode: pre-written owners, customers, orders and lines, built to pass the game's rules; also the tests' fake AI |
+| `scripts/ai/ollama_client.gd` | Talks to Ollama's local HTTP API |
+| `scripts/ai/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
+| `scripts/bar/` | The tent's parts, split out of `visit.gd` one at a time: so far the tent's look (`tent_view.gd`), drawing people (`people_view.gd`), the street (`street.gd`), the cat (`cat.gd`), the stove (`kitchen.gd`), TV captions on screen (`captions_on_screen.gd`), the transcript and the recap's facts (`story_keeper.gd`), regulars tonight (`regulars_tonight.gd`), customer chats (`counter_chats.gd`), who calls whom (`friendliness.gd`), what each line is given (`conversation.gd`), the tent's fixtures (`scenery.gd`), the stats panel's tabs (`stats_panel.gd`), tonight's shared state (`night.gd`), the stage's layout (`layout.gd`) and small drawing helpers (`draw.gd`) |
+| `scripts/bar/night_events.gd` | The night's events, announced once each, for the stats, captions and diary |
+| `scripts/bar/night_stats.gd` | The debug stats for a night: the stats panel and the nightly stats log |
+| `scripts/rules/` | The game's rules, one file per area (see [ARCHITECTURE.md](ARCHITECTURE.md)): pure functions and their tables, no scene or AI, so easy to test |
+| `scripts/rules/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |
+| `scripts/rules/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
+| `scripts/save/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
+| `scripts/sound/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
+| `scripts/sound/music.gd` | The background music: Arirang, arranged in code, from the title screen on |
+| `scripts/ui/bubble.gd` | A speech bubble: over the speaker, who it's to, a line to the listener, and long lines a page at a time |
+| `scripts/ui/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
+| `scripts/ui/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
+| `scripts/ui/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |
+| `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
+| `scripts/ui/dish_view.gd` | A dish or drink on the table, drawn from its shapes (see `rules/dish_art.gd`) |
+| `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
+| `scripts/ui/loading_screen.gd` | The loading screen shown while a new bar is set up |
+| `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
+| `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
+| `scripts/ui/skyline_view.gd` | The city behind the tent, drawn in one go (its windows going dark through the night), with hovers for what each building is |
 
 ## AI usage
 

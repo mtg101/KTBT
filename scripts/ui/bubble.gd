@@ -8,7 +8,7 @@ extends Control
 const NARROW := 330.0
 const WIDE := 440.0  # for a long line, so it stays a few lines tall
 const ABOVE_HEAD := 36.0  # the bubble sits this far above the top of the speaker's head (over their name)
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
 const INK := Ktv.INK
 

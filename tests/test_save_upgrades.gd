@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
-## Tests for scripts/save_upgrades.gd (older bars brought up to date in one place) and the
-## diary's cap in scripts/save_store.gd.
+## Tests for scripts/save/save_upgrades.gd (older bars brought up to date in one place) and the
+## diary's cap in scripts/save/save_store.gd.
 
-const SaveUpgrades = preload("res://scripts/save_upgrades.gd")
-const SaveStore = preload("res://scripts/save_store.gd")
+const SaveUpgrades = preload("res://scripts/save/save_upgrades.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
 
 const OLD_OWNER := {"name": "Kim Sung-ho", "age": 58, "gender": "man", "title": "Ajusshi"}
 

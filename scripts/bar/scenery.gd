@@ -6,7 +6,7 @@ extends RefCounted
 
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Text = preload("res://scripts/rules/text.gd")
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 
 ## Dishes that steam when they're set down (and any stew, pancake, grill or fried dish).

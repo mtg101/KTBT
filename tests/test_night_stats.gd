@@ -1,8 +1,8 @@
 extends GdUnitTestSuite
-## Tests for scripts/night_stats.gd: the debug stats and the night log.
+## Tests for scripts/bar/night_stats.gd: the debug stats and the night log.
 
-const NightStats = preload("res://scripts/night_stats.gd")
-const Menu = preload("res://scripts/menu.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 
 const TEST_FOLDER := "user://test_stats/"
 
@@ -106,7 +106,7 @@ func test_chat_chances_are_counted() -> void:
 
 
 func test_the_stats_count_the_nights_events() -> void:
-	const NightEvents = preload("res://scripts/night_events.gd")
+	const NightEvents = preload("res://scripts/bar/night_events.gd")
 	var stats := NightStats.new()
 	var events := NightEvents.new()
 	events.happened.connect(stats.record_event)
@@ -151,7 +151,7 @@ func test_the_stats_count_the_nights_events() -> void:
 
 
 func test_everything_gets_counted() -> void:
-	const NightEvents = preload("res://scripts/night_events.gd")
+	const NightEvents = preload("res://scripts/bar/night_events.gd")
 	const Talk = preload("res://scripts/rules/talk.gd")
 	var stats := NightStats.new()
 	var events := NightEvents.new()

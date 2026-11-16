@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## Tests for scripts/bar/regulars_tonight.gd: the bar's regulars tonight, on their own.
 
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
-const Regulars = preload("res://scripts/regulars.gd")
+const Regulars = preload("res://scripts/rules/regulars.gd")
 
 
 func _bar() -> Dictionary:

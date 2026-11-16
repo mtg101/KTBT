@@ -4,7 +4,7 @@ extends GdUnitTestSuite
 
 const Scenery = preload("res://scripts/bar/scenery.gd")
 const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
-const NightStats = preload("res://scripts/night_stats.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
 
 
 func test_the_tents_fixtures() -> void:

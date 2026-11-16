@@ -2,11 +2,11 @@ extends Control
 ## The title screen: start a new bar, or open one you've played before.
 
 const Text = preload("res://scripts/rules/text.gd")
-const SaveStore = preload("res://scripts/save_store.gd")
-const Menu = preload("res://scripts/menu.gd")
-const DiaryBook = preload("res://scripts/diary_book.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
+const DiaryBook = preload("res://scripts/ui/diary_book.gd")
 
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const ACCENT := Ktv.ORANGE
 const MUTED := Ktv.MUTED
 const PANEL := Ktv.PANEL

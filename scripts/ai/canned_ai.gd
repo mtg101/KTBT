@@ -9,7 +9,7 @@ extends RefCounted
 ## Tests can queue exact replies with CannedAi.scripted (raw JSON text or Dictionaries,
 ## including deliberately bad ones); while the queue has anything in it, it's used first.
 
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")

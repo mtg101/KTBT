@@ -4,7 +4,7 @@ extends Control
 ## icon, a slight tilt, popping in with an overshoot, held a moment, then fading. Placed by
 ## whoever it's about (see visit.gd _caption); the words come from Captions.CAPTIONS.
 
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const INK := Ktv.INK
 const HANGUL_SIZE := 50
 const ENGLISH_SIZE := 24

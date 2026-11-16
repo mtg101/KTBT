@@ -1,10 +1,10 @@
 extends GdUnitTestSuite
-## Tests for scripts/ai.gd: every AI reply is checked, and a rejected one is sent back with
+## Tests for scripts/ai/ai.gd: every AI reply is checked, and a rejected one is sent back with
 ## the reason so the AI can try again. Uses a fake Ollama (tests/support/fake_ollama.gd), so
 ## the real retry loop runs without a network.
 
-const Ai = preload("res://scripts/ai.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
+const Ai = preload("res://scripts/ai/ai.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const FakeOllama = preload("res://tests/support/fake_ollama.gd")
 
 const MESSAGES := [{"role": "system", "content": "You are a test."}, {"role": "user", "content": "Say 2."}]

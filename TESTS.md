@@ -39,7 +39,7 @@ KTBT's core rule is **the game owns the facts; the AI owns the flavour**. The ga
 
 ## Conventions
 
-- **Location:** tests live in `tests/`, mirroring `scripts/` (e.g. `tests/test_menu.gd` tests `scripts/menu.gd`).
+- **Location:** tests live in `tests/`, mirroring `scripts/` (e.g. `tests/test_menu.gd` tests `scripts/rules/menu.gd`).
 - **Naming:** test files start with `test_`; test functions describe the behaviour, e.g. `test_order_mentioning_unordered_item_is_rejected()`.
 - **Rules live in `scripts/rules/`:** game rules and validators stay out of scene scripts, one file per area (see ARCHITECTURE.md), so tests can call them without loading a scene.
 - **Fake AI:** scenes take the AI through one object (`ai.gd`), and tests swap in a fake that returns scripted replies, including deliberately bad ones. `ai.gd`'s own checking and retrying is tested against a fake Ollama (`tests/support/fake_ollama.gd`), which answers with scripted replies and keeps every conversation it was sent. The game's **canned AI** (offline mode, for machines without a suitable GPU) is built on the same fake, so tests and offline play share one implementation.

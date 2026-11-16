@@ -9,7 +9,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 
 ## Where the logs go: "" for the default (the project's logs/stats/ when playing from the
 ## editor, beside the transcripts, so a night's log can be read and checked; otherwise stats/

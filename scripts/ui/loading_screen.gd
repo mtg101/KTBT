@@ -4,7 +4,7 @@ extends Control
 ## or variety-show title card, over a little tent bar glowing in the night.
 
 const SIZE := Vector2(1920, 1080)
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const TARP := Ktv.ORANGE
 const CREAM := Ktv.CREAM
 const PINK := Ktv.PINK
@@ -12,7 +12,7 @@ const MINT := Ktv.MINT
 const YELLOW := Ktv.YELLOW
 const NIGHT_TOP := Ktv.NIGHT_TOP
 const NIGHT_BOTTOM := Ktv.NIGHT_BOTTOM
-const CaptionReel = preload("res://scripts/caption_reel.gd")
+const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
 
 ## Captions popping up while the AI works, as a variety show teases what's coming.
 const LINES := [

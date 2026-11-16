@@ -7,9 +7,9 @@ extends Control
 ## changes (see show_menu).
 
 const Text = preload("res://scripts/rules/text.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
 ## The styles, where each stands in the tent (stage coordinates) and its size.
 const STYLES := {

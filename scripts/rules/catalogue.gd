@@ -12,7 +12,7 @@ extends RefCounted
 ##   it at a bar that doesn't have it.
 ## (Part of the game's rules: tables only, and a few ways to read them. See ARCHITECTURE.md.)
 
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 ## Every bar's menu has these (it's a pocha), ...

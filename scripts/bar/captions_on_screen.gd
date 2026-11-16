@@ -7,7 +7,7 @@ extends RefCounted
 ## (Part 6 of splitting visit.gd: see PLAN.md, "A proper refactor".)
 
 const Captions = preload("res://scripts/rules/captions.gd")
-const CaptionPopup = preload("res://scripts/caption.gd")
+const CaptionPopup = preload("res://scripts/ui/caption.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")

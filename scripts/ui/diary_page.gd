@@ -8,7 +8,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
-const Ktv = preload("res://scripts/ktv_style.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
 const RULE := Color(0.45, 0.6, 0.85, 0.28)
 const MARGIN := Color(0.85, 0.3, 0.3, 0.45)

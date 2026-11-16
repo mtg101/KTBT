@@ -4,10 +4,10 @@ extends "res://tests/support/bar_test.gd"
 ## pauses (and so the clock) sped right up, so a whole night takes a few seconds.
 
 const Visit = preload("res://scripts/visit.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
-const CannedAi = preload("res://scripts/canned_ai.gd")
-const SaveStore = preload("res://scripts/save_store.gd")
-const NightStats = preload("res://scripts/night_stats.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
+const CannedAi = preload("res://scripts/ai/canned_ai.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Story = preload("res://scripts/rules/story.gd")
 
 const SCENE := "res://scenes/visit.tscn"

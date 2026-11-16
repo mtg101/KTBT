@@ -6,15 +6,15 @@ extends Node
 ## or a short description of the problem (which is fed back to the AI on the retry).
 ## Validators may tidy the data in place (trim text, fix types).
 ##
-## Two backends, chosen by scripts/ai_settings.gd: the local LLM via Ollama, or the canned
+## Two backends, chosen by scripts/ai/ai_settings.gd: the local LLM via Ollama, or the canned
 ## AI (offline mode). In "auto" mode it uses Ollama, and switches to canned for the rest of
 ## the session if Ollama fails, emitting offline_started so the game can say so.
 
 signal offline_started(reason: String)
 
-const OllamaClient = preload("res://scripts/ollama_client.gd")
-const CannedAi = preload("res://scripts/canned_ai.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
+const OllamaClient = preload("res://scripts/ai/ollama_client.gd")
+const CannedAi = preload("res://scripts/ai/canned_ai.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 
 @export var max_attempts := 3
 ## In "auto" mode, how long to wait for Ollama to answer "are you there?" before going offline.

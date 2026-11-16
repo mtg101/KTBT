@@ -1,23 +1,25 @@
 # KTBT: Architecture
 
-How the code is laid out, so you can find things and know where new things go. (Being tidied up step by step: see **A proper refactor** in [PLAN.md](PLAN.md). This page describes it as it is now.)
+How the code is laid out, so you can find things and know where new things go. (Tidied up step by step in **A proper refactor**, [PLAN.md](PLAN.md); this page describes it as it is now, after step 7.)
 
 ## The layers
 
 The game's one big rule is **the game owns the facts, the AI owns the flavour**: the game decides what's true (who's here, what they ordered, the bill, the clock), asks the AI to write the words, and checks every reply against the facts before it's used. The code is layered the same way, from the bottom up:
 
-1. **Rules** (`scripts/rules/`, plus `menu.gd` and `regulars.gd`): pure functions and the tables they use. No scene, no AI, no saving; any dice roll is passed in. They decide things (when people arrive, who may call whom what, how pull fades) and check the AI's replies (`validate_*`). Fast to test: `tests/test_rules.gd`, `tests/test_menu.gd`, `tests/test_regulars.gd`.
-2. **Prompts and the AI** (`prompts.gd`, `ai.gd`, `ollama_client.gd`, `canned_ai.gd`, `ai_settings.gd`): what the AI is asked, sending it to Ollama (or offline mode's canned replies), and retrying a reply the rules reject.
-3. **Saves and logs** (`save_store.gd`, `night_stats.gd`, `game.gd`): each bar's save file, the night's stats, and the `Game` autoload that holds the open bar.
-4. **The bar** (`visit.gd`, with `scenes/visit.tscn`): runs a night, using everything above. Still one big script; splitting it is step 4 of the refactor.
-   - **The night's events** (`night_events.gd`): everything noteworthy is announced once (someone walks on, sits down, pays, a dish is served, a chat starts, the cat moves, a big moment...), as plain data. Listening: the stats count them (`NightStats.record_event`), the TV captions pick theirs (`Captions.for_event`), and tonight's list of them becomes the diary's facts (`Story.diary_facts`) and goes in the night's log. Something new that wants to know what happened is another listener, not more lines through the bar.
-5. **On screen** (the look in `ktv_style.gd`: the K-TV palette, outlined labels, pills and title-card text, which everything on screen builds from; then `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `title.gd`) and **sound** (`ambience.gd`, `music.gd`): pieces the bar and title screen show. All drawn and made in code for now.
+1. **Rules** (`scripts/rules/`): pure functions and the tables they use, one file per area, including the menu (`menu.gd`) and regulars (`regulars.gd`). No scene, no AI, no saving; any dice roll is passed in. They decide things (when people arrive, who may call whom what, how pull fades) and check the AI's replies (`validate_*`). Fast to test: `tests/test_rules.gd`, `tests/test_menu.gd`, `tests/test_regulars.gd`.
+2. **Prompts and the AI** (`scripts/ai/`: `prompts.gd`, `ai.gd`, `ollama_client.gd`, `canned_ai.gd`, `ai_settings.gd`): what the AI is asked, sending it to Ollama (or offline mode's canned replies), and retrying a reply the rules reject.
+3. **Saves** (`scripts/save/`: `save_store.gd`, `save_upgrades.gd`, and `scripts/game.gd`): each bar's save file, older bars brought up to date in one place, and the `Game` autoload that holds the open bar.
+4. **The bar** (`scripts/visit.gd`, with `scenes/visit.tscn`, and its parts in `scripts/bar/`): runs a night. `visit.gd` keeps the night's clock and loop, arrivals, what the owner does next, asking the AI for each line, and putting the parts together; each part has one job and tests of its own (the table below).
+   - **Tonight** (`bar/night.gd`): what the parts share, in one place (the weather, the stats, the owner's moments waiting for their next line). The scene hands it to each part; `visit.gd`'s own names for these pass through to it.
+   - **The night's events** (`bar/night_events.gd`): everything noteworthy is announced once (someone walks on, sits down, pays, a dish is served, a chat starts, the cat moves, a big moment...), as plain data. Listening: the stats count them (`bar/night_stats.gd`: `NightStats.record_event`), the TV captions pick theirs (`Captions.for_event`), and tonight's list of them becomes the diary's facts (`Story.diary_facts`) and goes in the night's log. Something new that wants to know what happened is another listener, not more lines through the bar.
+   - **Waiting:** the bar's waits (on the AI, a pause, the reader) belong to it (`_frame_done`, `_pause`, `_timer`), and anything that waited checks `_closed()` before carrying on.
+5. **On screen** (`scripts/ui/`: the look in `ktv_style.gd`, the K-TV palette, outlined labels, pills and title-card text, which everything on screen builds from; then bubbles, captions, the diary, the recap, the loading screen, the menu board, dishes and the skyline; and `scripts/title.gd`) and **sound** (`scripts/sound/`: `ambience.gd`, `music.gd`): pieces the bar and title screen show. All drawn and made in code for now.
 
 Higher layers use lower ones, never the other way round: the rules don't know about scenes, and nothing below the bar knows about it.
 
-## The rules, by area
+## The files, by job
 
-Each file starts with what it's for. They preload each other as needed (never in a circle):
+Each file starts with what it's for (paths from `scripts/`). They preload each other as needed (never in a circle):
 
 | File | What's in it |
 |---|---|
@@ -43,6 +45,14 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/specials.gd` | Tonight's specials and what's sold out, from the bar's own menu: by the weather and the season, never a staple or last night's again, now and then the owner's own dish |
 | `rules/menu_changes.gd` | Menus that change slowly: when a dish hardly anyone orders comes off (never a classic, a staple, the owner's own or a regular's usual), and the seasonal dishes offered in its place |
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
+| `rules/menu.gd` | Tonight's menu (the open bar's, or the classic one), prices, resolving what the AI wrote to a menu id, the board's order, what's sold out |
+| `rules/regulars.gd` | Regulars: who comes back, how often, how they fade (and a simulation to tune it) |
+| `bar/night_events.gd` | The night's events, announced once each, for the stats, captions and diary |
+| `bar/night_stats.gd` | Tonight's debug stats: counted as the night goes, the panel's sections and the night's log |
+| `save/save_store.gd` | Each bar's save file: read, written and deleted safely; the history, night log and diary (latest 200) |
+| `ai/` | The AI: `prompts.gd` (every prompt), `ai.gd` (asking, checking, retrying), `ollama_client.gd`, `canned_ai.gd` (offline mode), `ai_settings.gd` |
+| `ui/` | On screen: `ktv_style.gd` (the look), `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `menu_board.gd`, `dish_view.gd`, `skyline_view.gd` |
+| `sound/` | `ambience.gd` (the tent's sounds) and `music.gd` (Arirang), made in code |
 | `bar/tent_view.gd` | The tent's look: the tarp, the sign, the bar's touches, the sky and light by the hour, the bulbs and tonight's weather (the first part split out of `visit.gd`) |
 | `bar/people_view.gd` | Drawing people: a person dressed in their look, facing us or seated from behind, a phone, an umbrella (with the snow or rain on it) or a bag over their head, running for it (part 2 split out of `visit.gd`) |
 | `bar/street.gd` | The street in front of the tent: strollers, passers-by who look in and walk on, and rain gear for anyone out in the weather (part 3 split out of `visit.gd`) |
@@ -56,7 +66,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `bar/conversation.gd` | What each line is given: the situations and moments for the owner's conversations and the customers' chats, how strangers know each other, who spoke last (part 10, second half, split out of `visit.gd`) |
 | `bar/scenery.gd` | The tent's fixtures: the drinks fridge, the odeng pot, the karaoke neon across the street, steam off a hot dish (part 11 split out of `visit.gd`) |
 | `bar/stats_panel.gd` | The debug stats panel's contents: a tab per section, one at a time (part 11) |
-| `save_upgrades.gd` | Bars saved by older versions, brought up to date in one place: what the game fills in itself, and what still needs the AI, once (refactor step 6) |
+| `save/save_upgrades.gd` | Bars saved by older versions, brought up to date in one place: what the game fills in itself, and what still needs the AI, once (refactor step 6) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (its weather, its stats, and the owner's moments waiting for their next line; it grows as parts move out) |
 | `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |
@@ -67,6 +77,7 @@ See [TESTS.md](TESTS.md). Every test hook is in `scripts/test_hooks.gd` (the gam
 
 ## Where new things go
 
+- **A new part of the bar:** a file in `scripts/bar/` with one job, given the `Night` (and whatever else it needs) by `visit.gd`, with a test file of its own that runs without a night.
 - **A new rule or check:** the rules file for its area (or a new one, if it's a new area), with a test in `tests/test_rules.gd`.
 - **A new kind of AI request:** its prompt in `prompts.gd`, its check in the rules, its canned reply in `canned_ai.gd` (so offline mode and the tests have one), and a test that the canned reply passes the check.
 - **A new switch for tests:** `scripts/test_hooks.gd`, with its test value in `for_tests()` and its default in `restore()`.

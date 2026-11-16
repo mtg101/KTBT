@@ -1,4 +1,4 @@
-extends "res://scripts/ollama_client.gd"
+extends "res://scripts/ai/ollama_client.gd"
 ## A stand-in for Ollama, for testing ai.gd's checking and retrying: it answers each chat()
 ## with the next scripted reply ([ok, text]) instead of going over HTTP, and keeps every
 ## conversation it was sent.

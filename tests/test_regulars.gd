@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
-## Tests for scripts/regulars.gd: who comes back, how often, and how they fade (the game's
+## Tests for scripts/rules/regulars.gd: who comes back, how often, and how they fade (the game's
 ## rules, with their dice rolls passed in), plus a simulated hundred nights to make sure
 ## the bar settles rather than filling up with regulars.
 
-const Regulars = preload("res://scripts/regulars.gd")
+const Regulars = preload("res://scripts/rules/regulars.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 

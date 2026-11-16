@@ -1,8 +1,8 @@
 extends GdUnitTestSuite
-## Tests for scripts/save_store.gd: bars must save and load back exactly, safely.
+## Tests for scripts/save/save_store.gd: bars must save and load back exactly, safely.
 ## These use their own folder (user://test_saves/), never the real saves.
 
-const SaveStore = preload("res://scripts/save_store.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
 
 const TEST_FOLDER := "user://test_saves/"
 const OWNER_DATA := {"name": "Park Mi-sook", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."}

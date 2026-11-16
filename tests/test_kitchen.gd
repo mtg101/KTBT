@@ -2,7 +2,7 @@ extends GdUnitTestSuite
 ## Tests for scripts/bar/kitchen.gd: the stove on its own, without a night.
 
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 
 const JI_HO := {"customer": {"name": "Kim Ji-ho"}}
 const DA_EUN := {"customer": {"name": "Park Da-eun"}}

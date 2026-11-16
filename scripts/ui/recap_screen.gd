@@ -9,8 +9,8 @@ extends Control
 
 signal finished
 
-const CaptionPopup = preload("res://scripts/caption.gd")
-const Ktv = preload("res://scripts/ktv_style.gd")
+const CaptionPopup = preload("res://scripts/ui/caption.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const Story = preload("res://scripts/rules/story.gd")

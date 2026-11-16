@@ -1,9 +1,9 @@
 extends GdUnitTestSuite
-## Tests for offline mode: the canned AI (scripts/canned_ai.gd) and the AI settings
-## (scripts/ai_settings.gd). Every canned reply must pass the same rules as a real AI reply.
+## Tests for offline mode: the canned AI (scripts/ai/canned_ai.gd) and the AI settings
+## (scripts/ai/ai_settings.gd). Every canned reply must pass the same rules as a real AI reply.
 
-const CannedAi = preload("res://scripts/canned_ai.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
+const CannedAi = preload("res://scripts/ai/canned_ai.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
@@ -14,7 +14,7 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 
 const TRIES := 100
 const TABLES := [

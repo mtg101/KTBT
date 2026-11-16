@@ -7,7 +7,7 @@ extends RefCounted
 
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
-const Prompts = preload("res://scripts/prompts.gd")
+const Prompts = preload("res://scripts/ai/prompts.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Layout = preload("res://scripts/bar/layout.gd")
 

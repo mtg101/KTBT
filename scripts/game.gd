@@ -7,7 +7,7 @@ extends Node
 ## there's never a "your progress will be lost" prompt. A visit that's still going when
 ## you quit simply ends; the bar carries on with the next customer.
 
-const SaveStore = preload("res://scripts/save_store.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
 
 const TITLE_SCENE := "res://scenes/title.tscn"
 const VISIT_SCENE := "res://scenes/visit.tscn"

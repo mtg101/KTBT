@@ -5,8 +5,8 @@ extends Control
 ## title screen. Shows whatever entries it's given (SaveStore.record_diary's), so "Previously
 ## on…" can open it at the night it's recapping too.
 
-const DiaryPage = preload("res://scripts/diary_page.gd")
-const Ktv = preload("res://scripts/ktv_style.gd")
+const DiaryPage = preload("res://scripts/ui/diary_page.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
 signal closed
 

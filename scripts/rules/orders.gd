@@ -4,7 +4,7 @@ extends RefCounted
 ## (Part of the game's rules: pure functions and the tables they use, with any dice rolls
 ## passed in, so they can be tested on their own. See ARCHITECTURE.md.)
 
-const Menu = preload("res://scripts/menu.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 

@@ -7,12 +7,12 @@ extends RefCounted
 ## nothing one suite sets can leak into the next) and restore() after (back to the defaults).
 ## See tests/bar_test.gd.
 
-const Ai = preload("res://scripts/ai.gd")
-const AiSettings = preload("res://scripts/ai_settings.gd")
-const CannedAi = preload("res://scripts/canned_ai.gd")
-const SaveStore = preload("res://scripts/save_store.gd")
-const NightStats = preload("res://scripts/night_stats.gd")
-const Menu = preload("res://scripts/menu.gd")
+const Ai = preload("res://scripts/ai/ai.gd")
+const AiSettings = preload("res://scripts/ai/ai_settings.gd")
+const CannedAi = preload("res://scripts/ai/canned_ai.gd")
+const SaveStore = preload("res://scripts/save/save_store.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
+const Menu = preload("res://scripts/rules/menu.gd")
 
 # --- Time and chance ----------------------------------------------------------------------
 ## >= 0 scales every pause and the clock (0.01 runs a visit in a blink).

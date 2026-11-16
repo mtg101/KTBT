@@ -4,8 +4,8 @@ extends Control
 ## The game picks the day, time and weather and checks the reply;
 ## the AI only invents the person.
 
-const OllamaClient = preload("res://scripts/ollama_client.gd")
-const Prompts = preload("res://scripts/prompts.gd")
+const OllamaClient = preload("res://scripts/ai/ollama_client.gd")
+const Prompts = preload("res://scripts/ai/prompts.gd")
 
 const MAX_ATTEMPTS := 3
 const MIN_AGE := 19  # Korea's legal drinking age: the game enforces it, not the AI.
