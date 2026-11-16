@@ -29,6 +29,7 @@ const Cat = preload("res://scripts/bar/cat.gd")
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
+const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -3828,20 +3829,13 @@ func _owner_look() -> Dictionary:
 
 # --- Regulars --------------------------------------------------------------------------------
 
-## The bar's regulars (saved with it).
+## The bar's regulars (saved with it: see RegularsTonight).
 func _regulars() -> Array:
-	if not Game.bar.has("regulars"):
-		Game.bar["regulars"] = []
-	return Game.bar["regulars"]
+	return RegularsTonight.all(Game.bar)
 
 
 func _regular(id: String) -> Dictionary:
-	if id == "":
-		return {}
-	for regular in _regulars():
-		if str(regular["id"]) == id:
-			return regular
-	return {}
+	return RegularsTonight.find(Game.bar, id)
 
 
 func _day_index() -> int:
@@ -3911,38 +3905,15 @@ func _menu_pick(kind: String) -> String:
 	return str(choices.pick_random()["id"])
 
 
-## Who's coming in tonight, from their pull and habits: each regular at most once, around
-## their usual hour.
+## Who's coming in tonight (see RegularsTonight.plan).
 func _plan_regulars_tonight() -> void:
 	_regulars_due.clear()
-	for regular in _regulars():
-		# A founding regular always comes in the first night the bar has them, to meet them.
-		var first := bool(regular.get("founding", false)) and not bool(regular.get("introduced", false))
-		if first or randf() < Regulars.visit_chance(float(regular["pull"]), _day_index(), regular.get("favourite_days", []), Regulars.keen(regular, _night_number)):
-			_regulars_due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), randf()), "id": regular["id"]})
-	# A cliffhanger about someone coming in: TV makes sure it pays off, often enough.
-	if not _cliffhanger.is_empty() and ["comes_back", "meet_again"].has(_cliffhanger["kind"]):
-		for regular in _regulars():
-			var due := _regulars_due.any(func(d): return d["id"] == regular["id"])
-			if not due and _cliffhanger["who"].has(str(regular["name"])) and _scenery_dice.randf() < Story.CLIFFHANGER_NUDGE:
-				_regulars_due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), _scenery_dice.randf()), "id": regular["id"]})
-	_regulars_due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
+	_regulars_due.append_array(RegularsTonight.plan(Game.bar, _night_number, _day_index(), _cliffhanger, _scenery_dice))
 
 
-## A regular's facts, for the prompts (see Prompts.describe_regular).
+## A regular's facts, for the prompts (see RegularsTonight.facts).
 func _regular_facts(regular: Dictionary) -> Dictionary:
-	var facts := {
-		"visits": int(regular.get("visits", 0)), "founding": bool(regular.get("founding", false)),
-		"role": regular.get("role", ""), "since": regular.get("since", ""), "habit": regular.get("habit", ""), "history": regular.get("history", ""),
-		"owner_knows": regular.get("owner_knows", ""), "knows_of_owner": regular.get("knows_of_owner", ""),
-		"usual": Regulars.usual_of(regular), "owner_knows_name": bool(regular.get("owner_knows_name", false)),
-		"knows_owner_name": bool(regular.get("knows_owner_name", false)),
-		"memories": regular.get("memories", []), "impression": regular.get("impression", ""), "facts": regular.get("facts", {}),
-		"warmth": int(regular.get("warmth", 0)),
-	}
-	if int(regular.get("last_night", 0)) > 0:
-		facts["nights_ago"] = _night_number - int(regular["last_night"])
-	return facts
+	return RegularsTonight.facts(regular, _night_number)
 
 
 ## A regular comes in: not reinvented, just asked what sort of night they're having.
@@ -3965,25 +3936,14 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 	return customer
 
 
-## "Kim Ji-ho is back, for her 4th visit (last time: 9 nights ago)." or, for a founding
-## regular, "Choi Young-ja ducks in and takes her usual stool: she's been coming for six
-## years, most Fridays."
+## How a regular's announced as they duck in (see RegularsTonight.back_text): saved, if it's a
+## founding regular's first time (they're introduced now).
 func _back_text(regular: Dictionary) -> String:
-	var her: String = {"woman": "her", "man": "his"}.get(str(regular.get("gender", "")), "their")
-	var she: String = {"woman": "she's", "man": "he's"}.get(str(regular.get("gender", "")), "they've")
-	if bool(regular.get("founding", false)):
-		var arrives := "%s ducks in and takes %s usual stool: %s been coming %s, %s." % [regular["name"], her, she, regular.get("since", ""), regular.get("habit", "")]
-		if not bool(regular.get("introduced", false)):
-			# The first time we see them: who they are to the tent.
-			regular["introduced"] = true
-			Game.save()
-			var who: String = {"woman": "She's", "man": "He's"}.get(str(regular.get("gender", "")), "They're")
-			arrives += " %s %s. %s" % [who, str(Regulars.ROLES.get(regular.get("role", ""), "a regular")).get_slice(":", 0), Text.as_sentence(str(regular.get("history", "")))]
-		return arrives
-	var text := "%s is back, for %s %s visit" % [regular["name"], her, Regulars.ordinal(int(regular.get("visits", 0)) + 1)]
-	if int(regular.get("last_night", 0)) > 0:
-		text += " (last time: %s)" % Regulars.nights_ago_text(_night_number - int(regular["last_night"]))
-	return text + "."
+	var introduced := bool(regular.get("introduced", false))
+	var text := RegularsTonight.back_text(regular, _night_number)
+	if bool(regular.get("introduced", false)) != introduced:
+		Game.save()
+	return text
 
 
 ## After someone pays: a regular's visit is added to their record; anyone else might become
@@ -4059,51 +4019,28 @@ func _validate_memory(data: Variant, said: String) -> String:
 
 
 func _name_said(full: String, said: String) -> bool:
-	var parts := full.split(" ", false)
-	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
-	return said.contains(full.to_lower()) or said.contains(given.to_lower())
+	return RegularsTonight.name_said(full, said)
 
 
 ## The night's over: regulars who didn't come drift a little further away; anyone who's
-## drifted too far isn't a regular any more.
+## drifted too far isn't a regular any more (see RegularsTonight.fade).
 func _fade_regulars() -> void:
-	var kept: Array = []
-	for regular in _regulars():
-		if int(regular.get("last_night", 0)) != _night_number:
-			regular["pull"] = Regulars.pull_after_absence(float(regular["pull"]), bool(regular.get("founding", false)))
-		if Regulars.still_regular(float(regular["pull"])):
-			kept.append(regular)
-		else:
-			_stats.faded_regulars += 1
-			_narrate("%s hasn't been in for a long while." % regular["name"])
-	Game.bar["regulars"] = kept
+	for gone in RegularsTonight.fade(Game.bar, _night_number):
+		_stats.faded_regulars += 1
+		_narrate("%s hasn't been in for a long while." % gone)
 	_count_regulars()
 
 
 ## The regulars, for the stats panel and log.
 func _count_regulars() -> void:
-	_stats.regular_pulls = {}
-	_stats.founding_regulars = 0
-	for regular in _regulars():
-		_stats.regular_pulls[str(regular["name"])] = snappedf(float(regular["pull"]), 0.01)
-		if bool(regular.get("founding", false)):
-			_stats.founding_regulars += 1
+	var counted := RegularsTonight.pulls(Game.bar)
+	_stats.regular_pulls = counted["pulls"]
+	_stats.founding_regulars = int(counted["founding"])
 
 
-## What the owner remembers about a regular, for the info panel's hover ("" if nothing yet).
+## What the owner remembers about a regular, for the info panel's hover (see RegularsTonight).
 func _remembered_text(known: Dictionary) -> String:
-	var parts := PackedStringArray()
-	if str(known.get("impression", "")) != "":
-		parts.append(str(known["impression"]))
-	for memory in known.get("memories", []):
-		parts.append(str(memory["owner"]))
-	var facts: Dictionary = known.get("facts", {})
-	for key in Memories.STICKING:
-		if str(facts.get(key, "")) != "":
-			parts.append("%s: %s" % [{"job": "Job", "family": "Family", "home": "From", "other": "Also"}[key], facts[key]])
-	if str(known.get("owner_knows", "")) != "" and parts.is_empty():
-		parts.append(str(known["owner_knows"]))
-	return " · ".join(parts)  # (Text.hint makes it safe to go inside the tag.)
+	return RegularsTonight.remembered_text(known)
 
 
 # --- Who calls whom, and friendliness ------------------------------------------------------

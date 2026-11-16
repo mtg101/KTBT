@@ -50,6 +50,7 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `bar/kitchen.gd` | The stove: the queue of dishes cooking and waiting, those ready to carry over, the stove's row, and how a dish or the free banchan looks on the table (part 5 split out of `visit.gd`) |
 | `bar/captions_on_screen.gd` | TV captions on screen: pacing them, popping one up (with its sting and a line in the transcript), the reaction's timing, and the red light (part 6 split out of `visit.gd`) |
 | `bar/story_keeper.gd` | The night as a story, kept: tonight's transcript file (the opening, the night, how it ended and the stats) and what "Previously on…" is written from (part 7 split out of `visit.gd`) |
+| `bar/regulars_tonight.gd` | The bar's regulars tonight: who's coming in, their facts for the prompts, how they're announced, drifting away at the night's end, what the owner remembers (part 8 split out of `visit.gd`; the rules are in `regulars.gd`) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (so far its weather and its stats; it grows as parts move out) |
 | `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |
