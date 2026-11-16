@@ -8,7 +8,8 @@ on:
   push:
   pull_request:
 
-# The action publishes the test report back onto the commit (a "check run"), which needs
+# The action can publish the test report back onto the commit (a "check run", off for now: see
+# publish-report below), which needs
 # permission to write checks; reading the code is all it needs otherwise.
 permissions:
   contents: read
@@ -28,3 +29,8 @@ jobs:
           paths: 'res://tests'
           timeout: 20
           report-name: tests
+          # Not posted back onto the commit as a check run: since 16 Nov 2026 GitHub answers
+          # "Not Found" when the action updates the one it's just made, failing a run whose
+          # tests all passed. Pass or fail still comes from the tests; the report's still kept
+          # with the run (its artifacts).
+          publish-report: 'false'
