@@ -22,6 +22,9 @@ extends Control
 const Ai = preload("res://scripts/ai.gd")
 const TentView = preload("res://scripts/bar/tent_view.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
+const Street = preload("res://scripts/bar/street.gd")
+const Night = preload("res://scripts/bar/night.gd")
+const Layout = preload("res://scripts/bar/layout.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -80,14 +83,13 @@ const STATS_WIDTH := 460.0  # the debug stats panel, between the transcript and 
 const STAGE_SIZE := Vector2(1872, 380)
 const SEAT_X := [470.0, 760.0, 1050.0, 1340.0, 1630.0]  # the middle of each stool
 const PERSON_WIDTH := 80.0
-const CUSTOMER_Y := 190.0
+const CUSTOMER_Y := Layout.CUSTOMER_Y
 const OWNER_Y := 150.0
 const OWNER_HOME_X := 180.0  # by the stove
 const OWNER_BESIDE_X := -165.0  # where the owner stands to see to a stool (just to its left)
 # Off-stage spots either side (far enough out that the name tag is hidden too).
-const OFFSCREEN_LEFT_X := -200.0
-const OFFSCREEN_RIGHT_X := 2072.0
-const PEEK_X := 865.0  # where a passer-by stops to look in: the gap between the second and third stools
+const OFFSCREEN_LEFT_X := Layout.OFFSCREEN_LEFT_X
+const OFFSCREEN_RIGHT_X := Layout.OFFSCREEN_RIGHT_X
 
 ## The test hooks are in test_hooks.gd (as Hooks.<name>): tests set them; the game only reads them.
 
@@ -220,7 +222,6 @@ var _closed_early_at := 0.0  # game minutes
 var _closing_to_say := false  # the owner's still to tell the counter why (once they're free)
 var _closing_said := ""  # what they said
 var _closed_sign: Control  # the 마감 CLOSED board out front
-var _passers_by := 0  # how many have walked past tonight (also names their nodes)
 var _ambience: Ambience  # the tent's background sound
 var _bubble_layer: Control  # speech bubbles, over everything on the stage
 var _bubbles_shown: Array = []  # Bubble: the newest last
@@ -260,14 +261,18 @@ var _loading_opened := 0.0  # real seconds when the loading screen went up (for 
 ## night's stats exist, and handed to them when it starts (NightStats.story).
 var _before_night := {}
 var _look_offer: Dictionary = {}  # the colours and shapes a new bar is offered
-var _strollers := 0  # people walking along the street, not coming in (also names their nodes)
-var _stroll_next := 0.0  # game minutes until the next one
-const STROLL_Y := CUSTOMER_Y + 38  # the pavement: a little lower (nearer to us) than the stools
+const STROLL_Y := Layout.STROLL_Y
 ## When the last line shown will have been read (Time.get_ticks_msec()). The AI works on the
 ## next line while you read; it's shown once you've had time to read this one.
 var _read_until := 0
-## Tonight's debug stats (see night_stats.gd), shown in the stats panel and logged at the end.
-var _stats := NightStats.new()
+## Tonight: what the tent's parts share (scripts/bar/night.gd).
+var _night := Night.new()
+## Tonight's debug stats (see night_stats.gd), shown in the stats panel and logged at the end (kept by the night).
+var _stats: NightStats:
+	get:
+		return _night.stats
+	set(value):
+		_night.stats = value
 var _stats_refresh := 0.0
 ## Tonight's transcript file, written line by line as the night goes (see _start_transcript).
 var _transcript_file: FileAccess
@@ -340,7 +345,13 @@ var _scenery_dice := RandomNumberGenerator.new()
 var _neon: Label  # the karaoke sign on the pillar
 var _skyline: SkylineView  # the city behind the tent
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
-var _weather_kind := ""
+## Tonight's weather, as NightRules.weather_kind says it (kept by the night).
+var _weather_kind: String:
+	get:
+		return _night.weather_kind
+	set(value):
+		_night.weather_kind = value
+var _street: Street  # the street in front: strollers, passers-by, rain gear (scripts/bar/street.gd)
 var _tent_view := TentView.new(STAGE_SIZE)  # the tent's look: tarp, sign, touches, sky, light, bulbs, weather (scripts/bar/tent_view.gd)
 var _people_view: PeopleView  # drawing people: dressed, facing, phones, umbrellas, running for it (scripts/bar/people_view.gd)
 var _drinks_rows: Array = []  # one per stool
@@ -348,7 +359,7 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
-	_people_view = PeopleView.new(_scenery_dice)  # (the same dice as the rest of the scenery)
+	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
 	if Hooks.random_seed != 0:
 		seed(Hooks.random_seed)
 	_ai = Ai.new()
@@ -809,7 +820,7 @@ func _close_early() -> void:
 	while not _waiting.is_empty():
 		_waiting.pop_front()
 		_waiting_who.pop_front()
-		_walk_past(gone * 1.5)
+		_street.walk_past(gone * 1.5)
 		gone += 1
 	if gone > 0:
 		_narrate("%s at the tarp %s the sign and %s on." % ["Someone" if gone == 1 else "The people", "sees" if gone == 1 else "see", "walks" if gone == 1 else "walk"])
@@ -1035,15 +1046,7 @@ func _process(delta: float) -> void:
 	for guest in _guests:
 		guest.stay_left -= minutes
 	if Hooks.strollers:
-		_stroll_next -= minutes
-		# Catch up on everyone due (a slow frame, or time running fast, can cover several),
-		# so how many walk by doesn't depend on the frame rate; a few at most, so no crowd.
-		var due := 0
-		while _stroll_next <= 0.0 and due < 3:
-			_stroll()
-			_stroll_next += NightRules.stroll_gap(int(_clock), randf())
-			due += 1
-		_stroll_next = maxf(_stroll_next, 0.0)
+		_street.tick(minutes, _clock)
 	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
 		if _cat_next <= 0.0:
@@ -1091,7 +1094,7 @@ func _people_in() -> int:
 func _arrive(when: float, regular_id: String = "") -> void:
 	if _closing_early:
 		_narrate("Someone comes up to the tarp, sees the 마감 sign, and walks on.")
-		_walk_past(0.0)
+		_street.walk_past(0.0)
 		return
 	_waiting.append(when)
 	_waiting_who.append(regular_id)
@@ -1107,77 +1110,9 @@ func _give_up_waiting() -> void:
 		_waiting_who.pop_front()
 		_narrate("Someone peeks under the tarp, sees every stool taken, and walks on.")
 		_event("walked_on", {"first": gone == 0})
-		_walk_past(gone * 1.5)  # if several give up at once, they don't walk in a clump
+		_street.walk_past(gone * 1.5)  # if several give up at once, they don't walk in a clump
 		gone += 1
 		_update_info()
-
-
-## Someone walking along the street, not coming in: a dark figure on the pavement in front
-## of the tent, at their own pace. Some are in twos or threes, walking together; plenty are on
-## their phones. If it's raining or snowing they have an umbrella (of their own shape and
-## size), or now and then none, and run for it (see Looks.rain_gear); a pair sometimes
-## shares one. gear and company: instead of the dice (for tests; company 0: the dice).
-func _stroll(gear: Dictionary = {}, company: int = 0) -> void:
-	var from_left := randi() % 2 == 0
-	var count := company if company > 0 else Looks.street_company(randf())
-	var shared := count == 2 and gear.is_empty() and Looks.wet(_weather_kind) and randf() < Looks.SHARED_UMBRELLA_CHANCE
-	var seconds := randf_range(6.0, 10.0)
-	var gap := 46.0 if shared else 62.0  # (closer under one umbrella)
-	_stats.record_street({1: "alone", 2: "in twos", 3: "in threes"}.get(count, "in a group"))
-	if shared:
-		_stats.record_street("sharing an umbrella")
-	for i in count:
-		var own := gear
-		if shared:
-			# One big umbrella, held by the first, out over the space between them.
-			own = {"umbrella": true, "shape": "wide", "size": 1.12, "tilt": 0.0, "reach": gap / 2.0 * (-1.0 if from_left else 1.0)} if i == 0 else {"none": true}
-		elif own.is_empty():
-			own = Looks.rain_gear(_weather_kind, randf(), randf(), randf())
-		if count > 1 and not own.is_empty() and not own.has("none") and not bool(own["umbrella"]):
-			own = Looks.rain_gear(_weather_kind, 1.0, randf(), randf())  # (friends don't run off and leave each other)
-		# Following on behind (from where they're walking from), a little up or down the pavement.
-		var behind := gap * i * (-1.0 if from_left else 1.0)
-		_stroller(from_left, behind, (-6.0 if i % 2 == 1 else 4.0) * signf(i), own, count == 1, seconds)
-
-
-func _stroller(from_left: bool, behind: float, up: float, gear: Dictionary, alone: bool, seconds: float) -> void:
-	_strollers += 1
-	var shade: Color = PeopleView.CUSTOMER_COLORS.pick_random().darkened(0.55)
-	var start_x := (OFFSCREEN_LEFT_X if from_left else OFFSCREEN_RIGHT_X) + behind
-	var person := _people_view.new_person(_stage, Vector2(start_x, STROLL_Y + up), shade)
-	person.name = "Stroller%d" % _strollers
-	_people_view.dress(person, _street_look())
-	person.z_index = 1  # in front of the counter and stools
-	person.modulate = Color(0.42, 0.42, 0.5, 0.92)  # darker: out in the street, in front of the light
-	if not gear.has("none"):
-		_gear_up(person, gear, from_left)
-	var running := _people_view.is_running(person)
-	_stats.record_street("walked by")
-	if Looks.on_phone(alone, running, randf()):
-		_people_view.add_phone(person)
-		_stats.record_street("on a phone")
-	var tween := person.create_tween()
-	tween.tween_property(person, "position:x", (OFFSCREEN_RIGHT_X if from_left else OFFSCREEN_LEFT_X) + behind,
-		_scaled(randf_range(2.4, 3.4) if running else seconds))
-	tween.tween_callback(person.queue_free)
-
-
-## A passer-by in the street: they slow down at the tent, look in, and carry on. Runs by
-## itself; the owner doesn't stop for it.
-func _walk_past(delay: float) -> void:
-	_passers_by += 1
-	var from_left := randi() % 2 == 0
-	var person := _people_view.new_person(_stage, Vector2(OFFSCREEN_LEFT_X if from_left else OFFSCREEN_RIGHT_X, CUSTOMER_Y), PeopleView.CUSTOMER_COLORS.pick_random().darkened(0.35))
-	person.name = "PasserBy%d" % _passers_by
-	_people_view.dress(person, _street_look())
-	person.modulate = Color(0.7, 0.7, 0.78)
-	_gear_up(person, _pick_rain_gear(), from_left)  # (they wanted in, so they're dressed for the weather like anyone)
-	var tween := create_tween()
-	tween.tween_interval(_scaled(delay))
-	tween.tween_property(person, "position:x", PEEK_X, _scaled(2.2)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.tween_interval(_scaled(0.9))  # a look at the full stools...
-	tween.tween_property(person, "position:x", OFFSCREEN_RIGHT_X if from_left else OFFSCREEN_LEFT_X, _scaled(2.2)).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tween.tween_callback(person.queue_free)
 
 
 ## 3am: nobody new, no more orders, and everyone's time is up.
@@ -2779,8 +2714,8 @@ func _update_stove() -> void:
 func _walk_in(guest: Guest) -> void:
 	_people_view.turn(guest.node, true)
 	var stool_x: float = SEAT_X[guest.seat] - PERSON_WIDTH / 2
-	guest.rain_gear = _pick_rain_gear()
-	_gear_up(guest.node, guest.rain_gear, guest.node.position.x < stool_x)
+	guest.rain_gear = _street.pick_rain_gear()
+	_street.gear_up(guest.node, guest.rain_gear, guest.node.position.x < stool_x)
 	if not guest.rain_gear.is_empty():
 		_stats.record_street("customers in under an umbrella" if bool(guest.rain_gear["umbrella"]) else "customers running in")
 	guest.walk = create_tween()
@@ -2800,9 +2735,9 @@ func _walk_out(guest: Guest) -> void:
 	var away := _random_offscreen_x()
 	var gear: Dictionary = {}
 	if Looks.wet(_weather_kind):
-		gear = guest.rain_gear if not guest.rain_gear.is_empty() else _pick_rain_gear()
+		gear = guest.rain_gear if not guest.rain_gear.is_empty() else _street.pick_rain_gear()
 	_stop_swaying(guest.node)
-	_gear_up(guest.node, gear, guest.node.position.x < away, guest.rain_gear.is_empty())  # (counted only if it's new)
+	_street.gear_up(guest.node, gear, guest.node.position.x < away, guest.rain_gear.is_empty())  # (counted only if it's new)
 	# A few drinks in, they wobble home (slower, zigzagging), unless they're running for it.
 	var wobbly := _drinks_had(guest) >= TIPSY_DRINKS and not _people_view.is_running(guest.node)
 	if wobbly:
@@ -2851,28 +2786,6 @@ func _stop_swaying(person: Control) -> void:
 		sway.kill()
 	person.remove_meta("sway")
 	person.rotation = 0.0
-
-
-## Rain gear for someone out in tonight's weather (Looks.rain_gear; {} when it's dry).
-func _pick_rain_gear() -> Dictionary:
-	if not Looks.wet(_weather_kind):
-		return {}
-	if not Hooks.rain_gear.is_empty():
-		return Hooks.rain_gear.duplicate()
-	return Looks.rain_gear(_weather_kind, randf(), randf(), randf())
-
-
-## Out into the weather with this gear: the umbrella up, or running for it ({}: nothing).
-## counted: in the street stats (not when a customer puts theirs back up to go).
-func _gear_up(person: Control, gear: Dictionary, going_right: bool, counted: bool = true) -> void:
-	if gear.is_empty():
-		return
-	if bool(gear["umbrella"]):
-		_people_view.add_umbrella(person, gear)
-	else:
-		_people_view.run_for_it(person, going_right)
-	if counted:
-		_stats.record_street(("umbrella: %s" % str(gear.get("shape", "dome"))) if bool(gear["umbrella"]) else "ran for it")
 
 
 func _move_owner(x: float) -> void:
@@ -3745,6 +3658,7 @@ func _build_ui() -> void:
 	_stage.size = STAGE_SIZE
 	_stage.clip_contents = true
 	add_child(_stage)
+	_street = Street.new(_night, _people_view, _stage)  # (people walk along in front of the tent)
 	_build_stage(_stage)
 
 	# Bottom left: what's being said
@@ -4151,7 +4065,6 @@ func _update_light(closing_dim: bool = false) -> void:
 ## Tonight's weather, as you'd see it (see TentView).
 func _show_weather(kind: String) -> void:
 	_weather_kind = kind
-	_people_view.weather_kind = kind
 	_tent_view.show_weather(kind)
 
 
@@ -4166,12 +4079,6 @@ func _rect(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) -> 
 
 
 # --- Drawing people -----------------------------------------------------------------------
-
-
-## A look for someone the AI never hears about (passers-by): the game picks it all.
-func _street_look() -> Dictionary:
-	var gender := "woman" if randf() < 0.5 else "man"
-	return Looks.pick_look(gender, Looks.pick_age_range(randf()), _weather_kind)
 
 
 ## The owner's look: chosen with the bar and saved; bars from before looks get one now,

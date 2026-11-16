@@ -168,7 +168,7 @@ func test_someone_who_waits_too_long_walks_past() -> void:
 	# 50ms: a frame or two on a slow machine, like GitHub's).
 	Hooks.pause_scale_override = 0.2
 	scene._clock += NightRules.GIVE_UP_MINUTES + 1  # the one left waiting has waited long enough
-	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).override_failure_message("nobody gave up").is_true()
+	assert_bool(await _wait_until(func(): return scene._street.passers_by == 1)).override_failure_message("nobody gave up").is_true()
 	assert_array(scene._waiting).is_empty()
 	assert_str(_transcript(runner)).contains("sees every stool taken, and walks on")
 	# They really walk past: on screen now, gone once they've walked on.
@@ -1122,11 +1122,11 @@ func test_people_walk_past_without_coming_in() -> void:
 	Hooks.run_clock = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	assert_bool(await _wait_until(func(): return scene._strollers >= 3)).override_failure_message("nobody walked past").is_true()
+	assert_bool(await _wait_until(func(): return scene._street.strollers >= 3)).override_failure_message("nobody walked past").is_true()
 	var walker := runner.find_child("Stroller1", true, false) as Control
 	if walker != null:
 		assert_float(walker.position.y).is_greater(Visit.CUSTOMER_Y)  # on the pavement, nearer than the stools
-	assert_int(scene._stats.arrived).is_less(scene._strollers)  # most just walk on by
+	assert_int(scene._stats.arrived).is_less(scene._street.strollers)  # most just walk on by
 
 
 func test_no_template_tent_while_the_ai_thinks() -> void:
@@ -1160,22 +1160,22 @@ func test_passers_by_carry_umbrellas_in_the_rain() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._weather_kind = "rain"
-	scene._stroll(Looks.rain_gear("rain", 0.9, 0.5, 0.5), 1)
-	var walker := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	scene._street.stroll(Looks.rain_gear("rain", 0.9, 0.5, 0.5), 1)
+	var walker := runner.find_child("Stroller%d" % scene._street.strollers, true, false) as Control
 	var umbrella := walker.find_child("Umbrella", true, false) as Node2D
 	assert_object(umbrella).is_not_null()
 	assert_object(umbrella.find_child("Canopy", true, false)).is_not_null()
 	assert_bool(walker.has_meta("running")).is_false()
 	# Now and then someone has none, and runs for it, something held over their head.
-	scene._stroll({"umbrella": false}, 1)
-	var runner_by := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	scene._street.stroll({"umbrella": false}, 1)
+	var runner_by := runner.find_child("Stroller%d" % scene._street.strollers, true, false) as Control
 	assert_object(runner_by.find_child("Umbrella", true, false)).is_null()
 	assert_object(runner_by.find_child("OverHead", true, false)).is_not_null()
 	assert_bool(runner_by.get_meta("running", false)).is_true()
 	# A clear night: nothing.
 	scene._weather_kind = "clear"
-	scene._stroll({}, 1)
-	var dry := runner.find_child("Stroller%d" % scene._strollers, true, false) as Control
+	scene._street.stroll({}, 1)
+	var dry := runner.find_child("Stroller%d" % scene._street.strollers, true, false) as Control
 	assert_object(dry.find_child("Umbrella", true, false)).is_null()
 	assert_object(dry.find_child("OverHead", true, false)).is_null()
 
@@ -1184,9 +1184,9 @@ func test_people_in_the_street_walk_together_and_look_at_phones() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._weather_kind = "clear"
-	var strollers_before: int = scene._strollers
-	scene._stroll({}, 3)
-	assert_int(scene._strollers - strollers_before).is_equal(3)
+	var strollers_before: int = scene._street.strollers
+	scene._street.stroll({}, 3)
+	assert_int(scene._street.strollers - strollers_before).is_equal(3)
 	var group: Array = []
 	for i in range(strollers_before + 1, strollers_before + 4):
 		group.append(runner.find_child("Stroller%d" % i, true, false) as Control)
@@ -1203,8 +1203,8 @@ func test_people_in_the_street_walk_together_and_look_at_phones() -> void:
 	scene._weather_kind = "rain"
 	var shared := false
 	for attempt in 40:
-		strollers_before = scene._strollers
-		scene._stroll({}, 2)
+		strollers_before = scene._street.strollers
+		scene._street.stroll({}, 2)
 		var first := runner.find_child("Stroller%d" % (strollers_before + 1), true, false) as Control
 		var second := runner.find_child("Stroller%d" % (strollers_before + 2), true, false) as Control
 		if second.find_child("Umbrella", true, false) == null:
@@ -1232,14 +1232,14 @@ func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
 	assert_object(guest.node.find_child("Umbrella", true, false)).is_null()
 	# The helpers, step by step: up in the street, down under the tarp.
 	var person: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
-	scene._gear_up(person, Hooks.rain_gear, true)
+	scene._street.gear_up(person, Hooks.rain_gear, true)
 	var umbrella := person.find_child("Umbrella", true, false) as Node2D
 	assert_object(umbrella).is_not_null()
 	assert_str(str(umbrella.get_meta("shape"))).is_equal("wide")
 	scene._people_view.gear_down(person)
 	assert_object(person.find_child("Umbrella", true, false)).is_null()
 	# Running for it: the bobbing and leaning stop once they're in.
-	scene._gear_up(person, {"umbrella": false}, true)
+	scene._street.gear_up(person, {"umbrella": false}, true)
 	assert_bool(scene._people_view.is_running(person)).is_true()
 	assert_float(person.rotation).is_not_equal(0.0)
 	scene._people_view.gear_down(person)
@@ -1249,7 +1249,7 @@ func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
 	assert_object(person.find_child("OverHead", true, false)).is_null()
 	# A dry night: nobody needs anything.
 	scene._weather_kind = "clear"
-	assert_dict(scene._pick_rain_gear()).is_empty()
+	assert_dict(scene._street.pick_rain_gear()).is_empty()
 
 
 func test_the_weather_lands_on_umbrellas() -> void:
@@ -1257,23 +1257,23 @@ func test_the_weather_lands_on_umbrellas() -> void:
 	var scene = runner.scene()
 	var gear := {"umbrella": true, "shape": "dome", "size": 1.0, "tilt": 0.0}
 	# Snow builds up on top, and gets shaken off under the tarp.
-	scene._people_view.weather_kind = "snow"  # (what the people view draws by: told it as the night opens)
+	scene._weather_kind = "snow"
 	var snowy: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
-	scene._gear_up(snowy, gear, true)
+	scene._street.gear_up(snowy, gear, true)
 	assert_object(snowy.find_child("SnowCap", true, false)).is_not_null()
 	assert_object(snowy.find_child("Drip", true, false)).is_null()
 	scene._people_view.gear_down(snowy)
 	assert_object(snowy.find_child("ShakenOff", true, false)).is_not_null()
 	# Rain runs off the rim.
-	scene._people_view.weather_kind = "rain"
+	scene._weather_kind = "rain"
 	var wet: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
-	scene._gear_up(wet, gear, true)
+	scene._street.gear_up(wet, gear, true)
 	assert_object(wet.find_child("Drip", true, false)).is_not_null()
 	assert_object(wet.find_child("SnowCap", true, false)).is_null()
 	# A clear night: nothing lands on it.
-	scene._people_view.weather_kind = "clear"
+	scene._weather_kind = "clear"
 	var dry: Control = scene._people_view.new_person(scene._stage, Vector2(0, Visit.CUSTOMER_Y), Color.WHITE)
-	scene._gear_up(dry, gear, true)
+	scene._street.gear_up(dry, gear, true)
 	assert_object(dry.find_child("Drip", true, false)).is_null()
 	assert_object(dry.find_child("SnowCap", true, false)).is_null()
 
@@ -1630,7 +1630,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_int(int(scene._stats.captions.get("rush", 0))).is_equal(1)  # the counter filling up
 	assert_str(_transcript(runner)).contains("[TV] ")
 	scene._clock += NightRules.GIVE_UP_MINUTES + 1
-	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).is_true()
+	assert_bool(await _wait_until(func(): return scene._street.passers_by == 1)).is_true()
 	assert_str(_transcript(runner)).contains("[TV] ")
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
 	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_greater_equal(1)  # (six orders at once can pile up on the stove too: a second emergency)

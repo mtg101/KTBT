@@ -8,6 +8,7 @@ extends RefCounted
 
 const Draw = preload("res://scripts/bar/draw.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
+const Night = preload("res://scripts/bar/night.gd")
 
 ## The colours people are drawn in before they're dressed (and the bags held over heads).
 const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Color("c7b06f"), Color("9a8fc7"), Color("c7836f")]
@@ -29,12 +30,19 @@ const UMBRELLA_CANOPIES := {
 ## Its own dice for scenery that comes and goes by itself (the tent's: it never shifts the
 ## game's own rolls).
 var dice: RandomNumberGenerator
-## Tonight's weather (NightRules.weather_kind): snow settles on umbrellas, rain runs off them.
-var weather_kind := ""
+## Tonight (its weather: snow settles on umbrellas, rain runs off them).
+var night: Night
+## Tonight's weather, as NightRules.weather_kind says it (the night's).
+var weather_kind: String:
+	get:
+		return night.weather_kind
+	set(value):
+		night.weather_kind = value
 
 
-func _init(scenery_dice: RandomNumberGenerator) -> void:
+func _init(scenery_dice: RandomNumberGenerator, tonight: Night = null) -> void:
 	dice = scenery_dice
+	night = tonight if tonight != null else Night.new()  # (on its own, in a test: a night of its own)
 
 
 ## A grey-box person: a head, a body and a name tag, grouped so they move together.

@@ -45,6 +45,9 @@ Each file starts with what it's for. They preload each other as needed (never in
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 | `bar/tent_view.gd` | The tent's look: the tarp, the sign, the bar's touches, the sky and light by the hour, the bulbs and tonight's weather (the first part split out of `visit.gd`) |
 | `bar/people_view.gd` | Drawing people: a person dressed in their look, facing us or seated from behind, a phone, an umbrella (with the snow or rain on it) or a bag over their head, running for it (part 2 split out of `visit.gd`) |
+| `bar/street.gd` | The street in front of the tent: strollers, passers-by who look in and walk on, and rain gear for anyone out in the weather (part 3 split out of `visit.gd`) |
+| `bar/night.gd` | Tonight: what the tent's parts share, in one place (so far its weather and its stats; it grows as parts move out) |
+| `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |
 
 ## Tests
