@@ -235,7 +235,83 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 		return "the recap has made-up Korean words in it: write it in English"
 	data["beats"] = beats
 	data["teaser"] = teaser
+	data["cliffhanger"] = tidy_cliffhanger(data.get("cliffhanger", {}), known)
 	return ""
+
+
+# --- The cliffhanger ------------------------------------------------------------------
+
+## What a recap's teaser can ask, that the game can tell has happened (from the night's events):
+## how many people it's about, and what it means (for the prompt). "other": anything else.
+const CLIFFHANGERS := {
+	"comes_back": {"who": 1, "means": "whether someone comes (back) in tonight"},
+	"stays_away": {"who": 1, "means": "whether someone stays away again"},
+	"closer": {"who": 2, "means": "whether two people get closer, and call each other something friendlier"},
+	"becomes_regular": {"who": 1, "means": "whether someone becomes a regular"},
+	"meet_again": {"who": 2, "means": "whether two people meet again and talk"},
+	"cat_chooses": {"who": 0, "means": "who the cat will choose (a lap)"},
+	"cat_strikes": {"who": 0, "means": "whether the cat will steal again"},
+	"tears": {"who": 0, "means": "whether there'll be tears again"},
+	"shock": {"who": 0, "means": "whether there'll be another shock"},
+	"full_house": {"who": 0, "means": "whether every stool will be taken again"},
+	"other": {"who": 0, "means": "anything else"},
+}
+
+## A cliffhanger about someone coming in nudges their chance of coming tonight: TV makes sure
+## the cliffhanger pays off, often enough.
+const CLIFFHANGER_NUDGE := 0.5
+
+
+## The recap's cliffhanger, checked: {"kind", "who": [full names]}. Anything the game can't
+## follow (a kind not on the list, people it doesn't know, too few of them) is "other", and
+## the recap stands (it's only the game's chance to notice).
+static func tidy_cliffhanger(raw: Variant, names: Array) -> Dictionary:
+	if typeof(raw) != TYPE_DICTIONARY or not CLIFFHANGERS.has(str(raw.get("kind", ""))):
+		return {"kind": "other", "who": []}
+	var kind := str(raw["kind"])
+	var who: Array = []
+	for person in (raw.get("who", []) if typeof(raw.get("who", [])) == TYPE_ARRAY else []):
+		for known in names:
+			if str(known).to_lower() == str(person).strip_edges().to_lower() and not who.has(str(known)):
+				who.append(str(known))
+	if who.size() < int(CLIFFHANGERS[kind]["who"]):
+		return {"kind": "other", "who": []}
+	return {"kind": kind, "who": who.slice(0, maxi(1, int(CLIFFHANGERS[kind]["who"])))}
+
+
+## Whether a night event answers the cliffhanger ({"kind", "who"}): someone it's about sitting
+## down, becoming a regular, getting friendlier or chatting with the other, the cat choosing a
+## lap or stealing, tears or a shock on TV, the counter full. (Staying away is answered at
+## closing: see visit.gd.)
+static func cliffhanger_answered(cliff: Dictionary, kind: String, facts: Dictionary) -> bool:
+	var who: Array = cliff.get("who", [])
+	var pair := func(a: String, b: String) -> bool: return who.size() >= 2 and who.has(a) and who.has(b)
+	match str(cliff.get("kind", "")):
+		"comes_back", "stays_away":
+			return kind == "sat_down" and who.has(str(facts.get("name", "")))
+		"becomes_regular":
+			return kind == "became_regular" and who.has(str(facts.get("name", "")))
+		"closer":
+			return kind == "friendlier" and pair.call(str(facts.get("a", "")), str(facts.get("b", "")))
+		"meet_again":
+			return kind == "chat_started" and pair.call(str(facts.get("name", "")), str(facts.get("friend", "")))
+		"cat_chooses":
+			return kind == "cat_moved" and bool(facts.get("new_lap", false))
+		"cat_strikes":
+			return kind == "cat_stole"
+		"tears":
+			return kind == "big_moment" and str(facts.get("mood", "")) == "sad"
+		"shock":
+			return kind == "big_moment" and str(facts.get("mood", "")) == "shock"
+		"full_house":
+			return kind == "sat_down" and int(facts.get("seated", 0)) >= NightRules.SEATS
+	return false
+
+
+## The kinds, as the prompt lists them.
+static func cliffhanger_kinds_text() -> String:
+	return "; ".join(PackedStringArray(CLIFFHANGERS.keys().map(func(k): return "%s (%s%s)" % [k, CLIFFHANGERS[k]["means"],
+		(", about %d %s" % [int(CLIFFHANGERS[k]["who"]), "person" if int(CLIFFHANGERS[k]["who"]) == 1 else "people"]) if int(CLIFFHANGERS[k]["who"]) > 0 else ""])))
 
 
 ## A Korean-looking given name ("Ji-ho", "Tae-oh") in text that isn't part of any of names, or "".
@@ -276,13 +352,16 @@ static func stitched_recap(facts: Dictionary) -> Dictionary:
 	if beats.size() < 2:
 		beats.append("The bulbs swung in the wind, and the soju went round.")
 	var teaser := "Who will duck under the tarp tonight?"
+	var cliff := {"kind": "other", "who": []}
 	if not last.get("new_regulars", []).is_empty():
 		teaser = "Will %s come back?" % Names.given_name(str(last["new_regulars"][0]))
+		cliff = {"kind": "comes_back", "who": [str(last["new_regulars"][0])]}
 	elif not last.get("missing", []).is_empty():
 		teaser = "Will %s be back tonight?" % Names.given_name(str(last["missing"][0]))
+		cliff = {"kind": "comes_back", "who": [str(last["missing"][0])]}
 	elif not last.get("moments", []).is_empty():
 		teaser = "What will %s do now?" % Names.given_name(str(last["moments"][0]["who"]))
-	return {"beats": beats.slice(0, 3), "teaser": teaser}
+	return {"beats": beats.slice(0, 3), "teaser": teaser, "cliffhanger": cliff}
 
 
 ## A new bar's first night: the series opener.
@@ -409,6 +488,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"line": context.get("line", {}).duplicate(), "ordered": ordered, "specials": context.get("specials", []).duplicate(),
 		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
 		"closed_said": str(context.get("closed_said", "")),  # and what they told the counter, why
+		"cliffhanger": context.get("cliffhanger", {}).duplicate(),  # last time's teaser, and whether it came true
 	}
 
 

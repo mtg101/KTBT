@@ -806,6 +806,9 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	lines.append("- %d customers: %s." % [int(facts.get("customers", people.size())), "; ".join(who) if not who.is_empty() else "nobody"])
 	if str(facts.get("busiest", "")) != "":
 		lines.append("- Busiest at %s." % facts["busiest"])
+	var cliff: Dictionary = facts.get("cliffhanger", {})
+	if str(cliff.get("teaser", "")) != "":
+		lines.append("- Last time's cliffhanger, \"%s\", %s tonight." % [cliff["teaser"], "came true" if bool(cliff.get("answered", false)) else "didn't come true"])
 	if str(facts.get("closed_early", "")) != "":
 		lines.append("- The owner closed up early, at %s%s." % [facts["closed_early"], (", saying: \"%s\"" % facts["closed_said"]) if str(facts.get("closed_said", "")) != "" else ""])
 	if not facts.get("specials", []).is_empty():
@@ -861,8 +864,10 @@ Write the recap: two or three beats, each one short, dramatic sentence in the pr
 
 Only what's above: no other names, no numbers but the ones above, nothing invented.
 
-Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?"}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
-		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0]))]
+Then say what the teaser asks, so the show knows if it comes true tonight: a "kind" from this list, and "who" (the full names it's about, if any): %s.
+
+Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
+		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0])), Story.cliffhanger_kinds_text()]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

@@ -141,7 +141,7 @@ static func restore() -> void:
 	transcript_folder = ""
 	print_paths = true
 	SaveStore.folder = "user://saves/"
-	NightStats.folder = "user://stats/"
+	NightStats.folder = ""
 	AiSettings.override = {}
 	CannedAi.scripted = []
 	Ai.simulate_unreachable = false

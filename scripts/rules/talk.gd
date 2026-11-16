@@ -513,8 +513,8 @@ const HINT_TELLS := {
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
 	"game_spoon_mic": ["spoon", "sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "apartment", "floor", "stack", "hands"],
-	"game_titanic": ["titanic", "sink", "sank", "float"], "game_nunchi": ["nunchi", "stand up", "count"],
-	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "arms", "link"],
+	"game_titanic": ["titanic", "sink", "sank", "float"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
+	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"],
 }
 
 
@@ -529,11 +529,11 @@ const TABLE_GAMES := {
 	"titanic": {"situation": "There's a shot glass floating in someone's beer: the Titanic game, where everyone pours a little soju in and whoever sinks it drinks it.",
 		"tells": ["titanic", "sink", "sank", "float"]},
 	"nunchi": {"situation": "It's the kind of table where someone starts the nunchi game: stand up and count, and anyone who stands at the same time as someone else drinks.",
-		"tells": ["nunchi", "stand up", "count"]},
+		"tells": ["nunchi", "stand up", "on your feet", "count to", "count us"]},
 	"369": {"situation": "Someone suggests 369: count round the table, clapping instead of any number with a 3, 6 or 9 in it.",
 		"tells": ["369", "three six nine", "clap"]},
 	"love_shot": {"situation": "The two of them are close enough now for a love shot: arms linked, drinking at the same time.", "close": true,
-		"tells": ["love shot", "loveshot", "arms", "link"]},
+		"tells": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"]},
 }
 const TABLE_GAME_CHANCE := 0.35  # for a chat line, once it can be (and once a chat)
 const TABLE_GAME_FROM := 21 * 60  # 9pm: not straight after work
@@ -599,12 +599,23 @@ static func stunned_moment(who: String) -> String:
 
 ## Whether a line seems to have taken up a hint of this kind (see HINT_TELLS). extra: more
 ## words that count (the cat's name, say).
+## (Whole words, with their usual endings: "sinks" and "singing" count, but "count" isn't
+## in "countryside".)
 static func hint_taken(kind: String, line: String, extra: Array = []) -> bool:
 	var lower := line.to_lower()
 	for tell in HINT_TELLS.get(kind, []) + extra:
-		if lower.contains(str(tell)):
+		var word := RegEx.create_from_string("\\b" + _regex_escape(str(tell).to_lower()) + "(s|es|d|ed|ing|y|er|ers|est)?\\b")
+		if word.search(lower) != null:
 			return true
 	return false
+
+
+## A word as a regex pattern, its special characters escaped (Godot's RegEx has no escape()).
+static func _regex_escape(word: String) -> String:
+	var escaped := ""
+	for c in word:
+		escaped += ("\\" + c) if "\\^$.|?*+()[]{}".contains(c) else c
+	return escaped
 
 
 static func _matches_template(moment: String, template: String) -> bool:

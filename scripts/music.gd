@@ -91,9 +91,10 @@ func _apply_volume() -> void:
 
 
 func _process(delta: float) -> void:
-	if _task != -1 and WorkerThreadPool.is_task_completed(_task):
-		WorkerThreadPool.wait_for_task_completion(_task)
+	if _task != -1 and _tune != null:  # (the tune's made: tidy its task up, once, whichever player sees it first)
+		var task := _task
 		_task = -1
+		WorkerThreadPool.wait_for_task_completion(task)
 	if _player == null or _tune == null or _player.playing:
 		return
 	_wait -= delta

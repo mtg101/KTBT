@@ -239,3 +239,36 @@ func test_the_pocha_life_has_a_section_of_its_own() -> void:
 	assert_str(str(logged["tonight"]["season"])).is_equal("late autumn")
 	assert_int(int(logged["menu"]["board_opened"])).is_equal(0)
 
+
+
+func test_the_highlights_list_tonights_special_moments_in_order() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("HIGHLIGHTS").contains("(nothing special yet)")
+	stats.events = [
+		{"kind": "sat_down", "at": 21 * 60, "seated": 2},
+		{"kind": "table_game_offered", "at": 21 * 60 + 12, "game": "spoon_mic"},
+		{"kind": "cheered_on", "at": 21 * 60 + 58},
+		{"kind": "sat_down", "at": 22 * 60, "seated": 5},
+		{"kind": "sat_down", "at": 22 * 60 + 5, "seated": 5},
+		{"kind": "cat_stole", "at": 23 * 60 + 20, "name": "Min-jun"},
+		{"kind": "cliffhanger_answered", "at": 24 * 60 + 5, "cliffhanger": "stays_away", "name": "Jin-seok"},
+		{"kind": "table_game_offered", "at": 24 * 60 + 10, "game": "nunchi"},
+		{"kind": "table_game", "at": 24 * 60 + 16, "game": "nunchi"},
+		{"kind": "table_game_offered", "at": 24 * 60 + 40, "game": "nunchi"},
+		{"kind": "ordered", "at": 24 * 60 + 41}]
+	assert_array(stats.highlights()).is_equal([
+		"9:12pm  table game offered: spoon_mic (not taken up)",
+		"9:58pm  hwaiting chorus",
+		"10:00pm  full house",
+		"11:20pm  the cat stole a fish cake (from Min-jun)",
+		"12:05am  CLIFFHANGER CAME TRUE (stays_away, Jin-seok)",
+		"12:10am  table game offered: nunchi (taken up!)",
+		"12:16am  TABLE GAME: nunchi",
+		"12:40am  table game offered: nunchi (not taken up)"])  # (the second offer isn't the first one's game)
+	var text := stats.panel_text(0, 0)
+	assert_int(text.find("HIGHLIGHTS")).is_less(text.find("PEOPLE"))  # (first thing on the panel)
+	assert_array(stats.summary({})["highlights"]).has_size(8)
+	var sections := stats.sections(0, 0)
+	assert_str(str(sections[0]["tab"])).is_equal("Highlights 8")  # (the panel's tabs: one section each)
+	assert_str(str(sections[0]["text"])).starts_with("9:12pm").not_contains("PEOPLE")
+	assert_array(sections.map(func(s): return s["tab"])).contains(["People", "Talk", "Pocha life", "Menu", "AI", "Everything"])

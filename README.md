@@ -25,7 +25,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 494 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 497 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
 
@@ -57,7 +57,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 **Sound settings:** the Sound on/off and volume, and the Music volume, are kept in `settings.cfg` in the same user data folder.
 
-**Stats:** while we're testing, a debug stats panel shows tonight's numbers (F3 hides it), and each night writes a stats log (JSON) to `stats/` in the same user data folder, to compare runs.
+**Stats:** while we're testing, a debug stats panel shows tonight's numbers (F3 hides it), in tabs, one section at a time and opening on the night's highlights, and each night writes a stats log (JSON), to compare runs: to `logs/stats/` in the project folder when you play from the Godot editor, beside the transcripts, otherwise to `stats/` in the same user data folder.
 
 **Transcripts:** each night's transcript is written, as it goes, to `logs/transcripts/` in the project folder when you play from the Godot editor (kept out of git by `.gitignore`), so you can read or share how a night went.
 

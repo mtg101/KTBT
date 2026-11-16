@@ -1802,7 +1802,45 @@ func test_table_games_only_when_the_night_is_right() -> void:
 		assert_bool(Captions.CAPTIONS.has("game_" + str(id))).is_true()
 	assert_bool(Talk.hint_taken("game_spoon_mic", "Give me that spoon, I'm singing!")).is_true()
 	assert_bool(Talk.hint_taken("game_titanic", "Whoever sinks it drinks it!")).is_true()
+	assert_bool(Talk.hint_taken("game_nunchi", "I used to teach music in the countryside.")).is_false()  # (whole words: a real night's false start)
+	assert_bool(Talk.hint_taken("game_love_shot", "My arms ache from the deliveries.")).is_false()
 	assert_array(Glossary.words_in("Kya~! A love shot, then.")).contains(["Kya", "Love Shot"])
+
+
+func test_the_cliffhanger_comes_true() -> void:
+	var names := ["Park Mi-sook", "Kim Jin-seok", "Lee Ha-na"]
+	# The recap says what its teaser asks; anything the game can't follow is "other".
+	assert_dict(Story.tidy_cliffhanger({"kind": "comes_back", "who": ["kim jin-seok"]}, names)).is_equal({"kind": "comes_back", "who": ["Kim Jin-seok"]})
+	assert_str(str(Story.tidy_cliffhanger({"kind": "comes_back", "who": ["Someone New"]}, names)["kind"])).is_equal("other")
+	assert_str(str(Story.tidy_cliffhanger({"kind": "a wedding", "who": []}, names)["kind"])).is_equal("other")
+	assert_str(str(Story.tidy_cliffhanger({"kind": "closer", "who": ["Kim Jin-seok"]}, names)["kind"])).is_equal("other")  # (closer takes two)
+	assert_str(str(Story.tidy_cliffhanger("nonsense", names)["kind"])).is_equal("other")
+	# Answered by the night's events.
+	var back := {"kind": "comes_back", "who": ["Kim Jin-seok"]}
+	assert_bool(Story.cliffhanger_answered(back, "sat_down", {"name": "Kim Jin-seok"})).is_true()
+	assert_bool(Story.cliffhanger_answered(back, "sat_down", {"name": "Lee Ha-na"})).is_false()
+	var pair := {"kind": "closer", "who": ["Kim Jin-seok", "Lee Ha-na"]}
+	assert_bool(Story.cliffhanger_answered(pair, "friendlier", {"a": "Lee Ha-na", "b": "Kim Jin-seok"})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "meet_again", "who": ["Kim Jin-seok", "Lee Ha-na"]}, "chat_started", {"name": "Kim Jin-seok", "friend": "Lee Ha-na"})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "becomes_regular", "who": ["Lee Ha-na"]}, "became_regular", {"name": "Lee Ha-na"})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "cat_chooses", "who": []}, "cat_moved", {"new_lap": true})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "cat_chooses", "who": []}, "cat_moved", {"new_lap": false})).is_false()
+	assert_bool(Story.cliffhanger_answered({"kind": "cat_strikes", "who": []}, "cat_stole", {})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "tears", "who": []}, "big_moment", {"mood": "sad"})).is_true()
+	assert_bool(Story.cliffhanger_answered({"kind": "shock", "who": []}, "big_moment", {"mood": "sad"})).is_false()
+	assert_bool(Story.cliffhanger_answered({"kind": "full_house", "who": []}, "sat_down", {"seated": 5})).is_true()
+	# The recap's checked with it, the game's own recap has one, and the prompt lists them.
+	var recap := {"beats": ["Kim Jin-seok walks out into the rain.", "Lee Ha-na watches him go."], "teaser": "Will Jin-seok come back", "cliffhanger": {"kind": "comes_back", "who": ["Kim Jin-seok"]}}
+	assert_str(Story.validate_recap(recap, {"names": names})).is_empty()
+	assert_str(str(recap["cliffhanger"]["kind"])).is_equal("comes_back")
+	var stitched := Story.stitched_recap({"episode": 4, "owner": "Park Mi-sook", "last": {"new_regulars": ["Lee Ha-na"]}})
+	assert_dict(stitched["cliffhanger"]).is_equal({"kind": "comes_back", "who": ["Lee Ha-na"]})
+	assert_str(Story.cliffhanger_kinds_text()).contains("comes_back").contains("about 2 people")
+	# On TV (the red light), and in the diary.
+	assert_str(str(Captions.for_event("cliffhanger_answered", {"name": "Kim Jin-seok"})["kind"])).is_equal("cliffhanger")
+	assert_bool(Captions.CAPTIONS["cliffhanger"]["emergency"]).is_true()
+	var facts := Story.diary_facts([], {"owner": "Park Mi-sook", "cliffhanger": {"teaser": "Will Jin-seok come back?", "kind": "comes_back", "answered": true}})
+	assert_str(Prompts.diary_facts_text(facts)).contains("Last time's cliffhanger, \"Will Jin-seok come back?\", came true tonight.")
 
 
 func test_any_hangul_explains_itself() -> void:

@@ -20,7 +20,7 @@ const Text = preload("res://scripts/rules/text.gd")
 ## from the game's facts (see caption_words), and a wording is only picked when the game has
 ## everything it needs, so every kind has at least one with no blanks but {they}. Then an icon,
 ## a colour, its sound sting, and whether it's an emergency (the flashing red border and
-## siren, like the red light in Please Take Care of My Refrigerator).
+## siren, like the red light on a celebrity cooking show).
 const CAPTIONS := {
 	# Emergencies
 	"full_house": {"words": [["만석!", "FULL HOUSE<!|!!|?!>"], ["자리 없음!", "NO SEATS LEFT<!|…|?!>"], ["만석!", "EVERY STOOL <TAKEN|FULL|GONE>!"],
@@ -102,6 +102,9 @@ const CAPTIONS := {
 	"closing_early": {"words": [["조기 마감!", "JOGI MAGAM! CLOSING EARLY!"], ["오늘은 여기까지", "<THAT'S ALL|THAT'S IT> FOR TONIGHT!"],
 		["영업 종료!", "<TARP DOWN|SHUTTERS DOWN|LIGHTS OUT> EARLY!"]],
 		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true},
+	# Last time's cliffhanger, answered: the biggest moment a night can have.
+	"cliffhanger": {"words": [["예고 적중!!", "THE CLIFFHANGER… ANSWERED!"], ["예고 적중!!", "{name}: <IT HAPPENED|NO WAY|THEY DID IT>!"]],
+		"icon": "🎬", "colour": "ff4f6d", "sound": "siren", "emergency": true, "always": true},
 	# A table game, taken up (see Talk.TABLE_GAMES).
 	"game_spoon_mic": {"words": [["노래 시작!", "THE SPOON MIC IS <ON|LIVE>!"], ["숟가락 마이크", "SPOON MIC, <LIVE|ON AIR>!"]],
 		"icon": "🎤", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
@@ -125,7 +128,7 @@ const CAPTIONS := {
 	# fill_first: a wording with the reason whenever there is one (the plain one only without).
 	"closing_reason": {"words": [["조기 마감!", "{reason}"], ["오늘은 여기까지", "{reason}"], ["영업 종료!", "{reason}"], ["조기 마감!", "CLOSING EARLY!"]],
 		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true, "fill_first": true},
-	# (An emergency, Chef-My-Fridge style: the red light and the siren, for a fish cake.)
+	# (An emergency, cooking-show style: the red light and the siren, for a fish cake.)
 	"cat_thief": {"words": [["범인은 고양이!", "THE CULPRIT: {cat}!"], ["도둑냥!", "DODUK-NYANG! <CAT BURGLAR|THIEF CAT|SKEWER HEIST>!"],
 		["어묵 실종?!", "<WHERE'S|WHO TOOK> {name}'S ODENG?!"], ["현행범!", "{cat}, CAUGHT <RED-PAWED|IN THE ACT>!"]],
 		"icon": "🐟", "colour": "ff8f6b", "sound": "siren", "emergency": true},
@@ -413,6 +416,8 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			return {"kind": "first_snow", "fill": {}}
 		"cheered_on":
 			return {"kind": "hwaiting", "fill": {}}
+		"cliffhanger_answered":
+			return {"kind": "cliffhanger", "fill": {"name": facts.get("name", "")}}
 		"table_game":
 			return {"kind": "game_" + str(facts.get("game", "")), "fill": {}}
 		"closed_early":

@@ -167,6 +167,7 @@ const MEANINGS := {
 	"삼육구!": "samyukgu!: three-six-nine",
 	"러브샷!": "reobeusyat!: a love shot",
 	"러브샷?!": "reobeusyat?!: a love shot?!",
+	"예고 적중!!": "yego jeokjung!!: the preview came true",
 	# The menu board (menu_board.gd)
 	"특선": "teukseon: tonight's special",
 	"오늘의 특선": "oneurui teukseon: tonight's specials",

@@ -492,7 +492,10 @@ func test_stats_count_a_visit() -> void:
 	assert_int(stats.owner_lines_each.size()).is_equal(1)
 	# The panel refreshes twice a second, so give it a moment to catch up.
 	var panel := runner.find_child("StatsText") as RichTextLabel
+	assert_str(panel.get_parsed_text()).contains("HIGHLIGHTS").not_contains("Arrived")  # (one section at a time: the highlights first)
+	await _click(runner, runner.find_child("StatsTab_PEOPLE", true, false))
 	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Arrived 1"), 3000)).override_failure_message(panel.get_parsed_text()).is_true()
+	assert_str(panel.get_parsed_text()).not_contains("HIGHLIGHTS")
 
 
 func test_stats_count_customer_chats() -> void:
@@ -822,6 +825,23 @@ func test_drinking_rituals_and_table_games() -> void:
 	assert_str(scene._stats.panel_text(0, 0)).contains("Rituals:")
 
 
+func test_last_times_cliffhanger_comes_true() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._cliffhanger = {"kind": "comes_back", "who": ["Kim Jin-seok"], "teaser": "Will Jin-seok come back?", "answered": false}
+	var flashes: int = scene._red_flashes
+	scene._watch_cliffhanger("sat_down", {"name": "Lee Ha-na"}, null, Vector2.ZERO)
+	assert_bool(scene._cliffhanger["answered"]).is_false()  # (someone else)
+	scene._watch_cliffhanger("sat_down", {"name": "Kim Jin-seok"}, null, Vector2.ZERO)
+	assert_bool(scene._cliffhanger["answered"]).is_true()
+	assert_str(_transcript(runner)).contains("Last time's cliffhanger, answered: \"Will Jin-seok come back?\"")
+	assert_int(int(scene._stats.captions.get("cliffhanger", 0))).is_equal(1)
+	assert_int(scene._red_flashes).is_equal(flashes + 1)  # the red light
+	scene._watch_cliffhanger("sat_down", {"name": "Kim Jin-seok"}, null, Vector2.ZERO)
+	assert_int(int(scene._stats.captions.get("cliffhanger", 0))).is_equal(1)  # (once)
+	assert_str(scene._diary_facts()["cliffhanger"]["teaser"]).is_equal("Will Jin-seok come back?")
+
+
 func test_the_city_behind_the_tent_and_tonights_date() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -997,7 +1017,8 @@ func test_waiting_for_the_owner_and_for_drinks_are_counted_separately() -> void:
 	assert_int(scene._stats.serve_waits.size()).is_equal(1)
 	assert_float(float(scene._stats.serve_waits[0])).is_greater_equal(float(scene._stats.greet_waits[0]))
 	var panel := runner.find_child("StatsText") as RichTextLabel
-	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Wait for first drinks"), 3000)).is_true()
+	await _click(runner, runner.find_child("StatsTab_ALL", true, false))  # (everything at once)
+	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Wait for first drinks") and panel.get_parsed_text().contains("HIGHLIGHTS"), 3000)).is_true()
 
 
 func test_a_new_bars_cat_is_a_she_or_a_he_with_its_own_name() -> void:
@@ -1268,8 +1289,9 @@ func test_a_couple_of_bottles_and_they_sway() -> void:
 	guest.order.append("soju")
 	scene._tipsy(guest)
 	assert_bool(guest.node.has_meta("sway")).is_true()  # two: a gentle sway
-	await get_tree().create_timer(0.1).timeout
-	assert_float(absf(guest.node.rotation)).is_greater(0.0)
+	# (Waits for it to move, rather than a fixed time: on a slow machine a drink served just then
+	# restarts the sway from upright, and a fixed wait could look just as it restarts.)
+	assert_bool(await _wait_until(func(): return absf(guest.node.rotation) > 0.0)).override_failure_message("never swayed").is_true()
 	assert_float(absf(guest.node.rotation)).is_less(0.08)  # (gentle)
 	# Going home: the sway stops and the wobble starts.
 	scene._guests.erase(guest)  # (off the counter first, so the night doesn't carry on with them)
@@ -1608,7 +1630,7 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_bool(await _wait_until(func(): return scene._passers_by == 1)).is_true()
 	assert_str(_transcript(runner)).contains("[TV] ")
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
-	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_equal(1)
+	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_greater_equal(1)  # (six orders at once can pile up on the stove too: a second emergency)
 	# Drawn: Hangul over the English, by the tent (at normal speed, so it's still up to look at).
 	Hooks.pause_scale_override = 1.0
 	scene._caption("stove")

@@ -8,9 +8,18 @@ extends RefCounted
 const Text = preload("res://scripts/rules/text.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 
-## Where the logs go. Tests point this at their own folder.
-static var folder := "user://stats/"
+## Where the logs go: "" for the default (the project's logs/stats/ when playing from the
+## editor, beside the transcripts, so a night's log can be read and checked; otherwise stats/
+## in the user data folder). Tests point this at their own folder.
+static var folder := ""
+
+
+static func logs_folder() -> String:
+	if folder != "":
+		return folder
+	return "res://logs/stats/" if OS.has_feature("editor") else "user://stats/"
 
 ## Every night event, counted by kind (so a new kind of event is always counted, even
 ## before it has a stat of its own).
@@ -238,7 +247,9 @@ func table_games() -> Dictionary:
 	var games := {}
 	for kind in hints_given:
 		if str(kind).begins_with("game_"):
-			games[str(kind).trim_prefix("game_")] = [int(hints_given[kind]), int(hints_taken.get(kind, 0))]
+			var game := str(kind).trim_prefix("game_")
+			var played := events.filter(func(e): return str(e.get("kind", "")) == "table_game" and str(e.get("game", "")) == game).size()
+			games[game] = [int(hints_given[kind]), maxi(int(hints_taken.get(kind, 0)), played)]  # (taken up by a later line counts too)
 	return games
 
 
@@ -320,8 +331,85 @@ func caption_counts() -> String:
 	return " · ".join(parts)
 
 
+## Tonight's special moments, in order, from the night's timeline: "9:58pm  hwaiting chorus".
+## The rare things worth finding in the transcript (by their time): a cliffhanger come true,
+## table games, the chorus, big moments, the cat's crimes, new regulars, the first snow...
+func highlights() -> Array:
+	var found: Array = []
+	var full := false
+	for i in events.size():
+		var event: Dictionary = events[i]
+		var kind := str(event.get("kind", ""))
+		var what := ""
+		match kind:
+			"cliffhanger_answered":
+				var named := str(event.get("name", ""))
+				what = "CLIFFHANGER CAME TRUE (%s%s)" % [event.get("cliffhanger", ""), (", " + named) if named != "" else ""]
+			"table_game_offered":
+				var taken := false  # (played after this offer, before the next offer of it)
+				for later in events.slice(i + 1):
+					if str(later.get("game", "")) == str(event.get("game", "")):
+						if str(later.get("kind", "")) == "table_game_offered":
+							break
+						if str(later.get("kind", "")) == "table_game":
+							taken = true
+							break
+				what = "table game offered: %s (%s)" % [event.get("game", ""), "taken up!" if taken else "not taken up"]
+			"table_game":
+				what = "TABLE GAME: %s" % event.get("game", "")
+			"cheered_on":
+				what = "hwaiting chorus"
+			"first_snow":
+				what = "the first snow of winter"
+			"cat_stole":
+				what = "the cat stole a fish cake (from %s)" % event.get("name", "someone")
+			"big_moment":
+				what = "big moment, %s (%s): \"%s\"" % [event.get("mood", ""), event.get("who", ""), event.get("caption", "")]
+			"became_regular":
+				what = "a new regular: %s" % event.get("name", "")
+			"friendlier":
+				what = "%s and %s got friendlier (%s)" % [event.get("a", ""), event.get("b", ""), event.get("term", "")]
+			"closed_early":
+				what = "closed up early"
+			"sat_down":
+				if not full and int(event.get("seated", 0)) >= NightRules.SEATS:
+					full = true
+					what = "full house"
+		if what != "":
+			found.append("%s  %s" % [NightRules.clock_text(int(event.get("at", 0))), what])
+	return found
+
+
+## The panel's tabs: each section's short name (the panel shows one section at a time).
+const TAB_NAMES := {"HIGHLIGHTS": "Highlights", "TONIGHT": "Tonight", "PEOPLE": "People", "TALK": "Talk",
+	"POCHA LIFE": "Pocha life", "REGULARS": "Regulars", "THE STORY": "Story", "TV CAPTIONS": "TV",
+	"FOOD AND THE MENU": "Menu", "AI": "AI", "EVERYTHING THAT HAPPENED": "Everything"}
+
+
+## The panel's text cut into its sections, in order: [{"title", "tab", "text"}], for the tabs.
+## (Highlights' tab shows how many there are: "Highlights 5".)
+func sections(seated: int, cooking: int) -> Array:
+	var found: Array = []
+	for line in panel_text(seated, cooking).split("\n"):
+		if line.begins_with("[b]") and line.ends_with("[/b]") and TAB_NAMES.has(line.trim_prefix("[b]").trim_suffix("[/b]")):
+			var title := line.trim_prefix("[b]").trim_suffix("[/b]")
+			found.append({"title": title, "tab": str(TAB_NAMES[title]), "text": ""})
+		elif not found.is_empty():
+			found[-1]["text"] += line + "\n"
+	for section in found:
+		section["text"] = str(section["text"]).strip_edges()
+		if section["title"] == "HIGHLIGHTS":
+			var count := highlights().size()
+			section["tab"] = "Highlights %d" % count if count > 0 else "Highlights"
+	return found
+
+
 func panel_text(seated: int, cooking: int) -> String:
 	var lines := PackedStringArray()
+	lines.append("[b]HIGHLIGHTS[/b]")
+	var moments := highlights()
+	lines.append_array(PackedStringArray(moments) if not moments.is_empty() else PackedStringArray(["(nothing special yet)"]))
+	lines.append("")
 	if story.has("date"):
 		lines.append("[b]TONIGHT[/b]")
 		lines.append("%s, %s · %s" % [story["date"], story.get("season", ""), story.get("weather", "")])
@@ -377,6 +465,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds" % int(story["loading_seconds"])) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
+	if story.has("cliffhanger"):
+		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
@@ -419,6 +509,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"event_counts": event_counts.duplicate(),
 		"street": street.duplicate(),
 		"story": story.duplicate(),
+		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
@@ -470,9 +561,10 @@ func summary(context: Dictionary) -> Dictionary:
 ## Writes the night's log: stats/<date>_<bar>_night<N>.json. Returns the file's path, or ""
 ## if it couldn't be written.
 func save(context: Dictionary, bar_id: String, night: int) -> String:
-	DirAccess.make_dir_recursive_absolute(folder)
+	var where := logs_folder()
+	DirAccess.make_dir_recursive_absolute(where)
 	var stamp := Time.get_datetime_string_from_system(false, true).replace(":", "").replace(" ", "_").left(15)
-	var path := folder.path_join("%s_%s_night%d.json" % [stamp, bar_id, night])
+	var path := where.path_join("%s_%s_night%d.json" % [stamp, bar_id, night])
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return ""

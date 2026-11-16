@@ -298,6 +298,8 @@ var _diary_page: Control  # the 3am diary page (see diary_page.gd)
 var _summary_buttons: Array = []  # disabled while the owner writes
 var _stats_button: Button
 var _recap_said := ""  # tonight's "Previously on…", for the top of the night's transcript
+## Its cliffhanger (Story.CLIFFHANGERS): {"kind", "who", "teaser", "answered"}, if tonight can answer it.
+var _cliffhanger := {}
 var _summary: PanelContainer
 var _summary_text: RichTextLabel
 
@@ -309,6 +311,8 @@ var _reading_toggle: CheckBox
 var _stats_toggle: CheckBox
 var _stats_panel: PanelContainer
 var _stats_text: RichTextLabel
+var _stats_tabs: HFlowContainer  # one tab per section of the stats, and All
+var _stats_tab := "HIGHLIGHTS"  # the section showing (or "ALL")
 var _log_panel: PanelContainer
 var _moment_label: Label
 var _mode_label: Label
@@ -867,12 +871,15 @@ func _start_night() -> void:
 	_events = NightEvents.new()
 	_events.happened.connect(_stats.record_event)
 	_events.happened.connect(_caption_for_event)
+	_events.happened.connect(_watch_cliffhanger)
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	_stats.specials = _specials.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
 	_stats.story["date"] = str(_night_date.get("text", ""))
 	_stats.story["weather"] = _night_weather
 	_stats.story["season"] = _date_words().get_slice(", ", 1)
+	if not _cliffhanger.is_empty():
+		_stats.story["cliffhanger"] = "%s (%s)" % [_cliffhanger["kind"], ", ".join(PackedStringArray(_cliffhanger["who"].map(func(p): return Names.given_name(str(p)))))]
 	_before_night = {}
 	_waiting.clear()
 	_waiting_who.clear()
@@ -1238,6 +1245,12 @@ func _call_last_orders() -> void:
 
 ## The night's over: the owner closes up, the night is saved, and a summary appears.
 func _end_night() -> void:
+	# "Will she stay away again?": answered at closing, if she has.
+	if not _cliffhanger.is_empty() and not bool(_cliffhanger["answered"]) and _cliffhanger["kind"] == "stays_away" \
+			and not _cliffhanger["who"].any(func(person): return _names_tonight.has(person)):
+		_cliffhanger["answered"] = true
+		_stats.story["cliffhanger_answered"] = true
+		_narrate("Last time's cliffhanger, answered: \"%s\" No sign of %s tonight." % [_cliffhanger["teaser"], Names.given_name(str(_cliffhanger["who"][0]))])
 	_night_open = false
 	_move_owner(OWNER_HOME_X)
 	_fade_regulars()
@@ -1264,6 +1277,7 @@ func _end_night() -> void:
 	_stats_button.button_pressed = false
 	_summary.visible = true
 	await _write_diary()
+	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
 	if _closing_early:  # (written up: the button's for leaving again)
 		_closing_early = false
@@ -1317,6 +1331,7 @@ func _diary_facts() -> Dictionary:
 		"cat": str(_cat.get("name", "")), "line": NightRules.memorable_line(_night_lines), "specials": _specials.duplicate(),
 		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
 		"closed_said": _closing_said if _closing_early else "",
+		"cliffhanger": {} if _cliffhanger.is_empty() else {"teaser": _cliffhanger["teaser"], "kind": _cliffhanger["kind"], "answered": _cliffhanger["answered"]},
 	})
 
 
@@ -1369,6 +1384,8 @@ func _validate_recap(data: Variant, facts: Dictionary) -> String:
 
 ## Plays a recap full screen and waits for it to finish (or be skipped).
 func _play_recap(recap: Dictionary, opener: bool) -> void:
+	var cliff: Dictionary = recap.get("cliffhanger", {})
+	_cliffhanger = {} if opener or str(cliff.get("kind", "other")) == "other" else {"kind": cliff["kind"], "who": cliff.get("who", []), "teaser": str(recap.get("teaser", "")), "answered": false}
 	var screen := RecapScreen.new()
 	screen.time_scale = _scaled(1.0)
 	screen.sting = _ambience.sting
@@ -1547,9 +1564,53 @@ func _count_time(delta: float) -> void:
 
 
 func _update_stats_panel() -> void:
-	if _stats_panel.visible:
-		_stats_text.text = "[color=#%s][b]STATS (debug)[/b][/color]  [color=#%s]Night %d · F3 hides[/color]\n\n%s" % [
-			ACCENT.to_html(false), MUTED.to_html(false), _night_number, _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size())]
+	if not _stats_panel.visible:
+		return
+	var seated := _guests.size()
+	var cooking := _kitchen.size() + _ready_dishes.size()
+	var sections: Array = _stats.sections(seated, cooking)
+	var tabs: Array = sections.map(func(s): return [str(s["title"]), str(s["tab"])])
+	tabs.append(["ALL", "All"])
+	if not tabs.any(func(t): return t[0] == _stats_tab):
+		_stats_tab = "HIGHLIGHTS"
+	_show_stats_tabs(tabs)
+	var body := ""
+	if _stats_tab == "ALL":
+		body = _stats.panel_text(seated, cooking)
+	else:
+		for section in sections:
+			if section["title"] == _stats_tab:
+				body = "[b]%s[/b]\n%s" % [section["title"], section["text"] if str(section["text"]) != "" else "(nothing yet)"]
+	if _stats_tab == "HIGHLIGHTS":  # (the times dimmed, so the moments stand out)
+		body = RegEx.create_from_string("(?m)^(\\d{1,2}:\\d\\dam|\\d{1,2}:\\d\\dpm)  ").sub(body, "[color=#%s]$1[/color]  " % MUTED.to_html(false), true)
+	_stats_text.text = "[color=#%s][b]STATS (debug)[/b][/color]  [color=#%s]Night %d · F3 hides[/color]\n\n%s" % [
+		ACCENT.to_html(false), MUTED.to_html(false), _night_number, body]
+
+
+## The stats' tab buttons ([title, label] each), remade only when they change.
+func _show_stats_tabs(tabs: Array) -> void:
+	var labels := ",".join(PackedStringArray(tabs.map(func(t): return "%s=%s" % t)))
+	if _stats_tabs.has_meta("tabs") and str(_stats_tabs.get_meta("tabs")) == labels:
+		return
+	_stats_tabs.set_meta("tabs", labels)
+	for old in _stats_tabs.get_children():
+		_stats_tabs.remove_child(old)  # (now, so the new ones get their names)
+		old.queue_free()
+	for tab in tabs:
+		var button := Button.new()
+		button.name = "StatsTab_" + str(tab[0]).replace(" ", "_")
+		button.text = str(tab[1])
+		button.toggle_mode = true
+		button.button_pressed = tab[0] == _stats_tab
+		button.focus_mode = Control.FOCUS_NONE
+		button.add_theme_font_size_override("font_size", 13)
+		button.set_meta("tab", str(tab[0]))
+		button.pressed.connect(func():
+			_stats_tab = str(tab[0])
+			for other in _stats_tabs.get_children():
+				(other as Button).set_pressed_no_signal(str(other.get_meta("tab")) == _stats_tab)
+			_update_stats_panel())
+		_stats_tabs.add_child(button)
 
 
 ## Writes tonight's log (stats/ in the user data folder).
@@ -2379,6 +2440,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 			direction = str(Talk.TABLE_GAMES[game]["situation"]) + " " + direction
 			hint = "game_" + game
 			chat.game = game
+			_event("table_game_offered", {"game": game, "name": speaker})
 	# Something just said has stunned them.
 	var heard := _owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
 	if heard != "" and not first:
@@ -3229,6 +3291,22 @@ func _kya(guest: Guest) -> void:
 				_narrate("\"Kya~!\" %s sighs over the first glass." % Names.given_name(str(guest.customer["name"]))))
 
 
+## Last time's cliffhanger, watched for all night: the event that answers it (Story.cliffhanger_answered)
+## is the biggest moment a night can have, on TV with the red light and the siren.
+func _watch_cliffhanger(kind: String, facts: Dictionary, about: Variant, _spot: Vector2) -> void:
+	if _cliffhanger.is_empty() or bool(_cliffhanger["answered"]) or not Story.cliffhanger_answered(_cliffhanger, kind, facts):
+		return
+	_cliffhanger["answered"] = true
+	_stats.story["cliffhanger_answered"] = true
+	var who: Array = _cliffhanger["who"]
+	_narrate("Last time's cliffhanger, answered: \"%s\"" % _cliffhanger["teaser"])
+	for person in who:
+		var guest: Guest = _guest_named(str(person))
+		if guest != null:
+			guest.transcript.append({"action": "Everyone's been wondering about this since last time (\"%s\"), and here it is." % _cliffhanger["teaser"]})
+	_event("cliffhanger_answered", {"kind": _cliffhanger["kind"], "cliffhanger": _cliffhanger["kind"], "name": str(who[0]) if not who.is_empty() else ""}, about)
+
+
 ## A shock (a TV reaction said so): everyone else who heard it is stunned, for their next line.
 func _stun_listeners(who: String, names: Array) -> void:
 	var stunned := Talk.stunned_moment(who)
@@ -3764,7 +3842,14 @@ func _build_ui() -> void:
 	_stats_text.selection_enabled = true
 	_stats_text.add_theme_font_size_override("normal_font_size", 15)
 	_stats_text.add_theme_font_size_override("bold_font_size", 15)
-	_stats_panel.add_child(_stats_text)
+	_stats_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var stats_box := VBoxContainer.new()
+	stats_box.add_theme_constant_override("separation", 10)
+	_stats_panel.add_child(stats_box)
+	_stats_tabs = HFlowContainer.new()
+	_stats_tabs.name = "StatsTabs"
+	stats_box.add_child(_stats_tabs)
+	stats_box.add_child(_stats_text)
 	_layout_panels()
 
 	# End-of-night summary, shown over everything at 3am.
@@ -4748,6 +4833,12 @@ func _plan_regulars_tonight() -> void:
 		var first := bool(regular.get("founding", false)) and not bool(regular.get("introduced", false))
 		if first or randf() < Regulars.visit_chance(float(regular["pull"]), _day_index(), regular.get("favourite_days", []), Regulars.keen(regular, _night_number)):
 			_regulars_due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), randf()), "id": regular["id"]})
+	# A cliffhanger about someone coming in: TV makes sure it pays off, often enough.
+	if not _cliffhanger.is_empty() and ["comes_back", "meet_again"].has(_cliffhanger["kind"]):
+		for regular in _regulars():
+			var due := _regulars_due.any(func(d): return d["id"] == regular["id"])
+			if not due and _cliffhanger["who"].has(str(regular["name"])) and _scenery_dice.randf() < Story.CLIFFHANGER_NUDGE:
+				_regulars_due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), _scenery_dice.randf()), "id": regular["id"]})
 	_regulars_due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
 
 
