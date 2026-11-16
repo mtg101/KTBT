@@ -33,6 +33,8 @@ const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Friendliness = preload("res://scripts/bar/friendliness.gd")
 const Conversation = preload("res://scripts/bar/conversation.gd")
+const Scenery = preload("res://scripts/bar/scenery.gd")
+const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -354,7 +356,7 @@ var _stats_toggle: CheckBox
 var _stats_panel: PanelContainer
 var _stats_text: RichTextLabel
 var _stats_tabs: HFlowContainer  # one tab per section of the stats, and All
-var _stats_tab := "HIGHLIGHTS"  # the section showing (or "ALL")
+var _stats_view: StatsPanel  # what the stats panel shows, in its tabs (scripts/bar/stats_panel.gd)
 var _log_panel: PanelContainer
 var _moment_label: Label
 var _mode_label: Label
@@ -372,7 +374,7 @@ var _owner_tag: Label
 ## Its own dice for scenery that comes and goes by itself (the neon sign, steam, the cat
 ## prowling), so it never shifts the game's own rolls (tests fix those with a seed).
 var _scenery_dice := RandomNumberGenerator.new()
-var _neon: Label  # the karaoke sign on the pillar
+var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
 var _skyline: SkylineView  # the city behind the tent
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
 ## Tonight's weather, as NightRules.weather_kind says it (kept by the night).
@@ -391,6 +393,7 @@ var _food_rows: Array = []
 func _ready() -> void:
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
 	_tent_cat = Cat.new(_scenery_dice, STAGE_SIZE.x)
+	_scenery = Scenery.new(_scenery_dice, STAGE_SIZE.x)
 	if Hooks.random_seed != 0:
 		seed(Hooks.random_seed)
 	_ai = Ai.new()
@@ -1467,54 +1470,13 @@ func _count_time(delta: float) -> void:
 		_update_stats_panel()
 
 
+## The stats panel, shown in its tabs (see StatsPanel).
 func _update_stats_panel() -> void:
 	if not _stats_panel.visible:
 		return
-	var seated := _guests.size()
-	var cooking := _kitchen.size() + _ready_dishes.size()
-	var sections: Array = _stats.sections(seated, cooking)
-	var tabs: Array = sections.map(func(s): return [str(s["title"]), str(s["tab"])])
-	tabs.append(["ALL", "All"])
-	if not tabs.any(func(t): return t[0] == _stats_tab):
-		_stats_tab = "HIGHLIGHTS"
-	_show_stats_tabs(tabs)
-	var body := ""
-	if _stats_tab == "ALL":
-		body = _stats.panel_text(seated, cooking)
-	else:
-		for section in sections:
-			if section["title"] == _stats_tab:
-				body = "[b]%s[/b]\n%s" % [section["title"], section["text"] if str(section["text"]) != "" else "(nothing yet)"]
-	if _stats_tab == "HIGHLIGHTS":  # (the times dimmed, so the moments stand out)
-		body = RegEx.create_from_string("(?m)^(\\d{1,2}:\\d\\dam|\\d{1,2}:\\d\\dpm)  ").sub(body, "[color=#%s]$1[/color]  " % MUTED.to_html(false), true)
-	_stats_text.text = "[color=#%s][b]STATS (debug)[/b][/color]  [color=#%s]Night %d · F3 hides[/color]\n\n%s" % [
-		ACCENT.to_html(false), MUTED.to_html(false), _night_number, body]
-
-
-## The stats' tab buttons ([title, label] each), remade only when they change.
-func _show_stats_tabs(tabs: Array) -> void:
-	var labels := ",".join(PackedStringArray(tabs.map(func(t): return "%s=%s" % t)))
-	if _stats_tabs.has_meta("tabs") and str(_stats_tabs.get_meta("tabs")) == labels:
-		return
-	_stats_tabs.set_meta("tabs", labels)
-	for old in _stats_tabs.get_children():
-		_stats_tabs.remove_child(old)  # (now, so the new ones get their names)
-		old.queue_free()
-	for tab in tabs:
-		var button := Button.new()
-		button.name = "StatsTab_" + str(tab[0]).replace(" ", "_")
-		button.text = str(tab[1])
-		button.toggle_mode = true
-		button.button_pressed = tab[0] == _stats_tab
-		button.focus_mode = Control.FOCUS_NONE
-		button.add_theme_font_size_override("font_size", 13)
-		button.set_meta("tab", str(tab[0]))
-		button.pressed.connect(func():
-			_stats_tab = str(tab[0])
-			for other in _stats_tabs.get_children():
-				(other as Button).set_pressed_no_signal(str(other.get_meta("tab")) == _stats_tab)
-			_update_stats_panel())
-		_stats_tabs.add_child(button)
+	if _stats_view == null:
+		_stats_view = StatsPanel.new(_stats_text, _stats_tabs, ACCENT, MUTED)
+	_stats_view.refresh(_stats, _guests.size(), _kitchen.size() + _ready_dishes.size(), _night_number)
 
 
 ## Writes tonight's log (stats/ in the user data folder).
@@ -2535,8 +2497,8 @@ func _add_dish(guest: Guest, id: String) -> void:
 		_tornado(shape)
 	if Menu.find(id)["kind"] == "drink" and not guest.kya_done:
 		_kya(guest)
-	if HOT_DISHES.has(id) or ["stew", "pancake", "grill", "fried"].has(str(Catalogue.find(id).get("category", ""))):
-		_steam(shape)
+	if Scenery.HOT_DISHES.has(id) or ["stew", "pancake", "grill", "fried"].has(str(Catalogue.find(id).get("category", ""))):
+		_scenery.steam(shape)
 
 
 func _clear_table(guest: Guest) -> void:
@@ -3469,7 +3431,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a"))  # the overpass
 	_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36"))  # pillars
 	_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36"))
-	_build_neon(stage)
+	_scenery.build_neon(stage)
 	_tent_view.glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
 	_tent_view.glow.name = "Glow"
 	_rect(stage, Vector2(0, 372), Vector2(w, 8), Color("2a2840"))  # wet street
@@ -3489,7 +3451,7 @@ func _build_stage(stage: Control) -> void:
 	stage.add_child(_menu_board)
 	stage.move_child(_menu_board, _tent_view.bulbs[0].get_index())  # (behind the bulbs, which swing in front)
 	_menu_board.opened.connect(func(): _stats.menu_opened += 1)
-	_build_fridge(stage)
+	_scenery.build_fridge(stage)
 
 	_owner_node = _people_view.new_person(stage, Vector2(OWNER_HOME_X, OWNER_Y), OWNER_COLOR)
 	_owner_node.name = "Owner"
@@ -3501,7 +3463,7 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820"))  # counter front
 	_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))  # the stove
 	_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a"))  # a flame
-	_build_odeng_pot(stage)
+	_scenery.build_odeng_pot(stage)
 	_tent_view.decor_counter = _layer(stage, "DecorCounter")
 
 	# What's cooking (and what's ready to carry over), at the stove.
@@ -3573,111 +3535,6 @@ func _build_stage(stage: Control) -> void:
 	red_frame.visible = false
 	_caption_layer.add_child(red_frame)
 	_captions_part.red_frame = red_frame
-
-
-## The drinks fridge at the back, by the stove (the owner's station), behind the owner: a
-## glass door lit from inside, with shelves of soju, beer and makgeolli (only what's on the
-## menu). Its shelves sit high, so the odeng pot in front doesn't hide them.
-func _build_fridge(stage: Control) -> void:
-	var fridge := Control.new()
-	fridge.name = "Fridge"
-	fridge.position = Vector2(186, 116)  # just right of the odeng pot
-	fridge.size = Vector2(92, 134)
-	fridge.mouse_filter = Control.MOUSE_FILTER_STOP
-	fridge.tooltip_text = Text.tip("The drinks fridge: soju, beer and makgeolli, ice cold.")
-	stage.add_child(fridge)
-	_rect(fridge, Vector2.ZERO, Vector2(92, 134), Color("d8dce4"))  # the cabinet
-	_rect(fridge, Vector2.ZERO, Vector2(92, 14), Color("c8443a"))  # the header strip
-	_rect(fridge, Vector2(6, 18), Vector2(80, 112), Color("23344a"))  # inside
-	_rect(fridge, Vector2(6, 18), Vector2(80, 112), Color(0.9, 0.96, 1.0, 0.18))  # its light
-	var shelves := [
-		["soju", Vector2(7, 20), 6],  # green bottles
-		["beer", Vector2(10, 16), 5],  # gold cans
-		["makgeolli", Vector2(9, 20), 5],  # white bottles
-	]
-	for row in shelves.size():
-		var drink: String = shelves[row][0]
-		var shape: Vector2 = shelves[row][1]
-		var count: int = shelves[row][2]
-		var floor_y := 18.0 + (row + 1) * 26.0
-		var colour := Color(str(Catalogue.find(drink)["color"]))  # (the catalogue's: not every bar's menu has makgeolli)
-		var gap := (80.0 - count * shape.x) / (count + 1)
-		for k in count:
-			var x := 6.0 + gap + k * (shape.x + gap)
-			_rect(fridge, Vector2(x, floor_y - shape.y), shape, colour)
-			if drink != "beer":  # a neck and a cap on the bottles
-				_rect(fridge, Vector2(x + shape.x / 2 - 2, floor_y - shape.y - 6), Vector2(4, 6), colour)
-				_rect(fridge, Vector2(x + shape.x / 2 - 2, floor_y - shape.y - 8), Vector2(4, 2), Color("2e7a44") if drink == "makgeolli" else Color("d8dce4"))
-		_rect(fridge, Vector2(6, floor_y), Vector2(80, 2), Color("9aa6b4"))  # the shelf
-	var sheen := Polygon2D.new()  # light catching the glass
-	sheen.polygon = PackedVector2Array([Vector2(14, 18), Vector2(34, 18), Vector2(16, 130), Vector2(6, 130), Vector2(6, 60)])
-	sheen.color = Color(1, 1, 1, 0.1)
-	fridge.add_child(sheen)
-	_rect(fridge, Vector2(80, 40), Vector2(3, 40), Color("8a8c96"))  # the handle
-
-
-## The odeng pot, simmering on the stove all night: fish cake skewers poking out of the
-## broth, and steam curling up off it.
-func _build_odeng_pot(stage: Control) -> void:
-	var pot := Control.new()
-	pot.name = "OdengPot"
-	pot.position = Vector2(108, 212)
-	pot.mouse_filter = Control.MOUSE_FILTER_STOP
-	pot.size = Vector2(60, 32)
-	pot.tooltip_text = Text.tip("Odeng: %s" % Catalogue.find("odeng")["desc"])  # (every tent's pot, on the menu or not)
-	stage.add_child(pot)
-	for k in 4:  # skewers, at a slant
-		var skewer := _rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
-		skewer.rotation = -0.2 + k * 0.12
-		_rect(pot, Vector2(7 + k * 12, -2 + (k % 2) * 4), Vector2(9, 8), Color("c9a26b"))  # a folded fish cake
-	_rect(pot, Vector2(0, 6), Vector2(60, 26), Color("8a8c96"))  # the pot (a square metal one)
-	_rect(pot, Vector2(-3, 4), Vector2(66, 4), Color("b0b2bc"))  # its rim
-	_rect(pot, Vector2(2, 8), Vector2(56, 3), Color("c9a26b", 0.8))  # the broth
-	for k in 3:  # steam, rising and fading, one puff after another
-		var puff := _rect(pot, Vector2(20 + k * 10, 0), Vector2(10, 10), Color(1, 1, 1, 0.0))
-		var rise := puff.create_tween().set_loops()
-		rise.tween_interval(k * 0.9)
-		rise.tween_property(puff, "position", Vector2(14 + k * 12, -46), 2.7).from(Vector2(20 + k * 10, 0))
-		rise.parallel().tween_property(puff, "color:a", 0.0, 2.7).from(0.3)
-
-
-## A neon sign on the pillar across from the tent: 노래방, karaoke (a kind of place, not a
-## name: see CONCEPT.md, "Real people, brands and shows"), flickering now and then.
-func _build_neon(stage: Control) -> void:
-	_neon = Ktv.label("노\n래\n방", 22, Color("ff5fa2"), 6, Color("ff5fa2", 0.35))
-	_neon.name = "Neon"
-	_neon.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
-	_neon.tooltip_text = Text.tip("노래방 noraebang: a karaoke room across the street, where the night carries on after the pocha.")
-	_neon.position = Vector2(STAGE_SIZE.x - 36, 122)
-	_neon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stage.add_child(_neon)
-	_scenery_dice.randomize()
-	_flicker_neon()
-
-
-## Now and then the neon stutters, the way old signs do, then comes back.
-func _flicker_neon() -> void:
-	if not is_instance_valid(_neon):
-		return
-	var stutter := _neon.create_tween()
-	stutter.tween_interval(_scenery_dice.randf_range(4.0, 14.0))
-	for k in _scenery_dice.randi_range(2, 4):
-		stutter.tween_property(_neon, "modulate:a", _scenery_dice.randf_range(0.15, 0.5), 0.05)
-		stutter.tween_property(_neon, "modulate:a", 1.0, _scenery_dice.randf_range(0.04, 0.12))
-	stutter.tween_callback(_flicker_neon)
-
-
-## A little steam off a hot dish just set down, for a while.
-const HOT_DISHES := ["tteokbokki", "odeng", "sundae", "dakgalbi", "pajeon", "ramyeon", "gonggibap", "bokkeumbap"]
-
-func _steam(shape: Control) -> void:
-	for k in 2:
-		var puff := _rect(shape, Vector2(9 + k * 7, 12), Vector2(7, 7), Color(1, 1, 1, 0.0))
-		puff.name = "Steam"
-		var rise := puff.create_tween().set_loops(4)  # (it cools down)
-		rise.tween_interval(k * 0.8 + _scenery_dice.randf_range(0.0, 0.4))
-		rise.tween_property(puff, "position", Vector2(6 + k * 9, -18), 2.2).from(Vector2(9 + k * 7, 12))
-		rise.parallel().tween_property(puff, "color:a", 0.0, 2.2).from(0.28)
 
 
 ## An empty full-stage layer for things added later (weather, the bar's touches).

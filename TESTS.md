@@ -83,7 +83,7 @@ Most of the risk in this stage is in rules the game owns, so most of it can be t
 
 ## Coverage so far
 
-All 536 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 538 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
@@ -109,6 +109,7 @@ All 536 tests pass (16 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 | Customer chats (`bar/counter_chats.gd`) | `tests/test_counter_chats.gd` | ✅ 2: who can chat (not keeping to themselves, not about to leave, settled in; two needed; none after last orders); a spell starting, carrying on, and ending when someone leaves | Covered by `test_visit.gd` |
 | Who calls whom (`bar/friendliness.gd`) | `tests/test_friendliness.gd` | ✅ 2: how the owner and a customer address each other (a regular the owner knows well by their given name); regulars who chat getting friendlier (meetings once a night, names said, the last thing said), the younger asking the older "can I call you eonni?" once, then close, and the term used | Covered by `test_visit.gd` |
 | What each line is given (`bar/conversation.gd`) | `tests/test_conversation.gd` | ✅ 3: the owner's line (a quick hello when busy, food just arrived, stunned, the cat, nearly leaving), each moment used once; a chat line (meeting again, "can I call you eonni?", stunned, a table game late on, once a chat); strangers known by how they look until a name's said, and who spoke last | Covered by `test_visit.gd` |
+| The tent's fixtures and the stats panel (`bar/scenery.gd`, `bar/stats_panel.gd`) | `tests/test_scenery.gd` | ✅ 2: the fridge, the odeng pot and the neon (explaining itself), steam off a hot dish; the stats panel showing a section at a time (the highlights first), a tab clicked showing its section | Covered by `test_visit.gd` |
 | Debug stats (`night_stats.gd`) | `tests/test_night_stats.gd` | ✅ 11: the night's highlights (rare moments in order, with their times; a table game offered marked taken up only by its own game; a full house once) and the panel's tabs, one per section; the panel in sections, with POCHA LIFE on its own (rituals, table games by game, double-takes, the chorus) and the log's matching groups; who came in (genders, ages, moods for company) and the night's story (loading time, recap style, the diary's stamp, and who wrote them); every event counted by kind; orders, hints and how many were taken up, Korean words said and the commonest openings; AI calls counted (including how often the owner was free) and rejections grouped; averages with nothing yet; the panel's sections; the log saved as JSON; the actual rejection reasons kept; how full the tent was; chat chances | Covered by `test_visit.gd` and `test_night.gd` |
 
 *Updated as tests are added.*
