@@ -23,6 +23,7 @@ class Chat:
 	var shared := false  # had its sharing moment (see Talk.sharing_moment)
 	var game := ""  # the table game it was offered (see Talk.TABLE_GAMES), once a chat
 	var game_on := false  # ... and took up
+	var game_lines := 0  # lines it's still in the air for (see Talk.TABLE_GAME_LINES)
 
 
 var chats: Array = []  # Chat: customer conversations going on at the counter

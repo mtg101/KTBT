@@ -245,14 +245,17 @@ static func _is_trope(kind: String) -> bool:
 	return kind.begins_with("game_") or kind == "stunned"
 
 
-## The table games: {game: [offered, taken up]}.
+## The table games: {game: [offered, taken up]}, a chat each (a game's in the air for a few
+## lines of a chat: the lines are in hints_given/hints_taken).
 func table_games() -> Dictionary:
 	var games := {}
-	for kind in hints_given:
-		if str(kind).begins_with("game_"):
-			var game := str(kind).trim_prefix("game_")
-			var played := events.filter(func(e): return str(e.get("kind", "")) == "table_game" and str(e.get("game", "")) == game).size()
-			games[game] = [int(hints_given[kind]), maxi(int(hints_taken.get(kind, 0)), played)]  # (taken up by a later line counts too)
+	for event in events:
+		var kind := str(event.get("kind", ""))
+		if kind == "table_game_offered" or kind == "table_game":
+			var game := str(event.get("game", ""))
+			var counts: Array = games.get(game, [0, 0])
+			counts[0 if kind == "table_game_offered" else 1] += 1
+			games[game] = counts
 	return games
 
 

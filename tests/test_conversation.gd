@@ -52,16 +52,36 @@ func test_a_chat_line_is_given_its_moments() -> void:
 	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 0, false, dice)["hint"])).is_equal("stunned")
 	# Late on, a few drinks in: now and then a table game, once a chat.
 	chat.people = [speaking, Someone.new()]  # (a game needs company)
+	chat.topic = "work"
 	var offered := ""
+	var late := {}
 	for k in 60:
 		dice.seed = k
-		var late := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)
+		late = Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)
 		if str(late["game"]) != "":
 			offered = str(late["game"])
 			break
 	assert_str(offered).is_not_empty()
 	assert_str(chat.game).is_equal(offered)
 	assert_bool(Talk.TABLE_GAMES.has(offered)).is_true()
+	# It's what's going on at the table, in place of the topic (not one more thing beside it) ...
+	var situation := str(Talk.TABLE_GAMES[offered]["situation"])
+	assert_str(str(late["direction"])).contains(situation)
+	assert_str(str(late["direction"])).not_contains(Talk.CHAT_TOPICS["work"])
+	# ... for a few lines, offered just the once (for the stats) ...
+	for i in Talk.TABLE_GAME_LINES - 1:
+		var still := Conversation.chat_line(night, chat, "Lee Min-jun", "Kim Ji-ho", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)
+		assert_str(str(still["game"])).is_empty()
+		assert_str(str(still["hint"])).is_equal("game_" + offered)
+		assert_str(str(still["direction"])).contains(situation)
+	# ... then the chat moves on (and it isn't offered again).
+	var moved_on := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)
+	assert_str(str(moved_on["hint"])).is_empty()
+	assert_str(str(moved_on["direction"])).contains(Talk.CHAT_TOPICS["work"])
+	# Taken up, it isn't steered any more: the AI plays it out.
+	chat.game_lines = 2
+	chat.game_on = true
+	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)["hint"])).is_empty()
 
 
 func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:

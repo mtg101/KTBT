@@ -108,7 +108,7 @@ The game is full of Korean references, and should be. But what's in it is writte
 
 ## Menu and ordering
 
-The current menu is a fixed placeholder, and becomes the **classic menu** once each bar has its own: real pocha food chosen to suit the owner, signature dishes from their story, specials and a menu board in the tent (see **Each bar's own menu: the plan** in [PLAN.md](PLAN.md)). Prices live in `scripts/rules/menu.gd`.
+Each bar has its own menu, chosen when it opens from a catalogue of real pocha dishes (`scripts/rules/catalogue.gd`): the staples everywhere (soju, beer, a bowl of rice), most of the pocha classics, the owner's own picks to suit them, and their signature dishes, on a board in the tent you can click to read. The AI chooses within the game's house rules (how many dishes, prices within each dish's range). Bars from before menus, and the tests, keep the **classic menu** (`scripts/rules/menu.gd`):
 
 - **Drinks:** soju, makgeolli, beer, somaek (soju dropped in beer)
 - **Mains:** tteokbokki, sundae, dakgalbi, pajeon, ramyeon

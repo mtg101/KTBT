@@ -81,13 +81,18 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 			direction = sharing + " " + direction
 			hint = Talk.moment_kind(sharing)
 			chat.shared = true
-	# Late on, a few drinks in: a table game now and then, once a chat (the AI takes it up, or doesn't).
+	# Late on, a few drinks in: a table game now and then, once a chat (the AI takes it up, or
+	# doesn't). It's what's going on at the table for a few lines, not one passing remark, and it
+	# takes the place of the chat's topic: the 8B model ignored it next to a topic (0 of 4 taken up).
 	if hint == "" and not first and chat.game == "" and speaking != null:
 		game = Talk.table_game(chat.people.size(), fewest_drinks, close, late_enough, dice.randf(), dice.randf())
 		if game != "":
-			direction = str(Talk.TABLE_GAMES[game]["situation"]) + " " + direction
-			hint = "game_" + game
 			chat.game = game
+			chat.game_lines = Talk.TABLE_GAME_LINES
+	if hint == "" and not first and chat.game != "" and not chat.game_on and chat.game_lines > 0:
+		direction = str(Talk.TABLE_GAMES[chat.game]["situation"]) + " " + Talk.TABLE_GAME_NOW
+		hint = "game_" + chat.game
+		chat.game_lines -= 1
 	# Something just said has stunned them.
 	var heard: String = night.owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
 	if heard != "" and not first:

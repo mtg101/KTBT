@@ -1,6 +1,6 @@
 # KTBT: Architecture
 
-How the code is laid out, so you can find things and know where new things go. (Tidied up step by step in **A proper refactor**, [PLAN.md](PLAN.md); this page describes it as it is now, after step 7.)
+How the code is laid out, so you can find things and know where new things go. (The refactor that tidied it up, finished 16 Nov 2026, is in [DEVLOG.md](DEVLOG.md).)
 
 ## The layers
 

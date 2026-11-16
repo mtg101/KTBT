@@ -2240,6 +2240,10 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	var direction := str(given["direction"])
 	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
 	if str(given["game"]) != "":
+		# The makings of a game, there at the table (shown, and in the chat as something that happened).
+		var scene := str(Talk.TABLE_GAMES[str(given["game"])]["scene"])
+		_narrate(scene)
+		chat.transcript.append({"action": scene})
 		_event("table_game_offered", {"game": str(given["game"]), "name": speaker})
 	direction += " " + _chat_notes(chat) + " " + Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close)
 	var address := _address(speaking, listening, close)

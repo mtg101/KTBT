@@ -225,6 +225,7 @@ func test_the_pocha_life_has_a_section_of_its_own() -> void:
 	stats.story = {"date": "15 November", "season": "late autumn", "weather": "thick fog"}
 	stats.record_hint("game_spoon_mic", "Pass me that spoon, I'm singing!")
 	stats.record_hint("game_titanic", "What a night.")
+	stats.events = [{"kind": "table_game_offered", "game": "spoon_mic"}, {"kind": "table_game", "game": "spoon_mic"}, {"kind": "table_game_offered", "game": "titanic"}]
 	stats.record_hint("stunned", "Mwo?! You quit?")
 	stats.record_hint("soju", "Another glass, then.")
 	stats.rituals = {"kya": 3, "tornado": 2}

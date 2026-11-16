@@ -1858,6 +1858,13 @@ func test_table_games_only_when_the_night_is_right() -> void:
 	assert_bool(Talk.hint_taken("game_titanic", "Whoever sinks it drinks it!")).is_true()
 	assert_bool(Talk.hint_taken("game_nunchi", "I used to teach music in the countryside.")).is_false()  # (whole words: a real night's false start)
 	assert_bool(Talk.hint_taken("game_love_shot", "My arms ache from the deliveries.")).is_false()
+	# What's there at the table isn't taking it up: only playing it is.
+	for id in Talk.TABLE_GAMES:
+		assert_str(str(Talk.TABLE_GAMES[id]["scene"])).is_not_empty()
+		assert_bool(Talk.hint_taken("game_" + str(id), str(Talk.TABLE_GAMES[id]["scene"]))).is_false()
+	assert_bool(Talk.hint_taken("game_spoon_mic", "What's the spoon for?")).is_false()
+	assert_bool(Talk.hint_taken("game_apartment", "I needed a break from my apartment, you know?")).is_false()  # (a real night's false start)
+	assert_bool(Talk.hint_taken("game_apartment", "Fourth floor, then.")).is_true()
 	assert_array(Glossary.words_in("Kya~! A love shot, then.")).contains(["Kya", "Love Shot"])
 
 

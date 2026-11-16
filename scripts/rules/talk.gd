@@ -520,29 +520,35 @@ const HINT_TELLS := {
 	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
-	"game_spoon_mic": ["spoon", "sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "apartment", "floor", "stack", "hands"],
-	"game_titanic": ["titanic", "sink", "sank", "float"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
+	"game_spoon_mic": ["sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "floor", "stack"],
+	"game_titanic": ["titanic", "sink", "sank"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
 	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"],
 }
 
 
 ## Drinking games, late on and a few drinks in: the situation for a line in a customers' chat,
-## never the words (the AI takes it up, or doesn't). "close": only between two who've got
-## close (the love shot). "tells": words that show a line took it up (see HINT_TELLS).
+## never the words (the AI takes it up, or doesn't). "scene": what happens at the counter when
+## it's offered (shown, and in the chat's transcript as something that happened): someone
+## else getting it going, for the two talking to join in or not. (A situation in the direction
+## alone was ignored 9 times in 11; bare props, 3 in 4.) "close": only between two who've got
+## close (the love shot). What shows a line took it up is in HINT_TELLS: playing it, not
+## just mentioning what's there.
 const TABLE_GAMES := {
 	"spoon_mic": {"situation": "It's the stage of the night when someone sticks a spoon in an empty soju bottle and uses it as a microphone.",
-		"tells": ["spoon", "sing", "song", "microphone", "mic"]},
+		"scene": "Someone further along has stuck a spoon in an empty soju bottle and is holding it out to the table like they're on stage, waiting for someone to take a turn."},
 	"apartment": {"situation": "Someone's in the mood for the apartment game: everyone stacks their hands, someone calls a floor, and whoever's hand lands on it drinks.",
-		"tells": ["apateu", "apartment", "floor", "stack", "hands"]},
+		"scene": "That end of the counter has gone loud and giggly, everyone a few drinks in."},
 	"titanic": {"situation": "There's a shot glass floating in someone's beer: the Titanic game, where everyone pours a little soju in and whoever sinks it drinks it.",
-		"tells": ["titanic", "sink", "sank", "float"]},
+		"scene": "Someone's floated an empty shot glass in a glass of beer between them, and is pouring soju into it a little at a time, then passing the bottle on."},
 	"nunchi": {"situation": "It's the kind of table where someone starts the nunchi game: stand up and count, and anyone who stands at the same time as someone else drinks.",
-		"tells": ["nunchi", "stand up", "on your feet", "count to", "count us"]},
+		"scene": "Someone at that end of the counter shouts \"One!\" and jumps to their feet, looking round to see who'll go next."},
 	"369": {"situation": "Someone suggests 369: count round the table, clapping instead of any number with a 3, 6 or 9 in it.",
-		"tells": ["369", "three six nine", "clap"]},
+		"scene": "Someone says \"One, two...\" and slaps the counter instead of saying three, then looks at the next person to carry on."},
 	"love_shot": {"situation": "The two of them are close enough now for a love shot: arms linked, drinking at the same time.", "close": true,
-		"tells": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"]},
+		"scene": "Both their glasses have just been filled, at the same moment."},
 }
+const TABLE_GAME_LINES := 3  # lines of the chat it's in the air for, unless taken up first
+const TABLE_GAME_NOW := "Whatever they were talking about, that's what's going on at the table now."
 const TABLE_GAME_CHANCE := 0.35  # for a chat line, once it can be (and once a chat)
 const TABLE_GAME_FROM := 21 * 60  # 9pm: not straight after work
 const TABLE_GAME_DRINKS := 1  # everyone in the chat has a drink (most order one bottle and nurse it: 2 was hardly ever)
