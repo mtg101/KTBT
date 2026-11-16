@@ -31,6 +31,7 @@ const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
+const Friendliness = preload("res://scripts/bar/friendliness.gd")
 const Prompts = preload("res://scripts/prompts.gd")
 const Menu = preload("res://scripts/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -4020,104 +4021,50 @@ func _remembered_text(known: Dictionary) -> String:
 
 # --- Who calls whom, and friendliness ------------------------------------------------------
 
-const FRIENDLY_AFTER := 4  # meetings before two regulars might ask "can I call you eonni?"
+const FRIENDLY_AFTER := Friendliness.FRIENDLY_AFTER
 
 
-## Someone, as far as address goes (see Address.allowed_terms). null: the owner.
+## Someone, as far as address goes (see Friendliness). null: the owner.
 func _addressee(guest: Guest) -> Dictionary:
-	if guest == null:
-		return {"gender": str(_owner.get("gender", "woman")), "age": int(_owner.get("age", 55)), "owner": true}
-	return {"gender": str(guest.customer.get("gender", "")), "age": int(guest.customer.get("age", 30)), "owner": false}
+	return Friendliness.person(_owner, guest)
 
 
 func _who(guest: Guest) -> String:
-	return str(_owner["name"]) if guest == null else str(guest.customer["name"])
+	return Friendliness.name_of(_owner, guest)
 
 
 ## For the checks: who's speaking to whom. null: the owner.
 func _address(speaker: Guest, listener: Guest, close: bool = false) -> Dictionary:
-	return {"speaker": _addressee(speaker), "listener": _addressee(listener), "close": close, "listener_name": _who(listener)}
+	return Friendliness.address_for(_owner, speaker, listener, close)
 
 
-## For the prompts: how the owner and a customer address each other (and, for a regular the
-## owner's got to know, their given name).
+## For the prompts: how the owner and a customer address each other (see Friendliness).
 func _address_note(guest: Guest) -> String:
-	var text := "HOW THEY ADDRESS EACH OTHER: %s %s" % [
-		Address.address_text(_who(guest), _addressee(guest), _who(null), _addressee(null), false),
-		Address.address_text(_who(null), _addressee(null), _who(guest), _addressee(guest), false)]
-	var known: Dictionary = guest.customer.get("regular", {})
-	if bool(known.get("owner_knows_name", false)):
-		var parts := str(guest.customer["name"]).split(" ", false)
-		var given := " ".join(parts.slice(1)) if parts.size() > 1 else str(guest.customer["name"])
-		if bool(known.get("founding", false)) or int(known.get("warmth", 0)) >= 2 or int(known.get("visits", 0)) >= 6:
-			text += " The owner knows them well, and calls them by their given name, %s." % given
-		else:
-			text += " The owner knows their name, %s." % guest.customer["name"]
-	return text
+	return Friendliness.address_note(_owner, guest)
 
 
 ## Two regulars' record of each other (from the first one's side), or {}.
 func _friend(a: Guest, b: Guest) -> Dictionary:
-	var mine := _regular(str(a.customer.get("regular_id", "")))
-	if mine.is_empty() or str(b.customer.get("regular_id", "")) == "":
-		return {}
-	return mine.get("friends", {}).get(str(b.customer["regular_id"]), {})
+	return Friendliness.friend_record(Game.bar, a, b)
 
 
 func _close(a: Guest, b: Guest) -> bool:
-	return bool(_friend(a, b).get("close", false))
+	return Friendliness.are_close(Game.bar, a, b)
 
 
-## After a spell of chat: regulars who chatted remember it (once a night per pair): how many
-## times they've met, whether they know each other's names, and the last thing said.
+## After a spell of chat: regulars who chatted remember it (see Friendliness.remember_chat).
 func _remember_chat(chat: Chat, last: String) -> void:
-	var said := " ".join(PackedStringArray(chat.transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["text"])))).to_lower()
-	for a in chat.people:
-		for b in chat.people:
-			if a == b:
-				continue
-			var mine := _regular(str(a.customer.get("regular_id", "")))
-			var their_id := str(b.customer.get("regular_id", ""))
-			if mine.is_empty() or their_id == "":
-				continue
-			var friends: Dictionary = mine.get("friends", {})
-			var friend: Dictionary = friends.get(their_id, {"meetings": 0, "names": false, "close": false, "night": -1})
-			if int(friend.get("night", -1)) != _night_number:
-				friend["meetings"] = int(friend.get("meetings", 0)) + 1
-				friend["night"] = _night_number
-			if _name_said(str(b.customer["name"]), said):
-				friend["names"] = true
-			friend["name"] = str(b.customer["name"])
-			friend["last"] = last
-			friends[their_id] = friend
-			mine["friends"] = friends
+	Friendliness.remember_chat(Game.bar, chat.people, chat.transcript, last, _night_number)
 	_refresh_tags()
 
 
-## The "can I call you eonni?" moment, if it's time: the younger of two regulars who've met
-## enough asks the older; "" if not. Marks them close once asked (the game's call).
+## The "can I call you eonni?" moment, if it's time ("" if not: see Friendliness).
 func _friendly_moment(speaker: Guest, addressee: Guest) -> String:
-	if speaker == null or addressee == null:
-		return ""
-	var friend := _friend(speaker, addressee)
-	if friend.is_empty() or bool(friend.get("close", false)) or int(friend.get("meetings", 0)) < FRIENDLY_AFTER:
-		return ""
-	var term := Address.sibling_term(_addressee(speaker), _addressee(addressee))
-	if term == "":
-		return ""
-	return term
+	return Friendliness.friendly_moment(Game.bar, _owner, speaker, addressee)
 
 
 func _make_close(a: Guest, b: Guest, term: String) -> void:
-	for pair in [[a, b], [b, a]]:
-		var mine := _regular(str(pair[0].customer.get("regular_id", "")))
-		if mine.is_empty():
-			continue
-		var friends: Dictionary = mine.get("friends", {})
-		var friend: Dictionary = friends.get(str(pair[1].customer["regular_id"]), {})
-		friend["close"] = true
-		friends[str(pair[1].customer["regular_id"])] = friend
-		mine["friends"] = friends
+	Friendliness.make_close(Game.bar, a, b)
 	_narrate("%s and %s are on \"%s\" terms now." % [a.customer["name"], b.customer["name"], term])
 	_event("friendlier", {"a": str(a.customer["name"]), "b": str(b.customer["name"]), "term": term}, a.node)
 	Game.save()
@@ -4141,8 +4088,4 @@ func _refresh_tags() -> void:
 
 ## The term a line actually used for its listener, for the bubble's header ("" if none).
 func _term_used(line: String, speaker: Guest, listener: Guest) -> String:
-	var allowed := Address.allowed_terms(_addressee(speaker), _addressee(listener), speaker != null and listener != null and _close(speaker, listener))
-	for term in Address.terms_in(line, [_who(speaker), _who(listener)]):
-		if allowed.has(term):
-			return term
-	return ""
+	return Friendliness.term_used(Game.bar, _owner, line, speaker, listener)
