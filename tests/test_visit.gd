@@ -792,6 +792,36 @@ func test_the_menu_board_opens_the_whole_menu() -> void:
 	assert_str(MenuBoard.style_for("a bar")).is_equal(MenuBoard.style_for("a bar"))  # (the same every night)
 
 
+func test_drinking_rituals_and_table_games() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests[0].drinks_row.get_child_count() > 0)).is_true()
+	var first = scene._guests[0]
+	assert_bool(first.kya_done).is_true()  # (the first drink's had its moment: Kya~!, now and then)
+	# A new bottle of soju: the tornado.
+	scene._add_dish(first, "soju")
+	assert_int(int(scene._stats.rituals.get("tornado", 0))).is_greater_equal(1)
+	# A table game, taken up: on TV, and for the spoon mic, the spoon in the bottle.
+	var chat = Visit.Chat.new()
+	chat.game = "spoon_mic"
+	scene._table_game_taken(chat, first, "Pass me that spoon, I'm singing!")
+	assert_int(int(scene._stats.event_counts.get("table_game", 0))).is_equal(1)
+	assert_int(int(scene._stats.captions.get("game_spoon_mic", 0))).is_equal(1)
+	assert_object(first.drinks_row.find_child("SpoonMic", true, false)).is_not_null()
+	scene._table_game_taken(chat, first, "Pass me that spoon, I'm singing!")
+	assert_int(int(scene._stats.event_counts.get("table_game", 0))).is_equal(1)  # (once a chat)
+	# Turning away to drink, in front of someone much older: now and then, once a night.
+	first.customer["age"] = 24
+	scene._owner["age"] = 61
+	for _k in 60:
+		scene._mind_your_elders(first, null)
+	assert_int(int(scene._stats.rituals.get("turned_away", 0))).is_equal(1)
+	assert_str(_transcript(runner)).contains("turns away to drink")
+	assert_str(scene._stats.panel_text(0, 0)).contains("Rituals:")
+
+
 func test_the_city_behind_the_tent_and_tonights_date() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()

@@ -156,6 +156,17 @@ const MEANINGS := {
 	"제1화": "je il hwa: episode 1 (제…화, episode…)",
 	"새벽 감성": "saebyeok gamseong: the small-hours mood, when people get honest",
 	"동": "dong: a block of an apartment complex",
+	# Table games (captions)
+	"노래 시작!": "norae sijak!: the singing starts",
+	"숟가락 마이크": "sutgarak maikeu: the spoon microphone",
+	"아파트 게임!": "apateu geim!: the apartment game",
+	"몇 층?!": "myeot cheung?!: which floor?!",
+	"타이타닉!": "taitanik!: the Titanic",
+	"눈치 게임!": "nunchi geim!: the nunchi game (reading the room)",
+	"눈치 챙겨!": "nunchi chaenggyeo!: read the room!",
+	"삼육구!": "samyukgu!: three-six-nine",
+	"러브샷!": "reobeusyat!: a love shot",
+	"러브샷?!": "reobeusyat?!: a love shot?!",
 	# The menu board (menu_board.gd)
 	"특선": "teukseon: tonight's special",
 	"오늘의 특선": "oneurui teukseon: tonight's specials",

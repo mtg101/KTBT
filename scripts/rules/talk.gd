@@ -512,7 +512,48 @@ const HINT_TELLS := {
 	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
+	"game_spoon_mic": ["spoon", "sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "apartment", "floor", "stack", "hands"],
+	"game_titanic": ["titanic", "sink", "sank", "float"], "game_nunchi": ["nunchi", "stand up", "count"],
+	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "arms", "link"],
 }
+
+
+## Drinking games, late on and a few drinks in: the situation for a line in a customers' chat,
+## never the words (the AI takes it up, or doesn't). "close": only between two who've got
+## close (the love shot). "tells": words that show a line took it up (see HINT_TELLS).
+const TABLE_GAMES := {
+	"spoon_mic": {"situation": "It's the stage of the night when someone sticks a spoon in an empty soju bottle and uses it as a microphone.",
+		"tells": ["spoon", "sing", "song", "microphone", "mic"]},
+	"apartment": {"situation": "Someone's in the mood for the apartment game: everyone stacks their hands, someone calls a floor, and whoever's hand lands on it drinks.",
+		"tells": ["apateu", "apartment", "floor", "stack", "hands"]},
+	"titanic": {"situation": "There's a shot glass floating in someone's beer: the Titanic game, where everyone pours a little soju in and whoever sinks it drinks it.",
+		"tells": ["titanic", "sink", "sank", "float"]},
+	"nunchi": {"situation": "It's the kind of table where someone starts the nunchi game: stand up and count, and anyone who stands at the same time as someone else drinks.",
+		"tells": ["nunchi", "stand up", "count"]},
+	"369": {"situation": "Someone suggests 369: count round the table, clapping instead of any number with a 3, 6 or 9 in it.",
+		"tells": ["369", "three six nine", "clap"]},
+	"love_shot": {"situation": "The two of them are close enough now for a love shot: arms linked, drinking at the same time.", "close": true,
+		"tells": ["love shot", "loveshot", "arms", "link"]},
+}
+const TABLE_GAME_CHANCE := 0.35  # for a chat line, once it can be (and once a chat)
+const TABLE_GAME_FROM := 21 * 60  # 9pm: not straight after work
+const TABLE_GAME_DRINKS := 1  # everyone in the chat has a drink (most order one bottle and nurse it: 2 was hardly ever)
+
+
+## A table game for a customers' chat line, or "": people in the chat, the fewest drinks any of
+## them has had, whether the two talking are close, and whether it's late enough. roll: whether
+## (TABLE_GAME_CHANCE); which: which of those that fit.
+static func table_game(people: int, fewest_drinks: int, close: bool, late: bool, roll: float, which: float) -> String:
+	if people < 2 or fewest_drinks < TABLE_GAME_DRINKS or not late or roll >= TABLE_GAME_CHANCE:
+		return ""
+	var fits: Array = TABLE_GAMES.keys().filter(func(id): return close or not bool(TABLE_GAMES[id].get("close", false)))
+	return str(fits[clampi(floori(which * fits.size()), 0, fits.size() - 1)])
+
+
+## Turning away to drink in front of someone this many years older (as manners say).
+const ELDER_YEARS := 10
+const TURN_AWAY_CHANCE := 0.25  # for a younger customer's chat line, once a night each
+const KYA_CHANCE := 0.5  # "Kya~!" after the first drink of someone's night
 
 
 ## The door: what the owner calls out as someone ducks in, by how close they are (a

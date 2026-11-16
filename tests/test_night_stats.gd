@@ -217,3 +217,25 @@ func test_everything_gets_counted() -> void:
 	assert_int(int(logged["food"]["ordered"]["dakgalbi"])).is_equal(1)
 	assert_int(int(logged["talk"]["korean_words"]["Aigoo"])).is_equal(1)
 	assert_int(int(logged["talk"]["hints_given"]["pour"])).is_equal(1)
+
+
+func test_the_pocha_life_has_a_section_of_its_own() -> void:
+	var stats := NightStats.new()
+	stats.story = {"date": "15 November", "season": "late autumn", "weather": "thick fog"}
+	stats.record_hint("game_spoon_mic", "Pass me that spoon, I'm singing!")
+	stats.record_hint("game_titanic", "What a night.")
+	stats.record_hint("stunned", "Mwo?! You quit?")
+	stats.record_hint("soju", "Another glass, then.")
+	stats.rituals = {"kya": 3, "tornado": 2}
+	stats.record_event("cheered_on", {})
+	var text := stats.panel_text(0, 0)
+	for part in ["TONIGHT", "15 November, late autumn · thick fog", "POCHA LIFE", "Rituals: kya 3 · tornado 2", "Table games: offered 2, taken up 1",
+			"spoon_mic 1/1", "titanic 0/1", "Double-takes: offered 1, taken up 1 · hwaiting chorus 1", "FOOD AND THE MENU"]:
+		assert_str(text).contains(part)
+	assert_str(stats.hints_text()).contains("soju").not_contains("game_").not_contains("stunned")  # (the pocha's own in their own section)
+	var logged := stats.summary({})
+	assert_array(logged["pocha_life"]["table_games"]["spoon_mic"]).is_equal([1, 1])
+	assert_int(int(logged["pocha_life"]["hwaiting_chorus"])).is_equal(1)
+	assert_str(str(logged["tonight"]["season"])).is_equal("late autumn")
+	assert_int(int(logged["menu"]["board_opened"])).is_equal(0)
+

@@ -57,6 +57,7 @@ var opener_situations := 0  # the owner's first proper words given a situation (
 var sides_added := 0  # sides an order line asked for that the AI left out, added (Orders.add_mentioned_sides)
 var unsaid_dropped := 0  # things in an order the line never asked for, taken off (Orders.drop_unsaid)
 var menu_opened := 0  # times the menu board was clicked open
+var rituals := {}  # drinking rituals seen: tornado, kya, turned_away (and table games, as events)
 ## Out in the street and coming in: who walked by (alone, in twos, in threes), on phones,
 ## under which umbrellas, sharing one, running for it; customers under umbrellas or running in.
 var street := {}
@@ -220,10 +221,25 @@ static func counts_text(counts: Dictionary, limit: int = 0) -> String:
 
 ## "somaek 1/2 · pour 0/1 · food ×3": hints taken up out of given. A kind with no tell-tale
 ## words to look for (Talk.HINT_TELLS) can't be judged, so it just says how many were given.
-func hints_text() -> String:
-	var keys := hints_given.keys()
+## The hints given and taken up. tropes: only the pocha's own (table games, double-takes: see
+## POCHA LIFE on the panel), or (false) everything else.
+func hints_text(tropes := false) -> String:
+	var keys := hints_given.keys().filter(func(k): return _is_trope(str(k)) == tropes)
 	keys.sort()
 	return " · ".join(PackedStringArray(keys.map(func(k): return ("%s %d/%d" % [k, int(hints_taken.get(k, 0)), int(hints_given[k])]) if Talk.HINT_TELLS.has(k) else ("%s ×%d" % [k, int(hints_given[k])]))))
+
+
+static func _is_trope(kind: String) -> bool:
+	return kind.begins_with("game_") or kind == "stunned"
+
+
+## The table games: {game: [offered, taken up]}.
+func table_games() -> Dictionary:
+	var games := {}
+	for kind in hints_given:
+		if str(kind).begins_with("game_"):
+			games[str(kind).trim_prefix("game_")] = [int(hints_given[kind]), int(hints_taken.get(kind, 0))]
+	return games
 
 
 func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") -> void:
@@ -306,6 +322,10 @@ func caption_counts() -> String:
 
 func panel_text(seated: int, cooking: int) -> String:
 	var lines := PackedStringArray()
+	if story.has("date"):
+		lines.append("[b]TONIGHT[/b]")
+		lines.append("%s, %s · %s" % [story["date"], story.get("season", ""), story.get("weather", "")])
+		lines.append("")
 	lines.append("[b]PEOPLE[/b]")
 	lines.append("Arrived %d · served %d · walked past %d" % [arrived, served, walked_past])
 	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
@@ -330,9 +350,22 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
-	lines.append("Hints taken up: %s" % (hints_text() if not hints_given.is_empty() else "(none given yet)"))
+	var ordinary := hints_text()
+	lines.append("Hints taken up: %s" % (ordinary if ordinary != "" else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
 	lines.append("Commonest start: orders %s · owner's openers %s · situations given: orders %d, openers %d" % [opening_text("order"), opening_text("owner"), order_situations, opener_situations])
+	lines.append("")
+	lines.append("[b]POCHA LIFE[/b]")
+	lines.append("Rituals: %s" % (counts_text(rituals) if not rituals.is_empty() else "none yet"))
+	var games := table_games()
+	var offered := 0
+	var taken := 0
+	for game in games:
+		offered += int(games[game][0])
+		taken += int(games[game][1])
+	lines.append("Table games: offered %d, taken up %d%s" % [offered, taken, (" · " + " · ".join(PackedStringArray(games.keys().map(func(g): return "%s %d/%d" % [g, int(games[g][1]), int(games[g][0])])))) if not games.is_empty() else ""])
+	lines.append("Double-takes: offered %d, taken up %d · hwaiting chorus %d · first snow %s" % [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0)),
+		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
@@ -344,11 +377,6 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds" % int(story["loading_seconds"])) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
-	if story.has("date"):
-		lines.append("Date: %s, %s" % [story["date"], story.get("season", "")])
-	if story.has("menu_by"):
-		lines.append("Menu: chosen by the %s · its own: %s" % [story["menu_by"], ", ".join(PackedStringArray(story.get("menu_own", [])))])
-	lines.append("Menu board opened: %d" % menu_opened)
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
@@ -359,7 +387,10 @@ func panel_text(seated: int, cooking: int) -> String:
 		(" (" + ", ".join(PackedStringArray(reactions_shown.keys().map(func(k): return "%s %d" % [k, int(reactions_shown[k])]))) + ")") if not reactions_shown.is_empty() else "",
 		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
 	lines.append("")
-	lines.append("[b]FOOD[/b]")
+	lines.append("[b]FOOD AND THE MENU[/b]")
+	if story.has("menu_by"):
+		lines.append("Menu: chosen by the %s · its own: %s" % [story["menu_by"], ", ".join(PackedStringArray(story.get("menu_own", [])))])
+	lines.append("Menu board opened: %d" % menu_opened)
 	lines.append("Orders %d first, %d more%s · %s" % [first_orders, extra_orders, ((" · sides added %d" % sides_added) if sides_added > 0 else "") + ((" · unsaid dropped %d" % unsaid_dropped) if unsaid_dropped > 0 else ""), counts_text(ordered) if not ordered.is_empty() else "nothing yet"])
 	if not specials.is_empty():
 		lines.append("Specials: %s · cravings given %d" % [" · ".join(PackedStringArray(specials.map(func(id): return "%s %d ordered" % [id, int(ordered.get(id, 0))]))), cravings])
@@ -388,6 +419,10 @@ func summary(context: Dictionary) -> Dictionary:
 		"event_counts": event_counts.duplicate(),
 		"street": street.duplicate(),
 		"story": story.duplicate(),
+		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
+		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
+			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
+		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened},
 		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},
 		"people": {
 			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
@@ -415,7 +450,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
-			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped, "menu_opened": menu_opened,
+			"specials": specials.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
 			"dishes_cooked": dishes_cooked,
 			"food_wait_minutes": {"average": average(food_waits), "longest": longest(food_waits)},
 		},

@@ -102,6 +102,19 @@ const CAPTIONS := {
 	"closing_early": {"words": [["조기 마감!", "JOGI MAGAM! CLOSING EARLY!"], ["오늘은 여기까지", "<THAT'S ALL|THAT'S IT> FOR TONIGHT!"],
 		["영업 종료!", "<TARP DOWN|SHUTTERS DOWN|LIGHTS OUT> EARLY!"]],
 		"icon": "🏮", "colour": "ff9a4f", "sound": "whoosh", "emergency": false, "always": true},
+	# A table game, taken up (see Talk.TABLE_GAMES).
+	"game_spoon_mic": {"words": [["노래 시작!", "THE SPOON MIC IS <ON|LIVE>!"], ["숟가락 마이크", "SPOON MIC, <LIVE|ON AIR>!"]],
+		"icon": "🎤", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
+	"game_apartment": {"words": [["아파트 게임!", "THE APARTMENT GAME!"], ["몇 층?!", "<WHICH|WHAT> FLOOR?!"]],
+		"icon": "🏢", "colour": "ffd23f", "sound": "pop", "emergency": false, "always": true},
+	"game_titanic": {"words": [["타이타닉!", "THE TITANIC <SINKS|GOES DOWN>!"]],
+		"icon": "🚢", "colour": "6fa8ff", "sound": "pop", "emergency": false, "always": true},
+	"game_nunchi": {"words": [["눈치 게임!", "THE NUNCHI GAME!"], ["눈치 챙겨!", "<READ THE ROOM|WATCH EACH OTHER>!"]],
+		"icon": "👀", "colour": "a8b0ff", "sound": "pop", "emergency": false, "always": true},
+	"game_369": {"words": [["삼육구!", "3, 6, 9: <CLAP|CLAP CLAP>!"]],
+		"icon": "👏", "colour": "ffc46b", "sound": "ding", "emergency": false, "always": true},
+	"game_love_shot": {"words": [["러브샷!", "LOVE SHOT!"], ["러브샷?!", "<ARMS LINKED|A LOVE SHOT>?!"]],
+		"icon": "💞", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
 	# Someone says hwaiting, and the counter joins in.
 	"hwaiting": {"words": [["화이팅!", "HWAITING! <GO FOR IT|YOU'VE GOT THIS|EVERYONE'S WITH YOU>!"], ["다 같이!", "ALL TOGETHER NOW!"]],
 		"icon": "✊", "colour": "ffd23f", "sound": "sparkle", "emergency": false, "always": true},
@@ -400,6 +413,8 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			return {"kind": "first_snow", "fill": {}}
 		"cheered_on":
 			return {"kind": "hwaiting", "fill": {}}
+		"table_game":
+			return {"kind": "game_" + str(facts.get("game", "")), "fill": {}}
 		"closed_early":
 			if str(facts.get("reason", "")) != "":
 				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}

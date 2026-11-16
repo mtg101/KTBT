@@ -133,6 +133,8 @@ class Guest:
 	var food_moment := ""  # a Talk.served_moment direction for their next line, now and then after something arrives
 	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
 	var stunned := ""  # a Talk.stunned_moment for their next line, after a shock they heard
+	var kya_done := false  # had their "Kya~!" after the first drink
+	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
@@ -160,6 +162,8 @@ class Chat:
 	var last_speaker := ""  # a name
 	var topic := ""  # what it's turning to this spell (see Talk.pick_chat_topic)
 	var shared := false  # had its sharing moment (see Talk.sharing_moment)
+	var game := ""  # the table game it was offered (see Talk.TABLE_GAMES), once a chat
+	var game_on := false  # ... and took up
 
 
 var _ai: Ai
@@ -867,6 +871,7 @@ func _start_night() -> void:
 	_stats.specials = _specials.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
 	_stats.story["date"] = str(_night_date.get("text", ""))
+	_stats.story["weather"] = _night_weather
 	_stats.story["season"] = _date_words().get_slice(", ", 1)
 	_before_night = {}
 	_waiting.clear()
@@ -2364,6 +2369,16 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 			direction = sharing + " " + direction
 			hint = Talk.moment_kind(sharing)
 			chat.shared = true
+	# Late on, a few drinks in: a table game now and then, once a chat (the AI takes it up, or doesn't).
+	if hint == "" and not first and chat.game == "" and speaking != null:
+		var fewest := 99
+		for drinker in chat.people:
+			fewest = mini(fewest, _drinks_had(drinker))
+		var game := Talk.table_game(chat.people.size(), fewest, close, _clock >= Talk.TABLE_GAME_FROM, _scenery_dice.randf(), _scenery_dice.randf())
+		if game != "":
+			direction = str(Talk.TABLE_GAMES[game]["situation"]) + " " + direction
+			hint = "game_" + game
+			chat.game = game
 	# Something just said has stunned them.
 	var heard := _owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
 	if heard != "" and not first:
@@ -2416,6 +2431,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		_night_lines.append({"speaker": speaker, "text": line})
 	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)])
 	_cheer_along(guest, line, names)
+	_table_game_taken(chat, guest, line)
+	_mind_your_elders(guest, addressed)
 	var listener_colour := OWNER_TEXT if addressed == null else addressed.color.lightened(0.35)
 	_give_time_to_read(line, _say_in_bubble(_owner_node if guest == null else guest.node, _owner_node if addressed == null else addressed.node,
 		_to_label(line, guest, addressed, to), listener_colour, colour, line))
@@ -2876,6 +2893,10 @@ func _add_dish(guest: Guest, id: String) -> void:
 	var row := guest.drinks_row if Menu.find(id)["kind"] == "drink" else guest.food_row
 	var shape := _dish_shape(id)
 	row.add_child(shape)
+	if id == "soju":
+		_tornado(shape)
+	if Menu.find(id)["kind"] == "drink" and not guest.kya_done:
+		_kya(guest)
 	if HOT_DISHES.has(id) or ["stew", "pancake", "grill", "fried"].has(str(Catalogue.find(id).get("category", ""))):
 		_steam(shape)
 
@@ -3133,6 +3154,79 @@ func _cheer_along(speaker: Variant, line: String, names: Array) -> void:
 	for guest in _guests:
 		guest.transcript.append({"action": "Everyone at the counter joined in: \"Hwaiting!\""})
 	_event("cheered_on", {"seated": _guests.size()})
+
+
+## A table game offered to a chat, taken up in a line (its tells): on TV, and for the spoon mic,
+## a spoon in the bottle and music notes over the singer.
+func _table_game_taken(chat: Chat, speaker: Variant, line: String) -> void:
+	if chat.game == "" or chat.game_on or not Talk.hint_taken("game_" + chat.game, line):
+		return
+	chat.game_on = true
+	var node: Variant = _owner_node if speaker == null else speaker.node
+	_event("table_game", {"game": chat.game}, node)
+	if chat.game == "spoon_mic" and speaker != null:
+		_spoon_mic(speaker)
+
+
+func _spoon_mic(guest: Guest) -> void:
+	if guest.drinks_row.get_child_count() > 0:  # (in the bottle: the row lays out its children itself)
+		_rect(guest.drinks_row.get_child(0) as Control, Vector2(5, -14), Vector2(3, 16), Color("c9ccd6")).name = "SpoonMic"
+	for k in 3:
+		var note := Ktv.label("♪", 18, Ktv.PINK)
+		note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		note.position = Vector2(30 + k * 14, -10)
+		note.modulate.a = 0.0
+		if is_instance_valid(guest.node):
+			guest.node.add_child(note)
+		var rise := note.create_tween()
+		rise.tween_interval(k * 0.4)
+		rise.tween_property(note, "modulate:a", 1.0, 0.2)
+		rise.parallel().tween_property(note, "position:y", -50.0, 1.6)
+		rise.tween_property(note, "modulate:a", 0.0, 0.4)
+		rise.tween_callback(note.queue_free)
+
+
+## Turning away to drink, in front of someone much older (manners): now and then, once a night
+## each, as a younger customer talks to an elder. listener: who they're talking to (null: the owner).
+func _mind_your_elders(guest: Variant, listener: Variant) -> void:
+	if guest == null or guest.turned_away or _drinks_had(guest) == 0 or not is_instance_valid(guest.node):
+		return
+	var elder_age := int(_owner.get("age", 0)) if listener == null else int(listener.customer.get("age", 0))
+	if elder_age - int(guest.customer.get("age", 0)) < Talk.ELDER_YEARS or _scenery_dice.randf() >= Talk.TURN_AWAY_CHANCE:
+		return
+	guest.turned_away = true
+	_stats.rituals["turned_away"] = int(_stats.rituals.get("turned_away", 0)) + 1
+	_narrate("%s turns away to drink, the way you do in front of someone older." % Names.given_name(str(guest.customer["name"])))
+	var node: Control = guest.node
+	var turn := node.create_tween()
+	turn.tween_property(node, "rotation_degrees", -7.0, 0.25)
+	turn.tween_interval(_scaled(1.2))
+	turn.tween_property(node, "rotation_degrees", 0.0, 0.3)
+
+
+## A new bottle of soju: the tornado (회오리), swirled hard before it's opened.
+func _tornado(shape: Control) -> void:
+	_stats.rituals["tornado"] = int(_stats.rituals.get("tornado", 0)) + 1
+	shape.pivot_offset = Vector2(7, 30)
+	var swirl := shape.create_tween()
+	for k in 3:
+		swirl.tween_property(shape, "rotation_degrees", 14.0, 0.09)
+		swirl.tween_property(shape, "rotation_degrees", -14.0, 0.12)
+	swirl.tween_property(shape, "rotation_degrees", 0.0, 0.1)
+
+
+## "Kya~!": the sigh after the first drink of someone's night (now and then), a moment after it arrives.
+func _kya(guest: Guest) -> void:
+	guest.kya_done = true
+	if _scenery_dice.randf() >= Talk.KYA_CHANCE:
+		return
+	_stats.rituals["kya"] = int(_stats.rituals.get("kya", 0)) + 1
+	var timer := get_tree().create_timer(_scaled(1.6))
+	timer.timeout.connect(func():
+		if _guests.has(guest) and is_instance_valid(guest.node):
+			_say_in_bubble(guest.node, null, "", OWNER_TEXT, guest.color.lightened(0.35), "Kya~!")
+			if _scenery_dice.randf() < 0.3:  # (now and then in the transcript too: it's mostly a bubble)
+				_narrate("\"Kya~!\" %s sighs over the first glass." % Names.given_name(str(guest.customer["name"]))))
 
 
 ## A shock (a TV reaction said so): everyone else who heard it is stunned, for their next line.

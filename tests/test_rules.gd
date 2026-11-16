@@ -1784,6 +1784,27 @@ func test_the_door_and_the_chorus() -> void:
 	assert_str(str(Captions.for_event("cheered_on", {})["kind"])).is_equal("hwaiting")
 
 
+func test_table_games_only_when_the_night_is_right() -> void:
+	assert_str(Talk.table_game(1, 3, false, true, 0.0, 0.0)).is_empty()  # (a game needs company)
+	assert_str(Talk.table_game(2, 0, false, true, 0.0, 0.0)).is_empty()  # (everyone drinking)
+	assert_str(Talk.table_game(2, 3, false, false, 0.0, 0.0)).is_empty()  # (later on)
+	assert_str(Talk.table_game(2, 3, false, true, 0.9, 0.0)).is_empty()  # (now and then)
+	var seen := {}
+	for k in 20:
+		var game := Talk.table_game(2, 3, false, true, 0.0, k / 20.0)
+		assert_bool(Talk.TABLE_GAMES.has(game)).is_true()
+		seen[game] = true
+	assert_bool(seen.has("love_shot")).is_false()  # (only between two who've got close)
+	assert_str(Talk.table_game(2, 3, true, true, 0.0, 0.99)).is_equal("love_shot")
+	for id in Talk.TABLE_GAMES:
+		assert_bool(Talk.HINT_TELLS.has("game_" + str(id))).override_failure_message(str(id)).is_true()
+		assert_str(str(Captions.for_event("table_game", {"game": id})["kind"])).is_equal("game_" + str(id))
+		assert_bool(Captions.CAPTIONS.has("game_" + str(id))).is_true()
+	assert_bool(Talk.hint_taken("game_spoon_mic", "Give me that spoon, I'm singing!")).is_true()
+	assert_bool(Talk.hint_taken("game_titanic", "Whoever sinks it drinks it!")).is_true()
+	assert_array(Glossary.words_in("Kya~! A love shot, then.")).contains(["Kya", "Love Shot"])
+
+
 func test_any_hangul_explains_itself() -> void:
 	# Everything the game writes in Hangul has a meaning to show: captions, reactions, stamps, days, titles, seasons.
 	var hangul: Array = []
