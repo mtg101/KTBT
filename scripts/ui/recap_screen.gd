@@ -8,6 +8,7 @@ extends Control
 ## card (제12화) sweeps in on ribbons. Skip ends it any time. (See visit.gd _play_recap.)
 
 signal finished
+signal step_in  ## the PD stepping in to cut it (see show_step_in)
 
 const CaptionPopup = preload("res://scripts/ui/caption.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
@@ -34,6 +35,7 @@ var _stage: Control  # everything that shakes
 var _burst: Node2D
 var _subtitle: Label
 var _quote: Label  # under a beat: the line the PD pinned for it, quoted
+var _episode_title: Label  # "EP. 28 · Salt and Overtime": last night's, under the title
 var _who: PanelContainer
 var _who_text: Label
 var _teaser: Label
@@ -91,6 +93,11 @@ func _init() -> void:
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stage.add_child(_title)
 	_title.add_child(_label("지난 이야기 · PREVIOUSLY ON…", 42, INK, 0))
+	_episode_title = _label("", 34, CREAM, 10)  # last night's episode, by its title
+	_episode_title.name = "RecapEpisodeTitle"
+	_episode_title.position = Vector2(110, 250)
+	_episode_title.rotation = -0.05
+	_stage.add_child(_episode_title)
 
 	_who = PanelContainer.new()  # who the beat's about, in a name tag
 	_who.add_theme_stylebox_override("panel", _pill(MINT, 20))
@@ -204,6 +211,7 @@ func _init() -> void:
 	skip.text = "Skip ▶▶"
 	skip.custom_minimum_size = Vector2(160, 52)
 	skip.position = Vector2(SIZE.x - 220, SIZE.y - 90)
+	skip.focus_mode = Control.FOCUS_NONE  # (Enter is the PD stepping in, not Skip)
 	skip.pressed.connect(end)
 	add_child(skip)
 
@@ -221,7 +229,10 @@ func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: 
 	if str(extras.get("weather", "")).to_lower().contains("snow"):
 		drift = "snow"
 	_drift(drift)
+	_episode_title.text = str(extras.get("episode_title", ""))
 	_slam(_title, -0.05)
+	if bool(extras.get("step_in", false)):
+		show_step_in()
 	_sting("whoosh")
 	await _wait(0.9)
 	for k in beats.size():
@@ -284,6 +295,33 @@ func end() -> void:
 	var fade := create_tween()
 	fade.tween_property(self, "modulate:a", 0.0, 0.4 * time_scale)
 	fade.tween_callback(queue_free)
+
+
+## The PD can step in and cut it (see visit.gd _step_in): a button in the corner, and a TV
+## pop-up saying so as it starts. Never stops anything: pressed (or Enter, in the tent), it ends
+## here, and plays again once it's cut.
+func show_step_in() -> void:
+	var button := Button.new()
+	button.name = "RecapStepIn"
+	button.text = "✂  Step in as the PD  (Enter)"
+	button.focus_mode = Control.FOCUS_NONE
+	button.custom_minimum_size = Vector2(360, 52)
+	button.position = Vector2(60, SIZE.y - 90)
+	button.add_theme_color_override("font_color", Color("ff4f6d"))
+	button.pressed.connect(func(): step_in.emit())
+	add_child(button)
+	var pop := CaptionPopup.new()
+	pop.name = "RecapStepInPop"
+	pop.time_scale = time_scale
+	pop.stage_width = SIZE.x
+	pop.at = Vector2(SIZE.x - 380, 220)
+	pop.setup({"hangul": "PD 등판?", "english": "THE PD COULD STEP IN"}, "✂", Color("ff4f6d"))
+	_stage.add_child(pop)
+	pop.pop(BEAT_SECONDS)
+
+
+func episode_title_text() -> String:
+	return _episode_title.text
 
 
 func beat_text() -> String:

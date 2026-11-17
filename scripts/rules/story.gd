@@ -10,6 +10,7 @@ const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 
 
 ## Each night is an episode; at 3am the owner writes it up in their diary, from facts the game
@@ -587,3 +588,164 @@ static func validate_closing(data: Variant, owner_name: String, title: String, n
 				return "the caption names %s: it's about the owner's reason" % person
 	data["caption"] = caption
 	return ""
+
+
+# --- The episode's title and the PD's cut (the edit suite) -----------------------------------
+
+const TITLE_MOST := 40  # characters of a title's English
+const TITLE_HANGUL_MOST := 12  # ...and of its Korean, if it has any
+const TEASER_MOST := 120  # characters of a teaser the PD writes
+
+
+## A title as shown: "짠한 밤 · A Bittersweet Night", or just the English.
+static func title_text(title: Dictionary) -> String:
+	var english := str(title.get("english", ""))
+	var hangul := str(title.get("hangul", ""))
+	return ("%s · %s" % [hangul, english]) if hangul != "" else english
+
+
+## Whether text is Hangul (and spaces and a little punctuation) only.
+static func _all_hangul(text: String) -> bool:
+	for k in text.length():
+		var c := text.unicode_at(k)
+		if not ((c >= 0xAC00 and c <= 0xD7A3) or (c >= 0x3131 and c <= 0x318E) or " !?…~.".contains(text[k])):
+			return false
+	return text.strip_edges() != ""
+
+
+## The AI's three titles for an episode, checked (and tidied in place): {"titles": [{"hangul"
+## (may be ""), "english"}]}. Like a K-drama's episode titles: short, a little dramatic, about
+## these people; Korean is welcome, with the English its meaning (its hover on screen).
+static func validate_titles(data: Variant, facts: Dictionary) -> String:
+	if typeof(data) != TYPE_DICTIONARY or typeof(data.get("titles")) != TYPE_ARRAY:
+		return "it didn't include \"titles\""
+	var names: Array = [str(facts.get("owner", "")), str(facts.get("cat", ""))]
+	for person in facts.get("people", []):
+		names.append(str(person.get("name", "")))
+	names.append_array(facts.get("missing", []) + facts.get("not_here", []))
+	var kept: Array = []
+	for title in data["titles"]:
+		if typeof(title) != TYPE_DICTIONARY:
+			return "each title should be {\"hangul\", \"english\"}"
+		var english := Text.unquote(Text.tidy_text(str(title.get("english", ""))))
+		var hangul := Text.unquote(Text.tidy_text(str(title.get("hangul", ""))))
+		if english.length() < 3 or english.length() > TITLE_MOST:
+			return "a title's English should be a few words, %d characters at most (\"%s\")" % [TITLE_MOST, english]
+		if hangul != "" and (not _all_hangul(hangul) or hangul.length() > TITLE_HANGUL_MOST):
+			return "a title's \"hangul\" should be Korean only, %d characters at most, or \"\" (\"%s\")" % [TITLE_HANGUL_MOST, hangul]
+		var problem := _typed_problem(english)
+		if problem != "":
+			return "a title %s (\"%s\")" % [problem, english]
+		if not Talk.romanised_korean(english, names).is_empty():
+			return "a title has made-up Korean in its English (\"%s\"): put Korean in \"hangul\", in Hangul" % english
+		var stranger := unknown_name(english, names)
+		if stranger != "":
+			return "a title names %s, who wasn't there" % stranger
+		if not kept.any(func(t): return str(t["english"]).to_lower() == english.to_lower()):
+			kept.append({"hangul": hangul, "english": english})
+	if kept.size() < 3:
+		return "it needs three different titles"
+	data["titles"] = kept.slice(0, 3)
+	return ""
+
+
+## What's wrong with words that'll be on screen as the show's (a title, a teaser): "" if
+## nothing. Real brands, the hard limits, and teasing that crosses the line.
+static func _typed_problem(text: String) -> String:
+	if Talk.real_brand(text) != "":
+		return "names a real brand"
+	if Text.find_phrase(text, Plants.HARD_LIMITS) != "":
+		return "isn't something the show can put on air"
+	if Talk.crosses_line(text) != "":
+		return "is about looks, bodies or something crude"
+	return ""
+
+
+## Titles from the episode's facts, when the AI can't (offline, or it gave up): three, the
+## Korean ones with their English as their meaning.
+static func stitched_titles(facts: Dictionary) -> Array:
+	var made: Array = []
+	var cliff: Dictionary = facts.get("cliffhanger", {})
+	if bool(cliff.get("answered", false)) and str(cliff.get("kind", "")) == "comes_back" and not cliff.get("who", []).is_empty():
+		made.append({"hangul": "", "english": "The Night %s Came Back" % Names.given_name(str(cliff["who"][0]))})
+	for moment in facts.get("moments", []):
+		var caption := str(moment.get("caption", ""))
+		if caption.length() >= 3 and caption.length() <= TITLE_MOST:
+			made.append({"hangul": "", "english": caption.capitalize() if caption == caption.to_upper() else caption})
+			break
+	if not facts.get("new_regulars", []).is_empty():
+		made.append({"hangul": "단골 탄생?!", "english": "A Regular Is Born?!"})
+	if not facts.get("cat_thefts", []).is_empty() and str(facts.get("cat", "")) != "":
+		made.append({"hangul": "", "english": "%s Strikes Again" % facts["cat"]})
+	if not facts.get("missing", []).is_empty():
+		made.append({"hangul": "", "english": "The Empty Stool"})
+	var weather := str(facts.get("weather", "")).to_lower()
+	if weather.contains("snow"):
+		made.append({"hangul": "눈 오는 밤", "english": "A Snowy Night"})
+	elif weather.contains("rain") or weather.contains("drizzle"):
+		made.append({"hangul": "비 오는 밤", "english": "A Rainy Night"})
+	var moods: Array = facts.get("moments", []).map(func(m): return str(m.get("mood", "")))
+	if moods.has("sad"):
+		made.append({"hangul": "짠하다…", "english": "Heart-Rending"})
+	if moods.has("warm") or moods.has("sweet"):
+		made.append({"hangul": "훈훈", "english": "Heart-Warming"})
+	for spare in [{"hangul": "", "english": "One More Bottle"}, {"hangul": "", "english": "Under the Tarp"}, {"hangul": "", "english": "Till the Last Bus"}]:
+		made.append(spare)
+	var titles: Array = []
+	for title in made:
+		if titles.size() < 3 and not titles.any(func(t): return str(t["english"]) == str(title["english"])):
+			titles.append(title)
+	return titles
+
+
+## The cliffhangers last night can set up, for the PD to choose from: at most three, each
+## {"kind", "who", "teaser"}, all kinds the next night can answer (so they nudge who comes in).
+static func cliffhanger_options(facts: Dictionary) -> Array:
+	var options: Array = []
+	for name in facts.get("missing", []):
+		options.append({"kind": "stays_away", "who": [str(name)], "teaser": "Will %s stay away again?" % Names.given_name(str(name))})
+	for name in facts.get("new_regulars", []):
+		options.append({"kind": "comes_back", "who": [str(name)], "teaser": "Will %s be back?" % Names.given_name(str(name))})
+	for moment in facts.get("moments", []):
+		var who := str(moment.get("who", ""))
+		if who != "" and who != str(facts.get("owner", "")):
+			options.append({"kind": "comes_back", "who": [who], "teaser": "Will %s come back tonight?" % Names.given_name(who)})
+	if not facts.get("cat_thefts", []).is_empty():
+		options.append({"kind": "cat_strikes", "who": [], "teaser": "Will %s strike again?" % (str(facts.get("cat", "")) if str(facts.get("cat", "")) != "" else "the cat")})
+	if str(facts.get("busiest", "")).contains("with 5"):
+		options.append({"kind": "full_house", "who": [], "teaser": "Will every stool be taken again?"})
+	var kept: Array = []
+	for option in options:
+		if kept.size() < 3 and not kept.any(func(k): return str(k["teaser"]) == str(option["teaser"])):
+			kept.append(option)
+	return kept
+
+
+## A title or teaser the PD typed, checked like a write-in: {"text", "problem"} ("" if fine).
+## A teaser gets its question mark.
+static func check_typed(typed: String, most: int, teaser: bool) -> Dictionary:
+	var text := Text.unquote(Text.tidy_text(typed)).replace("\n", " ").strip_edges()
+	if text.length() < 3:
+		return {"text": text, "problem": "Write a few words first."}
+	if text.length() > most:
+		return {"text": text, "problem": "Too long: %d characters at most." % most}
+	var problem := _typed_problem(text)
+	if problem != "":
+		return {"text": text, "problem": "That %s: not on this show." % problem}
+	if teaser and not text.ends_with("?"):
+		text = text.rstrip(".!") + "?"
+	return {"text": text, "problem": ""}
+
+
+## "Previously on…" with the PD's cut in it: their title, and the cliffhanger they chose (its
+## kind and who, so it nudges who comes in) or wrote ("other": it nudges nobody). cut: {"title",
+## "cliffhanger"}, either left out for the writers'.
+static func apply_cut(recap: Dictionary, cut: Dictionary) -> Dictionary:
+	var out := recap.duplicate(true)
+	if cut.has("title"):
+		out["title"] = cut["title"]
+	if cut.has("cliffhanger"):
+		var cliff: Dictionary = cut["cliffhanger"]
+		out["teaser"] = str(cliff["teaser"])
+		out["cliffhanger"] = {"kind": str(cliff.get("kind", "other")), "who": cliff.get("who", []).duplicate()}
+	return out

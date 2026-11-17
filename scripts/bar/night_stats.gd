@@ -653,6 +653,12 @@ func panel_text(seated: int, cooking: int) -> String:
 	var played := plants()
 	for entry in written:
 		lines.append("Written (%s, for %s): «%s» · replies kept %d" % [entry["card"], entry["who"], entry["text"], (entry["lines"] as Array).size()])
+	var cut: Dictionary = story.get("edit", {})
+	lines.append("Last night's episode: %s" % (("cut by the PD (stepped in %s) · title %s · cliffhanger %s%s · \"%s\"" % [
+		{"loading": "while loading", "recap": "mid-recap", "night": "early in the night"}.get(str(cut.get("stepped_in", "")), "?"),
+		"the PD's" if str(cut.get("title_by", "")) == "pd" else "the writers'", "the PD's" if str(cut.get("cliffhanger_by", "")) == "pd" else "the writers'",
+		" (their own words)" if bool(cut.get("own_teaser", false)) else "", cut.get("title", "")]) if not cut.is_empty() and not bool(cut.get("left_to_writers", false))
+		else ("stepped in, then left it to the writers" if not cut.is_empty() else "the writers' cut")))
 	lines.append("Pinned: %d%s · kept %d%s%s" % [pins_made, (" (%d dropped, a fourth pushing out the oldest)" % pins_dropped) if pins_dropped > 0 else "", pinned.size(),
 		(": " + " · ".join(PackedStringArray(pinned.map(func(p): return "%s «%s»" % [p["speaker"], Text.shorten(str(p["text"]), 40)])))) if not pinned.is_empty() else "",
 		(" · last time's in the recap: %s" % story["recap_pins"]) if story.has("recap_pins") else ""])
@@ -735,7 +741,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},

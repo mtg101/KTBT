@@ -339,3 +339,18 @@ func _heart(radius: float) -> PackedVector2Array:
 		var t: float = TAU * k / 32.0
 		points.append(Vector2(16 * pow(sin(t), 3), -(13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t))) * radius / 16.0)
 	return points
+
+
+## The PD can step in and cut last night's episode (see visit.gd _step_in): a button along the
+## bottom, saying so. Returns it, for the tent to connect.
+func show_step_in(text: String) -> Button:
+	var button := Button.new()
+	button.name = "LoadingStepIn"
+	button.text = text
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_color_override("font_color", Color("ff4f6d"))
+	button.position = Vector2(SIZE.x - 760, 950)
+	button.custom_minimum_size = Vector2(720, 48)
+	add_child(button)
+	return button

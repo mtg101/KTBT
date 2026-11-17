@@ -16,6 +16,10 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 Any line said can be pinned for the episode with its 📌 in the transcript: three a night, as "Previously on…" is three things, so a fourth drops the oldest. The pins are the night's quote, they go into the owner's diary's facts, and the next night's "Previously on…" makes its beats out of them, quoting each under its beat. Nothing pinned, and the editors choose, as before.
 
+### The edit suite
+
+At 3am you're closing up, so the edit's the next day: as the bar opens (while it loads, while "Previously on…" plays, or early in the night, until the first customer) you can step in as the PD, and nothing ever waits for you to. The suite has the writers' cut picked: you can change the episode's title (three the AI drafted overnight, mixing Korean and English as TV does, or your own) and its cliffhanger (two or three the night can answer, which bring their people in now and then, as TV does; or your own, which can't). "Previously on…" then plays your cut. Never stepping in, the writers' goes out, as before.
+
 ### The PD's cards
 
 - **A pack of tropey cards, five dealt a night** from their own dice (so dealing never shifts anything else's rolls): three events, one **write-in** and a word from our sponsor (PPL, with the show's own made-up sponsors). Not last night's cards again, and not one that can't happen tonight (no first snow in summer); one that can't happen *yet* stays in the hand, greyed out with why.

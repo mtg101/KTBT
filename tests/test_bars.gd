@@ -252,7 +252,68 @@ func test_reopening_a_bar_plays_previously_on() -> void:
 	scene._ai.answered.connect(func(purpose, _s, _p, _ok): asked.append(purpose))
 	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the recap").is_true()
 	assert_array(asked).contains(["recap"])
-	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("Previously on… Ji-ho")  # (the canned recap, from last night's facts)
+	# Last night's episode got its titles (here, the game's own) and the writers' went out.
+	assert_int(Game.bar["diary"][-1]["titles"].size()).is_equal(3)
+	assert_str(str(Game.bar["diary"][-1]["title"]["english"])).is_equal("She Quit?!")
+	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("Previously on… (She Quit?!) Ji-ho")  # (the canned recap, from last night's facts)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Last night's episode: the writers' cut")
+
+
+func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
+	Hooks.recaps = true
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 4
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}], "missing": ["Hwang Tae-oh"],
+			"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."}]}})
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	# Stepping in while it's loading: the suite opens once it can.
+	assert_object(runner.find_child("LoadingStepIn")).is_not_null()
+	scene._step_in()
+	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
+	var suite = runner.find_child("EditSuite")
+	suite.own_title.text = "Salt and Overtime"
+	suite.pick_title(3)  # (your own)
+	suite.pick_cliffhanger(1)  # (the game's first: will Tae-oh stay away again?)
+	suite.cut()
+	# "Previously on…" plays with the PD's cut, then the night starts.
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the cut").is_true()
+	var transcript := (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
+	assert_str(transcript).contains("The PD steps in: episode 4, \"Salt and Overtime\"").contains("Previously on… (Salt and Overtime)").contains("Will Tae-oh stay away again?")
+	assert_dict(scene._cliffhanger).contains_key_value("kind", "stays_away")  # (it nudges him in, as the game's cliffhangers do)
+	assert_str(str(Game.bar["diary"][-1]["title"]["english"])).is_equal("Salt and Overtime")
+	assert_dict(Game.bar["diary"][-1]["cut_by"]).is_equal({"title": "pd", "cliffhanger": "pd"})
+	assert_str(scene._stats.panel_text(0, 0)).contains("Last night's episode: cut by the PD (stepped in while loading) · title the PD's · cliffhanger the PD's")
+	# Until the first customer, the desk offers to cut it again; then not.
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("re-cut episode 4")
+	scene._arrive(scene._clock)
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).not_contains("re-cut episode")
+	scene._step_in()  # (too late: nothing)
+	assert_object(runner.find_child("EditSuite")).is_null()
+
+
+func test_the_pd_steps_in_mid_recap_and_it_plays_again() -> void:
+	Hooks.recaps = true
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 4
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}]}})
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._recap_screen != null, 10000)).override_failure_message("the recap never played").is_true()
+	assert_object(runner.find_child("RecapStepIn", true, false)).is_not_null()  # (it says you can)
+	assert_str(scene._recap_screen.episode_title_text()).is_equal("EP. 4 · She Quit?!")  # (the writers' title)
+	scene._step_in()  # (mid-recap: it stops, for the suite)
+	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
+	runner.find_child("EditSuite").leave_it()
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started").is_true()
+	assert_int((runner.find_child("Transcript") as RichTextLabel).get_parsed_text().count("Previously on… (She Quit?!)")).is_equal(1)  # (played again, in full, once)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Last night's episode: stepped in, then left it to the writers")
 
 
 # --- Leaving and closing --------------------------------------------------------------------

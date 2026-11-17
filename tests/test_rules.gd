@@ -922,6 +922,53 @@ func test_topic_hints_say_where_to_steer() -> void:
 	assert_str(Talk.topic_hint("nonsense")).is_empty()
 
 
+func test_an_episode_gets_titles() -> void:
+	var facts := {"owner": "Park Mi-sook", "cat": "Nabi", "people": [{"name": "Kim Ji-ho"}], "missing": ["Hwang Tae-oh"], "weather": "light rain",
+		"moments": [{"who": "Kim Ji-ho", "mood": "sad", "caption": "SHE QUIT?!"}], "new_regulars": [], "cat_thefts": ["Kim Ji-ho"]}
+	var good := {"titles": [{"hangul": "짠한 밤", "english": "A Bittersweet Night"}, {"hangul": "", "english": "Ji-ho Walks Out"}, {"hangul": "", "english": "Nabi Strikes Again"}]}
+	assert_str(Story.validate_titles(good, facts)).is_empty()
+	assert_str(Story.title_text(good["titles"][0])).is_equal("짠한 밤 · A Bittersweet Night")
+	assert_str(Story.title_text(good["titles"][1])).is_equal("Ji-ho Walks Out")
+	for bad in [{"titles": [{"hangul": "", "english": "Min-jun's Big Night"}, {"hangul": "", "english": "B"}, {"hangul": "", "english": "C c c"}]},  # (nobody called Min-jun)
+			{"titles": [{"hangul": "Jjanhan bam", "english": "A Bittersweet Night"}, {"hangul": "", "english": "Two"}, {"hangul": "", "english": "Three"}]},  # (Korean not in Hangul)
+			{"titles": [{"hangul": "", "english": "One"}, {"hangul": "", "english": "One"}, {"hangul": "", "english": "Two"}]},  # (not three different)
+			{"titles": [{"hangul": "", "english": "A night of sex and soju"}, {"hangul": "", "english": "Two"}, {"hangul": "", "english": "Three"}]}, "nonsense"]:
+		assert_str(Story.validate_titles(bad, facts)).is_not_empty()
+	# The game's own: three, from what happened (the Korean ones with their English as their meaning).
+	var own := Story.stitched_titles(facts)
+	assert_int(own.size()).is_equal(3)
+	assert_str(str(own[0]["english"])).is_equal("She Quit?!")
+	assert_bool(own.any(func(t): return str(t["english"]) == "Nabi Strikes Again")).is_true()
+	for title in Story.stitched_titles({}):
+		assert_str(Story.validate_titles({"titles": Story.stitched_titles({})}, {})).is_empty()
+		if str(title["hangul"]) != "":
+			assert_str(Glossary.hangul_tip(str(title["hangul"]))).is_not_empty()
+
+
+func test_the_cliffhangers_the_pd_can_choose() -> void:
+	var facts := {"owner": "Park Mi-sook", "cat": "Nabi", "missing": ["Hwang Tae-oh"], "new_regulars": ["Lee Da-eun"],
+		"moments": [{"who": "Kim Ji-ho", "mood": "sad"}, {"who": "Park Mi-sook", "mood": "warm"}], "cat_thefts": ["Kim Ji-ho"]}
+	var options := Story.cliffhanger_options(facts)
+	assert_int(options.size()).is_equal(3)  # (at most three)
+	assert_dict(options[0]).is_equal({"kind": "stays_away", "who": ["Hwang Tae-oh"], "teaser": "Will Tae-oh stay away again?"})
+	assert_str(str(options[1]["teaser"])).is_equal("Will Da-eun be back?")
+	assert_bool(options.all(func(o): return Story.CLIFFHANGERS.has(str(o["kind"])) and str(o["kind"]) != "other")).is_true()  # (all ones the night can answer)
+	assert_array(Story.cliffhanger_options({"owner": "Park Mi-sook", "moments": [{"who": "Park Mi-sook"}]})).is_empty()  # (not the owner: she's always in)
+	# What the PD writes, checked like a write-in (a teaser gets its question mark).
+	assert_dict(Story.check_typed("  will she ever tell him  ", Story.TEASER_MOST, true)).is_equal({"text": "will she ever tell him?", "problem": ""})
+	assert_str(str(Story.check_typed("hi", Story.TITLE_MOST, false)["problem"])).contains("a few words")
+	assert_str(str(Story.check_typed("x".repeat(41), Story.TITLE_MOST, false)["problem"])).contains("40")
+	assert_str(str(Story.check_typed("Her body, though", Story.TITLE_MOST, false)["problem"])).contains("not on this show")
+	# The cut, into the writers' recap: the title, and the cliffhanger's kind and who (yours: nobody's nudged).
+	var writers := {"beats": ["Ji-ho quits."], "teaser": "What now?", "cliffhanger": {"kind": "other", "who": []}}
+	var cut := Story.apply_cut(writers, {"title": {"hangul": "", "english": "Salt and Overtime"}, "cliffhanger": options[0]})
+	assert_str(str(cut["teaser"])).is_equal("Will Tae-oh stay away again?")
+	assert_dict(cut["cliffhanger"]).is_equal({"kind": "stays_away", "who": ["Hwang Tae-oh"]})
+	assert_str(str(cut["title"]["english"])).is_equal("Salt and Overtime")
+	assert_array(cut["beats"]).is_equal(["Ji-ho quits."])  # (the writers' beats)
+	assert_dict(Story.apply_cut(writers, {})).is_equal(writers)
+
+
 func test_the_pds_pins_go_with_the_night() -> void:
 	var pinned := [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}, {"speaker": "Hwang Tae-oh", "text": "Save my stool."}]
 	var facts := Story.diary_facts([], {"pinned": pinned})

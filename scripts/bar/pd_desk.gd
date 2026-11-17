@@ -36,6 +36,7 @@ var card_what := {}  # card -> what it is tonight (its variant), picked as it's 
 var dice := RandomNumberGenerator.new()  # the cards' own (dealing them never shifts anything else's rolls)
 var writing_card := ""  # the write-in card being typed ("": none)
 var edit := {}  # the edit up on the desk: {"spins", "reply", "lines", "names", "roll"} ({}: none)
+var recut := ""  # "Step in: re-cut episode 28": while the PD still can (early in the night), a link on the desk
 var pins: Array = []  # lines the PD's kept for the episode, oldest first: {"id", "speaker", "text", "at"}
 
 # What the tent tells the desk, and does for it.
@@ -264,6 +265,8 @@ func refresh() -> void:
 	var muted := Ktv.MUTED.to_html(false)
 	var red := CAMERA_RED.to_html(false)
 	var t := "[color=#%s][b]%s[/b][/color]\n\n" % [Ktv.ORANGE.to_html(false), Text.hint(PD_MEANS, "PD CONTROLS")]
+	if recut != "":
+		t += "[url=edit][color=#%s][b]%s[/b][/color][/url]\n\n" % [red, _esc(recut)]
 	t += "[b]%s[/b]  " % Text.hint("Click someone at the counter, or the cat, to follow them: their story gets the airtime. Click again to stop.", "Camera")
 	if camera != null and camera.on_cat:
 		var with: Variant = camera.subject()

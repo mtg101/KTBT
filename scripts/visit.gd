@@ -29,6 +29,7 @@ const Cat = preload("res://scripts/bar/cat.gd")
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const PdDesk = preload("res://scripts/bar/pd_desk.gd")
+const EditSuite = preload("res://scripts/ui/edit_suite.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
@@ -195,6 +196,13 @@ var _takings := 0
 var _guests: Array = []  # Guest: whoever's on a stool
 var _camera := PdCamera.new()  # the PD's camera: who the show's following tonight (scripts/bar/camera.gd)
 const CAMERA_RED := PdDesk.CAMERA_RED  # the camera's REC (the shock caption's red)
+# The edit: the PD stepping in to cut last night's episode (see _step_in).
+var _step_in_open := false  # they can, now: from the loading screen until the first customer arrives
+var _step_in_wanted := false  # ...and have (it opens as soon as it can)
+var _step_in_when := ""  # when they did: "loading", "recap" or "night" (for the stats)
+var _editing := false  # the edit suite's open
+var _recap_screen: Control  # "Previously on…", while it's playing
+var _writers_recap := {}  # last night's recap as the writers cut it (the PD's cut is made from it)
 var _said: Array = []  # the lines said, as said: {"id", "speaker", "text", "at", "night"} (a line's 📌 pins it: see _said_line)
 var _chunks: Array = []  # the transcript as shown, chunk by chunk ({"text", "pin": a line said, or -1}), to draw it again when a pin changes
 var _pd: PdDesk  # the PD's desk: tonight's hand, the writing box, the edit, the REC corner (scripts/bar/pd_desk.gd)
@@ -474,13 +482,15 @@ func _open_saved_bar() -> void:
 	_update_info()
 	if Hooks.recaps and int(Game.bar.get("nights", 0)) > 0:
 		_loading_note = "The editors are cutting \"Previously on…\""
+		_offer_step_in()
+		await _ensure_titles()
 		var recap := await _write_recap()
 		_loading_note = ""
 		if _closed():
 			_owner_working = false
 			return
 		_end_loading()
-		await _play_recap(recap, false)
+		await _air_episode(recap)
 	else:
 		_end_loading()
 	_owner_working = false
@@ -1091,6 +1101,7 @@ func _start_night() -> void:
 	_attending = null
 	_owner_stunned = ""
 	_night_open = true
+	_update_desk()  # (open now: the desk offers the edit again, until the first customer)
 	_next_arrival = _clock + NightRules.next_arrival_gap(int(_clock), randf())
 	_show_weather(NightRules.weather_kind(_night_weather))
 	_cat_spot = "stove"  # every night starts with the cat asleep by the stove
@@ -1183,6 +1194,9 @@ func _arrive(when: float, regular_id: String = "") -> void:
 		return
 	_waiting.append(when)
 	_waiting_who.append(regular_id)
+	if _step_in_open:  # (the first customer: last night's episode has aired)
+		_step_in_open = false
+		_update_desk()
 	_event("arrived", {"regular": regular_id != ""})
 	_update_info()
 
@@ -1281,6 +1295,7 @@ func _write_diary() -> void:
 	var entry := {"episode": _night_number, "night": _night_number, "day": _night_day, "weather": _night_weather,
 		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system())}
 	SaveStore.record_diary(Game.bar, entry)
+	_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
 	Game.save()
 	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
 	_stats.story["diary_stamp"] = str(entry["stamp"])
@@ -1333,6 +1348,123 @@ func _validate_recap(data: Variant, facts: Dictionary) -> String:
 	return Story.validate_recap(data, facts)
 
 
+# --- The edit: the PD steps in -------------------------------------------------------------
+
+## The PD can step in and cut last night's episode, from now until the first customer
+## arrives: said on the loading screen (and, as it plays, on "Previously on…", and on the desk).
+func _offer_step_in() -> void:
+	_step_in_open = true
+	_step_in_wanted = false
+	_step_in_when = ""
+	if _loading != null and _loading.visible:
+		var button: Button = _loading.show_step_in("✂  The writers are cutting episode %d…  Step in as the PD (Enter)" % int(Game.bar.get("nights", 0)))
+		button.pressed.connect(_step_in)
+
+
+## The PD steps in (Enter, or a click): the edit suite opens as soon as it can (once loading's
+## done; at once mid-recap, which stops to play again once it's cut; or during the night).
+## Never waits on them: not stepping in, everything runs straight through.
+func _step_in() -> void:
+	if not _step_in_open or _editing or _step_in_wanted:
+		return
+	_step_in_wanted = true
+	if _recap_screen != null and is_instance_valid(_recap_screen):
+		_step_in_when = "recap"
+		_recap_screen.end()  # (it plays again with the cut: see _air_episode)
+	elif _loading != null and _loading.visible:
+		_step_in_when = "loading"
+	else:
+		_step_in_when = "night"
+		_recut_tonight()
+
+
+## "Previously on…" goes out: the writers' cut, unless the PD steps in (before, or while it
+## plays: then it plays again with theirs).
+func _air_episode(recap: Dictionary) -> void:
+	_writers_recap = Story.apply_cut(recap, {"title": _writers_title()})
+	var airing := _writers_recap
+	while true:
+		if _step_in_wanted:
+			airing = await _cut_episode()
+			if _closed():
+				return
+		await _play_recap(airing, false)
+		if not _step_in_wanted:
+			break
+
+
+## Stepped in once the night's going (before the first customer): cut it, then it airs again.
+func _recut_tonight() -> void:
+	var airing := await _cut_episode()
+	if not _closed():
+		await _play_recap(airing, false)
+
+
+## The edit suite on last night's episode; returns the recap with the PD's cut in (the
+## writers', if they leave it). Kept with the episode's diary entry, and counted.
+func _cut_episode() -> Dictionary:
+	_step_in_wanted = false
+	_editing = true
+	var entry: Dictionary = Game.bar.get("diary", [])[-1]
+	var suite := EditSuite.new()
+	add_child(suite)
+	suite.open(int(entry.get("episode", 0)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})))
+	var cut: Dictionary = await suite.finished
+	_editing = false
+	var airing := Story.apply_cut(_writers_recap, cut)
+	entry["title"] = airing.get("title", {}).duplicate()
+	entry["cut_by"] = {"title": str(cut.get("title_by", "writers")), "cliffhanger": str(cut.get("cliffhanger_by", "writers"))}
+	Game.save()
+	var noted := {"stepped_in": _step_in_when, "title_by": str(cut.get("title_by", "writers")), "cliffhanger_by": str(cut.get("cliffhanger_by", "writers")),
+		"own_teaser": bool(cut.get("own_teaser", false)), "left_to_writers": cut.is_empty(), "title": Story.title_text(airing.get("title", {}))}
+	if _night_open:
+		_stats.story["edit"] = noted
+	else:
+		_before_night["edit"] = noted
+	_show("[i][color=#%s]✂ The PD steps in: episode %d, %s%s.[/color][/i]\n\n" % [CAMERA_RED.to_html(false), int(entry.get("episode", 0)),
+		_esc("\"%s\"" % Story.title_text(airing.get("title", {}))), " (left to the writers)" if cut.is_empty() else (", cliffhanger «%s»" % _esc(airing.get("teaser", "")))])
+	return airing
+
+
+## The title the writers give last night's episode: the first drafted.
+func _writers_title() -> Dictionary:
+	var diary: Array = Game.bar.get("diary", [])
+	var titles: Array = [] if diary.is_empty() else diary[-1].get("titles", [])
+	return {} if titles.is_empty() else titles[0]
+
+
+## Last night's episode's titles, if it hasn't any yet (the game closed before they were
+## drafted at 3am, or a bar from before titles): drafted now, on the loading screen.
+func _ensure_titles() -> void:
+	var diary: Array = Game.bar.get("diary", [])
+	for entry in diary:  # (titles' Korean explains itself, as it did when they were drafted)
+		for title in entry.get("titles", []):
+			if str(title.get("hangul", "")) != "":
+				Glossary.remember(str(title["hangul"]), "%s: %s" % [title["hangul"], title["english"]])
+	if diary.is_empty() or not diary[-1].get("titles", []).is_empty():
+		return
+	await _draft_titles(diary[-1])
+
+
+## Three titles for an episode (its diary entry): the AI's, checked, or the game's own. Their
+## Korean is told to the glossary, so it explains itself on screen. Kept with the entry.
+func _draft_titles(entry: Dictionary) -> void:
+	var facts: Dictionary = entry.get("facts", {})
+	var titles: Array = []
+	if Hooks.titles:
+		var reply: Dictionary = await _ai.ask_json(Prompts.title_messages(facts), Story.validate_titles.bind(facts), {"temperature": 0.9},
+			{"purpose": "titles", "facts": facts, "tries": 2})
+		titles = reply.get("titles", [])
+	if titles.is_empty():
+		titles = Story.stitched_titles(facts)
+	for title in titles:
+		if str(title.get("hangul", "")) != "":
+			Glossary.remember(str(title["hangul"]), "%s: %s" % [title["hangul"], title["english"]])
+	entry["titles"] = titles
+	entry["title"] = titles[0]
+	Game.save()
+
+
 ## Plays a recap full screen and waits for it to finish (or be skipped).
 func _play_recap(recap: Dictionary, opener: bool) -> void:
 	var cliff: Dictionary = recap.get("cliffhanger", {})
@@ -1341,18 +1473,26 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	screen.time_scale = _scaled(1.0)
 	screen.sting = _ambience.sting
 	add_child(screen)
+	_recap_screen = screen
+	screen.step_in.connect(_step_in)
 	var facts := _recap_facts()
 	# A different K-TV style each time (Story.RECAP_STYLES), from last time's biggest moment.
 	var style := Story.pick_recap_style(facts["last"], str(Game.bar.get("last_recap_style", "")), randf())
 	Game.bar["last_recap_style"] = style
 	_before_night["recap_style"] = style
 	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style,
-		"quotes": [] if opener else facts["last"].get("pinned", [])}
+		"quotes": [] if opener else facts["last"].get("pinned", []),
+		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "EP. %d · %s" % [int(Game.bar.get("nights", 0)), Story.title_text(recap["title"])],
+		"step_in": not opener and _step_in_open}
 	if not opener and not facts["last"].get("pinned", []).is_empty():
 		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
-	_recap_said = "%s %s %s" % ["Series opener:" if opener else "Previously on…", " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
+	_recap_screen = null
+	if _step_in_wanted:
+		return  # (stopped for the PD to cut it: what airs is logged when it plays again)
+	var titled := "" if recap.get("title", {}).is_empty() else " (%s)" % Story.title_text(recap["title"])
+	_recap_said = "%s%s %s %s" % ["Series opener:" if opener else "Previously on…", titled, " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
 	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(_recap_said)])
 
 
@@ -1598,6 +1738,9 @@ func _redraw_transcript() -> void:
 ## A link clicked in the transcript: a line's 📌 pins it (or unpins it) for the episode.
 func _on_transcript_link(meta: Variant) -> void:
 	var link := str(meta)
+	if link == "edit":
+		_step_in()
+		return
 	if not link.begins_with("pin:") or _pd == null:
 		return
 	var k := int(link.trim_prefix("pin:"))
@@ -1646,6 +1789,10 @@ func _finish_transcript(context: Dictionary) -> void:
 ## Esc opens or closes the Options panel; 1, 2 and 3 pick the edit's spin while it's up.
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER) and _step_in_open and not _editing:
+		_step_in()
+		get_viewport().set_input_as_handled()
+		return
 	if key != null and key.pressed and not key.echo and _pd != null and _pd.edit_up() and key.keycode >= KEY_1 and key.keycode <= KEY_3:
 		_pd.air_edit(key.keycode - KEY_1)
 		get_viewport().set_input_as_handled()
@@ -3313,6 +3460,7 @@ func _show_camera() -> void:
 ## The PD's desk, brought up to date (who the camera's on, tonight's cards).
 func _update_desk() -> void:
 	if _pd != null:
+		_pd.recut = ("✂ Step in: re-cut episode %d (Enter)" % int(Game.bar.get("nights", 0))) if _step_in_open and _night_open and not Game.bar.get("diary", []).is_empty() else ""
 		_pd.refresh()
 
 

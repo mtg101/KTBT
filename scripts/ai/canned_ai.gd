@@ -152,6 +152,8 @@ func reply(request: Dictionary) -> Variant:
 			return {"mood": mood_from["mood"], "reason": mood_from["reason"]}
 		"recap":
 			return Story.stitched_recap(request.get("facts", {}))
+		"titles":
+			return {"titles": Story.stitched_titles(request.get("facts", {}))}
 		"diary":
 			return {"entry": Story.stitched_diary(request.get("facts", {}))}
 		"closing":

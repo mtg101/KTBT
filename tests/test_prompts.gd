@@ -463,6 +463,12 @@ func test_the_owners_life_is_in_every_prompt() -> void:
 	assert_str(asked).contains("\"before\"")
 
 
+func test_the_title_prompt() -> void:
+	var text := _request(Prompts.title_messages({"episode": 28, "day": "Friday", "weather": "rain", "people": [], "pinned": [{"speaker": "Kim Ji-ho", "text": "Salt and overtime, that's my life."}]}))
+	assert_str(text).contains("episode 28").contains("three titles").contains("Salt and overtime, that's my life.")
+	assert_str(text).contains("\"hangul\"").contains("\"english\"").contains("at most %d characters" % Story.TITLE_MOST)
+
+
 func test_the_tv_reaction_prompt() -> void:
 	var text := _request(Prompts.reaction_messages([{"speaker": "Kim Ji-ho", "text": "I quit my job today."}], ["Kim Ji-ho", "Park Mi-sook"]))
 	assert_str(text).contains("I quit my job today.")

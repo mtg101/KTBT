@@ -37,7 +37,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about (and the moments for talking to it), and its nickname (a stray's, from the list Koreans give street cats, to suit its coat) |
 | `rules/memories.gd` | What's remembered after a visit, and the things that stick |
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
-| `rules/story.gd` | The owner's diary at 3am, "Previously on...", and the owner's reason for closing early |
+| `rules/story.gd` | The owner's diary at 3am, "Previously on...", an episode's titles and the PD's cut (the cliffhangers they can choose, checking what they write, the cut applied to the recap), and the owner's reason for closing early |
 | `rules/seasons.gd` | The calendar (each bar's nights through the year), Korea's seasons and the monsoon, and tonight's weather following on from last night's |
 | `rules/skyline.gd` | The city behind the tent: each bar's skyline (mostly APT blocks; towers, churches, shop buildings with a sign on every floor, a district office, a block going up, and gaps), the mountains behind with their hillside houses and rooftop rooms, its windows going dark through the night and its shops' signs as they shut |
 | `rules/catalogue.gd` | Every dish and drink a pocha might serve, by layer (always, the classics, the bar's own), and a bar's menu: the house rules the AI's choice is checked against, and the game's own menu when it can't choose |
@@ -52,7 +52,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `bar/night_stats.gd` | Tonight's debug stats: counted as the night goes, the panel's sections and the night's log |
 | `save/save_store.gd` | Each bar's save file: read, written and deleted safely; the history, night log and diary (latest 200) |
 | `ai/` | The AI: `prompts.gd` (every prompt), `ai.gd` (asking, checking, retrying), `ollama_client.gd`, `canned_ai.gd` (offline mode), `ai_settings.gd` |
-| `ui/` | On screen: `ktv_style.gd` (the look), `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `menu_board.gd`, `dish_view.gd`, `skyline_view.gd` |
+| `ui/` | On screen: `ktv_style.gd` (the look), `bubble.gd`, `caption.gd`, `caption_reel.gd`, `diary_page.gd`, `diary_book.gd`, `recap_screen.gd`, `loading_screen.gd`, `menu_board.gd`, `dish_view.gd`, `skyline_view.gd`, `edit_suite.gd` (the PD cutting last night's episode: its title and cliffhanger) |
 | `sound/` | `ambience.gd` (the tent's sounds) and `music.gd` (Arirang), made in code |
 | `bar/tent_view.gd` | The tent's look: the tarp, the sign, the bar's touches, the sky and light by the hour, the bulbs and tonight's weather (the first part split out of `visit.gd`) |
 | `bar/people_view.gd` | Drawing people: a person dressed in their look, facing us or seated from behind, a phone, an umbrella (with the snow or rain on it) or a bag over their head, running for it (part 2 split out of `visit.gd`) |

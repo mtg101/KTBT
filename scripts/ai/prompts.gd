@@ -766,6 +766,24 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 	return "They're a regular here (this is their %s visit), and know the owner as \"%s\"%s." % [Regulars.ordinal(int(known.get("visits", 1)) + 1), owner["title"], owner_name]
 
 
+## Three titles for last night's episode, from the facts the diary was written from (and the
+## lines the PD pinned): the edit suite offers them, and the writers' cut uses the first.
+static func title_messages(facts: Dictionary) -> Array:
+	var request := """You're the writer of a K-drama about a pojangmacha under a Seoul overpass. Here's what happened in episode %s:
+%s
+
+Give the episode three titles to choose from, the way Korean dramas and variety shows title their episodes: short, a little dramatic or playful, about what happened to these people (first names are fine), each different in feel.
+Korean is welcome, as TV mixes the two: a title can be Korean with its English meaning ("짠한 밤" and "A Bittersweet Night"), or English only.
+
+Only what's above: no other names, nothing invented.
+
+Reply with ONLY a JSON object: {"titles": [{"hangul": "Korean, in Hangul, or \"\"", "english": "the title in English, at most %d characters"}, ...three]}""" % [facts.get("episode", 1), diary_facts_text(facts), Story.TITLE_MOST]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 ## After a spell of conversation: was anything a big moment, worth a Korean variety show's
 ## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking; about: what
 ## the talk was meant to be (Talk.reaction_note), if anything.

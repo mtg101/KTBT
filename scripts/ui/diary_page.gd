@@ -113,6 +113,12 @@ func show_writing(episode: int, day: String, weather: String, who: String) -> vo
 ## A finished entry (as SaveStore.record_diary keeps it).
 func show_entry(entry: Dictionary, whose: String) -> void:
 	_set_header(int(entry.get("episode", entry.get("night", 1))), str(entry.get("day", "")), str(entry.get("weather", "")), whose)
+	if not entry.get("title", {}).is_empty():  # (its title, once it has one: the writers' or the PD's)
+		_episode.text += " · " + Story.title_text(entry["title"])
+		var hangul := str(entry["title"].get("hangul", ""))
+		if hangul != "":
+			_episode.mouse_filter = Control.MOUSE_FILTER_STOP
+			_episode.tooltip_text = Text.tip("%s: %s" % [hangul, entry["title"].get("english", "")])
 	if _pen_tween != null:
 		_pen_tween.kill()
 	_pen.visible = false

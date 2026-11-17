@@ -63,6 +63,12 @@ const MEANINGS := {
 	"통 큰 손님!": "tong keun sonnim!: a big-hearted (big-spending) customer",
 	"플렉스!": "peullekseu!: flex, showing off",
 	"단골 탄생?!": "dangol tansaeng?!: a regular is born?!",
+	# Episode titles (rules/story.gd stitched_titles) and the edit suite
+	"눈 오는 밤": "nun oneun bam: a snowy night",
+	"비 오는 밤": "bi oneun bam: a rainy night",
+	"편집실": "pyeonjipsil: the edit suite",
+	"등판": "deungpan: stepping up to the plate (a pitcher coming on: someone stepping in)",
+	"편집 중": "pyeonjip jung: being edited",
 	"또 올 것 같은 예감": "tto ol geot gateun yegam: a feeling they'll be back",
 	"냥!": "nyang!: miaow!",
 	"심쿵!": "simkung!: heart thump, too cute",
