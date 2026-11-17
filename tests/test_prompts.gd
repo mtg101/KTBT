@@ -461,8 +461,10 @@ func test_the_tv_reaction_prompt() -> void:
 	assert_str(text).contains("Kim Ji-ho, Park Mi-sook")
 	assert_str(text).contains("\"none\"")
 	assert_str(text).contains("Most lines are this")
-	for mood in Captions.REACTIONS:
+	for mood in Captions.ai_moods():
 		assert_str(text).contains("\"%s\"" % mood)
+	assert_str(text).not_contains("\"roast\" (")  # (the PD's edit's own: the AI doesn't pick it)
+	assert_str(text).contains("\"flip_caption\"").contains("\"roast_caption\"").contains("never their looks")  # (the edit's other spins, in the same ask)
 	assert_str(text).contains("at most five words")
 	assert_str(text).contains("\"size\"")
 	assert_str(text).contains("Only a %d or more gets a caption" % Captions.REACTION_MIN_SIZE)

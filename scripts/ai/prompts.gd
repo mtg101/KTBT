@@ -770,7 +770,7 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 ## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking.
 static func reaction_messages(lines: Array, names: Array) -> Array:
 	var moods := PackedStringArray()
-	for mood in Captions.REACTIONS:
+	for mood in Captions.ai_moods():
 		moods.append("\"%s\" (%s)" % [mood, Captions.REACTIONS[mood]["means"]])
 	var request := """You're the caption editor on a Korean variety show, watching a conversation at a street tent bar:
 %s
@@ -787,6 +787,8 @@ Reply with ONLY a JSON object:
 - "mood": "none" if it's %d or less; otherwise one of: %s
 - "who": who it's about, one of: %s
 - "caption": at most five words, in English capitals. Variety show editors tease: playful and cheeky even about sad things, never solemn or a summary. Like "SHE QUIT HER JOB?!", "HE'S NOT CRYING, IT'S THE ONIONS", "SOMEONE GET HIM A TISSUE", "SMOOTH, VERY SMOOTH"
+- "flip_caption": the same moment captioned the opposite way (if it's sad or a shock, make it funny; if it's funny or warm, make it touching; if it's awkward, make it sweet), at most five words, in English capitals ("" if "mood" is "none")
+- "roast_caption": the same moment as a cheeky roast, the editors teasing what they said or did (never their looks, body or anything that would really hurt), at most five words, in English capitals, like "NOBODY ASKED, BUT OK", "THE CONFIDENCE, THOUGH" ("" if "mood" is "none")
 
 Only what was actually said: nothing invented.""" % [transcript_text(lines), Captions.REACTION_MIN_SIZE, Captions.REACTION_MIN_SIZE - 1, ", ".join(moods), ", ".join(PackedStringArray(names))]
 	return [

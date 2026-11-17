@@ -295,7 +295,20 @@ const REACTIONS := {
 		"means": "a really funny line, or a joke that lands"},
 	"awkward": {"hangul": ["어색…", "정적…", "할 말 없음"], "icon": "😅", "colour": "a8b0ff", "sound": "pop",
 		"means": "an awkward moment: a silence, a gaffe, the wrong thing said"},
+	# The PD's edit only (the AI never picks it itself): a roast, in the editors' voice.
+	"roast": {"hangul": ["팩폭!", "뼈 때림", "디스 주의"], "icon": "🔥", "colour": "ff7a3c", "sound": "boing", "edit_only": true,
+		"means": "a roast: the editors teasing what someone said or did, cheeky, the variety-show way"},
 }
+
+## The PD's edit: when a moment gets a caption, the PD has EDIT_SECONDS to pick its spin: the
+## AI's own, the flip (the opposite spin: FLIPS) or a roast; none picked, the AI's goes out.
+const EDIT_SECONDS := 2.0
+const FLIPS := {"sad": "funny", "shock": "funny", "awkward": "sweet", "sweet": "awkward", "warm": "funny", "funny": "warm"}
+
+
+## The moods the AI can pick itself (not the edit's own).
+static func ai_moods() -> Array:
+	return REACTIONS.keys().filter(func(mood): return not bool(REACTIONS[mood].get("edit_only", false)))
 
 
 const REACTION_STINGS := ["dun", "sad", "sparkle", "ding", "boing", "pop"]
@@ -345,8 +358,8 @@ static func validate_reaction(data: Variant, names: Array, items: Array = []) ->
 		data["mood"] = "none"  # (not big enough: no caption)
 		data["size"] = size
 		return ""
-	if not REACTIONS.has(mood):
-		return "the caption's \"mood\" was \"%s\", which isn't one of %s or \"none\"" % [mood, ", ".join(PackedStringArray(REACTIONS.keys()))]
+	if not ai_moods().has(mood):
+		return "the caption's \"mood\" was \"%s\", which isn't one of %s or \"none\"" % [mood, ", ".join(PackedStringArray(ai_moods()))]
 	var said_who := str(data.get("who", "")).strip_edges().to_lower()
 	var who := ""
 	for person in names:
@@ -355,24 +368,36 @@ static func validate_reaction(data: Variant, names: Array, items: Array = []) ->
 			who = full
 	if who == "":
 		return "the caption's \"who\" was \"%s\", which isn't one of the people talking (%s)" % [data.get("who", ""), ", ".join(PackedStringArray(names))]
-	var caption := Text.unquote(Text.tidy_text(data.get("caption", ""))).strip_edges()
-	if caption == "":
-		return "the caption was empty"
-	if caption.contains("(") or caption.contains("[") or caption.contains("\n"):
-		return "the caption has brackets or more than one line"
-	if caption.split(" ", false).size() > REACTION_WORDS or caption.length() > REACTION_CHARS:
-		return "the caption was longer than five words"
-	if Talk.real_brand(caption) != "":
-		return "the caption names a real brand (%s)" % Talk.real_brand(caption)
-	var mention := Orders.unordered_mention(caption, items) if not items.is_empty() else ""
-	if mention != "":
-		return "the caption mentions %s, which nobody ordered" % mention
-	if not Talk.romanised_korean(caption, names).is_empty():
-		return "the caption has made-up Korean words in it"
+	var checked := check_caption(data.get("caption", ""), names, items)
+	if str(checked[1]) != "":
+		return str(checked[1])
 	data["mood"] = mood
 	data["who"] = who
-	data["caption"] = caption.to_upper()
+	data["caption"] = checked[0]
+	# The edit's other spins: kept if they pass, dropped (not the whole reply) if they don't.
+	for key in ["flip_caption", "roast_caption"]:
+		var spin := check_caption(data.get(key, ""), names, items)
+		data[key] = spin[0] if str(spin[1]) == "" else ""
 	return ""
+
+
+## A caption, checked: [the caption, tidied and in capitals; the problem, or ""].
+static func check_caption(raw: Variant, names: Array, items: Array = []) -> Array:
+	var caption := Text.unquote(Text.tidy_text(raw if raw != null else "")).strip_edges()
+	if caption == "":
+		return ["", "the caption was empty"]
+	if caption.contains("(") or caption.contains("[") or caption.contains("\n"):
+		return ["", "the caption has brackets or more than one line"]
+	if caption.split(" ", false).size() > REACTION_WORDS or caption.length() > REACTION_CHARS:
+		return ["", "the caption was longer than five words"]
+	if Talk.real_brand(caption) != "":
+		return ["", "the caption names a real brand (%s)" % Talk.real_brand(caption)]
+	var mention := Orders.unordered_mention(caption, items) if not items.is_empty() else ""
+	if mention != "":
+		return ["", "the caption mentions %s, which nobody ordered" % mention]
+	if not Talk.romanised_korean(caption, names).is_empty():
+		return ["", "the caption has made-up Korean words in it"]
+	return [caption.to_upper(), ""]
 
 
 ## A reaction's words for the screen: {"hangul" (picked by roll from its mood), "english"}.

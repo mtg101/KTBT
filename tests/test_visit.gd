@@ -1062,6 +1062,45 @@ func test_the_pd_writes_a_card() -> void:
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
 
+func test_the_pds_edit() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var who := str(scene._guests[0].customer["name"])
+	var reply := {"mood": "sad", "who": who, "caption": "LONG DAY", "flip_caption": "NAP TIME, THEN?", "roast_caption": "THE CONFIDENCE, THOUGH"}
+	var spins := [{"mood": "sad", "caption": "LONG DAY"}, {"mood": "funny", "caption": "NAP TIME, THEN?"}, {"mood": "roast", "caption": "THE CONFIDENCE, THOUGH"}]
+	var lines := [{"speaker": who, "text": "What a day."}]
+	# Up on the desk: three spins, the AI's first; key 3 picks the roast.
+	scene._offer_edit(spins, reply, lines, [who], 0.0)
+	assert_bool((runner.find_child("PdEdit") as Control).visible).is_true()
+	assert_int(runner.find_child("PdEditSpins").get_child_count()).is_equal(3)
+	assert_str((runner.find_child("Edit_1") as Button).text).contains("SAD").contains("LONG DAY")
+	var three := InputEventKey.new()
+	three.keycode = KEY_3
+	three.pressed = true
+	scene._unhandled_input(three)
+	assert_bool((runner.find_child("PdEdit") as Control).visible).is_false()
+	var aired: Array = scene._stats.events.filter(func(e): return str(e["kind"]) == "big_moment")
+	assert_str(str(aired[-1]["mood"])).is_equal("roast")
+	assert_str(str(aired[-1]["ai_mood"])).is_equal("sad")  # (for the diary: sincere, whatever aired)
+	assert_str(str(aired[-1]["caption"])).is_equal("THE CONFIDENCE, THOUGH")
+	assert_int(int(scene._stats.edits_made.get("sad→roast", 0))).is_equal(1)
+	assert_int(int(scene._stats.edit_log[-1]["aired"])).is_equal(2)  # (logged: every spin offered, and which aired)
+	assert_str(str(scene._stats.edit_log[-1]["spins"][2]["caption"])).is_equal("THE CONFIDENCE, THOUGH")
+	# Left alone: the AI's own goes out when time's up.
+	scene._offer_edit(spins, reply, lines, [who], 0.0)
+	assert_bool(await _wait_until(func(): return scene._edit.is_empty(), 3000)).is_true()
+	aired = scene._stats.events.filter(func(e): return str(e["kind"]) == "big_moment")
+	assert_str(str(aired[-1]["mood"])).is_equal("sad")
+	assert_bool(bool(aired[-1]["edited"])).is_false()
+	assert_int(scene._stats.edits_offered).is_equal(2)
+	assert_str(scene._stats.panel_text(0, 0)).contains("The edit: offered 2 · you picked a spin 1")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
 func test_more_of_the_pds_plant_cards() -> void:
 	Hooks.stay_minutes_override = 600
 	Hooks.company_override = "chatty"

@@ -449,7 +449,8 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 					if not ordered.has(id):
 						ordered.append(id)
 			"big_moment":
-				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("mood", "")), "caption": str(event.get("caption", "")), "said": str(event.get("said", ""))})
+				# (the mood as the AI judged it: the owner's diary is sincere, whatever the edit aired)
+				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("ai_mood", event.get("mood", ""))), "caption": str(event.get("caption", "")), "said": str(event.get("said", ""))})
 			"friendlier":
 				friendlier.append("%s and %s are on \"%s\" terms now" % [event.get("a", ""), event.get("b", ""), event.get("term", "")])
 			"became_regular":

@@ -1738,6 +1738,10 @@ func test_a_greedy_cat_steals_fish_cakes() -> void:
 	var caption := Captions.for_event("cat_stole", {"cat": "Garae", "name": "Kim Ji-ho"})
 	assert_str(str(caption["kind"])).is_equal("cat_thief")
 	assert_bool(bool(Captions.CAPTIONS["cat_thief"]["emergency"])).is_true()  # the red light, for a fish cake
+	# The PD's edit aired a roast: the owner's diary stays sincere (what the AI judged), the caption as aired.
+	var edited := Story.diary_facts([{"kind": "big_moment", "at": 1300, "who": "Kim Ji-ho", "mood": "roast", "ai_mood": "sad", "caption": "THE CONFIDENCE, THOUGH"}], {})
+	assert_str(str(edited["moments"][0]["mood"])).is_equal("sad")
+	assert_str(str(edited["moments"][0]["caption"])).is_equal("THE CONFIDENCE, THOUGH")
 	var facts := Story.diary_facts([{"kind": "cat_stole", "at": 1300, "cat": "Garae", "name": "Kim Ji-ho"}], {"cat": "Garae"})
 	assert_array(facts["cat_thefts"]).is_equal(["Kim Ji-ho"])
 	assert_str(Prompts.diary_facts_text(facts)).contains("Garae, the cat, stole an odeng skewer off Kim Ji-ho's plate")
@@ -2140,6 +2144,14 @@ func test_tv_reactions_are_checked() -> void:
 	assert_str(str(good["who"])).is_equal("Kim Ji-ho")  # a given name will do
 	assert_str(str(good["caption"])).is_equal("SHE QUIT HER JOB?!")
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "angry", "who": "Kim Ji-ho", "caption": "WOW"}, names)).contains("isn't one of")
+	assert_str(Captions.validate_reaction({"size": 4, "mood": "roast", "who": "Kim Ji-ho", "caption": "WOW"}, names)).contains("isn't one of")  # (the edit's own)
+	# The edit's other spins: kept if they pass, dropped (not the whole reply) if not.
+	var spun := {"size": 4, "mood": "sad", "who": "Kim Ji-ho", "caption": "LONG DAY", "flip_caption": "nap time, then?", "roast_caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}
+	assert_str(Captions.validate_reaction(spun, names)).is_empty()
+	assert_str(str(spun["flip_caption"])).is_equal("NAP TIME, THEN?")
+	assert_str(str(spun["roast_caption"])).is_empty()
+	assert_str(str(Captions.FLIPS["sad"])).is_equal("funny")
+	assert_bool(Captions.ai_moods().has("roast")).is_false()
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "sad", "who": "Lee Min-ho", "caption": "WOW"}, names)).contains("isn't one of the people talking")
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "sad", "who": "Kim Ji-ho", "caption": ""}, names)).contains("empty")
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}, names)).contains("longer than five words")

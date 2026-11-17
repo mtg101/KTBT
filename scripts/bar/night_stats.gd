@@ -112,6 +112,9 @@ var rejections := {}  # kind of problem -> how many times
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
 var events: Array = []  # tonight's events (NightEvents.timeline), for the log
+var edits_offered := 0  # big moments the PD could edit
+var edits_made := {}  # "the AI's mood→the PD's" -> how many
+var edit_log: Array = []  # each edit offered: {"spins": [{"mood", "caption"}], "aired": the spin that went out (0: the AI's)}, for the log
 var written: Array = []  # the PD's write-in cards: {"card", "text", "who", "what", "lines" (the replies, for the log)}
 var written_tells := {}  # card -> the words that show a line took up what the PD wrote
 var written_refused := 0  # write-ins the checks sent back
@@ -559,6 +562,10 @@ func panel_text(seated: int, cooking: int) -> String:
 	var played := plants()
 	for entry in written:
 		lines.append("Written (%s, for %s): «%s» · replies kept %d" % [entry["card"], entry["who"], entry["text"], (entry["lines"] as Array).size()])
+	var edited := 0
+	for change in edits_made:
+		edited += int(edits_made[change])
+	lines.append("The edit: offered %d · you picked a spin %d%s" % [edits_offered, edited, (" (" + counts_text(edits_made) + ")") if edited > 0 else ""])
 	if written_refused > 0:
 		lines.append("Write-ins sent back by the checks: %d" % written_refused)
 	lines.append("Plants: %s" % (("played %d · " % played.size()) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d of the next %d lines" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3]), PLANT_WATCH_LINES]))) if not played.is_empty() else "none played tonight"))
@@ -633,7 +640,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
+		"pd": {"edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},

@@ -175,7 +175,8 @@ func reply(request: Dictionary) -> Variant:
 			if names.is_empty() or randf() < 0.75:
 				return {"size": randi_range(1, Captions.REACTION_MIN_SIZE - 1), "mood": "none"}
 			var mood: String = REACTION_CAPTIONS.keys().pick_random()
-			return {"size": 4, "mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood]}
+			return {"size": 4, "mood": mood, "who": names.pick_random(), "caption": REACTION_CAPTIONS[mood],
+				"flip_caption": REACTION_CAPTIONS[Captions.FLIPS.get(mood, "funny")], "roast_caption": "THE CONFIDENCE, THOUGH"}
 		"memory":
 			var night: String = {"loved": "loved it", "enjoyed": "enjoyed it", "fine": "it was fine", "didnt": "didn't enjoy it"}.get(str(request.get("verdict", "fine")), "it was fine")
 			return {"owner_remembers": "Quiet at first, then talked about work.", "they_remember": "The owner fussed over them, and the food was good.",

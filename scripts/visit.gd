@@ -204,6 +204,11 @@ var _writing_label: Label
 var _writing_text: LineEdit
 var _writing_problem: Label
 var _writing_card := ""  # the write-in card being written ("": none)
+var _edit := {}  # the PD's edit up on the desk: {"spins", "reply", "lines", "names", "roll"} ({}: none)
+var _edit_box: VBoxContainer
+var _edit_buttons: VBoxContainer
+var _edit_bar: ProgressBar
+var _edit_tween: Tween
 var _picked := {}  # card -> the Guest the game picked for it (with nobody on camera), until it's played
 var _card_what := {}  # card -> what it is tonight (its variant), picked as it's dealt, so a write-in says it before you type
 var _lights_out := 0.0  # real seconds left of the lights being out (the lights-flicker card)
@@ -1056,6 +1061,8 @@ func _start_night() -> void:
 	_played = []
 	_picked = {}
 	_card_what = {}
+	if not _edit.is_empty():
+		_air_edit(0)
 	for card in _hand:
 		_what_for(str(card))
 	_close_writing()
@@ -1589,8 +1596,13 @@ func _finish_transcript(context: Dictionary) -> void:
 	_story.finish(bool(context["finished"]), str(context["clock"]), _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size()).replace("[b]", "").replace("[/b]", ""))
 
 
-## Esc opens or closes the Options panel.
+## Esc opens or closes the Options panel; 1, 2 and 3 pick the edit's spin while it's up.
 func _unhandled_input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and not _edit.is_empty() and key.keycode >= KEY_1 and key.keycode <= KEY_3:
+		_air_edit(key.keycode - KEY_1)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		_options_button.button_pressed = not _options_button.button_pressed
 
@@ -2748,9 +2760,84 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 		_stats.reactions_none += 1
 		return
 	_captions_part.reaction_shown()  # (routine captions wait while it's up, and their usual gap after)
+	# The PD's edit: a moment to pick its spin (the AI's own, the flip, or a roast); none
+	# picked, the AI's goes out. Never pauses anything: the night runs on meanwhile.
+	var spins: Array = [{"mood": mood, "caption": str(reply["caption"])}]
+	if str(reply.get("flip_caption", "")) != "" and Captions.FLIPS.has(mood):
+		spins.append({"mood": str(Captions.FLIPS[mood]), "caption": str(reply["flip_caption"])})
+	if str(reply.get("roast_caption", "")) != "":
+		spins.append({"mood": "roast", "caption": str(reply["roast_caption"])})
+	var roll := randf()  # (the caption's Hangul: the game's dice, as ever)
+	if spins.size() > 1 and _desk != null:
+		_offer_edit(spins, reply, lines, names, roll)
+	else:
+		_air_moment(0, [spins[0]], reply, lines, names, roll)
+
+
+## The PD's edit, on the desk: the spins as buttons (1, 2, 3), a bar running down, and whichever's
+## picked (or the AI's, when time's up) goes out.
+func _offer_edit(spins: Array, reply: Dictionary, lines: Array, names: Array, roll: float) -> void:
+	if not _edit.is_empty():
+		_air_edit(0)  # (an earlier one still up: the AI's goes out, and this one takes its place)
+	_edit = {"spins": spins, "reply": reply, "lines": lines, "names": names, "roll": roll}
+	_stats.edits_offered += 1
+	_stats.edit_log.append({"spins": spins.duplicate(true), "aired": 0})
+	for old in _edit_buttons.get_children():
+		_edit_buttons.remove_child(old)
+		old.queue_free()
+	for k in spins.size():
+		var spin: Dictionary = spins[k]
+		var data: Dictionary = Captions.REACTIONS[str(spin["mood"])]
+		var button := Button.new()
+		button.name = "Edit_%d" % (k + 1)
+		button.focus_mode = Control.FOCUS_NONE
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.text = "%d  %s  %s" % [k + 1, str(spin["mood"]).to_upper(), spin["caption"]]
+		button.add_theme_font_size_override("font_size", 15)
+		button.add_theme_color_override("font_color", Color(str(data["colour"])))
+		button.tooltip_text = Text.tip("%s%s: %s" % ["The AI's pick, " if k == 0 else "", str(spin["mood"]), data["means"]])
+		button.pressed.connect(_air_edit.bind(k))
+		_edit_buttons.add_child(button)
+	_edit_box.visible = true
+	_edit_bar.value = 100.0
+	var seconds := _scaled(Captions.EDIT_SECONDS)
+	_edit_tween = _edit_bar.create_tween()
+	_edit_tween.tween_property(_edit_bar, "value", 0.0, seconds)
+	var token: Dictionary = _edit
+	_timer(seconds).timeout.connect(func():
+		if _edit == token:
+			_air_edit(0))  # (time's up: the AI's own)
+
+
+## The PD picked spin k (0: the AI's own, or time ran out): it goes out.
+func _air_edit(k: int) -> void:
+	if _edit.is_empty():
+		return
+	var pending := _edit
+	_edit = {}
+	_edit_box.visible = false
+	if _edit_tween != null:
+		_edit_tween.kill()
+	var spins: Array = pending["spins"]
+	k = clampi(k, 0, spins.size() - 1)
+	if not _stats.edit_log.is_empty():
+		_stats.edit_log[-1]["aired"] = k
+	if k > 0:
+		var change := "%s→%s" % [spins[0]["mood"], spins[k]["mood"]]
+		_stats.edits_made[change] = int(_stats.edits_made.get(change, 0)) + 1
+	_air_moment(k, spins, pending["reply"], pending["lines"], pending["names"], float(pending["roll"]))
+
+
+## A big moment goes out: its event (the mood the AI judged, for the diary, and what aired), the
+## caption over whoever it's about, and a shock's double-take.
+func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: Array, roll: float) -> void:
+	if _stopped:
+		return
+	var mood := str(spins[k]["mood"])
+	var caption := str(spins[k]["caption"])
 	var who := str(reply["who"])
 	var theirs: Array = lines.filter(func(e): return str(e.get("speaker", "")) == who)
-	_event("big_moment", {"who": who, "mood": mood, "caption": str(reply["caption"]),
+	_event("big_moment", {"who": who, "mood": mood, "ai_mood": str(spins[0]["mood"]), "edited": k > 0, "caption": caption,
 		"said": str(theirs[-1]["text"]) if not theirs.is_empty() else ""})  # (its caption's popped here, below: the AI's words)
 	var about: Variant = _owner_node  # (untyped: someone's node may be gone by now)
 	if who != str(_owner["name"]):
@@ -2759,7 +2846,7 @@ func _react(lines: Array, names: Array, items: Array) -> void:
 	if mood == "shock":
 		_stun_listeners(who, names)
 	var data: Dictionary = Captions.REACTIONS[mood]
-	_captions_part.pop(Captions.reaction_words(mood, str(reply["caption"]), randf()), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
+	_captions_part.pop(Captions.reaction_words(mood, caption, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
 
 
 ## The door: as someone ducks in, the owner calls out to them, polite for a stranger and casual
@@ -4003,6 +4090,27 @@ func _build_ui() -> void:
 	_plant_cards.name = "PlantCards"
 	_plant_cards.add_theme_constant_override("separation", 8)
 	desk_box.add_child(_plant_cards)
+	# The edit: a big moment's spins, for a couple of seconds, over the cards.
+	_edit_box = VBoxContainer.new()
+	_edit_box.name = "PdEdit"
+	_edit_box.visible = false
+	var edit_label := Label.new()
+	edit_label.text = "THE EDIT: pick its spin (1, 2, 3)"
+	edit_label.add_theme_color_override("font_color", CAMERA_RED)
+	_edit_box.add_child(edit_label)
+	_edit_bar = ProgressBar.new()
+	_edit_bar.name = "PdEditBar"
+	_edit_bar.show_percentage = false
+	_edit_bar.custom_minimum_size = Vector2(0, 6)
+	var fill := StyleBoxFlat.new()  # (the time left, in the camera's red)
+	fill.bg_color = CAMERA_RED
+	_edit_bar.add_theme_stylebox_override("fill", fill)
+	_edit_box.add_child(_edit_bar)
+	_edit_buttons = VBoxContainer.new()
+	_edit_buttons.name = "PdEditSpins"
+	_edit_box.add_child(_edit_buttons)
+	desk_box.add_child(_edit_box)
+	desk_box.move_child(_edit_box, 1)  # (just under the camera: where your eye is)
 	_writing_box = VBoxContainer.new()
 	_writing_box.name = "PlantWriting"
 	_writing_box.visible = false
