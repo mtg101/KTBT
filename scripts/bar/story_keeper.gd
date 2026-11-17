@@ -6,7 +6,7 @@ extends RefCounted
 ## logs/transcripts/ folder when running from the editor (handy for reading and sharing;
 ## .gitignore keeps them out of commits). The tent's scene writes the diary and plays the
 ## recap; this keeps the record.
-## (Part 7 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 7 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Story = preload("res://scripts/rules/story.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")

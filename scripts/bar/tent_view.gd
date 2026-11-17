@@ -3,7 +3,7 @@ extends RefCounted
 ## bar's little touches, the sky and the light by the hour, the bulbs (and their swinging),
 ## and tonight's weather (rain, snow, fog, a haze). The tent's scene builds the stage in order
 ## (what's in front of what) and hands this the pieces that change; this only draws.
-## (Part 1 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 1 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")

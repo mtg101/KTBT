@@ -4,7 +4,7 @@ extends RefCounted
 ## whether they know each other's names, the last thing said), and the "can I call you
 ## eonni?" moment, when it's time, and marking them close. Plain functions on the bar, the
 ## owner and the tent's guests (null: the owner). The tent's scene narrates and saves.
-## (Part 10 of splitting visit.gd, the first half: see PLAN.md, "A proper refactor".)
+## (Part 10 of splitting visit.gd, the first half: see DEVLOG.md, 16 November 2026.)
 
 const Address = preload("res://scripts/rules/address.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")

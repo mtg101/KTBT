@@ -43,6 +43,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `rules/catalogue.gd` | Every dish and drink a pocha might serve, by layer (always, the classics, the bar's own), and a bar's menu: the house rules the AI's choice is checked against, and the game's own menu when it can't choose |
 | `rules/signatures.gd` | A bar's signature dishes: the AI's (named in romanised Korean and Hangul, with what the name means, from the owner's story) checked, the game's price and cooking time set, and the game's own when the AI can't |
 | `rules/specials.gd` | Tonight's specials and what's sold out, from the bar's own menu: by the weather and the season, never a staple or last night's again, now and then the owner's own dish |
+| `rules/plants.gd` | The PD's plant cards: what each one is (as data, so more can be added), tonight's hand, when one can be played, and the moment it gives whoever it happens to |
 | `rules/menu_changes.gd` | Menus that change slowly: when a dish hardly anyone orders comes off (never a classic, a staple, the owner's own or a regular's usual), and the seasonal dishes offered in its place |
 | `rules/dish_art.gd` | How a dish or drink looks on the table, from its menu item's description (vessel, fill, bits, garnish) |
 | `rules/menu.gd` | Tonight's menu (the open bar's, or the classic one), prices, resolving what the AI wrote to a menu id, the board's order, what's sold out |
@@ -65,7 +66,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `bar/friendliness.gd` | Who calls whom: how the owner and customers address each other, two regulars' record of each other, and the "can I call you eonni?" moment (part 10, first half, split out of `visit.gd`) |
 | `bar/conversation.gd` | What each line is given: the situations and moments for the owner's conversations and the customers' chats, how strangers know each other, who spoke last (part 10, second half, split out of `visit.gd`) |
 | `bar/scenery.gd` | The tent's fixtures: the drinks fridge, the odeng pot, the karaoke neon across the street, steam off a hot dish (part 11 split out of `visit.gd`) |
-| `bar/stats_panel.gd` | The debug stats panel's contents: a tab per section, one at a time (part 11) |
+| `bar/stats_panel.gd` | The side panel's contents: who's here now (the first tab, written by the tent), then a tab per section of the debug stats, one at a time (part 11) |
 | `bar/camera.gd` | The PD's camera: who the show's following (the player clicks a customer or the cat), and the airtime that gets them (for the cat, whoever it's with): the owner sees to them sooner, the counter's chats lean their way, they notice the camera once, and a followed cat wanders sooner |
 | `save/save_upgrades.gd` | Bars saved by older versions, brought up to date in one place: what the game fills in itself, and what still needs the AI, once (refactor step 6) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (its weather, its stats, and the owner's moments waiting for their next line; it grows as parts move out) |

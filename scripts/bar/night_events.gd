@@ -15,7 +15,7 @@ signal happened(kind: String, facts: Dictionary, about: Variant, spot: Vector2)
 const KINDS := ["arrived", "walked_on", "sat_down", "greeted", "ordered", "drinks_poured", "stove_backed", "dish_served",
 	"paid", "left", "chat_started", "chat_continued", "joined_chat", "owner_joined", "cat_moved",
 	"became_regular", "friendlier", "big_moment", "dawn", "last_orders", "cat_stole", "closed_early", "first_snow", "cheered_on", "table_game", "table_game_offered", "cliffhanger_answered", "menu_changed",
-	"camera_on", "camera_off"]
+	"camera_on", "camera_off", "plant_played"]
 
 var timeline: Array = []  # tonight's events, in order: {"kind", "at" (the clock), and their facts}
 

@@ -238,6 +238,24 @@ func test_the_pds_camera_is_counted() -> void:
 	assert_array(logged["pd"]["lines_on_camera"]).is_equal([1, 2])
 	assert_array(logged["pd"]["noticed_camera"]).is_equal([1, 1])
 	assert_int(logged["pd"]["camera"].size()).is_equal(3)
+	# The plant cards: played, and whether the lines given them took them up.
+	assert_str(stats.panel_text(0, 0)).contains("Plants: none played tonight")
+	stats.events.append({"kind": "plant_played", "card": "phone", "name": "Kim Ji-ho", "at": 1410})
+	stats.record_hint("plant_phone", "Sorry, I have to take this call.")
+	stats.record_hint("plant_phone", "Anyway.")
+	assert_str(stats.panel_text(0, 0)).contains("Plants: played 1 · phone taken up 1/2")
+	assert_array(stats.highlights()).contains(["11:30pm  plant: phone (Kim Ji-ho)"])
+	assert_array(stats.summary({})["pd"]["plants"]["phone"]).is_equal([1, 2, 1, 0])
+	# ... and whether it came up at all, in anyone's lines (the owner's too), soon after.
+	stats.record_event("plant_played", {"card": "rain", "name": ""})
+	stats.events.append({"kind": "plant_played", "card": "rain", "name": "", "at": 1420})
+	stats.record_line("Be careful, it's pouring out there.")
+	stats.record_line("Another soju, please.")
+	for _k in NightStats.PLANT_WATCH_LINES:
+		stats.record_line("Look at all that rain!")  # (past the watch: not counted)
+	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1])
+	assert_str(stats.panel_text(0, 0)).contains("rain taken up 0/0, came up in %d of the next %d lines" % [NightStats.PLANT_WATCH_LINES - 1, NightStats.PLANT_WATCH_LINES])
+	assert_str(stats.hints_text()).not_contains("plant_")
 
 
 func test_the_pocha_life_has_a_section_of_its_own() -> void:

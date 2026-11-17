@@ -5,7 +5,7 @@ extends RefCounted
 ## further; too far and they're not regulars any more), and what the owner remembers of them.
 ## The tent's scene asks the AI (founding regulars, tonight's mood, memories after a visit),
 ## narrates and saves; this works it out. The rules themselves are in scripts/rules/regulars.gd.
-## (Part 8 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 8 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
@@ -112,7 +112,7 @@ static func pulls(bar: Dictionary) -> Dictionary:
 	return {"pulls": each, "founding": founding}
 
 
-## What the owner remembers about a regular, for the info panel's hover ("" if nothing yet).
+## What the owner remembers about a regular, for the hover in who's here now ("" if nothing yet).
 static func remembered_text(known: Dictionary) -> String:
 	var parts := PackedStringArray()
 	if str(known.get("impression", "")) != "":

@@ -1,6 +1,6 @@
 extends RefCounted
 ## Bars saved by older versions of the game, brought up to date in one place (step 6 of the
-## refactor: see PLAN.md). Two kinds:
+## refactor: see DEVLOG.md). Two kinds:
 ## - upgrade: what the game fills in itself, as the bar opens (an owner from before looks gets
 ##   a look for their age; one from before owners had a fixed life gets one): saved straight away.
 ## - ai_needs: what it needs the AI for, once, while the bar opens (names in Hangul, founding

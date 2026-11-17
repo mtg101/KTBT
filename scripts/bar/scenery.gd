@@ -2,7 +2,7 @@ extends RefCounted
 ## The tent's fixtures, drawn: the drinks fridge, the odeng pot simmering on the stove, the
 ## karaoke neon across the street (flickering now and then), and steam off a hot dish just set
 ## down. The tent's scene places them as it builds the stage.
-## (Part 11 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 11 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Text = preload("res://scripts/rules/text.gd")

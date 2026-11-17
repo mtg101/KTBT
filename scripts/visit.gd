@@ -36,6 +36,7 @@ const Conversation = preload("res://scripts/bar/conversation.gd")
 const Scenery = preload("res://scripts/bar/scenery.gd")
 const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 const SaveUpgrades = preload("res://scripts/save/save_upgrades.gd")
 const Prompts = preload("res://scripts/ai/prompts.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
@@ -87,9 +88,9 @@ const OWNER_TEXT := Ktv.YELLOW
 
 # Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
 const SCREEN := Vector2(1920, 1080)
-const PANELS_TOP := 452.0  # The transcript and info panels fill the screen below the tent.
-const INFO_WIDTH := 520.0
-const STATS_WIDTH := 460.0  # the debug stats panel, between the transcript and the info panel
+const PANELS_TOP := 452.0  # The transcript, the PD's desk and the side panel fill the screen below the tent.
+const SIDE_WIDTH := 520.0  # the side panel on the right: who's here now, and the debug stats
+const DESK_WIDTH := 460.0  # the PD's desk, between the transcript and the side panel
 
 # Where things stand in the tent (pixels, inside the stage area, which is nearly full width).
 const STAGE_SIZE := Vector2(1872, 380)
@@ -150,6 +151,8 @@ class Guest:
 	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
 	var stunned := ""  # a Talk.stunned_moment for their next line, after a shock they heard
 	var camera_moment := ""  # a Talk.camera_moment for their next line: the PD's camera has just turned to them
+	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
+	var plant_card := ""  # ... which card
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
@@ -187,6 +190,12 @@ var _guests: Array = []  # Guest: whoever's on a stool
 var _camera := PdCamera.new()  # the PD's camera: who the show's following tonight (scripts/bar/camera.gd)
 const CAMERA_RED := Color("ff4f6d")  # the camera's REC (the shock caption's red)
 var _camera_rec: Label  # "● REC" and who, in the stage's top corner, while the camera's on someone
+var _hand: Array = []  # tonight's plant cards (Plants.CARDS ids), dealt as the night opens
+var _played: Array = []  # ... and the ones played
+var _planted_regular := ""  # the regular the PD rang tonight, until they're in (their id)
+var _plant_dice := RandomNumberGenerator.new()  # the cards' own (dealing them never shifts anything else's rolls)
+var _plant_cards: VBoxContainer  # the cards on the PD's desk
+const PLANT_REGULAR_MINUTES := 15.0  # how long a regular the PD rang takes to get here
 var _counter_chats := CounterChats.new()  # customers chatting: who's in which chat, choosing the next spell (scripts/bar/counter_chats.gd)
 var _chats: Array:  # Chat: customer conversations going on at the counter
 	get:
@@ -362,8 +371,7 @@ var _try_again: Button  # only shown if the owner couldn't be invented
 var _leave_button: Button
 var _time_speed := NightRules.time_speed(0)  # how fast game time is running now (eases to the target)
 var _reading_toggle: CheckBox
-var _stats_toggle: CheckBox
-var _stats_panel: PanelContainer
+var _stats_panel: PanelContainer  # the side panel: who's here now, then the debug stats, in tabs
 var _stats_text: RichTextLabel
 var _stats_tabs: HFlowContainer  # one tab per section of the stats, and All
 var _stats_view: StatsPanel  # what the stats panel shows, in its tabs (scripts/bar/stats_panel.gd)
@@ -374,7 +382,9 @@ var _takings_label: Label
 var _title_label: Label
 var _log: RichTextLabel
 var _typing_label: Label
-var _info: RichTextLabel
+var _here_text := ""  # who's here now, for the side panel's first tab (see _update_info)
+var _desk_panel: PanelContainer  # the PD's desk: the camera (and the plant cards, to come)
+var _desk: RichTextLabel
 
 # Scene pieces
 var _stage: Control
@@ -1025,6 +1035,10 @@ func _start_night() -> void:
 	_stats = NightStats.new()
 	_camera = PdCamera.new()
 	_camera.cat = _tent_cat
+	_plant_dice.seed = hash("%s night %d" % [Game.bar.get("id", ""), _night_number])
+	_hand = Plants.deal(_plant_dice)
+	_played = []
+	_planted_regular = ""
 	_show_camera()
 	_events = NightEvents.new()
 	_events.happened.connect(_stats.record_event)
@@ -1500,11 +1514,9 @@ func _count_time(delta: float) -> void:
 
 ## The stats panel, shown in its tabs (see StatsPanel).
 func _update_stats_panel() -> void:
-	if not _stats_panel.visible:
-		return
 	if _stats_view == null:
 		_stats_view = StatsPanel.new(_stats_text, _stats_tabs, ACCENT, MUTED)
-	_stats_view.refresh(_stats, _guests.size(), _kitchen.size() + _ready_dishes.size(), _night_number)
+	_stats_view.refresh(_stats, _guests.size(), _kitchen.size() + _ready_dishes.size(), _night_number, _here_text)
 
 
 ## Writes tonight's log (stats/ in the user data folder).
@@ -1549,30 +1561,23 @@ func _finish_transcript(context: Dictionary) -> void:
 	_story.finish(bool(context["finished"]), str(context["clock"]), _stats.panel_text(_guests.size(), _kitchen.size() + _ready_dishes.size()).replace("[b]", "").replace("[/b]", ""))
 
 
-func _on_stats_toggled(_on: bool) -> void:
-	_layout_panels()
-	_update_stats_panel()
-
-
-## F3 shows or hides the stats panel.
+## Esc opens or closes the Options panel.
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
-		_stats_toggle.button_pressed = not _stats_toggle.button_pressed
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		_options_button.button_pressed = not _options_button.button_pressed
 
 
-## The panels under the tent: the transcript, then the stats (when shown), then the info.
+## The panels under the tent: the transcript, the PD's desk, then the side panel (who's here
+## now, and the stats).
 func _layout_panels() -> void:
 	var height := SCREEN.y - PANELS_TOP - 24
-	var info_x := SCREEN.x - INFO_WIDTH - 24
-	var log_width := info_x - 48
-	_stats_panel.visible = _stats_toggle.button_pressed
-	if _stats_panel.visible:
-		log_width -= STATS_WIDTH + 24
-		_stats_panel.position = Vector2(24 + log_width + 24, PANELS_TOP)
-		_stats_panel.size = Vector2(STATS_WIDTH, height)
-	_log_panel.size = Vector2(log_width, height)
+	var side_x := SCREEN.x - SIDE_WIDTH - 24
+	var desk_x := side_x - 24 - DESK_WIDTH
+	_log_panel.size = Vector2(desk_x - 48, height)
+	_desk_panel.position = Vector2(desk_x, PANELS_TOP)
+	_desk_panel.size = Vector2(DESK_WIDTH, height)
+	_stats_panel.position = Vector2(side_x, PANELS_TOP)
+	_stats_panel.size = Vector2(SIDE_WIDTH, height)
 
 
 ## Where the owner stands to see to someone.
@@ -1606,6 +1611,11 @@ func _greet() -> void:
 		if _closed():  # (the bar closed while it was waiting)
 			return
 		look = customer["look"]
+		if str(regular.get("id", "")) == _planted_regular:  # (the PD rang them: they know why they're here)
+			guest.plant_moment = Plants.moment("regular_in", str(regular["name"]))
+			guest.plant_card = "regular_in"
+			_planted_regular = ""
+			_narrate("(%s)" % Plants.happened("regular_in", str(regular["name"])))
 	else:
 		_narrate("%s. Someone ducks under the tarp." % guest.arrived)
 		customer = _take_prepared()
@@ -1982,6 +1992,7 @@ func _next_line(guest: Guest) -> void:
 			guest.line += 1
 			return
 	var owner_speaks := i % 2 == 0
+	_plant_in(guest.transcript, guest)
 	var given := Conversation.owner_line(_night, guest, i, _late(), Looks.wet(_weather_kind))  # (what this line's given: see Conversation)
 	var direction := str(given["direction"])
 	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
@@ -2245,6 +2256,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		both and _served_of(speaking, "drink") > 0 and _served_of(listening, "drink") > 0]
 	if listening == null:
 		food[0] = 0  # (sharing's between two customers)
+	if speaking != null:
+		_plant_in(chat.transcript, speaking)
 	var given := Conversation.chat_line(_night, chat, speaker, addressee, first, speaking, owner_speaks, close, moment_term,
 		both and not _friend(speaking, listening).is_empty(), food, fewest, _clock >= Talk.TABLE_GAME_FROM, _scenery_dice)  # (what this line's given: see Conversation)
 	var direction := str(given["direction"])
@@ -2961,7 +2974,7 @@ func _owner_display() -> String:
 	return "%s (%s)" % [_owner["name"], _owner["title"]]
 
 
-## Gender symbols for names on screen (name tags, who's speaking, the info panel), since
+## Gender symbols for names on screen (name tags, who's speaking, who's here now), since
 ## Korean names don't make it obvious. The AI never sees these.
 const GENDER_SYMBOL := {"woman": "♀", "man": "♂", "non-binary": "⚲"}
 
@@ -3009,7 +3022,7 @@ func _esc(value: Variant) -> String:
 
 
 ## Hovering over a customer: who they are and how their night's going, from what the game
-## knows (the same as the info panel's), kept up to date. An invisible area over their body
+## knows (the same as who's here now), kept up to date. An invisible area over their body
 ## (people are drawn ignoring the mouse), short of the drinks and food beside them, which have
 ## tooltips of their own.
 func _update_hover(guest: Guest) -> void:
@@ -3141,8 +3154,134 @@ func _show_camera() -> void:
 		_camera_rec.visible = who != ""
 	for guest in _guests:
 		_update_hover(guest)
+	_update_desk()
 	if not _cat.is_empty() and _tent_cat != null and _tent_cat.node != null:
 		_cat_node.tooltip_text = _cat_tooltip()
+
+
+## What a PD is, on the desk's title's hover.
+const PD_MEANS := "PD: the producer-director, who makes a Korean TV show: picks whose story the camera follows, and sets things up to see what happens. That's you: the tent runs itself, and nothing you do here pauses it."
+
+
+## The PD's desk: who the camera's on, and how to use it.
+func _update_desk() -> void:
+	if _desk == null:
+		return
+	var accent := ACCENT.to_html(false)
+	var muted := MUTED.to_html(false)
+	var t := "[color=#%s][b]%s[/b][/color]\n\n" % [accent, Text.hint(PD_MEANS, "PD CONTROLS")]
+	t += "[b]Camera[/b]\n"
+	if _camera.on_cat:
+		var with: Variant = _camera.subject()
+		t += "[color=#%s]● REC[/color] %s, the cat%s\n" % [CAMERA_RED.to_html(false), _esc(_cat.get("name", "")),
+			(", with %s" % _esc(with.customer["name"])) if with != null else ", on its own"]
+	elif _camera.following != null:
+		t += "[color=#%s]● REC[/color] %s\n" % [CAMERA_RED.to_html(false), _esc(_camera.following.customer["name"])]
+	else:
+		t += "[color=#%s]Not on anyone.[/color]\n" % muted
+	t += "[color=#%s]Click someone at the counter, or the cat, to follow them: their story gets the airtime. Click again to stop.[/color]\n" % muted
+	t += "\n[b]Plants[/b]  [color=#%s]tonight's cards: play one, and see what comes of it[/color]" % muted
+	_desk.text = Glossary.explain_hangul(t)
+	_update_plant_cards()
+
+
+# --- The PD's plant cards -------------------------------------------------------------------
+
+## Tonight's cards on the desk: one button each, greyed out once played or while they can't be.
+func _update_plant_cards() -> void:
+	if _plant_cards == null:
+		return
+	var names := ",".join(PackedStringArray(_hand))
+	if str(_plant_cards.get_meta("hand", "")) != names:
+		_plant_cards.set_meta("hand", names)
+		for old in _plant_cards.get_children():
+			_plant_cards.remove_child(old)
+			old.queue_free()
+		for card in _hand:
+			var button := Button.new()
+			button.name = "Plant_" + str(card)
+			button.focus_mode = Control.FOCUS_NONE
+			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			button.add_theme_font_size_override("font_size", 17)
+			button.pressed.connect(_on_plant_pressed.bind(str(card)))
+			_plant_cards.add_child(button)
+	var now := _plant_now()
+	for button in _plant_cards.get_children():
+		var card := str(button.name).trim_prefix("Plant_")
+		var played := _played.has(card)
+		var why := Plants.why_not(card, now)
+		button.text = "%s%s" % [Plants.CARDS[card]["title"], "  (played)" if played else ""]
+		button.disabled = played or why != ""
+		button.tooltip_text = Text.tip(str(Plants.CARDS[card]["about"]) + ("\nPlayed tonight." if played else ("\n" + why if why != "" else "")))
+
+
+## What the cards need to know about right now (see Plants.why_not).
+func _plant_now() -> Dictionary:
+	return {"open": _night_open and not _closing_early and not _last_orders, "seated": _guests.size(),
+		"regulars_away": _regulars_away().size(), "weather_kind": _weather_kind}
+
+
+## The bar's regulars who aren't here tonight and aren't waiting to come in.
+func _regulars_away() -> Array:
+	var here: Array = _guests.map(func(g): return str(g.customer.get("regular_id", "")))
+	return RegularsTonight.all(Game.bar).filter(func(r): return not here.has(str(r["id"])) and not _waiting_who.has(str(r["id"])) and str(r["id"]) != _planted_regular)
+
+
+## The PD plays a card: it happens, now (a game fact), and whoever it happens to is given it
+## for their next line. Never pauses anything.
+func _on_plant_pressed(card: String) -> void:
+	if _played.has(card) or not _hand.has(card) or Plants.why_not(card, _plant_now()) != "":
+		return
+	_played.append(card)
+	var who := ""
+	var about: Variant = null  # (who the caption goes over: nobody in particular, unless it's their phone)
+	match card:
+		"regular_in":
+			var away := _regulars_away()
+			var regular: Dictionary = away[_plant_dice.randi_range(0, away.size() - 1)]
+			who = str(regular["name"])
+			_planted_regular = str(regular["id"])
+			for due in _regulars_due.duplicate():
+				if str(due["id"]) == _planted_regular:
+					_regulars_due.erase(due)  # (coming anyway, later: the call brings them sooner)
+			_regulars_due.append({"time": _clock + PLANT_REGULAR_MINUTES, "id": _planted_regular})
+			_regulars_due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
+			_narrate("The PD rings %s: could they come down to the tent tonight?" % who)
+		"rain":
+			_night_weather = str(Plants.CARDS["rain"]["weather"])
+			_show_weather(NightRules.weather_kind(_night_weather))
+			_stats.story["weather_changed"] = _night_weather
+			_narrate("Out of nowhere, the heavens open: rain drums on the tarp.")
+			for guest in _guests:
+				guest.moment["weather"] = _night_weather
+				guest.plant_moment = Plants.moment("rain", str(guest.customer["name"]))
+				guest.plant_card = "rain"
+				_plant_in(guest.transcript, guest)
+			for chat in _chats:
+				chat.transcript.append({"action": Plants.happened("rain")})
+			_update_clock_label()
+		"phone":
+			var target: Variant = _camera.subject()
+			if target == null or not _guests.has(target):
+				target = _guests[_plant_dice.randi_range(0, _guests.size() - 1)]
+			who = str(target.customer["name"])
+			target.plant_moment = Plants.moment("phone", who)
+			target.plant_card = "phone"
+			_plant_in(target.transcript, target)
+			about = target.node
+			_narrate(Plants.happened("phone", who))
+	_event("plant_played", {"card": card, "name": who}, about)
+	_update_desk()
+
+
+## A plant card that's happened to someone, in the conversation they're about to speak in (if
+## it isn't there yet), so "what just happened" includes it, as well as their moment.
+func _plant_in(transcript: Array, guest: Variant) -> void:
+	if guest == null or guest.plant_moment == "" or guest.plant_card == "":
+		return
+	var what := Plants.happened(guest.plant_card, str(guest.customer["name"]))
+	if not transcript.any(func(entry): return str(entry.get("action", "")) == what):
+		transcript.append({"action": what})
 
 
 func _cat_tooltip() -> String:
@@ -3194,7 +3333,7 @@ const HOVER_REMEMBERED := 60  # ...and at most this much of what the owner remem
 
 ## One short thing the owner remembers about them, for the hover: a fact that sticks (short by
 ## nature: "From: Busan"), or the owner's impression, cut short at a word. (The memories are
-## whole sentences: all of them are in the info panel, over their name.)
+## whole sentences: all of them are in who's here now, over their name.)
 func _remembered_briefly(known: Dictionary) -> String:
 	var facts: Dictionary = known.get("facts", {})
 	var brief := ""
@@ -3207,7 +3346,7 @@ func _remembered_briefly(known: Dictionary) -> String:
 	return Text.shorten(brief, HOVER_REMEMBERED)
 
 
-## The info panel: the owner, then everyone at the counter and what's on their table.
+## Who's here now (the side panel's first tab): the owner, the cat, then everyone at the counter and what's on their table; and the PD's desk with it.
 func _update_info() -> void:
 	var accent := ACCENT.to_html(false)
 	var muted := MUTED.to_html(false)
@@ -3258,7 +3397,9 @@ func _update_info() -> void:
 	var queueing := _waiting.size() - _free_seats().size()
 	if queueing > 0:
 		t += "\n[color=#%s]Waiting for a stool: %d[/color]\n" % [muted, queueing]
-	_info.text = Glossary.explain_hangul(t)
+	_here_text = Glossary.explain_hangul(t)
+	_update_stats_panel()
+	_update_desk()
 
 
 # --- Checking the AI's replies (the rules live in scripts/rules/) ------------
@@ -3357,14 +3498,6 @@ func _build_ui() -> void:
 	_reading_toggle.tooltip_text = Text.tip("Wait after each line so there's time to read it. Off: lines come as fast as the AI writes them.")
 	opts.add_child(_reading_toggle)
 
-	_stats_toggle = CheckBox.new()
-	_stats_toggle.name = "StatsToggle"
-	_stats_toggle.text = "Stats"
-	_stats_toggle.button_pressed = true  # Shown by default while we're testing.
-	_stats_toggle.tooltip_text = Text.tip("Debug stats for tonight (F3). A log of them is saved at the end of each night.")
-	_stats_toggle.toggled.connect(_on_stats_toggled)
-	opts.add_child(_stats_toggle)
-
 	_bubbles_toggle = CheckBox.new()
 	_bubbles_toggle.name = "BubblesToggle"
 	_bubbles_toggle.text = "Bubbles"
@@ -3427,7 +3560,7 @@ func _build_ui() -> void:
 	music_row.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
-	for toggle in [_reading_toggle, _stats_toggle, _sound_toggle, _music_toggle, _bubbles_toggle, _captions_toggle]:
+	for toggle in [_reading_toggle, _sound_toggle, _music_toggle, _bubbles_toggle, _captions_toggle]:
 		Ktv.light_ticks(toggle)
 
 	_try_again = Button.new()
@@ -3475,7 +3608,7 @@ func _build_ui() -> void:
 	_build_stage(_stage)
 
 	# Bottom left: what's being said
-	_log_panel = _panel(Vector2(24, PANELS_TOP), Vector2(SCREEN.x - INFO_WIDTH - 72, SCREEN.y - PANELS_TOP - 24))
+	_log_panel = _panel(Vector2(24, PANELS_TOP), Vector2(400, SCREEN.y - PANELS_TOP - 24))  # (sized in _layout_panels)
 	add_child(_log_panel)
 	var log_box := VBoxContainer.new()
 	_log_panel.add_child(log_box)
@@ -3494,20 +3627,27 @@ func _build_ui() -> void:
 	_typing_label.add_theme_color_override("font_color", MUTED)
 	log_box.add_child(_typing_label)
 
-	# Bottom right: who's who
-	var info_panel := _panel(Vector2(SCREEN.x - INFO_WIDTH - 24, PANELS_TOP), Vector2(INFO_WIDTH, SCREEN.y - PANELS_TOP - 24))
-	add_child(info_panel)
-	_info = RichTextLabel.new()
-	_info.name = "Info"
-	_info.bbcode_enabled = true
-	_info.selection_enabled = true
-	_info.add_theme_font_size_override("normal_font_size", 17)
-	_info.add_theme_font_size_override("bold_font_size", 17)
-	_info.add_theme_font_size_override("italics_font_size", 17)
-	info_panel.add_child(_info)
+	# Beside it, the PD's desk: the camera (and, to come, the plant cards).
+	_desk_panel = _panel(Vector2.ZERO, Vector2(DESK_WIDTH, 100))
+	_desk_panel.name = "PdDesk"
+	add_child(_desk_panel)
+	var desk_box := VBoxContainer.new()
+	desk_box.add_theme_constant_override("separation", 10)
+	_desk_panel.add_child(desk_box)
+	_desk = RichTextLabel.new()
+	_desk.name = "PdDeskText"
+	_desk.bbcode_enabled = true
+	_desk.fit_content = true
+	_desk.add_theme_font_size_override("normal_font_size", 17)
+	_desk.add_theme_font_size_override("bold_font_size", 17)
+	desk_box.add_child(_desk)
+	_plant_cards = VBoxContainer.new()
+	_plant_cards.name = "PlantCards"
+	_plant_cards.add_theme_constant_override("separation", 8)
+	desk_box.add_child(_plant_cards)
 
-	# Between them, the debug stats (while we're testing).
-	_stats_panel = _panel(Vector2.ZERO, Vector2(STATS_WIDTH, 100))
+	# Bottom right: who's here now, then tonight's debug stats, in tabs.
+	_stats_panel = _panel(Vector2.ZERO, Vector2(SIDE_WIDTH, 100))
 	_stats_panel.name = "StatsPanel"
 	add_child(_stats_panel)
 	_stats_text = RichTextLabel.new()
@@ -4021,7 +4161,7 @@ func _count_regulars() -> void:
 	_stats.founding_regulars = int(counted["founding"])
 
 
-## What the owner remembers about a regular, for the info panel's hover (see RegularsTonight).
+## What the owner remembers about a regular, for the hover in who's here now (see RegularsTonight).
 func _remembered_text(known: Dictionary) -> String:
 	return RegularsTonight.remembered_text(known)
 

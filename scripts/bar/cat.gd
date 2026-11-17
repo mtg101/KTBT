@@ -3,7 +3,7 @@ extends RefCounted
 ## and moving it there (prowling under the stools, winding round ankles, out in the street),
 ## and what the AI's told about it, and checked against. The tent's scene decides when it
 ## moves, and what happens because of it (moments, thefts); this keeps track and draws.
-## (Part 4 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 4 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")

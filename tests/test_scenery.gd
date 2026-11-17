@@ -30,8 +30,12 @@ func test_the_stats_panel_shows_a_section_at_a_time() -> void:
 	var panel := StatsPanel.new(text, tabs, Color.WHITE, Color.GRAY)
 	var stats := NightStats.new()
 	stats.events = [{"kind": "cheered_on", "at": 21 * 60 + 58}]
-	panel.refresh(stats, 0, 0, 3)
-	assert_str(text.get_parsed_text()).contains("Night 3").contains("HIGHLIGHTS").contains("hwaiting chorus").not_contains("PEOPLE")
+	panel.refresh(stats, 0, 0, 3, "[b]THE OWNER[/b]\nPark Mi-sook, 58")
+	# It opens on who's here now (the tent's own text), not the stats.
+	assert_str(text.get_parsed_text()).contains("HERE NOW").contains("Night 3").contains("Park Mi-sook").not_contains("HIGHLIGHTS")
+	var highlights := tabs.get_node("StatsTab_HIGHLIGHTS") as Button
+	highlights.pressed.emit()  # (as clicking it does)
+	assert_str(text.get_parsed_text()).contains("HIGHLIGHTS").contains("hwaiting chorus").not_contains("PEOPLE").not_contains("Park Mi-sook")
 	var all := tabs.get_node("StatsTab_ALL") as Button
 	all.pressed.emit()  # (as clicking it does)
 	assert_str(panel.tab).is_equal("ALL")

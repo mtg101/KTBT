@@ -1,8 +1,8 @@
 extends RefCounted
 ## Tonight at the tent: what the tent's parts share, in one place. The scene keeps it, and
 ## hands it to each part; a part reads it and changes it, rather than keeping its own copy.
-## Grows a field at a time, as the parts that need them move out of visit.gd (see PLAN.md,
-## "A proper refactor").
+## Grew a field at a time, as the parts that needed them moved out of visit.gd (see
+## DEVLOG.md, 16 November 2026).
 
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 

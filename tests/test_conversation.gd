@@ -6,6 +6,7 @@ const Conversation = preload("res://scripts/bar/conversation.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 
 
 ## Just what the conversations look at.
@@ -19,6 +20,8 @@ class Someone:
 	var food_moment := ""
 	var cat_moment := ""
 	var camera_moment := ""
+	var plant_moment := ""
+	var plant_card := ""
 
 
 func test_the_owners_line_is_given_its_moments_once() -> void:
@@ -104,6 +107,23 @@ func test_the_camera_turning_to_someone_is_their_next_lines_moment_once() -> voi
 	var said := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)
 	assert_str(str(said["hint"])).is_equal("camera")
 	assert_str(guest.camera_moment).is_empty()
+
+
+func test_a_plant_card_is_the_next_lines_moment_once() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	guest.plant_moment = Plants.moment("phone", "Kim Ji-ho")
+	guest.plant_card = "phone"
+	var theirs := Conversation.owner_line(night, guest, 3, false, false)
+	assert_str(str(theirs["hint"])).is_equal("plant_phone")
+	assert_str(str(theirs["direction"])).contains("phone has just started ringing")
+	assert_str(guest.plant_moment).is_empty()
+	# In a chat too.
+	guest.plant_moment = Plants.moment("rain")
+	guest.plant_card = "rain"
+	var said := Conversation.chat_line(night, CounterChats.Chat.new(), "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, RandomNumberGenerator.new())
+	assert_str(str(said["hint"])).is_equal("plant_rain")
+	assert_str(guest.plant_moment).is_empty()
 
 
 func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:

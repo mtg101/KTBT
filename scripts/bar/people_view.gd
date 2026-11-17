@@ -4,7 +4,7 @@ extends RefCounted
 ## a phone held up; an umbrella (its shape, the snow settling on it, the rain running off,
 ## shaken off under the tarp and folded), or a bag held over their head, running for it.
 ## The tent's scene says who and when; this only draws.
-## (Part 2 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 2 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Draw = preload("res://scripts/bar/draw.gd")
 const Looks = preload("res://scripts/rules/looks.gd")

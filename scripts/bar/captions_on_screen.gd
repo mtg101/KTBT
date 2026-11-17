@@ -4,7 +4,7 @@ extends RefCounted
 ## them so they stay a treat (and routine ones wait while a reaction's up); and the red light
 ## for an emergency. The tent's scene decides what deserves one (events, the AI's reaction
 ## check) and fills in the blanks; this paces and shows them, and counts them in the stats.
-## (Part 6 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 6 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Captions = preload("res://scripts/rules/captions.gd")
 const CaptionPopup = preload("res://scripts/ui/caption.gd")

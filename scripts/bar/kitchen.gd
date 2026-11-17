@@ -3,7 +3,7 @@ extends RefCounted
 ## one's done it waits by the stove to be carried over; the stove's row of dishes shows what's
 ## cooking, waiting and ready. And how a dish (or the free banchan) looks on the table.
 ## The tent's scene decides who orders what and carries it over; this keeps the queue.
-## (Part 5 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 5 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Menu = preload("res://scripts/rules/menu.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")

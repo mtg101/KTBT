@@ -3,7 +3,7 @@ extends RefCounted
 ## phones, under umbrellas or running for it), and passers-by who wanted in, look at the full
 ## stools and walk on; and rain gear, for anyone out in tonight's weather (customers coming
 ## in and going home too). The tent's scene says when; this draws them and counts them.
-## (Part 3 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 3 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Draw = preload("res://scripts/bar/draw.gd")
 const Layout = preload("res://scripts/bar/layout.gd")

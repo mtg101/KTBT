@@ -521,6 +521,9 @@ const HINT_TELLS := {
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
 	"camera": ["camera", "film", "on tv", "episode", "crew", "broadcast"],
+	"plant_regular_in": ["rang", "phoned", "called me", "invited", "producer", "pd", "on tv", "camera", "episode"],
+	"plant_rain": ["rain", "pour", "umbrella", "wet", "soaked", "downpour", "drumming", "tarp"],
+	"plant_phone": ["phone", "call", "ring", "answer", "text", "message", "mum", "mom", "boss"],
 	"game_spoon_mic": ["sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "floor", "stack"],
 	"game_titanic": ["titanic", "sink", "sank"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
 	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"],

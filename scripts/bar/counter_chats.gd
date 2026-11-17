@@ -3,7 +3,7 @@ extends RefCounted
 ## free to start one or join in, and choosing tonight's next spell (carry one on, someone
 ## joining in, or two strangers getting talking). The tent's scene says each line (asking the
 ## AI), narrates and announces it; this keeps track of who's talking to whom.
-## (Part 9 of splitting visit.gd: see PLAN.md, "A proper refactor".)
+## (Part 9 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const People = preload("res://scripts/rules/people.gd")
 

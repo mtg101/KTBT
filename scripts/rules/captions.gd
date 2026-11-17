@@ -105,6 +105,13 @@ const CAPTIONS := {
 	# Last time's cliffhanger, answered: the biggest moment a night can have.
 	"cliffhanger": {"words": [["예고 적중!!", "THE CLIFFHANGER… ANSWERED!"], ["예고 적중!!", "{name}: <IT HAPPENED|NO WAY|THEY DID IT>!"]],
 		"icon": "🎬", "colour": "ff4f6d", "sound": "siren", "emergency": true, "always": true},
+	# The PD's plant cards, as they're played (see Plants.CARDS): so you can see it happen.
+	"plant_regular_in": {"words": [["섭외 전화!", "THE PD'S <ON THE PHONE|MAKING A CALL|CALLING IN A FAVOUR>"], ["섭외 전화!", "CALLING {name}<…|!>"]],
+		"icon": "📞", "colour": "ff7eb6", "sound": "ding", "emergency": false, "always": true},
+	"plant_rain": {"words": [["소나기!", "<A SUDDEN SHOWER|DOWNPOUR|OUT OF NOWHERE>!"], ["비 온다!", "HERE COMES THE RAIN<!|!!>"]],
+		"icon": "☔", "colour": "7fd8ff", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_phone": {"words": [["따르릉!", "RING RING!"], ["전화 왔다!", "<A CALL|THE PHONE>! FOR {name}?!"]],
+		"icon": "📱", "colour": "7fd8ff", "sound": "ding", "emergency": false, "always": true},
 	# A table game, taken up (see Talk.TABLE_GAMES).
 	"game_spoon_mic": {"words": [["노래 시작!", "THE SPOON MIC IS <ON|LIVE>!"], ["숟가락 마이크", "SPOON MIC, <LIVE|ON AIR>!"]],
 		"icon": "🎤", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
@@ -420,6 +427,8 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			return {"kind": "cliffhanger", "fill": {"name": facts.get("name", "")}}
 		"table_game":
 			return {"kind": "game_" + str(facts.get("game", "")), "fill": {}}
+		"plant_played":
+			return {"kind": "plant_" + str(facts.get("card", "")), "fill": {"name": facts.get("name", "")}}
 		"closed_early":
 			if str(facts.get("reason", "")) != "":
 				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}

@@ -7,6 +7,7 @@ const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 const Ai = preload("res://scripts/ai/ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -470,20 +471,31 @@ func test_food_is_carried_over_while_the_ai_is_thinking() -> void:
 
 # --- Debug stats --------------------------------------------------------------------------
 
-func test_stats_are_shown_by_default_and_can_be_hidden() -> void:
+func test_the_panels_under_the_tent() -> void:
 	var runner := await _open_bar()
-	var panel := runner.find_child("StatsPanel") as Control
+	var scene = runner.scene()
+	var side := runner.find_child("StatsPanel") as Control
+	var desk := runner.find_child("PdDesk") as Control
 	var transcript_panel := (runner.find_child("Transcript") as Control).get_parent().get_parent() as Control
-	assert_bool(panel.visible).is_true()
-	var narrow := transcript_panel.size.x
-	var options := runner.find_child("OptionsButton") as Button  # the settings are in the Options panel
-	options.button_pressed = true
-	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_true()
-	await _click(runner, runner.find_child("StatsToggle"))
-	assert_bool(await _wait_until(func(): return not panel.visible)).is_true()
-	options.button_pressed = false
-	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_false()
-	assert_float(transcript_panel.size.x).is_greater(narrow)  # the transcript gets the room back
+	# Left to right: the transcript, the PD's desk, then who's here and the stats.
+	assert_bool(side.visible and desk.visible).is_true()
+	assert_float(transcript_panel.position.x + transcript_panel.size.x).is_less(desk.position.x)
+	assert_float(desk.position.x + desk.size.x).is_less(side.position.x)
+	assert_float(side.position.x + side.size.x).is_less_equal(Visit.SCREEN.x)
+	assert_object(runner.find_child("StatsToggle")).is_null()  # (no hiding it: it's who's here too)
+	# The side panel opens on who's here now; the desk on the camera.
+	var side_text := runner.find_child("StatsText") as RichTextLabel
+	assert_str(side_text.get_parsed_text()).contains("HERE NOW").contains("THE OWNER").contains(str(scene._owner["name"]))
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("PD CONTROLS").contains("Not on anyone")
+	scene._on_cat_clicked(_left_press())
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("● REC").contains(str(scene._cat["name"]))
+
+
+func _left_press() -> InputEventMouseButton:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	return press
 
 
 func test_stats_count_a_visit() -> void:
@@ -500,7 +512,7 @@ func test_stats_count_a_visit() -> void:
 	assert_int(stats.owner_lines_each.size()).is_equal(1)
 	# The panel refreshes twice a second, so give it a moment to catch up.
 	var panel := runner.find_child("StatsText") as RichTextLabel
-	assert_str(panel.get_parsed_text()).contains("HIGHLIGHTS").not_contains("Arrived")  # (one section at a time: the highlights first)
+	assert_str(panel.get_parsed_text()).contains("HERE NOW").not_contains("Arrived")  # (one section at a time: who's here first)
 	await _click(runner, runner.find_child("StatsTab_PEOPLE", true, false))
 	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Arrived 1"), 3000)).override_failure_message(panel.get_parsed_text()).is_true()
 	assert_str(panel.get_parsed_text()).not_contains("HIGHLIGHTS")
@@ -535,7 +547,7 @@ func test_names_on_screen_show_gender_symbols() -> void:
 	assert_str(label).starts_with(str(guest.customer["hangul"]))  # the Hangul first, like the sign
 	assert_str((guest.node.get_node("Tag") as Label).text).is_equal(label)
 	assert_str(_transcript(runner)).contains(label + ":")
-	assert_str((runner.find_child("Info") as RichTextLabel).get_parsed_text()).contains(label)
+	assert_str((runner.find_child("StatsText") as RichTextLabel).get_parsed_text()).contains(label)  # (who's here now)
 	var owner_symbol: String = Visit.gender_symbol(scene._owner["gender"])
 	assert_str((runner.find_child("Owner").get_node("Tag") as Label).text).contains(owner_symbol)
 	_time_up(scene)
@@ -584,7 +596,7 @@ func test_a_new_bar_gets_a_cat() -> void:
 	assert_bool(CatRules.CAT_PERSONALITIES.has(cat["personality"])).is_true()
 	assert_bool(SaveStore.load_bar(str(Game.bar["id"]))["cat"].has("name")).is_true()  # saved
 	assert_bool((runner.find_child("Cat") as Control).visible).is_true()
-	assert_str((runner.find_child("Info") as RichTextLabel).get_parsed_text()).contains("THE CAT")
+	assert_str((runner.find_child("StatsText") as RichTextLabel).get_parsed_text()).contains("THE CAT")  # (who's here now)
 	assert_str(_transcript(runner)).contains("%s, the tent's %s cat" % [cat["name"], cat["coat"]])
 
 
@@ -894,6 +906,55 @@ func test_the_pds_camera_can_follow_the_cat() -> void:
 	assert_bool(scene._camera.on_cat).is_false()
 	assert_bool(rec.visible).is_false()
 	assert_array(scene._stats.events.filter(func(e): return str(e["kind"]).begins_with("camera_")).map(func(e): return str(e["kind"]))).is_equal(["camera_on", "camera_off"])
+
+
+func test_the_pds_plant_cards() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	# Tonight's hand, on the desk.
+	var cards := runner.find_child("PlantCards") as Control
+	assert_int(cards.get_child_count()).is_equal(Plants.HAND)
+	assert_bool(scene._hand.all(func(card): return Plants.CARDS.has(card))).is_true()
+	var phone := cards.get_node("Plant_phone") as Button
+	assert_bool(phone.disabled).is_true()  # (nobody at the counter yet)
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).is_true()
+	scene._update_desk()
+	assert_bool(phone.disabled).is_false()
+	# A phone rings: for whoever the camera's on.
+	var followed = scene._guests[1]
+	_click_person(scene, followed)
+	followed.camera_moment = ""
+	phone.pressed.emit()
+	assert_str(followed.plant_card).is_equal("phone")
+	assert_str(followed.plant_moment).contains("phone has just started ringing")
+	assert_str(_transcript(runner)).contains("%s's phone starts ringing." % followed.customer["name"])
+	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == Plants.happened("phone", followed.customer["name"]))).is_true()
+	assert_int(int(scene._stats.captions.get("plant_phone", 0))).is_equal(1)  # (so you can see it happen)
+	# Whichever conversation they speak in next has it too (once).
+	var elsewhere: Array = []
+	scene._plant_in(elsewhere, followed)
+	scene._plant_in(elsewhere, followed)
+	assert_int(elsewhere.size()).is_equal(1)
+	assert_bool(phone.disabled).is_true()  # (once a night)
+	assert_str(phone.text).contains("(played)")
+	# The rain: tonight's weather, now, for everyone.
+	scene._weather_kind = ""
+	scene._on_plant_pressed("rain")
+	assert_str(scene._weather_kind).is_equal("rain")
+	assert_str(str(scene._guests[0].moment["weather"])).is_equal(Plants.CARDS["rain"]["weather"])
+	assert_str(scene._guests[0].plant_card).is_equal("rain")
+	assert_str(_transcript(runner)).contains("the heavens open")
+	# A regular rung: on their way, and they'll know why they're here.
+	var away: Array = scene._regulars_away()
+	if not away.is_empty():
+		scene._on_plant_pressed("regular_in")
+		assert_str(scene._planted_regular).is_not_empty()
+		assert_bool(scene._regulars_due.any(func(d): return str(d["id"]) == scene._planted_regular)).is_true()
+		assert_str(_transcript(runner)).contains("The PD rings")
+	assert_int(int(scene._stats.event_counts.get("plant_played", 0))).is_equal(3 if not away.is_empty() else 2)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Plants: played")
 
 
 func test_last_times_cliffhanger_comes_true() -> void:
