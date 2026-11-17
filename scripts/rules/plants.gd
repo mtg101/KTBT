@@ -9,6 +9,7 @@ extends RefCounted
 ## data, so more can be added (and, later, written by players: see PLAN.md).
 
 const Names = preload("res://scripts/rules/names.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
 
 ## How many cards the PD's dealt each night: three events, one write-in and, always, a word
 ## from our sponsor (the PPL card).
@@ -279,6 +280,8 @@ static func check_written(card: String, typed: String) -> Dictionary:
 	for limit in HARD_LIMITS:
 		if lower.contains(" %s " % limit):
 			return {"text": text, "problem": "That's not something the show can put on air."}
+	if Talk.crosses_line(text) != "":
+		return {"text": text, "problem": "Teasing's fine, but not about looks, bodies or anything crude."}
 	return {"text": text, "problem": ""}
 
 

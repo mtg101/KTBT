@@ -1988,11 +1988,13 @@ func _talk(guest: Guest) -> void:
 	_owner_working = true
 	_attend(guest, true)
 	var remembered: bool = not guest.customer.get("regular", {}).get("memories", []).is_empty()
-	guest.topic = Talk.pick_owner_topic(randf(), guest.food_news or not _kitchen_part.food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered)
+	guest.topic = Talk.pick_owner_topic(randf(), guest.food_news or not _kitchen_part.food_coming(guest).is_empty(), _cat_here(guest), guest.topic, remembered,
+		not guest.customer.get("regular", {}).is_empty(), _late())
 	# The cat's just come to them (or it's up to something): the talk turns to it. (Given only as
 	# a situation, the AI let it go by every time: 0 of 4 one night.)
 	if guest.cat_moment != "" or _owner_cat_moment != "":
 		guest.topic = "the_cat"
+	_stats.record_topic(guest.topic, false)
 	guest.food_news = false
 	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
 	# for customers to chat) sooner.
@@ -2211,9 +2213,10 @@ func _counter_chat() -> void:
 		_attending = chat.people[0]
 		_move_owner(_beside(chat.people[0]))
 	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
-	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic)
+	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic, _all_close(chat.people), _late())
 	if chat.people.any(func(g): return g.cat_moment != "") or (chat.owner_in and _owner_cat_moment != ""):
 		chat.topic = "the_cat"  # (the cat's just come to one of them: see _talk)
+	_stats.record_topic(chat.topic, true)
 	var said := ""  # the last line said in the chat, and who by
 	var said_by := ""
 	var lines_said := 0
@@ -4680,6 +4683,15 @@ func _friend(a: Guest, b: Guest) -> Dictionary:
 
 func _close(a: Guest, b: Guest) -> bool:
 	return Friendliness.are_close(Game.bar, a, b)
+
+
+## Everyone in a chat is close to everyone else (only then can it turn to teasing).
+func _all_close(people: Array) -> bool:
+	for i in people.size():
+		for j in range(i + 1, people.size()):
+			if not _close(people[i], people[j]):
+				return false
+	return people.size() > 1
 
 
 ## After a spell of chat: regulars who chatted remember it (see Friendliness.remember_chat).

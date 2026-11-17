@@ -116,6 +116,8 @@ func test_what_the_pd_writes_is_checked() -> void:
 	assert_str(str(Plants.check_written("interview", "x".repeat(100))["problem"])).is_empty()  # (a question can be longer)
 	assert_str(str(Plants.check_written("cue_card", "their first time having sex")["problem"])).contains("on air")
 	assert_str(str(Plants.check_written("cue_card", "the time he nearly killed myself laughing")["problem"])).is_empty()  # (whole phrases only)
+	assert_str(str(Plants.check_written("cue_card", "how she's put on weight")["problem"])).contains("not about looks")
+	assert_str(str(Plants.check_written("cue_card", "how he still can't use chopsticks")["problem"])).is_empty()
 	assert_str(str(Plants.check_written("cue_card", "{who} says hi")["text"])).not_contains("{")
 	# What counts as taken up: its longer words, not the commonest.
 	assert_array(Plants.written_tells("Her first love, and the time they met")).is_equal(["first", "love", "time"])

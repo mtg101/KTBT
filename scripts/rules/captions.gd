@@ -390,6 +390,8 @@ static func check_caption(raw: Variant, names: Array, items: Array = []) -> Arra
 		return ["", "the caption has brackets or more than one line"]
 	if caption.split(" ", false).size() > REACTION_WORDS or caption.length() > REACTION_CHARS:
 		return ["", "the caption was longer than five words"]
+	if Talk.crosses_line(caption) != "":
+		return ["", "the caption says \"%s\": roasts tease what someone did, never how they look or anything crude" % Talk.crosses_line(caption)]
 	if Talk.real_brand(caption) != "":
 		return ["", "the caption names a real brand (%s)" % Talk.real_brand(caption)]
 	var mention := Orders.unordered_mention(caption, items) if not items.is_empty() else ""

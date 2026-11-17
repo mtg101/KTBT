@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
+const Talk = preload("res://scripts/rules/talk.gd")
 
 const TEST_FOLDER := "user://test_stats/"
 
@@ -152,7 +153,6 @@ func test_the_stats_count_the_nights_events() -> void:
 
 func test_everything_gets_counted() -> void:
 	const NightEvents = preload("res://scripts/bar/night_events.gd")
-	const Talk = preload("res://scripts/rules/talk.gd")
 	var stats := NightStats.new()
 	var events := NightEvents.new()
 	events.happened.connect(stats.record_event)
@@ -218,6 +218,22 @@ func test_everything_gets_counted() -> void:
 	assert_int(int(logged["food"]["ordered"]["dakgalbi"])).is_equal(1)
 	assert_int(int(logged["talk"]["korean_words"]["Aigoo"])).is_equal(1)
 	assert_int(int(logged["talk"]["hints_given"]["pour"])).is_equal(1)
+
+
+func test_what_talk_turned_to_is_counted() -> void:
+	var stats := NightStats.new()
+	stats.record_topic("food_fight", true)
+	stats.record_topic("ribbing", true)
+	stats.record_topic("on_their_mind", false)
+	stats.record_topic("the_cat", false)  # (neither light nor deep)
+	stats.record_topic("", true)  # (nothing)
+	stats.record_ai(1.0, [Talk.validate_line({"line": "You've put on weight!"}, "Kim Ji-ho", "")], true, "chat")
+	assert_array(stats.topic_mix()).is_equal([2, 1])
+	var text := stats.panel_text(0, 0)
+	assert_str(text).contains("Talk turned to: light 2 · deep 1").contains("chat: food_fight").contains("Teasing that crossed the line (dropped): 1")
+	var logged := stats.summary({})
+	assert_dict(logged["talk"]["topics"]).is_equal({"chat: food_fight": 1, "chat: ribbing": 1, "owner: on_their_mind": 1, "owner: the_cat": 1})
+	assert_int(logged["talk"]["crossed_the_line"]).is_equal(1)
 
 
 func test_the_pds_camera_is_counted() -> void:

@@ -25,6 +25,8 @@ static func pick_weighted(weights: Dictionary, roll: float, skip: String) -> Str
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
+	if p.contains("never how they look"):
+		return "teasing that crossed the line"
 	if p.begins_with("the signature dish"):
 		return "signature dishes"
 	if p.contains("sold out tonight"):

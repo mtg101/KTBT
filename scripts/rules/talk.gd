@@ -30,10 +30,17 @@ const OWNER_TOPICS := {
 	"advice": "a bit of the owner's blunt advice about life",
 	"the_cat": "the tent's cat",
 	"last_time": "something the owner remembers from their last visit: ask how it turned out",
+	"jansori": "a bit of the owner's nagging, out of affection, the way family nags: eat properly, go home at a decent hour, call your mother",
+	"ribbing": "the owner teasing them a little, the way an aunt teases family: about something they did or keep doing, never their looks or anything that would really hurt, and they can give it back",
 }
 
 
-const OWNER_TOPIC_WEIGHTS := {"food": 1.0, "their_day": 2.0, "on_their_mind": 3.0, "owner_story": 1.5, "the_night": 1.0, "owner_secret": 0.5, "advice": 1.5, "the_cat": 1.0, "last_time": 0.0}
+const OWNER_TOPIC_WEIGHTS := {"food": 1.0, "their_day": 2.0, "on_their_mind": 3.0, "owner_story": 1.5, "the_night": 1.0, "owner_secret": 0.5, "advice": 1.5, "the_cat": 1.0, "last_time": 0.0,
+	"jansori": 1.0, "ribbing": 0.0}
+
+
+## The owner only teases regulars (it's affection, and needs knowing someone first).
+const OWNER_RIBBING_WEIGHT := 1.5
 
 
 ## What customers chatting to each other get on to.
@@ -45,10 +52,39 @@ const CHAT_TOPICS := {
 	"life": "love, family, or where life is heading",
 	"small_talk": "small talk: where they live, what they do for fun",
 	"the_cat": "the tent's cat",
+	"ribbing": "a bit of teasing, the way close friends do: about something one of them did or keeps doing (a habit, a karaoke song, how they eat), never their looks, body or anything crude, and the other gives it back",
+	"food_fight": "a silly, heated argument about food: sauce poured on or dipped, the right way to cook ramyeon, mint chocolate, what goes best with soju",
+	"embarrassing": "an embarrassing story one of them tells on themselves",
+	"one_up": "trying to top each other's stories, half joking: the worse boss, the longer commute, the stranger blind date",
 }
 
 
-const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "food_drink": 1.0, "life": 2.0, "small_talk": 1.5, "the_cat": 1.0}
+## Teasing is between people who are close (see CONCEPT.md, "Cheeky, not 'bants'"): strangers
+## don't, so it's 0 unless they are.
+const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "food_drink": 1.0, "life": 2.0, "small_talk": 1.5, "the_cat": 1.0,
+	"ribbing": 0.0, "food_fight": 1.0, "embarrassing": 1.0, "one_up": 1.0}
+
+
+const CHAT_RIBBING_WEIGHT := 2.0
+
+
+## The night has a shape: before midnight it leans light (teasing, food, silly stories), after
+## it, people open up. Weights for these are multiplied by the first number before midnight,
+## the second after. (Nights were mostly sad: every big moment was a heavy one.)
+const LIGHT_TOPICS := ["ribbing", "food_fight", "embarrassing", "one_up", "small_talk", "food_drink", "jansori", "food"]
+const DEEP_TOPICS := ["why_here", "life", "on_their_mind", "owner_secret", "advice"]
+const LIGHT_SHAPE := [1.5, 0.7]
+const DEEP_SHAPE := [0.6, 1.5]
+
+
+static func _shaped(weights: Dictionary, late: bool) -> Dictionary:
+	var at := 1 if late else 0
+	for topic in weights:
+		if topic in LIGHT_TOPICS:
+			weights[topic] = float(weights[topic]) * float(LIGHT_SHAPE[at])
+		elif topic in DEEP_TOPICS:
+			weights[topic] = float(weights[topic]) * float(DEEP_SHAPE[at])
+	return weights
 
 
 ## The topic for a spell of the owner's chat, from a random roll between 0 and 1. Food's
@@ -56,20 +92,45 @@ const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "fo
 ## them (and never when there's no cat in the tent). Never the same topic twice running.
 ## cat: "none" (no cat, or it's out), "tent" (somewhere about) or "with_them".
 ## remembered: the owner remembers something from this regular's last visits, so it can come up.
-static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: String = "", remembered: bool = false) -> String:
+## regular: they're a regular, so the owner may tease them. late: after midnight (see LIGHT_TOPICS).
+static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: String = "", remembered: bool = false, regular: bool = false, late: bool = false) -> String:
 	var weights := OWNER_TOPIC_WEIGHTS.duplicate()
+	if regular:
+		weights["ribbing"] = OWNER_RIBBING_WEIGHT
 	if remembered:
 		weights["last_time"] = 3.0
 	if food_news:
 		weights["food"] = 3.0
 	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
-	return Text.pick_weighted(weights, roll, last)
+	return Text.pick_weighted(_shaped(weights, late), roll, last)
 
 
-static func pick_chat_topic(roll: float, cat: String, last: String = "") -> String:
+## close: everyone in the chat is close (only then can it turn to teasing).
+static func pick_chat_topic(roll: float, cat: String, last: String = "", close: bool = false, late: bool = false) -> String:
 	var weights := CHAT_TOPIC_WEIGHTS.duplicate()
+	if close:
+		weights["ribbing"] = CHAT_RIBBING_WEIGHT
 	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
-	return Text.pick_weighted(weights, roll, last)
+	return Text.pick_weighted(_shaped(weights, late), roll, last)
+
+
+## Teasing that crosses the line (see CONCEPT.md, "Cheeky, not 'bants'"): about bodies or looks,
+## crude, sexual, or "no wonder you're single". The game drops these lines whatever the topic,
+## since a small model's idea of teasing comes from the internet. Apostrophes are taken out first.
+const CROSSES_THE_LINE := ["sex", "sexy", "sexual", "naked", "nude", "porn", "boobs", "tits", "nice ass", "your ass", "her ass", "his ass",
+	"slut", "whore", "bitch", "hot body", "your body", "her body", "his body", "nice legs", "your legs", "her legs", "check her out", "check him out",
+	"youre fat", "shes fat", "hes fat", "you got fat", "youve got fat", "youre getting fat", "youve put on weight", "gained weight", "put on weight",
+	"lose weight", "lose some weight", "youre ugly", "shes ugly", "hes ugly", "so ugly", "no wonder youre single", "thats why youre single",
+	"why are you still single", "old maid"]
+
+
+## The words that cross the line, or "" (see CROSSES_THE_LINE).
+static func crosses_line(text: String) -> String:
+	var lower := " " + " ".join(Text.words(text.replace("'", "").replace("’", ""))) + " "
+	for phrase in CROSSES_THE_LINE:
+		if lower.contains(" " + " ".join(Text.words(str(phrase))) + " "):
+			return str(phrase)
+	return ""
 
 
 ## The PD's cue card, as a conversation's topic for a few lines (text: what the PD wrote).
@@ -138,6 +199,9 @@ static func validate_line(data: Variant, speaker: String, alias: String, items: 
 	var brand := real_brand(line)
 	if brand != "":
 		return "the line names a real brand (%s): describe it instead (\"mix coffee\", \"the green bottle\", \"the convenience store\")" % brand
+	var ick := crosses_line(line)
+	if ick != "":
+		return "the line says \"%s\": teasing here is warm, about something someone did, never how they look, their body, or anything crude: say something else" % ick
 	var dark := dark_idiom(line)
 	if dark != "":
 		return "the line says \"%s\": too dark a turn of phrase for a cosy tent bar, even said lightly: say it another way" % dark

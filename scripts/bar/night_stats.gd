@@ -51,6 +51,7 @@ var owner_lines_each: Array = []  # for each customer who paid: lines in their c
 var owner_lines := 0  # lines in owner–customer conversations (either of them speaking)
 var chat_lines := 0  # lines in customer chats (owner joining in included)
 var chats_started := 0
+var topics := {}  # what the game steered talk to: "owner: food", "chat: food_fight" -> how many spells
 var owner_joins := 0
 var customer_joins := 0
 var free_turns := 0  # times the owner's voice was free (nobody to greet or settle up with)
@@ -283,6 +284,29 @@ func record_written_line(speaker: String, among: Array, line: String) -> void:
 
 ## A line of the owner's conversations or the chats: whether it was on camera (the person the
 ## PD's camera was following was in it).
+## A spell of talk steered to a topic (Talk.pick_owner_topic, pick_chat_topic). chat: customers
+## chatting, rather than the owner's conversation.
+func record_topic(topic: String, chat: bool) -> void:
+	if topic == "":
+		return
+	var key := "%s: %s" % ["chat" if chat else "owner", topic]
+	topics[key] = int(topics.get(key, 0)) + 1
+
+
+## How many spells were steered somewhere light (teasing, food fights, silly stories), and
+## how many to the heavy topics (see Talk.LIGHT_TOPICS): [light, deep].
+func topic_mix() -> Array:
+	var light := 0
+	var deep := 0
+	for key in topics:
+		var topic := str(key).get_slice(": ", 1)
+		if topic in Talk.LIGHT_TOPICS:
+			light += int(topics[key])
+		elif topic in Talk.DEEP_TOPICS:
+			deep += int(topics[key])
+	return [light, deep]
+
+
 func record_camera_line(on: bool) -> void:
 	camera_lines += 1
 	if on:
@@ -537,6 +561,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
+	var mix := topic_mix()
+	lines.append("Talk turned to: light %d · deep %d%s" % [mix[0], mix[1], (" · " + counts_text(topics, 8)) if not topics.is_empty() else ""])
+	lines.append("Teasing that crossed the line (dropped): %d" % int(rejections.get("teasing that crossed the line", 0)))
 	var ordinary := hints_text()
 	lines.append("Hints taken up: %s" % (ordinary if ordinary != "" else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
@@ -659,6 +686,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
+			"topics": topics.duplicate(), "topic_mix": topic_mix(), "crossed_the_line": int(rejections.get("teasing that crossed the line", 0)),
 			"hints_given": hints_given.duplicate(), "hints_taken": hints_taken.duplicate(), "korean_words": korean_words.duplicate(),
 			"openings": openings.duplicate(true), "order_situations": order_situations, "opener_situations": opener_situations,
 		},

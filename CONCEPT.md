@@ -39,7 +39,7 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 - **Game facts about each customer:** how long they'll stay (30–60 game minutes, longer for someone here to talk), their mood for company (chatty, keeps to themselves, or here to talk to the owner), whether they're hungry or having a rough night, and whether they'll order more later.
 - Visits: arrive, order from the menu, eat and drink, talk with the owner (and maybe other customers), then say goodbye, pay and leave when their time's up.
 - **Nobody knows more than they should:** the AI is told what everyone can see (how someone looks) and that nobody knows another's name, age, job, reason for coming or secret until it's been said. Everyone speaks fluent, natural English (they're speaking Korean), with the odd Korean word a K-drama fan would know.
-- **What conversations turn to:** the game picks a topic for each spell of chat (their day, what's on their mind, a story from the owner's past, the weather, the cat, food…), so talk doesn't get stuck on one thing.
+- **What conversations turn to:** the game picks a topic for each spell of chat (their day, what's on their mind, a story from the owner's past, the weather, the cat, food, the owner's nagging, a silly food fight, an embarrassing story, teasing between friends…), so talk doesn't get stuck on one thing. The night has a shape: lighter before midnight, more open after it.
 - **Strangers talk politely:** nobody at the counter knows anyone yet, so terms like oppa, hyung, nuna and eonni (for people who are close) are ruled out, and no two people there share a name.
 - **Regulars:** every bar opens with two long-standing regulars, each with a role in the tent; new customers can become regulars, who come back more the more regular they are, fade away if they stop coming, and come back as themselves (the same name, look and personality, their usual). Everyone knows only what they've actually learned: whose names have been said, how many visits, what each knows about the other. After each visit, the owner and the customer each remember the gist (a sentence or two), the things that stick (job, family, home town) are kept if they were really said, and the AI's verdict on the night decides whether someone comes back. Who may call whom what (oppa, eonni, imo, sajangnim…) is a game rule, from gender, age, owner or customer and closeness; regulars who chat get to know each other, and after a few meetings the younger may ask to use a friendlier term, which is allowed from then on. Terms are coloured by warmth on screen, with their meaning on hover.
 
@@ -93,6 +93,18 @@ Included in every AI prompt so all characters feel like they belong to the same 
 - Someone working up the courage to confess their feelings
 
 **Tone:** warm, melodramatic, a little melancholy. "One more bottle", unspoken feelings, late-night honesty, with humour mixed in.
+
+### Cheeky, not "bants"
+
+The tent isn't all sad: friends rib each other, the owner nags, people argue about whether the sauce goes on or the pork goes in it. That cheek is affection, and the game keeps it that way. What it never does is the kind of "bants" some people use as a cover for harassment, sexual or otherwise.
+
+- **Affection, and both sides know it:** only between people who are already close, or from the owner to a regular. Never at strangers, never at someone who has just sat down.
+- **Down or sideways, never a pile-on:** one person teases, the table doesn't gang up.
+- **What you do, not who you are:** slurping noodles, losing the table game, the karaoke song, still not texting back. Never bodies, looks, weight, gender, sexuality, age as an insult, or anything sexual. Being single only if they brought it up.
+- **They can give it back:** if the target can't answer, it isn't teasing.
+- **The owner is the line:** when someone goes too far, the owner shuts it down.
+
+This holds at every content setting. A future Adult setting can have adult things in it, between grown-ups who want them. It still won't have people who use "it's just a joke" to justify hurting someone.
 
 ### Real people, brands and shows
 

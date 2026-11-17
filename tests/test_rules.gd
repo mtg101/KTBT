@@ -919,6 +919,61 @@ func test_topic_hints_say_where_to_steer() -> void:
 	assert_str(Talk.topic_hint("nonsense")).is_empty()
 
 
+func test_strangers_never_tease_each_other() -> void:
+	for i in 200:
+		assert_str(Talk.pick_chat_topic(i / 200.0, "tent", "", false)).is_not_equal("ribbing")
+		assert_str(Talk.pick_chat_topic(i / 200.0, "tent", "", false, true)).is_not_equal("ribbing")
+	var close := 0
+	for i in 200:
+		if Talk.pick_chat_topic(i / 200.0, "tent", "", true) == "ribbing":
+			close += 1
+	assert_int(close).is_greater(0)
+
+
+func test_the_owner_teases_only_regulars() -> void:
+	var regular := 0
+	for i in 200:
+		assert_str(Talk.pick_owner_topic(i / 200.0, false, "tent", "", false, false)).is_not_equal("ribbing")
+		if Talk.pick_owner_topic(i / 200.0, false, "tent", "", false, true) == "ribbing":
+			regular += 1
+	assert_int(regular).is_greater(0)
+
+
+func test_the_night_starts_light_and_gets_deeper() -> void:
+	var early := {"light": 0, "deep": 0}
+	var late := {"light": 0, "deep": 0}
+	for i in 400:
+		for after_midnight in [false, true]:
+			var counts: Dictionary = late if after_midnight else early
+			for topic in [Talk.pick_chat_topic(i / 400.0, "tent", "", true, after_midnight), Talk.pick_owner_topic(i / 400.0, false, "tent", "", false, true, after_midnight)]:
+				if topic in Talk.LIGHT_TOPICS:
+					counts["light"] += 1
+				elif topic in Talk.DEEP_TOPICS:
+					counts["deep"] += 1
+	assert_int(early["light"]).is_greater(early["deep"])
+	assert_int(late["deep"]).is_greater(late["light"])
+
+
+func test_every_topic_has_a_hint() -> void:
+	for topic in Talk.CHAT_TOPIC_WEIGHTS:
+		assert_str(Talk.topic_hint(topic, true)).is_not_empty()
+	for topic in Talk.OWNER_TOPIC_WEIGHTS:
+		assert_str(Talk.topic_hint(topic)).is_not_empty()
+	assert_str(Talk.topic_hint("ribbing", true)).contains("never their looks")
+
+
+func test_teasing_that_crosses_the_line_is_dropped() -> void:
+	for line in ["Ha, you've put on weight since last time, haven't you?", "No wonder you're single, eating like that!", "She's got a hot body, though.",
+			"You’re fat and you know it."]:
+		var problem := Talk.validate_line({"line": line}, "Kim Ji-ho", "")
+		assert_str(problem).contains("never how they look")
+		assert_str(Text.problem_kind(problem)).is_equal("teasing that crossed the line")
+	# ...but warm teasing, and innocent words, are fine.
+	for line in ["You still slurp your noodles like a schoolboy.", "I walked right past it twice.", "The cat's got so round this winter.",
+			"I ugly-cried through the whole finale.", "Pork fat on the grill, nothing better."]:
+		assert_str(Talk.validate_line({"line": line}, "Kim Ji-ho", "")).is_empty()
+
+
 func test_lines_with_brackets_are_rejected() -> void:
 	var problem := Talk.validate_line({"line": "Ne, soju moksaess-eoyo? (Just got soju, right?)"}, "Kim Ji-ho", "")
 	assert_str(problem).contains("brackets")
@@ -2152,6 +2207,8 @@ func test_tv_reactions_are_checked() -> void:
 	assert_str(str(spun["roast_caption"])).is_empty()
 	assert_str(str(Captions.FLIPS["sad"])).is_equal("funny")
 	assert_bool(Captions.ai_moods().has("roast")).is_false()
+	assert_str(str(Captions.check_caption("SO UGLY, THOUGH", ["Kim Ji-ho"])[1])).contains("never how they look")
+	assert_str(str(Captions.check_caption("THE CONFIDENCE, THOUGH", ["Kim Ji-ho"])[1])).is_empty()
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "sad", "who": "Lee Min-ho", "caption": "WOW"}, names)).contains("isn't one of the people talking")
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "sad", "who": "Kim Ji-ho", "caption": ""}, names)).contains("empty")
 	assert_str(Captions.validate_reaction({"size": 4, "mood": "funny", "who": "Kim Ji-ho", "caption": "THIS IS A REALLY LONG CAPTION ABOUT NOTHING"}, names)).contains("longer than five words")
