@@ -23,14 +23,14 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 
 | File | What's in it |
 |---|---|
-| `rules/text.gd` | Tidying the AI's text, splitting words, checking a reply has its fields, picking by weight, sorting rejected replies into kinds |
+| `rules/text.gd` | Tidying the AI's text, splitting words, finding whole phrases (what every "doesn't say X" check uses), checking a reply has its fields, picking by weight, sorting rejected replies into kinds |
 | `rules/people.gd` | Owners and customers (checked), ages and genders, pronouns, stays and moods for company, founding regulars, the owner's fixed life |
 | `rules/names.gd` | Names: Korean order and the usual casing, given names, and Hangul (checked against the romanised name) |
 | `rules/looks.gd` | How people look (age range, hair, clothes, colours), how strangers are known by their looks, and the street: rain gear, who walks together, phones |
 | `rules/bar_look.gd` | Each bar's name and look, from the options the game offers, and the fallbacks |
 | `rules/night_rules.gd` | The clock, arrivals, how fast time runs, the days, passers-by, the sky's light and the weather |
 | `rules/orders.gd` | Orders and later orders (checked; a side the line asks for is added), which food a line mentions, what's served straight away and what's cooked, tonight's specials, the bill |
-| `rules/talk.gd` | The checks every line of dialogue passes, what conversations turn to, speech bubble pages, made-up Korean, and the situations a line is given now and then (food moments, table customs, sharing, how someone orders, cravings, how the owner opens) |
+| `rules/talk.gd` | The checks every line of dialogue passes (teasing that crosses the line among them), what conversations turn to (and the night's shape: lighter before midnight), speech bubble pages, made-up Korean, and the situations a line is given now and then (food moments, table customs, sharing, how someone orders, cravings, how the owner opens) |
 | `rules/address.gd` | Who calls whom what (oppa, imo, sajangnim...), and their colours on screen |
 | `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), any Hangul too (names as they're known), and counting which are said |
 | `rules/hangul.gd` | What the game's own Hangul means (captions, reactions, stamps, days, titles, signs), romanised, for its hovers |
@@ -71,6 +71,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `save/save_upgrades.gd` | Bars saved by older versions, brought up to date in one place: what the game fills in itself, and what still needs the AI, once (refactor step 6) |
 | `bar/night.gd` | Tonight: what the tent's parts share, in one place (its weather, its stats, and the owner's moments waiting for their next line; it grows as parts move out) |
 | `bar/layout.gd` | Where things are on the tent's stage, shared by the scene and its parts |
+| `pipeline_test.gd` | A quick check that Godot, Ollama and the model are talking (its own scene; not part of the game) |
 | `bar/draw.gd` | Small drawing helpers the tent's parts share (plain shapes, clearing a layer, how long an animation takes, sped up in tests) |
 
 ## Tests
@@ -91,7 +92,7 @@ A change isn't finished until it has all of these:
 - **Tests:** new behaviour has tests (rules in `tests/test_rules.gd` or their own file, scenes in the click-through tests), anything a test depends on is pinned with a hook rather than left to the seed, and the whole suite passes.
 - **Stats:** whatever the change adds that happens during a night (an event, a hint, a choice the AI or the game makes, something the player clicks) is counted in `night_stats.gd`: on the debug panel, in the section it belongs to (HIGHLIGHTS for anything rare, then TONIGHT, PEOPLE, TALK, POCHA LIFE, FOOD AND THE MENU, REGULARS, THE STORY, TV CAPTIONS, AI), and in the night's log under the matching group, so real nights show whether it's working.
 - **Logged:** whatever it does during a night shows up in the night's transcript (what was said and done, with the time) and its log (`logs/stats/` when playing from the editor, beside `logs/transcripts/`), so a real night can be checked from the files alone, without watching it.
-- **Docs:** the DEVLOG (what and why), TESTS.md (the new tests and the count), PLAN.md (what's done, and anything it leaves for later), ARCHITECTURE.md and README.md for new files, CONCEPT.md if the game itself changes, LLM-TUNING.md if it's about how the AI behaves.
+- **Docs (checked by `test_code.gd`), every time:** the DEVLOG (what was done and why, with the new test count); PLAN.md (only ever what's left: anything built, even part of an item, comes out of it, and anything the change leaves for later goes in); TESTS.md (the new tests and the count); ARCHITECTURE.md and README.md for new files; CONCEPT.md for how the game works, if that changes; LLM-TUNING.md if it's about how the AI behaves.
 - **On screen:** any Korean shown explains itself on hover (Hangul meanings in `rules/hangul.gd`, romanised words in the glossary), and every hover goes through `Text.tip`.
 - **Safe to share:** no real people, brands or shows by name, and no private details (names, paths, accounts, session links) in code, docs or commit messages.
 

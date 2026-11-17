@@ -2043,7 +2043,7 @@ func _next_line(guest: Guest) -> void:
 		_stats.opener_situations += 1
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
 	var alias := str(_owner["title"]) if owner_speaks else ""
-	direction = (direction + " " + _address_note(guest)).strip_edges()
+	direction = (direction + " " + _address_note(guest) + (" " + Talk.TO_CAMERA if not owner_speaks and guest.to_camera else "")).strip_edges()
 	var address := _address(null, guest) if owner_speaks else _address(guest, null)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 	var reply := {}
@@ -2316,7 +2316,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		_narrate(scene)
 		chat.transcript.append({"action": scene})
 		_event("table_game_offered", {"game": str(given["game"]), "name": speaker})
-	direction += " " + _chat_notes(chat) + " " + Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close)
+	direction += " " + _chat_notes(chat) + " " + (Talk.TO_CAMERA if speaking != null and speaking.to_camera else Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close))
 	var address := _address(speaking, listening, close)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 	var reply := {}
@@ -3505,7 +3505,8 @@ func _play_card(card: String, text: String = "") -> void:
 			var target: Variant = aimed[0]
 			who = str(target.customer["name"])
 			var gender := str(target.customer.get("gender", ""))
-			_plant_on(target, card, Plants.moment(card, who, "", what, gender, text), Plants.happened(card, who, "", what, gender, text))
+			var for_ai := text + Glossary.gloss(text, _names_here()) if text != "" else ""  # (what the PD typed, with any Korean in it explained)
+			_plant_on(target, card, Plants.moment(card, who, "", what, gender, for_ai), Plants.happened(card, who, "", what, gender, for_ai))
 			if str(data.get("others", "")) != "":
 				for other in _guests:
 					if other != target:
@@ -3518,10 +3519,10 @@ func _play_card(card: String, text: String = "") -> void:
 			if int(data.get("write", {}).get("steers", 0)) > 0:  # (a cue card: their conversation's topic for a while)
 				var chat := _chat_of(target)
 				if chat != null:
-					chat.pd_topic = text
+					chat.pd_topic = for_ai
 					chat.pd_topic_lines = int(data["write"]["steers"])
 				else:
-					target.pd_topic = text
+					target.pd_topic = for_ai
 					target.pd_topic_lines = int(data["write"]["steers"])
 			if card == "interview":
 				target.to_camera = true
@@ -3879,8 +3880,10 @@ func _validate_extra_order(data: Variant, table: Array) -> String:
 	return problem if problem != "" else Talk.made_up_korean(str(data.get("line", "")), _names_here())
 
 
+## (Checked against the kitchen as it is when the reply comes, not when it was asked for.)
 func _validate_line(data: Variant, speaker: String, alias: String, items: Array, names: Array, cat: Dictionary, address: Dictionary = {}) -> String:
-	return Talk.validate_line(data, speaker, alias, items, names, cat, address)
+	var problem := Talk.validate_line(data, speaker, alias, items, names, cat, address)
+	return problem if problem != "" else Talk.served_already(str(data["line"]), items, _kitchen_part.all_coming())
 
 
 func _validate_cat_name(data: Variant, taken: Array) -> String:

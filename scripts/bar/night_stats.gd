@@ -51,6 +51,9 @@ var owner_lines_each: Array = []  # for each customer who paid: lines in their c
 var owner_lines := 0  # lines in owner–customer conversations (either of them speaking)
 var chat_lines := 0  # lines in customer chats (owner joining in included)
 var chats_started := 0
+var phrases := {}  # three-word turns of phrase said tonight -> how many lines (Text.phrases_in)
+var _known_words := {}  # every word of the Korean the game knows (the menu among it): never part of a turn of phrase
+const WORN_OUT := 3  # said in this many lines, a phrase is worn out: the next lines are asked to say it another way
 var topics := {}  # what the game steered talk to: "owner: food", "chat: food_fight" -> how many spells
 var owner_joins := 0
 var customer_joins := 0
@@ -121,6 +124,7 @@ var written_tells := {}  # card -> the words that show a line took up what the P
 var written_refused := 0  # write-ins the checks sent back
 const WRITTEN_LINES := 4  # replies kept for each, for the log
 var plant_watch := {}  # plant cards played: how many more lines (anyone's) to watch for it coming up
+var plant_watch_for := {}  # ...a card played for someone: watched for as long as they're here (card -> their name)
 var plant_mentions := {}  # ... and how many of them did (card: count)
 const PLANT_WATCH_LINES := 12
 var camera_lines := 0  # lines said tonight (the owner's conversations and the chats)...
@@ -147,7 +151,17 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 	event_counts[kind] = int(event_counts.get(kind, 0)) + 1
 	match kind:
 		"plant_played":
-			plant_watch[str(facts.get("card", ""))] = PLANT_WATCH_LINES
+			var card := str(facts.get("card", ""))
+			plant_watch[card] = PLANT_WATCH_LINES
+			plant_watch_for.erase(card)
+			if str(facts.get("name", "")) != "":
+				plant_watch_for[card] = str(facts["name"])
+		"left":
+			for card in plant_watch_for.keys():
+				if plant_watch_for[card] == str(facts.get("name", "")):
+					plant_watch_for.erase(card)
+					if int(plant_watch.get(card, 0)) <= 0:
+						plant_watch.erase(card)
 		"ordered":
 			if bool(facts.get("first", false)):
 				first_orders += 1
@@ -236,13 +250,34 @@ func record_street(what: String) -> void:
 func record_line(line: String, names: Array = []) -> void:
 	for word in Glossary.words_in(line, names):
 		korean_words[word] = int(korean_words.get(word, 0)) + 1
+	if _known_words.is_empty():
+		for spelling in Glossary.lookup():
+			for part in Text.words(str(spelling)):
+				_known_words[part] = true
+		for item in Menu.items():  # (and what people call it: "a bowl of rice" is an order, not a cliché)
+			for called in [str(item["name"])] + Array(item.get("aliases", [])):
+				for part in Text.words(str(called)):
+					_known_words[part] = true
+	var skip := _known_words.duplicate()
+	for person in names:
+		for part in Text.words(str(person)):
+			skip[part] = true
+	for phrase in Text.phrases_in(line, skip):
+		phrases[phrase] = int(phrases.get(phrase, 0)) + 1
 	# A plant card just played: does it come up, in anyone's lines (the owner's too), soon after?
 	for card in plant_watch.keys():
 		if Talk.hint_taken("plant_" + str(card), line, written_tells.get(card, [])):
 			plant_mentions[card] = int(plant_mentions.get(card, 0)) + 1
 		plant_watch[card] = int(plant_watch[card]) - 1
-		if int(plant_watch[card]) <= 0:
+		if int(plant_watch[card]) <= 0 and not plant_watch_for.has(card):
 			plant_watch.erase(card)
+
+
+## The phrases said in WORN_OUT lines or more tonight, most first (at most most).
+func worn_out(most: int = 5) -> Array:
+	var keys := phrases.keys().filter(func(k): return int(phrases[k]) >= WORN_OUT)
+	keys.sort_custom(func(a, b): return int(phrases[a]) > int(phrases[b]) or (int(phrases[a]) == int(phrases[b]) and str(a) < str(b)))
+	return keys.slice(0, most)
 
 
 ## "soju 5 · somaek 2", most first. limit: how many (0: all).
@@ -333,7 +368,8 @@ func camera_follows() -> Array:
 
 
 ## The PD's plant cards tonight: {card: [played, lines given it, lines that took it up, lines
-## (anyone's) that brought it up in the PLANT_WATCH_LINES after it was played]}.
+## (anyone's) that brought it up after it was played: the next PLANT_WATCH_LINES, or for a
+## card played for someone, as long as they're here]}.
 func plants() -> Dictionary:
 	var found := {}
 	for event in events:
@@ -564,6 +600,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	var mix := topic_mix()
 	lines.append("Talk turned to: light %d · deep %d%s" % [mix[0], mix[1], (" · " + counts_text(topics, 8)) if not topics.is_empty() else ""])
 	lines.append("Teasing that crossed the line (dropped): %d" % int(rejections.get("teasing that crossed the line", 0)))
+	var worn := worn_out()
+	lines.append("Said too often (%d+ lines, asked for another way): %s" % [WORN_OUT, " · ".join(PackedStringArray(worn.map(func(p): return "\"%s\" %d" % [p, int(phrases[p])]))) if not worn.is_empty() else "(nothing yet)"])
 	var ordinary := hints_text()
 	lines.append("Hints taken up: %s" % (ordinary if ordinary != "" else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
@@ -595,7 +633,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("The edit: offered %d · you picked a spin %d%s" % [edits_offered, edited, (" (" + counts_text(edits_made) + ")") if edited > 0 else ""])
 	if written_refused > 0:
 		lines.append("Write-ins sent back by the checks: %d" % written_refused)
-	lines.append("Plants: %s" % (("played %d · " % played.size()) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d of the next %d lines" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3]), PLANT_WATCH_LINES]))) if not played.is_empty() else "none played tonight"))
+	lines.append("Plants: %s" % (("played %d · " % played.size()) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d lines after" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3])]))) if not played.is_empty() else "none played tonight"))
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
@@ -686,6 +724,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
+			"worn_out": worn_out(10).map(func(p): return [p, int(phrases[p])]),
 			"topics": topics.duplicate(), "topic_mix": topic_mix(), "crossed_the_line": int(rejections.get("teasing that crossed the line", 0)),
 			"hints_given": hints_given.duplicate(), "hints_taken": hints_taken.duplicate(), "korean_words": korean_words.duplicate(),
 			"openings": openings.duplicate(true), "order_situations": order_situations, "opener_situations": opener_situations,

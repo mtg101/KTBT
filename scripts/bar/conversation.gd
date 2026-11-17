@@ -68,6 +68,7 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			night.owner_cat_moment = ""
 		else:
 			guest.cat_moment = ""
+	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()
 	return {"direction": direction, "hint": hint, "opener": opener}
 
 
@@ -137,6 +138,7 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 		direction = speaking.camera_moment + " " + direction
 		hint = "camera"
 		speaking.camera_moment = ""
+	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()
 	return {"direction": direction, "hint": hint, "moment_term": moment_term, "game": game}
 
 

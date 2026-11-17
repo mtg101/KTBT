@@ -64,6 +64,9 @@ When we fix a problem, we add a test that would have caught it, so it can't cree
 - **Same names, slow arrivals:** a customer's name and gender come first, in their own quick step; a name that's at the counter (or the owner's) is rejected; the prompt lists names to avoid. `test_rules.gd`, `test_prompts.gd`, `test_canned_ai.gd`, `test_visit.gd`.
 - **Copied appearances, names nobody said, regulars in chats, rice cakes:** a customer prompt with a game-decided look lists no earlier appearances; strangers are described as they look; chat prompts say everyone's seated and new here; "spicy rice cakes" is tteokbokki. `test_prompts.gd`, `test_rules.gd`, `test_visit.gd`.
 - **Later orders that ask for more than they get:** "another tteokbokki" without tteokbokki in the order is rejected, "this/the tteokbokki" is fine, rice asked for by an alias is added to the order (if there's room), "fried rice" isn't also read as "rice", and conversation can still mention rice. `test_rules.gd`.
+- **Docs kept up to date (`test_code.gd`):** PLAN.md says nothing's done (only what's left); the test count is the same in TESTS.md and the README, and the newest day in the DEVLOG mentions it (so every change with tests gets an entry); every script is in ARCHITECTURE.md's map and every test file in TESTS.md.
+- **Night 25's slips:** a line to camera calls nobody anything; Korean the PD types is explained to the AI; made-up Korean beside a real word is caught (and real words side by side aren't); "the usual" doesn't stand in for a drink the line names; turns of phrase said too often are counted however they're said, and the next lines are asked to say them another way; a card for someone is watched while they're here; a dish already served isn't "still on its way". `test_rules.gd`, `test_night_stats.gd`, `test_conversation.gd`.
+- **Finding phrases:** the "doesn't say X" checks (real brands, dark idioms, freebies, teasing, the PD's hard limits) share `Text.find_phrase`: whole words only, any apostrophe. `test_rules.gd`.
 - **Teasing that crosses the line, and nights that were all sad:** strangers never tease, the owner teases only regulars, the night starts light and gets deeper, every topic has a hint, and lines, roast captions and write-ins about bodies, looks or anything crude are dropped (innocent words like "pork fat" or "walked past it" aren't), counted in the stats. `test_rules.gd`, `test_plants.gd`, `test_night_stats.gd`.
 - **Wrong pronouns in the diary and recap:** the night's facts carry everyone's pronoun, beside each name and in a closing line; older facts without them still read. `test_rules.gd`.
 - **"One more soju" served as somaek:** a somaek order must ask for somaek (or soju and beer together, or "the usual"). `test_rules.gd`.
@@ -85,7 +88,7 @@ Most of the risk in this stage is in rules the game owns, so most of it can be t
 
 ## Coverage so far
 
-All 572 tests pass (17 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 583 tests pass (17 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|

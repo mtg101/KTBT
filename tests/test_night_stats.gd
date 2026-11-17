@@ -236,6 +236,17 @@ func test_what_talk_turned_to_is_counted() -> void:
 	assert_int(logged["talk"]["crossed_the_line"]).is_equal(1)
 
 
+func test_phrases_said_too_often_are_counted() -> void:
+	var stats := NightStats.new()
+	stats.record_line("Can't talk right now, I'm trying to drown my sorrows.")
+	stats.record_line("You're trying to drown your sorrows?", ["Kang Yoon-ah"])
+	assert_array(stats.worn_out()).is_empty()  # (twice isn't worn out)
+	stats.record_line("I'm still drowning my sorrows after today's meetings.")
+	assert_array(stats.worn_out()).contains(["drown my sorrow"])
+	assert_str(stats.panel_text(0, 0)).contains("Said too often").contains("\"drown my sorrow\" 3")
+	assert_array(stats.summary({})["talk"]["worn_out"]).contains([["drown my sorrow", 3]])
+
+
 func test_the_pds_camera_is_counted() -> void:
 	var stats := NightStats.new()
 	assert_str(stats.panel_text(0, 0)).contains("THE PD").contains("Camera: not used tonight")
@@ -270,7 +281,16 @@ func test_the_pds_camera_is_counted() -> void:
 	for _k in NightStats.PLANT_WATCH_LINES:
 		stats.record_line("Look at all that rain!")  # (past the watch: not counted)
 	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1])
-	assert_str(stats.panel_text(0, 0)).contains("rain taken up 0/0, came up in %d of the next %d lines" % [NightStats.PLANT_WATCH_LINES - 1, NightStats.PLANT_WATCH_LINES])
+	assert_str(stats.panel_text(0, 0)).contains("rain taken up 0/0, came up in %d lines after" % [NightStats.PLANT_WATCH_LINES - 1])
+	# A card for someone is watched for as long as they're here (night 25: the sponsor's keyring came up 25 lines on).
+	stats.record_event("plant_played", {"card": "ppl", "name": "Kim Min-seok"})
+	for _k in NightStats.PLANT_WATCH_LINES * 2:
+		stats.record_line("Snow's still coming down.")
+	stats.record_line("Take the Dalbit Taxi keyring with you, it's on the table.")
+	stats.record_event("left", {"name": "Kim Min-seok"})
+	stats.record_line("A taxi home, then?")  # (gone: not counted)
+	assert_int(int(stats.plant_mentions.get("ppl", 0))).is_equal(1)
+	assert_bool(stats.plant_watch.has("ppl")).is_false()
 	assert_str(stats.hints_text()).not_contains("plant_")
 	# What the PD wrote: the words, who for, and the replies (for the log), and taken up by its own words.
 	stats.record_written("cue_card", "her first love", "Kim Ji-ho", "", ["first", "love"])

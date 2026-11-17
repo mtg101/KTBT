@@ -126,11 +126,20 @@ const CROSSES_THE_LINE := ["sex", "sexy", "sexual", "naked", "nude", "porn", "bo
 
 ## The words that cross the line, or "" (see CROSSES_THE_LINE).
 static func crosses_line(text: String) -> String:
-	var lower := " " + " ".join(Text.words(text.replace("'", "").replace("’", ""))) + " "
-	for phrase in CROSSES_THE_LINE:
-		if lower.contains(" " + " ".join(Text.words(str(phrase))) + " "):
-			return str(phrase)
-	return ""
+	return Text.find_phrase(text, CROSSES_THE_LINE)
+
+
+## The direction for a line said to camera (the PD's interview cut): instead of how they
+## address whoever they're talking to.
+const TO_CAMERA := "This line is the interview answer: said straight to the camera, answering the PD's question, not to anyone at the counter (so it calls nobody anything)."
+
+
+## For a line's direction: the turns of phrase already said a lot tonight (NightStats.worn_out),
+## or "". (One night, four people were "drowning my sorrows".)
+static func worn_out_note(phrases: Array) -> String:
+	if phrases.is_empty():
+		return ""
+	return "Already said a lot tonight, so if it comes up, say it another way: %s." % ", ".join(PackedStringArray(phrases.map(func(p): return "«%s»" % p)))
 
 
 ## The PD's cue card, as a conversation's topic for a few lines (text: what the PD wrote).
@@ -313,11 +322,7 @@ const DARK_IDIOMS := ["jump off a bridge", "jump off the bridge", "jump off a ro
 
 ## A dark turn of phrase the text uses, or "" (see DARK_IDIOMS).
 static func dark_idiom(text: String) -> String:
-	var lower := " " + " ".join(Text.words(text.replace("'", ""))) + " "
-	for idiom in DARK_IDIOMS:
-		if lower.contains(" " + " ".join(Text.words(str(idiom))) + " "):
-			return str(idiom)
-	return ""
+	return Text.find_phrase(text, DARK_IDIOMS)
 
 
 ## Giving something away: only the bill decides what's paid for, and the owner doesn't give
@@ -326,21 +331,12 @@ const FREEBIE_PHRASES := ["on the house", "free of charge", "no charge", "free f
 
 
 static func freebie(text: String) -> String:
-	var lower := " " + " ".join(Text.words(text)) + " "
-	for phrase in FREEBIE_PHRASES:
-		if lower.contains(" " + " ".join(Text.words(str(phrase))) + " "):
-			return str(phrase)
-	return ""
+	return Text.find_phrase(text, FREEBIE_PHRASES)
 
 
 ## A brand the text names, or "" (see REAL_BRANDS).
 static func real_brand(text: String) -> String:
-	var lower := " " + " ".join(Text.words(text.replace("'", "").replace("-", " "))) + " "
-	for brand in REAL_BRANDS:
-		var wanted := " " + " ".join(Text.words(str(brand).replace("'", "").replace("-", " "))) + " "
-		if lower.contains(wanted):
-			return str(brand)
-	return ""
+	return Text.find_phrase(text, REAL_BRANDS)
 
 
 ## Korean dishes that aren't on the menu (yet: menus will differ by bar). People may talk
@@ -378,6 +374,28 @@ const MADE_UP_KOREAN_WORDS := 3  # this many romanised-looking words in a line, 
 ## "norahae", a garbled 노래해 "sing", said three times in one night). A real one
 ## ("annyeonghaseyo", "gomawoyo") is in the glossary, so it's fine.
 const KOREAN_ENDINGS := ["seyo", "nida", "haeyo", "jiyo", "eoyo", "deyo", "hae"]
+## ...or two side by side ("Haengbokhan jjae?": a real word, then an invented one, as a phrase).
+## A word starting with a doubled consonant is Korean-looking too: no English word does.
+const DOUBLED_STARTS := ["jj", "kk", "tt", "pp", "ss"]
+
+
+## Ways of saying a dish is still on its way.
+const ON_ITS_WAY := ["not ready", "isnt ready", "not done", "still cooking", "taking longer", "taking a while", "takes a bit longer",
+	"takes a little longer", "on its way", "almost done", "almost ready", "nearly ready", "nearly done", "wont be long", "finally ready",
+	"is coming", "coming right up", "be out in", "out in a bit", "out in a minute", "when its ready", "when its done", "ill bring it"]
+
+
+## A line that says a dish is still on its way when it's already on their table (night 25:
+## "Sundae's finally ready, take it with you", long after it was served), or "". items: what's
+## been ordered (served or not); coming: the dishes still cooking or waiting to go over.
+static func served_already(line: String, items: Array, coming: Array) -> String:
+	if Text.find_phrase(line, ON_ITS_WAY) == "":
+		return ""
+	for found in Orders.mentions(line, true):
+		var id := str(found["id"])
+		if items.has(id) and not coming.has(id) and Menu.find(id).get("kind", "") == "food":
+			return "the line says the %s is still on its way, but it's already on the table" % Menu.find(id).get("name", id)
+	return ""
 
 
 ## The romanised-Korean-looking words in a line, if there are enough to be made-up Korean
@@ -408,16 +426,22 @@ static func romanised_korean(line: String, names: Array = []) -> Array:
 			allowed[part] = true
 	var found: Array = []
 	var verb_ending := false
+	var side_by_side := false  # two Korean-looking words the game doesn't know, one after the other: a phrase
+	var last_korean := false
 	for word in Text.words(line):
-		if allowed.has(word) or word.length() < 3:
-			continue
-		if word.contains("eo") or word.contains("eu") or word.contains("ae") or (word.ends_with("yo") and word.length() > 3):
-			found.append(word)
-		if word.length() >= 6 and KOREAN_ENDINGS.any(func(ending): return word.ends_with(ending)):
+		var korean := false
+		if not allowed.has(word) and word.length() >= 3:
+			korean = word.contains("eo") or word.contains("eu") or word.contains("ae") or (word.ends_with("yo") and word.length() > 3) \
+				or DOUBLED_STARTS.any(func(start): return word.begins_with(start))
+			if word.length() >= 6 and KOREAN_ENDINGS.any(func(ending): return word.ends_with(ending)):
+				korean = true
+				verb_ending = true
+		if korean:
 			if not found.has(word):
 				found.append(word)
-			verb_ending = true
-	return found if found.size() >= MADE_UP_KOREAN_WORDS or verb_ending else []
+			side_by_side = side_by_side or last_korean
+		last_korean = korean
+	return found if found.size() >= MADE_UP_KOREAN_WORDS or verb_ending or side_by_side else []
 
 
 ## Food is love: now and then, when a dish has just arrived, the next line of the owner's

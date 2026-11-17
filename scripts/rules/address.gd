@@ -124,12 +124,33 @@ static func terms_in(line: String, names: Array = []) -> Array:
 
 ## What's wrong with how a line addresses someone ("" if nothing). address: {"speaker",
 ## "listener", "close"} (see allowed_terms); "listener_name" for the reason.
+## "to_camera": the line's said straight to the camera (the PD's interview cut), so it calls
+## nobody anything, and doesn't start by saying anyone's name.
 static func address_problem(line: String, address: Dictionary, names: Array = []) -> String:
+	if bool(address.get("to_camera", false)):
+		var to := terms_in(line, names)
+		var named := named_first(line, names)
+		if not to.is_empty() or named != "":
+			return "the line is said straight to the camera, answering the PD, but it talks to %s: answer the PD's question, to the camera" % ("\"%s\"" % to[0] if not to.is_empty() else named)
+		return ""
 	var allowed := allowed_terms(address.get("speaker", {}), address.get("listener", {}), bool(address.get("close", false)))
 	for term in terms_in(line, names):
 		if not allowed.has(term):
 			var close_note := " (and only once they've talked about it)" if TERMS[term]["warmth"] == "close" else ""
 			return "the line calls %s \"%s\", but %s%s" % [address.get("listener_name", "them"), term, TERMS[term]["rule"], close_note]
+	return ""
+
+
+## The name a line starts by talking to ("Ji-hyun, ...", "Kim Min-seok!"), or "".
+static func named_first(line: String, names: Array) -> String:
+	var start := line.strip_edges().to_lower()
+	for person in names:
+		var full := str(person)
+		var parts := full.split(" ", false)
+		for name in [full, " ".join(parts.slice(1)) if parts.size() > 1 else full]:
+			var lower := str(name).to_lower()
+			if lower != "" and start.begins_with(lower) and start.substr(lower.length(), 1) in [",", "!", "?", "."]:
+				return str(name)
 	return ""
 
 

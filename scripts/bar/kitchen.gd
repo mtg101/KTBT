@@ -69,6 +69,11 @@ func update_stove() -> void:
 
 
 ## A guest's dishes that are on the stove, queued, or ready to carry over.
+## Every dish still on its way, anyone's (ids).
+func all_coming() -> Array:
+	return (queue + ready).map(func(dish): return dish["id"])
+
+
 func food_coming(guest: Variant) -> Array:
 	var ids: Array = []
 	for dish in queue + ready:

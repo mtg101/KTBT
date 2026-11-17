@@ -25,6 +25,8 @@ static func pick_weighted(weights: Dictionary, roll: float, skip: String) -> Str
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
+	if p.contains("already on the table"):
+		return "food already served"
 	if p.contains("never how they look"):
 		return "teasing that crossed the line"
 	if p.begins_with("the signature dish"):
@@ -118,6 +120,66 @@ static func words(text: String) -> PackedStringArray:
 	for c in text.to_lower():
 		letters += c if (c >= "a" and c <= "z") else " "
 	return letters.split(" ", false)
+
+
+## Words too ordinary to make a phrase stand out (see phrases_in).
+const ORDINARY_WORDS := ["a", "an", "the", "i", "m", "s", "t", "ll", "ve", "re", "d", "you", "your", "it", "its", "my", "me", "we", "our", "us",
+	"he", "she", "his", "her", "him", "they", "them", "their", "to", "of", "in", "on", "at", "for", "with", "from", "by", "up", "out", "off",
+	"and", "or", "but", "so", "if", "is", "am", "are", "was", "were", "be", "been", "do", "does", "did", "don", "can", "could", "would",
+	"will", "should", "have", "has", "had", "get", "got", "go", "going", "just", "not", "no", "yes", "now", "too", "very", "really", "all",
+	"one", "this", "that", "these", "those", "what", "when", "where", "how", "why", "who", "here", "there", "some", "any", "more", "little",
+	"bit", "about", "like", "know", "think", "well", "oh", "okay", "ok", "right", "yeah", "then", "than", "as", "into", "back", "still",
+	"tonight", "time", "good", "let", "make", "take", "want", "need", "maybe", "much", "many", "again", "always", "never", "only", "even",
+	"im", "ill", "id", "ive", "youre", "youll", "dont", "cant", "its", "thats", "whats", "isnt", "wont", "didnt", "doesnt", "sure", "please",
+	"thanks", "thank", "lets", "theres", "heres"]
+
+
+## Whose doesn't matter to a turn of phrase: "drowning your sorrows" is "drowning my sorrows".
+const WHOSE := ["your", "his", "her", "their", "our"]
+
+
+## A word's stem, roughly, so a turn of phrase is the same however it's said: "drowning" and
+## "drown", "sorrows" and "sorrow".
+static func stem(word: String) -> String:
+	if word in WHOSE:
+		return "my"
+	if word.length() > 5 and word.ends_with("ing"):
+		return word.left(word.length() - 3)
+	if word.length() > 4 and word.ends_with("ed"):
+		return word.left(word.length() - 2)
+	if word.length() > 3 and word.ends_with("s") and not word.ends_with("ss"):
+		return word.left(word.length() - 1)
+	return word
+
+
+## The three-word phrases in a line that could be a turn of phrase ("drowning my sorrows"): at
+## least two of their words aren't ordinary. skip: words that don't count (names, the menu,
+## the Korean the game knows), so "the halmeoni bbanguk" isn't one. Each comes back stemmed
+## ("drown my sorrow"), so the different ways of saying it count together.
+static func phrases_in(line: String, skip: Dictionary = {}) -> Array:
+	var said := words(line.replace("'", "").replace("’", ""))
+	var found: Array = []
+	for i in range(said.size() - 2):
+		var three := [said[i], said[i + 1], said[i + 2]]
+		if three.any(func(word): return skip.has(word)):
+			continue
+		if three.filter(func(word): return not ORDINARY_WORDS.has(word)).size() >= 2:
+			var phrase := " ".join(PackedStringArray(three.map(func(word): return stem(str(word)))))
+			if not found.has(phrase):
+				found.append(phrase)
+	return found
+
+
+## The first of phrases the text says, as whole words ("free" isn't in "freedom"), or "".
+## Case, punctuation and hyphens don't count, and apostrophes are taken out, so "you're" is
+## "youre" in both. (The checks on what's said: real brands, dark idioms, freebies, teasing
+## that crosses the line, the PD's hard limits.)
+static func find_phrase(text: String, phrases: Array) -> String:
+	var said := " %s " % " ".join(words(text.replace("'", "").replace("’", "")))
+	for phrase in phrases:
+		if said.contains(" %s " % " ".join(words(str(phrase).replace("'", "").replace("’", "")))):
+			return str(phrase)
+	return ""
 
 
 ## "a messy bob" -> "A messy bob."

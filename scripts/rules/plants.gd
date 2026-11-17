@@ -10,6 +10,7 @@ extends RefCounted
 
 const Names = preload("res://scripts/rules/names.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 ## How many cards the PD's dealt each night: three events, one write-in and, always, a word
 ## from our sponsor (the PPL card).
@@ -276,10 +277,8 @@ static func check_written(card: String, typed: String) -> Dictionary:
 		return {"text": text, "problem": "Write a few words first."}
 	if text.length() > most:
 		return {"text": text, "problem": "Too long: %d characters at most." % most}
-	var lower := " " + " ".join(PackedStringArray(Array(text.to_lower().split(" ", false)).map(func(w): return w.strip_edges(true, true).trim_suffix(".").trim_suffix(",").trim_suffix("!").trim_suffix("?")))) + " "
-	for limit in HARD_LIMITS:
-		if lower.contains(" %s " % limit):
-			return {"text": text, "problem": "That's not something the show can put on air."}
+	if Text.find_phrase(text, HARD_LIMITS) != "":
+		return {"text": text, "problem": "That's not something the show can put on air."}
 	if Talk.crosses_line(text) != "":
 		return {"text": text, "problem": "Teasing's fine, but not about looks, bodies or anything crude."}
 	return {"text": text, "problem": ""}

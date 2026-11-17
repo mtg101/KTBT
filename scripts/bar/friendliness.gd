@@ -26,7 +26,8 @@ static func name_of(owner_data: Dictionary, guest: Variant) -> String:
 
 ## For the checks: who's speaking to whom.
 static func address_for(owner_data: Dictionary, speaker: Variant, listener: Variant, close: bool = false) -> Dictionary:
-	return {"speaker": person(owner_data, speaker), "listener": person(owner_data, listener), "close": close, "listener_name": name_of(owner_data, listener)}
+	return {"speaker": person(owner_data, speaker), "listener": person(owner_data, listener), "close": close, "listener_name": name_of(owner_data, listener),
+		"to_camera": speaker != null and "to_camera" in speaker and bool(speaker.to_camera)}
 
 
 ## For the prompts: how the owner and a customer address each other (and, for a regular the

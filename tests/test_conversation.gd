@@ -26,6 +26,15 @@ class Someone:
 	var pd_topic_lines := 0
 
 
+func test_lines_are_asked_to_say_worn_out_phrases_another_way() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	assert_str(str(Conversation.owner_line(night, guest, 2, false, false)["direction"])).not_contains("Already said a lot")
+	for _k in 3:
+		night.stats.record_line("Just drowning my sorrows, you know.")
+	assert_str(str(Conversation.owner_line(night, guest, 2, false, false)["direction"])).contains("«drown my sorrow»")
+
+
 func test_the_owners_line_is_given_its_moments_once() -> void:
 	var night := Night.new()
 	var guest := Someone.new()

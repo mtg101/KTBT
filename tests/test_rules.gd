@@ -178,6 +178,8 @@ func test_somaek_has_to_be_asked_for() -> void:
 	assert_str(Orders.validate_extra_order(_order(["somaek"], "One more somaek, please."), ["soju"])).is_empty()
 	assert_str(Orders.validate_extra_order(_order(["somaek"], "Can I get another soju dropped into this beer?"), ["beer"])).is_empty()
 	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Ajumma, the usual, and odeng."))).is_empty()
+	# ...but "the usual" doesn't stand in for a drink the line names (night 25: "just the usual please, soju and sundae").
+	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Just the usual please, soju and odeng."))).contains("doesn't ask for it")
 	assert_str(Orders.validate_order(_order(["somaek", "odeng"], "Just a somaeck and odeng, please."))).is_empty()  # (a common misspelling)
 	assert_str(Menu.resolve("somac")).is_equal("somaek")
 
@@ -917,6 +919,56 @@ func test_topic_hints_say_where_to_steer() -> void:
 	assert_str(Talk.topic_hint("their_day")).contains("how their day has gone")
 	assert_str(Talk.topic_hint("life", true)).contains("love, family")
 	assert_str(Talk.topic_hint("nonsense")).is_empty()
+
+
+func test_phrases_are_found_as_whole_words() -> void:
+	assert_str(Text.find_phrase("That's on the house, dear!", ["on the house"])).is_equal("on the house")
+	assert_str(Text.find_phrase("Freedom at last", ["free"])).is_empty()
+	assert_str(Text.find_phrase("You’re FAT, mate", ["you're fat"])).is_equal("you're fat")  # (curly or straight apostrophes)
+	assert_str(Text.find_phrase("free-for-first-timers night", ["free for first timers"])).is_equal("free for first timers")
+	assert_str(Text.find_phrase("", ["anything"])).is_empty()
+
+
+func test_a_line_to_camera_answers_the_pd() -> void:
+	var names := ["Kim Min-seok", "Lee Ji-hyun"]
+	var to_camera := {"to_camera": true}
+	# Night 25: the interview "answer" greeted someone at the counter.
+	assert_str(Address.address_problem("Annyeong, Nuna! How's the consulting life treating you?", to_camera, names)).contains("straight to the camera")
+	assert_str(Address.address_problem("Ji-hyun, you tell them.", to_camera, names)).contains("Ji-hyun")
+	assert_str(Address.address_problem("Honestly? I'm fine. Better than fine, now.", to_camera, names)).is_empty()
+	assert_str(Address.address_problem("Ji-hyun's been good to me, this winter.", to_camera, names)).is_empty()  # (talking about someone is fine)
+	assert_str(Talk.TO_CAMERA).contains("straight to the camera")
+
+
+func test_korean_the_pd_types_is_explained_to_the_ai() -> void:
+	assert_str(Glossary.gloss("kinchanai!")).contains("kinchanai is").contains("Gwaenchana")  # (spelt as it sounds)
+	assert_str(Glossary.gloss("Jinjja? Gwaenchana?")).contains("Jinjja").contains("Gwaenchana")
+	assert_str(Glossary.gloss("her first love")).is_empty()
+
+
+func test_made_up_korean_beside_a_real_word_is_caught() -> void:
+	assert_str(Talk.made_up_korean("Haengbokhan jjae? I'm still drowning my sorrows.")).contains("jjae")  # (night 25)
+	assert_str(Talk.made_up_korean("Jjae, that's all I'm saying.")).is_empty()  # (one odd word on its own is let go)
+	assert_str(Talk.made_up_korean("Aigoo, jinjja? That's daebak.")).is_empty()  # (real ones, side by side, are fine)
+	assert_str(Talk.made_up_korean("The people in the video were neutral.")).is_empty()
+
+
+func test_turns_of_phrase_count_however_theyre_said() -> void:
+	assert_array(Text.phrases_in("I'm trying to drown my sorrows, Imo.")).contains(["drown my sorrow"])
+	assert_array(Text.phrases_in("Still drowning your sorrows, then?")).contains(["drown my sorrow"])
+	assert_array(Text.phrases_in("I'll have a bowl of rice, please.", {"rice": true, "bowl": true})).is_empty()  # (an order, not a cliché)
+	assert_array(Text.phrases_in("Is it going to be okay?")).is_empty()  # (all ordinary words)
+	assert_str(Talk.worn_out_note([])).is_empty()
+	assert_str(Talk.worn_out_note(["drown my sorrow"])).contains("«drown my sorrow»").contains("another way")
+
+
+func test_food_already_served_isnt_still_on_its_way() -> void:
+	# Night 25: "Sundae's finally ready, take it with you", long after it was served.
+	assert_str(Talk.served_already("Tteokbokki's finally ready, take it with you when you go.", ["tteokbokki", "soju"], [])).contains("already on the table")
+	assert_str(Talk.served_already("Tteokbokki's finally ready, take it with you when you go.", ["tteokbokki", "soju"], ["tteokbokki"])).is_empty()  # (still cooking: true)
+	assert_str(Talk.served_already("Enjoy your tteokbokki!", ["tteokbokki"], [])).is_empty()
+	assert_str(Talk.served_already("The odeng's not ready yet.", ["tteokbokki"], [])).is_empty()  # (not theirs: the other checks deal with that)
+	assert_str(Text.problem_kind("the line says the Tteokbokki is still on its way, but it's already on the table")).is_equal("food already served")
 
 
 func test_strangers_never_tease_each_other() -> void:

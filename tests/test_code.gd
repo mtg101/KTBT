@@ -61,6 +61,47 @@ func test_indents_are_tabs() -> void:
 
 
 ## Every script under a folder, its subfolders too.
+## PLAN.md is only what's left (see its opening): nothing in it says it's done. When part of
+## an item's built, that part moves to the DEVLOG (and how it works, to CONCEPT.md).
+const DONE_IN_A_PLAN := ["\\(done\\b", "\\bdone \\(", "\\bpartly done\\b", "\\bbuilt \\d", "\\(fixed\\b", "\\bfixed \\d", "\\bsince \\d+ (nov|dec|jan)",
+	"\\b(is|are) in \\(\\d", "\\bdone, the\\b", "\\bnow built\\b"]
+
+
+func test_the_plan_only_says_whats_left() -> void:
+	var plan := FileAccess.get_file_as_string("res://PLAN.md")
+	assert_str(plan).is_not_empty()
+	for pattern in DONE_IN_A_PLAN:
+		var found := RegEx.create_from_string("(?i)" + pattern).search(plan)
+		if found != null:
+			var line := plan.substr(0, found.get_start()).count("\n") + 1
+			fail("PLAN.md line %d says something's done (\"%s\"): move that to the DEVLOG, and keep only what's left" % [line, found.get_string()])
+
+
+## The test count is the same everywhere it's written, and the newest day in the DEVLOG says it
+## (so a change with tests always gets a DEVLOG entry).
+func test_the_docs_have_the_test_count() -> void:
+	var count := 0
+	for path in _scripts("res://tests"):
+		count += RegEx.create_from_string("(?m)^func test_").search_all(FileAccess.get_file_as_string(path)).size()
+	assert_str(FileAccess.get_file_as_string("res://TESTS.md")).override_failure_message("TESTS.md doesn't say \"All %d tests pass\"" % count).contains("All %d tests pass" % count)
+	assert_str(FileAccess.get_file_as_string("res://README.md")).override_failure_message("README.md doesn't say \"%d automated tests\"" % count).contains("%d automated tests" % count)
+	var devlog := FileAccess.get_file_as_string("res://DEVLOG.md")
+	var newest := devlog.find("\n## ")
+	var day := devlog.substr(newest, devlog.find("\n## ", newest + 4) - newest)
+	assert_str(day).override_failure_message("the newest day in DEVLOG.md doesn't mention \"%d tests\": add an entry for what changed" % count).contains("%d tests" % count)
+
+
+## Every script is in ARCHITECTURE.md's map of the files, and every test file in TESTS.md.
+func test_the_docs_list_every_file() -> void:
+	var architecture := FileAccess.get_file_as_string("res://ARCHITECTURE.md") + FileAccess.get_file_as_string("res://README.md")
+	for path in _scripts("res://scripts"):
+		assert_str(architecture).override_failure_message("%s isn't in ARCHITECTURE.md's map of the files" % path).contains(str(path).get_file())
+	var tests := FileAccess.get_file_as_string("res://TESTS.md")
+	for path in _scripts("res://tests"):
+		if not str(path).contains("/support/"):
+			assert_str(tests).override_failure_message("%s isn't in TESTS.md" % path).contains(str(path).get_file())
+
+
 func _scripts(folder: String) -> Array:
 	var found: Array = []
 	for file in DirAccess.get_files_at(folder):

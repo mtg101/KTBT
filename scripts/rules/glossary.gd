@@ -40,7 +40,7 @@ const WORDS := {
 	"gamsahamnida": {"spellings": ["gamsahamnida", "kamsahamnida", "gamsahaeyo"], "hangul": "감사합니다", "means": "thank you (polite)."},
 	"gomawo": {"spellings": ["gomawo", "gomawoyo", "gomapseumnida"], "hangul": "고마워", "means": "thanks (gomawo to a friend; gomawoyo a little politer)."},
 	"mianhae": {"spellings": ["mianhae", "mianhaeyo", "mianhamnida", "joesonghamnida"], "hangul": "미안해", "means": "sorry (mianhae to a friend; joesonghamnida very politely)."},
-	"gwaenchana": {"spellings": ["gwaenchana", "gwaenchanayo", "gwenchana", "kwenchana"], "hangul": "괜찮아", "means": "it's okay / are you okay?"},
+	"gwaenchana": {"spellings": ["gwaenchana", "gwaenchanayo", "gwenchana", "gwenchanayo", "kwenchana", "kwenchanayo", "kenchana", "kenchanayo", "kinchana", "kinchanai", "kenchanai"], "hangul": "괜찮아", "means": "it's okay / are you okay?"},
 	"saranghae": {"spellings": ["saranghae", "saranghaeyo"], "hangul": "사랑해", "means": "I love you."},
 	"eoseo oseyo": {"spellings": ["eoseo oseyo", "eoseo-oseyo", "eoseooseyo"], "hangul": "어서오세요", "means": "welcome! (called out as someone comes in)."},
 	"tto osyeonneyo": {"spellings": ["tto osyeonneyo"], "hangul": "또 오셨네요", "means": "you came again! (polite, to a familiar face)."},
@@ -275,6 +275,22 @@ static func _hint_hangul(text: String) -> String:
 
 ## The Korean words in some plain text, one entry per time it's said (as lookup()'s "word").
 ## names: people's names, which don't count.
+## The Korean words in what the player typed, with what they mean, for the AI (it can't be
+## relied on to know a romanised word, least of all one spelt the way it sounds): " (Korean:
+## kinchanai is 괜찮아 Gwaenchana: it's okay / are you okay?)", or "" if there are none.
+static func gloss(text: String, names: Array = []) -> String:
+	var skip := _name_parts(names)
+	var said := PackedStringArray()
+	for found in _word_pattern().search_all(text):
+		var spelling := found.get_string(1)
+		if skip.has(spelling.to_lower()):
+			continue
+		var line := "%s is %s" % [spelling, str(lookup()[spelling.to_lower()]["tip"])]
+		if not said.has(line):
+			said.append(line)
+	return " (Korean: %s)" % "; ".join(said) if not said.is_empty() else ""
+
+
 static func words_in(text: String, names: Array = []) -> Array:
 	var skip := _name_parts(names)
 	var words: Array = []

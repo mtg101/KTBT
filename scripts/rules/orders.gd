@@ -311,12 +311,14 @@ static func drop_unsaid(line: String, ids: Array, fits: Callable) -> void:
 ## Somaek ordered, but the line doesn't ask for it: "" if it does (or there's no somaek).
 ## Saying somaek, or soju and beer together ("a soju dropped into this beer"), or "the usual"
 ## counts. (Somaek lets a line mention soju, so without this "one more soju" or "one more
-## bottle" came out as somaek.)
+## bottle" came out as somaek.) "The usual" only stands in for a drink it doesn't name: "the
+## usual, soju and sundae" asks for soju.
 static func somaek_unsaid(line: String, ids: Array) -> String:
 	if not ids.has("somaek"):
 		return ""
 	var said: Array = mentions(line, true).map(func(found): return str(found["id"]))
-	if said.has("somaek") or (said.has("soju") and said.has("beer")) or "usual" in Text.words(line):
+	var names_a_drink := said.any(func(id): return Menu.find(str(id)).get("kind", "") == "drink")
+	if said.has("somaek") or (said.has("soju") and said.has("beer")) or ("usual" in Text.words(line) and not names_a_drink):
 		return ""
 	return "they ordered Somaek, but the line doesn't ask for it (say \"somaek\", or order what the line asks for)"
 

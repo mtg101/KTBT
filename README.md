@@ -10,7 +10,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Next up:** a few more nights watching the latest changes in the stats, then bad visits and customers coming in together. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
+**Next up:** the PD's code moved into a part of its own, then pinning a line, the edit suite between nights and ratings; then bad visits and customers coming in together. See [PLAN.md](PLAN.md) for what's next and [DEVLOG.md](DEVLOG.md) for what's been done.
 
 ### What's in it so far
 
@@ -24,10 +24,12 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **The cat:** with a personality, going where it likes, and a greedy one steals fish cakes; everyone talks about it (and now and then to it) as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
+- **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), and give a big moment's caption its spin in two seconds (the AI's own, the flip, or a roast).
+- **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 551 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 583 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
-Version one is a **simulation**: you watch the bar run itself. Talking to customers yourself comes later.
+The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
 ## Documents
 
@@ -57,7 +59,7 @@ Version one is a **simulation**: you watch the bar run itself. Talking to custom
 
 **Sound settings:** the Sound on/off and volume, and the Music volume, are kept in `settings.cfg` in the same user data folder.
 
-**The screen:** the tent on top; underneath, the transcript, the PD's desk (the camera, and tonight's plant cards), and a side panel in tabs, opening on who's here now (the owner, the cat, everyone at the counter) with tonight's debug stats in the other tabs, one section at a time (while we're testing). **Stats:** and each night writes a stats log (JSON), to compare runs: to `logs/stats/` in the project folder when you play from the Godot editor, beside the transcripts, otherwise to `stats/` in the same user data folder.
+**The screen:** the tent on top; underneath, the transcript, the PD's desk (the camera, tonight's plant cards, the writing box and the edit), and a side panel in tabs, opening on who's here now (the owner, the cat, everyone at the counter) with tonight's debug stats in the other tabs, one section at a time (while we're testing). **Stats:** and each night writes a stats log (JSON), to compare runs: to `logs/stats/` in the project folder when you play from the Godot editor, beside the transcripts, otherwise to `stats/` in the same user data folder.
 
 **Transcripts:** each night's transcript is written, as it goes, to `logs/transcripts/` in the project folder when you play from the Godot editor (kept out of git by `.gitignore`), so you can read or share how a night went.
 
