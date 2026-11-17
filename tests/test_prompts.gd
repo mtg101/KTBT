@@ -439,6 +439,14 @@ func test_the_recap_prompt_tells_last_time() -> void:
 	facts["teaser_example"] = Story.RECAP_TEASER_EXAMPLES[3]
 	assert_str(_request(Prompts.recap_messages(facts))).contains(Story.RECAP_TEASER_EXAMPLES[3])
 	assert_str(text).not_contains("Will they come back")
+	assert_str(text).not_contains("The show kept")
+	# The lines the PD pinned: the beats are those moments, one each.
+	facts["last"]["pinned"] = [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}, {"speaker": "Hwang Tae-oh", "text": "Save my stool."}]
+	facts["last"]["line"] = {"speaker": "Lee Da-eun", "text": "The longest thing anyone said."}
+	var pinned := _request(Prompts.recap_messages(facts))
+	assert_str(pinned).contains("The lines the show kept for the episode").contains("Kim Ji-ho: \"I quit today, and I'm glad.\"")
+	assert_str(pinned).contains("The show kept 2 lines for the episode (above): make the beats those moments, one each, in order")
+	assert_str(pinned).not_contains("The longest thing anyone said")  # (the pins, not the longest line)
 
 
 func test_the_owners_life_is_in_every_prompt() -> void:

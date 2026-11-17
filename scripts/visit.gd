@@ -195,6 +195,8 @@ var _takings := 0
 var _guests: Array = []  # Guest: whoever's on a stool
 var _camera := PdCamera.new()  # the PD's camera: who the show's following tonight (scripts/bar/camera.gd)
 const CAMERA_RED := PdDesk.CAMERA_RED  # the camera's REC (the shock caption's red)
+var _said: Array = []  # the lines said, as said: {"id", "speaker", "text", "at", "night"} (a line's 📌 pins it: see _said_line)
+var _chunks: Array = []  # the transcript as shown, chunk by chunk ({"text", "pin": a line said, or -1}), to draw it again when a pin changes
 var _pd: PdDesk  # the PD's desk: tonight's hand, the writing box, the edit, the REC corner (scripts/bar/pd_desk.gd)
 var _planted_regular := ""  # the regular the PD rang tonight, until they're in (their id)
 var _lights_out := 0.0  # real seconds left of the lights being out (the lights-flicker card)
@@ -1227,7 +1229,7 @@ func _end_night() -> void:
 	_move_owner(OWNER_HOME_X)
 	_fade_regulars()
 	_update_stats_panel()
-	var line := NightRules.memorable_line(_night_lines)
+	var line := _night_quote()
 	SaveStore.record_night(Game.bar, {
 		"night": _night_number, "day": _night_day, "weather": _night_weather,
 		"customers": _night_visits, "takings": _night_takings,
@@ -1300,7 +1302,8 @@ func _diary_facts() -> Dictionary:
 		"owner_gender": str(_owner.get("gender", "")), "customers": _night_visits, "takings": _night_takings,
 		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
-		"cat": str(_cat.get("name", "")), "line": NightRules.memorable_line(_night_lines), "specials": _specials.duplicate(),
+		"cat": str(_cat.get("name", "")), "line": _night_quote(), "specials": _specials.duplicate(),
+		"pinned": [] if _pd == null else _pd.pins.map(func(p): return {"speaker": str(p["speaker"]), "text": str(p["text"])}),
 		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
 		"closed_said": _closing_said if _closing_early else "",
 		"menu_change": _menu_change.duplicate(),
@@ -1343,7 +1346,10 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	var style := Story.pick_recap_style(facts["last"], str(Game.bar.get("last_recap_style", "")), randf())
 	Game.bar["last_recap_style"] = style
 	_before_night["recap_style"] = style
-	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style}
+	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style,
+		"quotes": [] if opener else facts["last"].get("pinned", [])}
+	if not opener and not facts["last"].get("pinned", []).is_empty():
+		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
 	_recap_said = "%s %s %s" % ["Series opener:" if opener else "Previously on…", " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
@@ -1547,9 +1553,74 @@ func _save_stats(finished: bool) -> void:
 
 ## Adds to the transcript on screen and, during a night, to tonight's transcript file (before
 ## it, kept for the top of it: see StoryKeeper).
-func _show(bbcode: String) -> void:
-	_log.append_text(Glossary.explain_hangul(bbcode))  # (any Hangul explains itself on hover)
+## pin: a line said (see _said_line), shown with its 📌: only on screen, not in the transcript file.
+func _show(bbcode: String, pin: int = -1) -> void:
+	var chunk := {"text": Glossary.explain_hangul(bbcode), "pin": pin}  # (any Hangul explains itself on hover)
+	_chunks.append(chunk)
+	_log.append_text(_render(chunk))
 	_story.record(bbcode)
+
+
+## A line said, kept so the PD can pin it for the episode (see _on_transcript_link). Its id.
+func _said_line(speaker: String, text: String) -> int:
+	_said.append({"id": _said.size(), "speaker": speaker, "text": text, "at": int(_clock), "night": _night_number})
+	return _said.size() - 1
+
+
+## A chunk of the transcript as shown: a line said ends in its 📌 (a link), and once it's
+## pinned the line's tinted and its 📌 lit, so you can see what's kept.
+func _render(chunk: Dictionary) -> String:
+	var pin := int(chunk["pin"])
+	if pin < 0:
+		return str(chunk["text"])
+	var pinned := _pd != null and _pd.pins.any(func(p): return int(p["id"]) == pin)
+	var body := str(chunk["text"]).trim_suffix("\n\n")
+	if pinned:
+		body = "[bgcolor=#%s]%s[/bgcolor]" % [Color(CAMERA_RED, 0.22).to_html(true), body]
+	var tip := "Pinned for the episode: click to let it go" if pinned else "Pin this line for the episode: three a night, for \"Previously on…\" (a fourth drops the oldest; click again to unpin)"
+	return "%s  [url=pin:%d][color=#%s]%s[/color][/url]\n\n" % [body, pin, (CAMERA_RED if pinned else MUTED.darkened(0.25)).to_html(false), Text.hint(tip, "📌")]
+
+
+## The transcript drawn again from its chunks (a pin's changed how a line looks), keeping
+## where it's scrolled to (unless it was following the latest line).
+func _redraw_transcript() -> void:
+	var bar := _log.get_v_scroll_bar()
+	var at := bar.value
+	var following := at >= bar.max_value - bar.page - 8.0
+	_log.clear()
+	for chunk in _chunks:
+		_log.append_text(_render(chunk))
+	if not following:
+		await get_tree().process_frame
+		bar.value = at
+
+
+## A link clicked in the transcript: a line's 📌 pins it (or unpins it) for the episode.
+func _on_transcript_link(meta: Variant) -> void:
+	var link := str(meta)
+	if not link.begins_with("pin:") or _pd == null:
+		return
+	var k := int(link.trim_prefix("pin:"))
+	if k < 0 or k >= _said.size() or int(_said[k]["night"]) != _night_number:
+		return  # (not a line, or one from an earlier night: the episode's tonight's)
+	var happened := _pd.pin(_said[k])
+	_redraw_transcript()
+	var line: Dictionary = happened.get("pinned", happened.get("unpinned", {}))
+	var said := "%s: «%s»" % [line["speaker"], Text.shorten(str(line["text"]), 80)]
+	if happened.has("pinned"):
+		var dropped: Dictionary = happened.get("dropped", {})
+		_show("[i][color=#%s]📌 Pinned for the episode: %s%s[/color][/i]\n\n" % [CAMERA_RED.to_html(false), _esc(said),
+			(_esc(" (%s's line drops off: three a night)" % dropped["speaker"])) if not dropped.is_empty() else ""])
+	else:
+		_show("[i][color=#%s]📌 Unpinned: %s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(said)])
+
+
+## The night's quote, for the summary and the diary: the first line the PD pinned, or (with
+## none pinned) the longest thing a customer said.
+func _night_quote() -> Dictionary:
+	if _pd != null and not _pd.pins.is_empty():
+		return {"speaker": str(_pd.pins[0]["speaker"]), "text": str(_pd.pins[0]["text"])}
+	return NightRules.memorable_line(_night_lines)
 
 
 ## Tonight's transcript file, written as the night goes (see StoryKeeper): a header saying which
@@ -2349,7 +2420,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		guest.to_camera = false
 		_show_to_camera(guest, line)
 	else:
-		_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)])
+		_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)], _said_line(speaker, line))
 	_cheer_along(guest, line, names)
 	_table_game_taken(chat, guest, line)
 	_mind_your_elders(guest, addressed)
@@ -2650,7 +2721,8 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 		guest.to_camera = false
 		_show_to_camera(guest, text)
 	else:
-		_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
+		_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])],
+			_said_line(str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), text))
 	_cheer_along(null if owner_speaks else guest, text, [_owner["name"], guest.customer["name"]])
 	# (Their node may have gone while the line was on its way, e.g. they've walked off: a freed
 	# node can't be passed as a Control, so it's null then, and the bubble skips or points nowhere.)
@@ -3393,7 +3465,7 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 func _show_to_camera(guest: Variant, line: String) -> void:
 	var colour: Color = guest.color.lightened(0.35)
 	_show("[indent][color=#%s][b]● INTERVIEW[/b][/color]  [color=#%s][b]%s[/b], to camera:[/color] [i]%s[/i][/indent]\n\n" % [CAMERA_RED.to_html(false),
-		colour.to_html(false), _esc(_name_label(guest.customer)), Glossary.explain(_esc(line), _names_here())])
+		colour.to_html(false), _esc(_name_label(guest.customer)), Glossary.explain(_esc(line), _names_here())], _said_line(str(guest.customer["name"]), line))
 
 
 ## The sponsor's product on someone's table (the PPL card): drawn small, label out, with its hover.
@@ -3599,6 +3671,7 @@ func _build_ui() -> void:
 	_pd.happens = _card_happens
 	_pd.airs = _air_moment
 	_pd.camera = _camera
+	_pd.link = _on_transcript_link  # (a pinned line clicked on the desk: let it go)
 	var bg := ColorRect.new()
 	bg.color = Ktv.BACKGROUND
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -3774,6 +3847,8 @@ func _build_ui() -> void:
 	_log.bbcode_enabled = true
 	_log.scroll_following = true
 	_log.selection_enabled = true
+	_log.meta_underlined = false  # (a line's 📌 is a link: see _pin_link)
+	_log.meta_clicked.connect(_on_transcript_link)
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log.add_theme_font_size_override("normal_font_size", 19)
 	_log.add_theme_font_size_override("bold_font_size", 19)

@@ -20,6 +20,7 @@ const PdCamera = preload("res://scripts/bar/camera.gd")
 
 const CAMERA_RED := Color("ff4f6d")  # the camera's REC (the shock caption's red)
 const KIND_COLOURS := {"event": Ktv.MINT, "write": Ktv.PINK, "sponsor": Ktv.YELLOW}  # (the cards' stripes and tags)
+const MAX_PINS := 3  # lines kept for the episode a night ("Previously on…" is three things): a fourth drops the oldest
 const STAY_LEFT := 20.0  # game minutes someone needs left for a card picked for them (a pair: both)
 ## What a PD is, on the desk's title's hover.
 const PD_MEANS := "PD: the producer-director, who makes a Korean TV show: picks whose story the camera follows, and sets things up to see what happens. That's you: the tent runs itself, and nothing you do here pauses it."
@@ -35,6 +36,7 @@ var card_what := {}  # card -> what it is tonight (its variant), picked as it's 
 var dice := RandomNumberGenerator.new()  # the cards' own (dealing them never shifts anything else's rolls)
 var writing_card := ""  # the write-in card being typed ("": none)
 var edit := {}  # the edit up on the desk: {"spins", "reply", "lines", "names", "roll"} ({}: none)
+var pins: Array = []  # lines the PD's kept for the episode, oldest first: {"id", "speaker", "text", "at"}
 
 # What the tent tells the desk, and does for it.
 var now: Callable  # () -> what the cards need to know right now (Plants.why_not)
@@ -43,9 +45,11 @@ var pair_partner: Callable  # (guest) -> who a pair's card would pair them with,
 var cat: Callable  # () -> the tent's cat ({} if there isn't one)
 var happens: Callable  # (card, text, aimed, what): a card's played, and the tent makes it happen
 var airs: Callable  # (k, spins, reply, lines, names, roll): the edit's spin k goes out
+var link: Callable  # (meta): a link clicked on the desk (a pinned line's "pin:N": let it go)
 
 # On screen.
 var panel: PanelContainer  # the desk itself
+var scroll: ScrollContainer  # ...which scrolls, so it never grows past the screen
 var text: RichTextLabel  # its heading and the camera
 var cards: VBoxContainer  # tonight's cards
 var writing_box: VBoxContainer
@@ -65,19 +69,28 @@ func _init(tonight: Night) -> void:
 
 # --- Building it -------------------------------------------------------------------------
 
-## The desk's insides, in its panel: the heading and camera, the edit (just under, where your
-## eye is), the cards, and the writing box.
+## The desk's insides, in its panel (scrolling, so it never grows past the screen and over
+## the panels beside it): the edit (on top, where your eye is when it pops up), the heading,
+## camera and pins, the cards, and the writing box.
 func build(desk: PanelContainer) -> void:
 	panel = desk
+	scroll = ScrollContainer.new()
+	scroll.name = "PdDeskScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
 	text = RichTextLabel.new()
 	text.name = "PdDeskText"
 	text.bbcode_enabled = true
 	text.fit_content = true
+	text.meta_underlined = false
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_font_size_override("normal_font_size", 17)
 	text.add_theme_font_size_override("bold_font_size", 17)
+	text.meta_clicked.connect(_on_link)
 	box.add_child(text)
 	edit_box = VBoxContainer.new()
 	edit_box.name = "PdEdit"
@@ -98,6 +111,7 @@ func build(desk: PanelContainer) -> void:
 	edit_buttons.name = "PdEditSpins"
 	edit_box.add_child(edit_buttons)
 	box.add_child(edit_box)
+	box.move_child(edit_box, 0)  # (on top: where your eye is when it pops up)
 	cards = VBoxContainer.new()
 	cards.name = "PlantCards"
 	cards.add_theme_constant_override("separation", 8)
@@ -119,6 +133,12 @@ func build(desk: PanelContainer) -> void:
 	writing_problem.name = "PlantWritingProblem"
 	writing_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	writing_box.add_child(writing_problem)
+
+
+## A link clicked on the desk: the tent handles it (a pinned line's: let it go).
+func _on_link(meta: Variant) -> void:
+	if link.is_valid():
+		link.call(meta)
 
 
 ## "● REC" in the stage's top corner (never hidden: over the bubbles and captions).
@@ -145,6 +165,7 @@ func deal(seed_text: String, tonight: Dictionary, last: Array) -> Array:
 	played = []
 	picked = {}
 	card_what = {}
+	pins = []
 	for card in hand:
 		what_for(str(card))
 	return hand
@@ -207,6 +228,33 @@ func play(card: String, typed: String = "") -> void:
 	refresh()
 
 
+# --- Pinning lines -----------------------------------------------------------------------------
+
+## A line clicked in the transcript (line: {"id", "speaker", "text", "at"}): kept for the
+## episode, or let go if it already was. A fourth pin drops the oldest. Returns what happened:
+## {"pinned": the line} (and "dropped": the oldest, if one went), or {"unpinned": the line}.
+func pin(line: Dictionary) -> Dictionary:
+	for kept in pins:
+		if int(kept["id"]) == int(line["id"]):
+			pins.erase(kept)
+			_count_pins()
+			refresh()
+			return {"unpinned": kept}
+	pins.append(line.duplicate())
+	var happened := {"pinned": line}
+	night.stats.pins_made += 1
+	if pins.size() > MAX_PINS:
+		happened["dropped"] = pins.pop_front()
+		night.stats.pins_dropped += 1
+	_count_pins()
+	refresh()
+	return happened
+
+
+func _count_pins() -> void:
+	night.stats.pinned = pins.map(func(p): return {"speaker": str(p["speaker"]), "text": str(p["text"])})
+
+
 # --- On the desk -----------------------------------------------------------------------------
 
 ## The desk: who the camera's on, how to use it, and tonight's cards.
@@ -216,7 +264,7 @@ func refresh() -> void:
 	var muted := Ktv.MUTED.to_html(false)
 	var red := CAMERA_RED.to_html(false)
 	var t := "[color=#%s][b]%s[/b][/color]\n\n" % [Ktv.ORANGE.to_html(false), Text.hint(PD_MEANS, "PD CONTROLS")]
-	t += "[b]Camera[/b]\n"
+	t += "[b]%s[/b]  " % Text.hint("Click someone at the counter, or the cat, to follow them: their story gets the airtime. Click again to stop.", "Camera")
 	if camera != null and camera.on_cat:
 		var with: Variant = camera.subject()
 		t += "[color=#%s]● REC[/color] %s, the cat%s\n" % [red, _esc(cat.call().get("name", "")),
@@ -224,8 +272,11 @@ func refresh() -> void:
 	elif camera != null and camera.following != null:
 		t += "[color=#%s]● REC[/color] %s\n" % [red, _esc(camera.following.customer["name"])]
 	else:
-		t += "[color=#%s]Not on anyone.[/color]\n" % muted
-	t += "[color=#%s]Click someone at the counter, or the cat, to follow them: their story gets the airtime. Click again to stop.[/color]\n" % muted
+		t += "[color=#%s]not on anyone: click someone to follow them[/color]\n" % muted
+	t += "\n[b]%s[/b] %d/%d" % [Text.hint("Click a line's 📌 in the transcript to keep it for the episode: three a night, for \"Previously on…\" (a fourth drops the oldest). Click a pinned line here to let it go.", "Pinned"), pins.size(), MAX_PINS]
+	t += ("  [color=#%s]click a line's 📌 in the transcript[/color]\n" % muted) if pins.is_empty() else "\n"
+	for kept in pins:
+		t += "[url=pin:%d][color=#%s]📌[/color] %s: [i]%s[/i]  [color=#%s]✕[/color][/url]\n" % [int(kept["id"]), red, _esc(kept["speaker"]), _esc(Text.shorten(str(kept["text"]), 48)), muted]
 	t += "\n[b]Plants[/b]  [color=#%s]tonight's cards: play one, and see what comes of it[/color]" % muted
 	text.text = Glossary.explain_hangul(t)
 	_refresh_cards()
@@ -344,6 +395,8 @@ func open_writing(card: String) -> void:
 	writing_problem.add_theme_color_override("font_color", Ktv.MUTED)
 	writing_box.visible = true
 	writing_text.grab_focus()
+	if scroll != null:
+		scroll.ensure_control_visible.call_deferred(writing_text)
 
 
 func close_writing() -> void:
@@ -410,6 +463,8 @@ func offer_edit(spins: Array, reply: Dictionary, lines: Array, names: Array, rol
 		button.pressed.connect(air_edit.bind(k))
 		edit_buttons.add_child(button)
 	edit_box.visible = true
+	if scroll != null:
+		scroll.scroll_vertical = 0  # (it's on top: bring it into view)
 	edit_bar.value = 100.0
 	var seconds := Draw.scaled(Captions.EDIT_SECONDS)
 	edit_tween = edit_bar.create_tween()

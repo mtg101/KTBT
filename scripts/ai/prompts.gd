@@ -889,7 +889,12 @@ static func diary_facts_text(facts: Dictionary) -> String:
 	for name in facts.get("missing", []):
 		lines.append("- %s%s, a regular, didn't come in tonight." % [name, (" (%s)" % pronouns[name]) if pronouns.has(name) else ""])
 	var line: Dictionary = facts.get("line", {})
-	if not line.is_empty():
+	var kept: Array = facts.get("pinned", [])
+	if not kept.is_empty():
+		lines.append("- The lines the show kept for the episode (the PD pinned them):")
+		for said in kept:
+			lines.append("  - %s: \"%s\"" % [said.get("speaker", ""), said.get("text", "")])
+	elif not line.is_empty():
 		lines.append("- The line of the night, from %s: \"%s\"" % [line.get("speaker", ""), line.get("text", "")])
 	if not facts.get("cat_laps", []).is_empty():
 		lines.append("- %s, the cat, sat on %s's lap." % [facts.get("cat", "The cat"), " and ".join(PackedStringArray(facts["cat_laps"]))])
@@ -925,13 +930,14 @@ You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass.
 Last time:
 %s
 
-Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come); then a teaser for tonight, a short question about last time's story that makes the viewer want to watch (in the spirit of "%s", but your own, and about these people).
+Write the recap: two or three beats, each one short, dramatic sentence in the present tense, picking the moments a viewer would remember (a confession, a new face, a friendship, someone who didn't come)%s; then a teaser for tonight, a short question about last time's story that makes the viewer want to watch (in the spirit of "%s", but your own, and about these people).
 
 Only what's above: no other names, no numbers but the ones above, nothing invented.
 
 Then say what the teaser asks, so the show knows if it comes true tonight: a "kind" from this list, and "who" (the full names it's about, if any): %s.
 
 Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
+		(". The show kept %d line%s for the episode (above): make the beats those moments, one each, in order" % [last.get("pinned", []).size(), "" if last.get("pinned", []).size() == 1 else "s"]) if not last.get("pinned", []).is_empty() else "",
 		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0])), Story.cliffhanger_kinds_text()]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},

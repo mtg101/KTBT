@@ -922,6 +922,16 @@ func test_topic_hints_say_where_to_steer() -> void:
 	assert_str(Talk.topic_hint("nonsense")).is_empty()
 
 
+func test_the_pds_pins_go_with_the_night() -> void:
+	var pinned := [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}, {"speaker": "Hwang Tae-oh", "text": "Save my stool."}]
+	var facts := Story.diary_facts([], {"pinned": pinned})
+	assert_array(facts["pinned"]).is_equal(pinned)
+	assert_array(Story.diary_facts([], {})["pinned"]).is_empty()
+	# How many the recap used: by who said it, or a telling word of theirs.
+	assert_str(Story.pins_in_recap(pinned, ["Ji-ho walks out of her job, smiling.", "A stool waits, empty."])).is_equal("2/2")
+	assert_str(Story.pins_in_recap(pinned, ["The rain comes down on the tarp."])).is_equal("0/2")
+
+
 func test_phrases_are_found_as_whole_words() -> void:
 	assert_str(Text.find_phrase("That's on the house, dear!", ["on the house"])).is_equal("on the house")
 	assert_str(Text.find_phrase("Freedom at last", ["free"])).is_empty()

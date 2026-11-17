@@ -33,6 +33,7 @@ var sting := Callable()  # plays a sound sting by name (the bar's Ambience.sting
 var _stage: Control  # everything that shakes
 var _burst: Node2D
 var _subtitle: Label
+var _quote: Label  # under a beat: the line the PD pinned for it, quoted
 var _who: PanelContainer
 var _who_text: Label
 var _teaser: Label
@@ -48,6 +49,7 @@ var _sky: Polygon2D
 var _overlay: ColorRect
 var _scratches: Array = []
 var _style: Dictionary = {}
+const QUOTE_MOST := 110  # characters of a pinned line under a beat
 var _side := 1.0  # beats slide in from alternate sides
 var _done := false
 
@@ -110,6 +112,14 @@ func _init() -> void:
 	_subtitle.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	Ktv.soft_shadow(_subtitle, Vector2(3, 4))
 	_stage.add_child(_subtitle)
+	_quote = _label("", 32, CREAM, 10)
+	_quote.name = "RecapQuote"
+	_quote.position = Vector2(240, 720)
+	_quote.size = Vector2(SIZE.x - 480, 90)
+	_quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quote.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_quote.modulate.a = 0.0
+	_stage.add_child(_quote)
 
 	_heart = _label("두근두근 DUGEUN DUGEUN", 34, PINK, 10)
 	_heart.position = Vector2(0, 330)
@@ -200,7 +210,8 @@ func _init() -> void:
 
 ## Plays it: the title, the beats, the teaser, the episode card. Emits finished at the end (or
 ## when skipped). extras: "people" (name -> Hangul), "moments" (the TV reactions, with who and
-## mood) and "weather" (snow, or petals otherwise).
+## mood), "weather" (snow, or petals otherwise) and "quotes" (the lines the PD pinned last time,
+## {"speaker", "text"}: one under each beat, in order).
 func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: bool = false, extras: Dictionary = {}) -> void:
 	_apply_style(str(extras.get("style", "melodrama")))
 	(_title.get_child(0) as Label).text = "제1화 · THE FIRST EPISODE" if opener else str(_style["title"])
@@ -220,6 +231,7 @@ func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: 
 		_subtitle.text = beat
 		_subtitle.add_theme_font_size_override("font_size", 54 if beat.length() <= 70 else (46 if beat.length() <= 110 else 40))  # long ones smaller, to fit
 		_show_who(beat, extras)
+		_show_quote(extras.get("quotes", []), k)
 		var last := k == beats.size() - 1
 		var how := str(_style["last"]) if last else str(_style["beats"])
 		if how != "typewriter":
@@ -409,6 +421,24 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 func _clear_beat() -> void:
 	_fade(_subtitle, 0.0)
 	_fade(_who, 0.0)
+	_fade(_quote, 0.0)
+
+
+## Under beat k, the line the PD pinned for it (the k-th pin), quoted: “…” (given name).
+func _show_quote(quotes: Array, k: int) -> void:
+	if k >= quotes.size():
+		_quote.text = ""
+		return
+	var said: Dictionary = quotes[k]
+	var words := str(said.get("text", ""))
+	if words.length() > QUOTE_MOST:
+		words = words.left(QUOTE_MOST).rstrip(" ,.;:") + "…"
+	_quote.text = "“%s”  — %s" % [words, Names.given_name(str(said.get("speaker", "")))]
+	_fade(_quote, 1.0)
+
+
+func quote_text() -> String:
+	return _quote.text
 
 
 ## Slams onto the screen: from big and tilted, down to size with a jolt.

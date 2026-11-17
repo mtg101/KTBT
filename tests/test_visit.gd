@@ -384,7 +384,10 @@ func test_customers_chat_to_each_other() -> void:
 	var spoke := func() -> bool:
 		var text := _transcript(runner)
 		return text.contains("%s to %s:" % [a, b]) or text.contains("%s to %s:" % [b, a])
-	assert_bool(await _wait_until(spoke)).override_failure_message("no line from one customer to the other").is_true()
+	var spoken: bool = await _wait_until(spoke)
+	# (Failed once on GitHub's slower runner, never here: say what happened, if it does again.)
+	assert_bool(spoken).override_failure_message("no line from one customer to the other (%s to %s). The AI's last error: %s. The transcript's end:\n%s" % [a, b,
+		scene._ai.last_error, _transcript(runner).right(1500)]).is_true()
 	assert_int(scene._chats.size()).is_equal(1)
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
@@ -487,9 +490,21 @@ func test_the_panels_under_the_tent() -> void:
 	# The side panel opens on who's here now; the desk on the camera.
 	var side_text := runner.find_child("StatsText") as RichTextLabel
 	assert_str(side_text.get_parsed_text()).contains("HERE NOW").contains("THE OWNER").contains(str(scene._owner["name"]))
-	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("PD CONTROLS").contains("Not on anyone")
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("PD CONTROLS").contains("not on anyone")
 	scene._on_cat_clicked(_left_press())
 	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("● REC").contains(str(scene._cat["name"]))
+	# Everything on the desk at once (the edit, long spins, three pins): it scrolls, and never
+	# grows past the screen or over the side panel (it did, at 1920x1080: 17 Nov).
+	for k in 3:
+		scene._pd.pins.append({"id": 100 + k, "speaker": "Kim Ji-ho", "text": "A long line, said at the counter late at night, that goes on and on and on for a while."})
+	scene._pd.offer_edit([{"mood": "sad", "caption": "SOMEONE GET HIM A TISSUE PLEASE NOW"}, {"mood": "funny", "caption": "NAP TIME, THEN? REALLY THOUGH, REALLY"},
+		{"mood": "roast", "caption": "THE CONFIDENCE, THOUGH, HONESTLY NOW"}], {"who": "x"}, [], ["x"], 0.0)
+	scene._update_desk()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_float(desk.position.y + desk.size.y).is_less_equal(Visit.SCREEN.y)
+	assert_float(desk.position.x + desk.size.x).is_less(side.position.x)
+	scene._pd.air_edit(0)
 
 
 func _left_press() -> InputEventMouseButton:
@@ -980,6 +995,33 @@ func test_small_world_gets_two_strangers_talking() -> void:
 	assert_array(_names(scene._chats[0].people)).contains_exactly_in_any_order(_names(scene._guests))  # (by name: see _names)
 	assert_str(_transcript(runner)).contains("gets talking to").contains("have just worked out that they")
 	assert_bool(scene._stats.events.any(func(e): return str(e["kind"]) == "plant_played" and str(e.get("what", "")) != "")).is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_the_pd_pins_lines_for_the_episode() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._said.size() >= 2)).is_true()
+	assert_str(_transcript(runner)).contains("📌")  # (each line said has one)
+	scene._on_transcript_link("pin:1")
+	assert_int(scene._pd.pins.size()).is_equal(1)
+	assert_str(_transcript(runner)).contains("📌 Pinned for the episode: %s" % scene._said[1]["speaker"])
+	assert_str(str(scene._night_quote()["text"])).is_equal(str(scene._said[1]["text"]))  # (the night's quote: the first pin, not the longest line)
+	assert_int(scene._diary_facts()["pinned"].size()).is_equal(1)
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("Pinned 1/3")
+	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains(str(scene._said[1]["text"]))  # (drawn again, the line's still there...)
+	assert_bool(scene._chunks.any(func(c): return int(c["pin"]) == 1 and scene._render(c).contains("[bgcolor="))).is_true()  # (...and tinted: it's pinned)
+	assert_bool(scene._chunks.any(func(c): return int(c["pin"]) == 0 and not scene._render(c).contains("[bgcolor="))).is_true()
+	scene._pd.link.call("pin:1")  # (let go from the desk: the same as clicking its 📌 again)
+	assert_int(scene._pd.pins.size()).is_equal(0)
+	assert_str(_transcript(runner)).contains("📌 Unpinned")
+	assert_bool(scene._chunks.all(func(c): return not scene._render(c).contains("[bgcolor="))).is_true()
+	scene._on_transcript_link("pin:999")  # (no such line: nothing happens)
+	scene._on_transcript_link("https://example.com")
+	assert_int(scene._pd.pins.size()).is_equal(0)
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
@@ -2101,11 +2143,13 @@ func test_skip_ends_the_recap() -> void:
 	var ended := [false]
 	screen.finished.connect(func(): ended[0] = true)
 	screen.play(["Ji-ho quits.", "Tae-oh stays away."], "Will he come back?", 5, "Golmok Pocha", false,
-		{"people": {"Kim Ji-ho": "김지호"}, "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}], "style": "makjang"})  # at full speed: still on the first beat
+		{"people": {"Kim Ji-ho": "김지호"}, "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}], "style": "makjang",
+		"quotes": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}]})  # at full speed: still on the first beat
 	await get_tree().create_timer(1.0).timeout  # past the title card
 	assert_str(screen.beat_text()).is_equal("Ji-ho quits.")
 	assert_str((screen.find_child("RecapEpisode", true, false) as Label).text).is_equal("제5화")
 	assert_str(screen.who_text()).is_equal("김지호 Kim Ji-ho")  # her name tag, in Hangul too
+	assert_str(screen.quote_text()).is_equal("“I quit today, and I'm glad.”  — Ji-ho")  # (the line the PD pinned, under its beat)
 	assert_str(screen.style_name()).is_equal("makjang")
 	assert_str((screen.find_child("RecapTitle", true, false).get_child(0) as Label).text).is_equal(str(Story.RECAP_STYLES["makjang"]["title"]))
 	assert_object(screen.find_child("RecapSticker", true, false)).is_not_null()  # and last time's big moment, stuck on

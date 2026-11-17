@@ -110,6 +110,7 @@ func test_a_write_in_is_typed_on_the_desk_and_checked() -> void:
 	_seated = [_someone("Kim Ji-ho")]
 	desk.press("cue_card")
 	assert_bool(desk.writing_box.visible).is_true()
+	assert_object(desk.scroll).is_not_null()  # (the desk scrolls: it never grows past the screen)
 	assert_str(desk.writing_label.text).contains("The conversation turns to").contains("Kim Ji-ho")
 	assert_array(_happened).is_empty()  # (nothing yet: it's being written)
 	desk.written("hi")
@@ -162,9 +163,36 @@ func test_the_rec_corner_and_the_viewfinder() -> void:
 func test_the_desk_says_who_the_camera_is_on() -> void:
 	var desk := _desk()
 	desk.refresh()
-	assert_str(desk.text.text).contains("PD CONTROLS").contains("Not on anyone")
+	assert_str(desk.text.text).contains("PD CONTROLS").contains("not on anyone")
 	var ji_ho := _someone("Kim Ji-ho")
 	_seated = [ji_ho]
 	desk.camera.follow(ji_ho)
 	desk.refresh()
 	assert_str(desk.text.text).contains("Kim Ji-ho")
+
+
+func test_three_lines_pinned_a_fourth_drops_the_oldest() -> void:
+	var desk := _desk()
+	var lines: Array = []
+	for k in 4:
+		lines.append({"id": k, "speaker": "Kim Ji-ho", "text": "Line %d." % k, "at": 1200 + k})
+	assert_dict(desk.pin(lines[0])).is_equal({"pinned": lines[0]})
+	desk.pin(lines[1])
+	desk.pin(lines[2])
+	assert_str(desk.text.get_parsed_text()).contains("Pinned 3/3").contains("Line 2.")
+	assert_str(desk.text.text).contains("[url=pin:2]")  # (a pinned line on the desk: click to let it go)
+	var clicked: Array = []
+	desk.link = func(meta): clicked.append(meta)
+	desk.text.meta_clicked.emit("pin:2")
+	assert_array(clicked).is_equal(["pin:2"])
+	var fourth := desk.pin(lines[3])
+	assert_int(int(fourth["dropped"]["id"])).is_equal(0)  # (three a night: the oldest goes)
+	assert_array(desk.pins.map(func(p): return int(p["id"]))).is_equal([1, 2, 3])
+	assert_dict(desk.pin(lines[2])).contains_keys(["unpinned"])  # (clicked again: let go)
+	assert_array(desk.pins.map(func(p): return int(p["id"]))).is_equal([1, 3])
+	assert_int(desk.night.stats.pins_made).is_equal(4)
+	assert_int(desk.night.stats.pins_dropped).is_equal(1)
+	assert_array(desk.night.stats.pinned).is_equal([{"speaker": "Kim Ji-ho", "text": "Line 1."}, {"speaker": "Kim Ji-ho", "text": "Line 3."}])
+	assert_str(desk.night.stats.panel_text(0, 0)).contains("Pinned: 4 (1 dropped").contains("kept 2")
+	desk.deal("bar-1 night 2", {}, [])
+	assert_array(desk.pins).is_empty()  # (a new night, new pins)

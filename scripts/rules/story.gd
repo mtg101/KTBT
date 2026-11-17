@@ -486,12 +486,33 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"people": people, "missing": missing, "not_here": not_here, "pronouns": _pronouns(context, people),
 		"moments": moments, "friendlier": friendlier, "new_regulars": new_regulars,
 		"cat": str(context.get("cat", "")), "cat_laps": laps, "cat_thefts": thefts, "walked_on": walked_on,
-		"line": context.get("line", {}).duplicate(), "ordered": ordered, "specials": context.get("specials", []).duplicate(),
+		"line": context.get("line", {}).duplicate(), "ordered": ordered,
+		"pinned": context.get("pinned", []).duplicate(true),  # the lines the PD kept for the episode ({"speaker", "text"}), oldest first "specials": context.get("specials", []).duplicate(),
 		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
 		"closed_said": str(context.get("closed_said", "")),  # and what they told the counter, why
 		"cliffhanger": context.get("cliffhanger", {}).duplicate(),  # last time's teaser, and whether it came true
 		"menu_change": context.get("menu_change", {}).duplicate(),  # a dish off the board, and the new one (ids, and why)
 	}
+
+
+## How many of last time's pinned lines the recap's beats used ("2/3"): a line counts if a beat
+## names whoever said it, or has a word of four letters or more from it (not the commonest).
+static func pins_in_recap(pinned: Array, beats: Array) -> String:
+	var said := " ".join(PackedStringArray(beats.map(func(b): return str(b)))).to_lower()
+	var used := 0
+	for line in pinned:
+		var tells: Array = [Names.given_name(str(line.get("speaker", ""))).to_lower()]
+		for word in Text.words(str(line.get("text", ""))):
+			if word.length() >= 4 and not COMMON_WORDS.has(word):
+				tells.append(word)
+		if tells.any(func(t): return t != "" and said.contains(t)):
+			used += 1
+	return "%d/%d" % [used, pinned.size()]
+
+
+## Words too common to show a beat used a pinned line.
+const COMMON_WORDS := ["that", "this", "with", "have", "just", "like", "what", "your", "they", "them", "there", "here", "been", "were", "will",
+	"would", "could", "about", "really", "know", "think", "tonight", "yeah", "okay", "well", "when", "then", "than", "some", "more"]
 
 
 ## Everyone the diary or recap might mention, and how to refer to them: {name: "she"}.

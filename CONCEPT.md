@@ -12,6 +12,10 @@ A cosy, Coffee Talk-style scene set in a pojangmacha under a Seoul overpass. Ove
 
 **The player is the show's PD.** The night is an episode of a show, and it runs itself: orders are served, people talk, the owner works. The player is its PD (producer-director), and nothing they do pauses it: they choose whose story the camera follows (that person gets the airtime), and play a few **plant cards** a night (a regular rung and asked to come down, a sudden downpour, a phone ringing at the counter, a word from the show's sponsor), things that happen, which the people they happen to take up or don't. When a moment gets a TV caption, the PD has two seconds to pick its spin: the AI's own, the opposite, or a cheeky roast in the editors' voice. One card a night is a **write-in**: the PD types it (a cue card held up behind the camera, an interview question, a text someone gets), and the AI answers the player's own words, framed as what happened in the scene, never as instructions, and checked like any line. Doing nothing is always fine. Everyone at the counter knows they're on a show. Typing to the customers directly comes later.
 
+### The PD's pins
+
+Any line said can be pinned for the episode with its 📌 in the transcript: three a night, as "Previously on…" is three things, so a fourth drops the oldest. The pins are the night's quote, they go into the owner's diary's facts, and the next night's "Previously on…" makes its beats out of them, quoting each under its beat. Nothing pinned, and the editors choose, as before.
+
 ### The PD's cards
 
 - **A pack of tropey cards, five dealt a night** from their own dice (so dealing never shifts anything else's rolls): three events, one **write-in** and a word from our sponsor (PPL, with the show's own made-up sponsors). Not last night's cards again, and not one that can't happen tonight (no first snow in summer); one that can't happen *yet* stays in the hand, greyed out with why.
