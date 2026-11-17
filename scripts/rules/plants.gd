@@ -10,8 +10,38 @@ extends RefCounted
 
 const Names = preload("res://scripts/rules/names.gd")
 
-## How many cards the PD's dealt each night.
-const HAND := 3
+## How many cards the PD's dealt each night: three events, one write-in and, always, a word
+## from our sponsor (the PPL card).
+const EVENTS := 3
+const HAND := EVENTS + 2
+const ALWAYS := "ppl"
+
+## The show's sponsors, for the PPL card (a word from our sponsor): our own, made up, never a
+## real brand or a near-copy (see CONCEPT.md). what: as it's put on someone's table; spellings:
+## how lines might say it (so it's known, not made-up Korean, and explains itself on hover).
+const SPONSORS := {
+	"haejang_hero": {"name": "Haejang Hero", "hangul": "해장 히어로", "colour": "a0522d", "spellings": ["haejang hero", "haejang"],
+		"means": "the show's sponsor: a hangover drink (해장, haejang: curing a hangover)",
+		"what": "a little brown bottle of Haejang Hero, the hangover drink"},
+	"glow_up": {"name": "Glow Up Mist", "hangul": "글로우업 미스트", "colour": "ff9ec7", "spellings": ["glow up mist", "glow up"],
+		"means": "the show's sponsor: a face mist, \"for that 2am skin\"",
+		"what": "a can of Glow Up Mist face spray"},
+	"kkul_ginseng": {"name": "Kkul Ginseng Sticks", "hangul": "꿀 인삼 스틱", "colour": "c0392b", "spellings": ["kkul ginseng sticks", "kkul ginseng", "kkul"],
+		"means": "the show's sponsor: honey red-ginseng sticks, for stamina (꿀, kkul: honey)",
+		"what": "a box of Kkul Ginseng Sticks"},
+	"banjjak": {"name": "Banjjak 9", "hangul": "반짝 9", "colour": "7fd8ff", "spellings": ["banjjak 9", "banjjak"],
+		"means": "the show's sponsor: a phone (반짝, banjjak: sparkle)",
+		"what": "a shiny new Banjjak 9 phone, still in its box"},
+	"dalbit_taxi": {"name": "Dalbit Taxi", "hangul": "달빛 택시", "colour": "ffd23f", "spellings": ["dalbit taxi", "dalbit"],
+		"means": "the show's sponsor: a taxi app (달빛, dalbit: moonlight)",
+		"what": "a Dalbit Taxi keyring and a voucher for a ride home"},
+}
+
+## Write-in cards ("write"): the PD types what happens. label: what the box asks; hint: an
+## example in the empty box; max: how long; steers: lines it stays the conversation's topic
+## after the first (a cue card); from: what the PD's told before typing, for a card with
+## variants ("a text from {what}": who it's from, picked before you write it, not after); {text}: what was typed, in the moment and what happened;
+## shown: what the screen says, if not what happened (a text's words are only for its reader).
 
 ## title: on the card; about: its hover; for: who it happens to ("someone": whoever the
 ## camera's on, or someone picked; "pair": them and who they're chatting with; "tent":
@@ -74,6 +104,27 @@ const CARDS := {
 		"variants": ["An old trot song", "A 90s ballad", "A K-drama theme everyone knows", "Someone murdering a love song", "A duet nobody can stop listening to"],
 		"moment": "{what} has started drifting over from the noraebang across the street.",
 		"happened": "{what} starts drifting over from the noraebang across the street."},
+	"ppl": {"title": "A word from our sponsor", "for": "someone", "fact": "sponsor", "sponsors": true,
+		"about": "The show's sponsor needs a mention: someone's suddenly got the sponsor's product on their table, label to the camera (free: the sponsor's paying).",
+		"moment": "The show's sponsor needs a mention: {who} has suddenly got {what} on their table, label turned to the camera, and the crew are waiting. They can gush about it, plug it badly, or refuse with a look at the crew: theirs to choose.",
+		"happened": "A crew member slips {what} onto {who}'s table, label turned to the camera."},
+	"cue_card": {"title": "Cue card", "for": "someone",
+		"write": {"label": "The conversation turns to…", "hint": "her first love", "max": 80, "steers": 3},
+		"about": "Hold up a cue card behind the camera: the conversation turns to whatever you write (theirs to take up, or not).",
+		"moment": "Behind the camera, the show's PD is holding up a cue card for {who}: «{text}». It's theirs to take up, or not.",
+		"happened": "Behind the camera, the PD holds up a cue card for {who}: «{text}»."},
+	"interview": {"title": "Interview cut", "for": "someone",
+		"write": {"label": "The PD asks…", "hint": "Who do you wish was sitting next to you tonight?", "max": 120, "steers": 0},
+		"about": "Ask someone a question from behind the camera: they answer it straight to camera, like a variety show's interview cut.",
+		"moment": "The show's PD has just asked {who} a question, off camera: «{text}». {who} answers it straight to the camera, the way people do in a variety show's interview cut, knowing everyone at the counter can hear.",
+		"happened": "Off camera, the PD asks {who}: «{text}»."},
+	"text_from": {"title": "A text from…", "for": "someone",
+		"write": {"label": "The text says…", "hint": "we need to talk", "max": 80, "steers": 0, "from": "a text from {what}"},
+		"variants": ["their ex", "their sister", "the bank", "their landlord", "their mum", "a number they don't know", "their boss"],
+		"about": "Someone gets a text, and you write what it says (who it's from is the card's).",
+		"moment": "{who}'s phone has just buzzed: a text from {what}. It says: «{text}».",
+		"happened": "{who}'s phone buzzes: a text from {what}.",
+		"shown": "{who}'s phone buzzes: a text from {what}. «{text}»"},
 	"power_goes": {"title": "The power goes", "for": "tent", "fact": "lights",
 		"about": "The tent's lights run off a long extension lead from the shop next door: for a moment, they go out.",
 		"variants": ["someone's tripped over the extension lead", "the fryer and the heater were on at once", "the shop next door's closing up and unplugged them",
@@ -95,13 +146,40 @@ static func dealable(card: String, tonight: Dictionary) -> bool:
 	return true
 
 
-## Tonight's hand: HAND different cards that could happen tonight, not last night's (unless
-## there aren't enough without them), in the dice's order.
+## Tonight's hand: three events, one write-in (the PD's own words, every night) and the
+## sponsor's card, all different and able to happen tonight, not last night's (unless there
+## aren't enough without them), in the dice's order.
 static func deal(dice: RandomNumberGenerator, tonight: Dictionary = {}, last: Array = []) -> Array:
-	var possible: Array = CARDS.keys().filter(func(card): return dealable(card, tonight))
-	var fresh: Array = _shuffled(possible.filter(func(card): return not last.has(card)), dice)
-	var again: Array = _shuffled(possible.filter(func(card): return last.has(card)), dice)
-	return (fresh + again).slice(0, HAND)
+	var possible: Array = CARDS.keys().filter(func(card): return dealable(card, tonight) and card != ALWAYS)
+	var events := _pick(possible.filter(func(card): return not is_write(card)), last, dice, EVENTS)
+	return events + _pick(possible.filter(func(card): return is_write(card)), last, dice, 1) + [ALWAYS]
+
+
+static func _pick(cards: Array, last: Array, dice: RandomNumberGenerator, count: int) -> Array:
+	var fresh: Array = _shuffled(cards.filter(func(card): return not last.has(card)), dice)
+	var again: Array = _shuffled(cards.filter(func(card): return last.has(card)), dice)
+	return (fresh + again).slice(0, count)
+
+
+## What kind of card it is, as the desk shows it: "event" (something happens), "write" (the
+## PD writes what happens) or "sponsor" (a word from our sponsor, every night).
+static func kind_of(card: String) -> String:
+	if bool(CARDS.get(card, {}).get("sponsors", false)):
+		return "sponsor"
+	return "write" if is_write(card) else "event"
+
+
+## Each kind's tag on the desk, and the first line of its hover.
+const KINDS := {
+	"event": {"tag": "EVENT", "about": "An event: something happens, and whoever it happens to takes it up, or doesn't."},
+	"write": {"tag": "WRITE-IN", "about": "A write-in: you write what happens, and the AI answers your words."},
+	"sponsor": {"tag": "SPONSOR", "about": "The sponsor's card, every night: a word from our sponsor."},
+}
+
+
+## Whether the PD writes this card (see "write").
+static func is_write(card: String) -> bool:
+	return CARDS.has(card) and CARDS[card].has("write")
 
 
 static func _shuffled(cards: Array, dice: RandomNumberGenerator) -> Array:
@@ -122,6 +200,8 @@ static func why_not(card: String, now: Dictionary) -> String:
 	if not bool(now.get("open", false)):
 		return "Not now: the tent's not open for the night."
 	var data: Dictionary = CARDS[card]
+	if data.has("write") and not bool(now.get("online", true)):
+		return "Needs the AI: offline, the pre-written lines can't answer what you write."
 	if card == "regular_in" and int(now.get("regulars_away", 0)) == 0:
 		return "No regulars to ring: they're all here, or on their way."
 	if str(data.get("fact", "")) == "weather" and ["rain", "drizzle", "snow"].has(str(now.get("weather_kind", ""))):
@@ -141,17 +221,20 @@ static func why_not(card: String, now: Dictionary) -> String:
 	return ""
 
 
-## What a card is this time (one of its variants), or "" for a card without them.
+## What a card is this time (one of its variants, or for the PPL card, a sponsor's product),
+## or "" for a card without them.
 static func variant(card: String, dice: RandomNumberGenerator) -> String:
 	var variants: Array = CARDS[card].get("variants", [])
+	if bool(CARDS[card].get("sponsors", false)):
+		variants = SPONSORS.values().map(func(s): return str(s["what"]))
 	return str(variants[dice.randi_range(0, variants.size() - 1)]) if not variants.is_empty() else ""
 
 
 ## The moment for whoever a card happens to (who: their full name; other: the other of a pair;
 ## what: this time's variant; gender: theirs, for a card about one person, so it's "her ex",
 ## not "their ex").
-static func moment(card: String, who: String = "", other: String = "", what: String = "", gender: String = "") -> String:
-	return gendered(str(CARDS[card]["moment"]).replace("{who}", Names.given_name(who)).replace("{other}", Names.given_name(other)).replace("{what}", what), gender)
+static func moment(card: String, who: String = "", other: String = "", what: String = "", gender: String = "", text: String = "") -> String:
+	return gendered(str(CARDS[card]["moment"]).replace("{who}", Names.given_name(who)).replace("{other}", Names.given_name(other)).replace("{what}", what), gender).replace("{text}", text)
 
 
 ## What everyone else at the counter's told, for a card that happens to one person (who: theirs).
@@ -160,8 +243,69 @@ static func others_moment(card: String, who: String) -> String:
 
 
 ## What happened, for the conversation they speak in next, and the screen (full names).
-static func happened(card: String, who: String = "", other: String = "", what: String = "", gender: String = "") -> String:
-	return gendered(str(CARDS[card]["happened"]).replace("{who}", who).replace("{other}", other).replace("{what}", what), gender)
+static func happened(card: String, who: String = "", other: String = "", what: String = "", gender: String = "", text: String = "") -> String:
+	return gendered(str(CARDS[card]["happened"]).replace("{who}", who).replace("{other}", other).replace("{what}", what), gender).replace("{text}", text)
+
+
+## What the screen says a card did (for a text, its words too: only its reader sees them).
+static func shown(card: String, who: String = "", what: String = "", gender: String = "", text: String = "") -> String:
+	return gendered(str(CARDS[card].get("shown", CARDS[card]["happened"])).replace("{who}", who).replace("{what}", what), gender).replace("{text}", text)
+
+
+## The sponsor whose product a PPL card put on the table (what: Plants.variant's), or {}.
+static func sponsor_of(what: String) -> Dictionary:
+	for id in SPONSORS:
+		if str(SPONSORS[id]["what"]) == what:
+			return SPONSORS[id]
+	return {}
+
+
+## What the PD's typed, tidied and checked: {"text", "problem"} ("" if it's fine). The game's
+## own checks; the tent adds the real-brands one (Talk.real_brand). Never instructions to the
+## AI: it goes into the scene as what happened, and every line written back is checked as ever.
+static func check_written(card: String, typed: String) -> Dictionary:
+	var text := " ".join(typed.replace("\n", " ").split(" ", false)).strip_edges()
+	while text.length() > 0 and "\"'«»“”‘’()[]{}".contains(text.left(1)):
+		text = text.substr(1)
+	while text.length() > 0 and "\"'«»“”‘’()[]{}".contains(text.right(1)):
+		text = text.left(text.length() - 1)
+	text = text.replace("«", "").replace("»", "").replace("{", "(").replace("}", ")").strip_edges()
+	var most := int(CARDS[card].get("write", {}).get("max", 80))
+	if text.length() < 3:
+		return {"text": text, "problem": "Write a few words first."}
+	if text.length() > most:
+		return {"text": text, "problem": "Too long: %d characters at most." % most}
+	var lower := " " + " ".join(PackedStringArray(Array(text.to_lower().split(" ", false)).map(func(w): return w.strip_edges(true, true).trim_suffix(".").trim_suffix(",").trim_suffix("!").trim_suffix("?")))) + " "
+	for limit in HARD_LIMITS:
+		if lower.contains(" %s " % limit):
+			return {"text": text, "problem": "That's not something the show can put on air."}
+	return {"text": text, "problem": ""}
+
+
+## Hard limits on what the PD can write, until the content setting (see PLAN.md, "Content
+## boundaries"), which is the proper answer before anyone else plays: nothing sexual, and
+## nothing about self-harm or suicide (the night isn't set up to treat those with the care
+## they need).
+const HARD_LIMITS := ["sex", "sexual", "naked", "nude", "porn", "orgasm", "rape", "suicide", "suicidal", "kill myself", "kill yourself",
+	"kill themselves", "self-harm", "self harm", "cut myself"]
+
+## Words too common to show a written card was taken up.
+const COMMON_WORDS := ["the", "and", "about", "their", "they", "them", "that", "this", "with", "your", "what", "when", "where", "which",
+	"would", "could", "should", "have", "from", "just", "like", "been", "were", "there", "here", "into", "some", "tonight", "really"]
+
+
+## The words that show a line took up something the PD wrote: its longer words, not the
+## commonest ("her first love": first, love).
+static func written_tells(text: String) -> Array:
+	var found: Array = []
+	for word in text.to_lower().split(" ", false):
+		var bare := ""
+		for c in word:
+			if (c >= "a" and c <= "z") or c == "'" or (c.unicode_at(0) >= 0xAC00 and c.unicode_at(0) <= 0xD7A3):  # (Hangul too, if that's what the PD wrote)
+				bare += c
+		if bare.length() >= 4 and not COMMON_WORDS.has(bare) and not found.has(bare):
+			found.append(bare)
+	return found
 
 
 ## "their" and "they" made "her" and "she" (or "his", "he"), for something about one woman

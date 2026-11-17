@@ -154,6 +154,9 @@ class Guest:
 	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
 	var plant_card := ""  # ... which card
 	var plant_happened := ""  # ... and what happened, for whichever conversation they speak in next
+	var pd_topic := ""  # the PD's cue card, the topic of their talk with the owner...
+	var pd_topic_lines := 0  # ... for this many more lines
+	var to_camera := false  # their next line's an interview cut: answered straight to camera
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
@@ -196,9 +199,16 @@ var _played: Array = []  # ... and the ones played
 var _planted_regular := ""  # the regular the PD rang tonight, until they're in (their id)
 var _plant_dice := RandomNumberGenerator.new()  # the cards' own (dealing them never shifts anything else's rolls)
 var _plant_cards: VBoxContainer  # the cards on the PD's desk
+var _writing_box: VBoxContainer  # the box the PD writes a write-in card in (on the desk, never a pop-up)
+var _writing_label: Label
+var _writing_text: LineEdit
+var _writing_problem: Label
+var _writing_card := ""  # the write-in card being written ("": none)
 var _picked := {}  # card -> the Guest the game picked for it (with nobody on camera), until it's played
+var _card_what := {}  # card -> what it is tonight (its variant), picked as it's dealt, so a write-in says it before you type
 var _lights_out := 0.0  # real seconds left of the lights being out (the lights-flicker card)
 const LIGHTS_OUT_SECONDS := 2.5
+const PLANT_KIND_COLOURS := {"event": Ktv.MINT, "write": Ktv.PINK, "sponsor": Ktv.YELLOW}  # (the desk's card stripes and tags)
 const PLANT_STAY_LEFT := 20.0  # game minutes someone needs left for a card picked for them (a pair: both)
 const PLANT_REGULAR_MINUTES := 15.0  # how long a regular the PD rang takes to get here
 var _counter_chats := CounterChats.new()  # customers chatting: who's in which chat, choosing the next spell (scripts/bar/counter_chats.gd)
@@ -1045,6 +1055,10 @@ func _start_night() -> void:
 	Game.bar["last_hand"] = _hand.duplicate()  # (not the same cards tomorrow; saved with the night)
 	_played = []
 	_picked = {}
+	_card_what = {}
+	for card in _hand:
+		_what_for(str(card))
+	_close_writing()
 	_planted_regular = ""
 	_lights_out = 0.0
 	_show_camera()
@@ -2319,11 +2333,16 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
 	_stats.record_camera_line(_camera.on_camera(chat.people))
+	_stats.record_written_line(speaker, chat.people.map(func(g): return str(g.customer["name"])), line)
 	_stats.record_hint(hint, line, _tent_cat.tells())
 	_stats.record_line(line, names)
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
-	_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)])
+	if guest != null and guest.to_camera:  # (the PD's interview cut: straight to camera)
+		guest.to_camera = false
+		_show_to_camera(guest, line)
+	else:
+		_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)])
 	_cheer_along(guest, line, names)
 	_table_game_taken(chat, guest, line)
 	_mind_your_elders(guest, addressed)
@@ -2616,10 +2635,15 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	guest.transcript.append({"speaker": str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), "text": text})
 	_stats.owner_lines += 1
 	_stats.record_line(text, [_owner["name"], guest.customer["name"]])
+	_stats.record_written_line(str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), [str(guest.customer["name"])], text)
 	_stats.record_camera_line(_camera.on_camera([guest]))
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
-	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
+	if not owner_speaks and guest.to_camera:  # (the PD's interview cut: straight to camera)
+		guest.to_camera = false
+		_show_to_camera(guest, text)
+	else:
+		_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
 	_cheer_along(null if owner_speaks else guest, text, [_owner["name"], guest.customer["name"]])
 	# (Their node may have gone while the line was on its way, e.g. they've walked off: a freed
 	# node can't be passed as a Control, so it's null then, and the bubble skips or points nowhere.)
@@ -2642,7 +2666,9 @@ func _narrate(text: String) -> void:
 ## the next line up: with one voice for the whole tent, waiting to read every bubble left no
 ## time for customers to chat (and doubled the wait for the owner), so only Reading pauses do.
 func _give_time_to_read(text: String, _bubble_seconds: float = 0.0) -> void:
-	if not _reading_toggle.button_pressed:
+	# Offline, the pre-written lines come back in a frame, so they always get time to be read:
+	# with reading pauses off, a night that went offline ran 2,991 lines in 37 seconds.
+	if not _reading_toggle.button_pressed and not _ai.offline:
 		_read_until = 0
 		return
 	var seconds := clampf(1.0 + text.length() * 0.035, 1.5, 7.0)
@@ -3225,6 +3251,7 @@ func _update_plant_cards() -> void:
 			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			button.add_theme_font_size_override("font_size", 17)
 			button.pressed.connect(_on_plant_pressed.bind(str(card)))
+			_style_card(button, Plants.kind_of(str(card)))
 			_plant_cards.add_child(button)
 	var now := _plant_now()
 	for button in _plant_cards.get_children():
@@ -3233,16 +3260,54 @@ func _update_plant_cards() -> void:
 		var why := Plants.why_not(card, now)
 		if why == "" and ["someone", "pair"].has(str(Plants.CARDS[card]["for"])) and _card_target(card).is_empty():
 			why = "Nobody at the counter with time left for it."
-		button.text = "%s%s" % [Plants.CARDS[card]["title"], "  (played)" if played else ""]
+		button.text = "%s%s" % [Plants.CARDS[card]["title"], "  (played)" if played else ""]  # (its tag says what kind)
 		button.disabled = played or why != ""
-		var tip := str(Plants.CARDS[card]["about"])
+		var tip := str(Plants.KINDS[Plants.kind_of(card)]["about"]) + "\n" + str(Plants.CARDS[card]["about"])
+		var tag := button.get_node_or_null("Kind") as Label
+		if tag != null:
+			tag.modulate.a = 0.45 if button.disabled else 1.0
 		if played:
 			tip += "\nPlayed tonight."
 		elif why != "":
 			tip += "\n" + why
 		else:
 			tip += _aim_text(card)
+			var aimed := _card_target(card)
+			var from := _write_from(card, aimed[0] if not aimed.is_empty() else null)
+			if from != "":
+				tip += "\n(" + from + ")"
 		button.tooltip_text = Text.tip(tip)
+
+
+## A card's look on the desk, by its kind: a stripe down its side and a tag (EVENT, WRITE-IN,
+## SPONSOR), in the kind's colour.
+func _style_card(button: Button, kind: String) -> void:
+	var colour: Color = PLANT_KIND_COLOURS[kind]
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Ktv.PANEL.lightened(0.12 if state == "hover" else (0.02 if state == "disabled" else 0.06))
+		box.border_color = colour if state != "disabled" else colour.darkened(0.5)
+		box.border_width_left = 6
+		box.set_corner_radius_all(4)
+		box.content_margin_left = 14
+		box.content_margin_right = 118
+		box.content_margin_top = 6
+		box.content_margin_bottom = 6
+		button.add_theme_stylebox_override(state, box)
+	var tag := Ktv.label(str(Plants.KINDS[kind]["tag"]), 12, Ktv.INK)
+	tag.name = "Kind"
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tag.add_theme_stylebox_override("normal", _badge(colour))
+	tag.anchor_left = 1.0
+	tag.anchor_right = 1.0
+	tag.anchor_top = 0.5
+	tag.anchor_bottom = 0.5
+	tag.offset_left = -106
+	tag.offset_right = -8
+	tag.offset_top = -13
+	tag.offset_bottom = 13
+	button.add_child(tag)
 
 
 ## Who a card would happen to, for its hover: "→ Kim Ji-ho (the camera's on them)".
@@ -3265,7 +3330,7 @@ func _plant_tonight() -> Dictionary:
 
 ## What the cards need to know about right now (see Plants.why_not).
 func _plant_now() -> Dictionary:
-	return {"open": _night_open and not _closing_early and not _last_orders, "seated": _guests.size(),
+	return {"open": _night_open and not _closing_early and not _last_orders, "seated": _guests.size(), "online": not _ai.offline or Hooks.write_ins_offline,
 		"pairable": _guests.any(func(g): return _pair_ok(g)),
 		"regulars_away": _regulars_away().size(), "weather_kind": _weather_kind}
 
@@ -3326,6 +3391,14 @@ func _regulars_away() -> Array:
 ## speak in next, and as a moment for their line), and a fact card makes its fact true.
 ## Never pauses anything.
 func _on_plant_pressed(card: String) -> void:
+	if Plants.is_write(card):
+		_open_writing(card)  # (the PD writes it first: see _on_written)
+		return
+	_play_card(card)
+
+
+## Plays a card (text: what the PD wrote, for a write-in).
+func _play_card(card: String, text: String = "") -> void:
 	if _played.has(card) or not _hand.has(card) or Plants.why_not(card, _plant_now()) != "":
 		return
 	var data: Dictionary = Plants.CARDS[card]
@@ -3334,7 +3407,7 @@ func _on_plant_pressed(card: String) -> void:
 		return
 	_played.append(card)
 	_picked.erase(card)
-	var what := Plants.variant(card, _plant_dice)  # (what it is this time: "", for a card without variants)
+	var what := _what_for(card)  # (what it is this time: "", for a card without variants)
 	var who := ""
 	var about: Variant = null  # (who the caption goes over: nobody in particular, unless it happened to someone)
 	match str(data["for"]):
@@ -3342,13 +3415,28 @@ func _on_plant_pressed(card: String) -> void:
 			var target: Variant = aimed[0]
 			who = str(target.customer["name"])
 			var gender := str(target.customer.get("gender", ""))
-			_plant_on(target, card, Plants.moment(card, who, "", what, gender), Plants.happened(card, who, "", what, gender))
+			_plant_on(target, card, Plants.moment(card, who, "", what, gender, text), Plants.happened(card, who, "", what, gender, text))
 			if str(data.get("others", "")) != "":
 				for other in _guests:
 					if other != target:
 						_plant_on(other, card, Plants.others_moment(card, who), Plants.happened(card, who, "", what, gender))
 			about = target.node
-			_narrate(Plants.happened(card, who, "", what, gender))
+			if text != "":
+				_show("[color=#%s][b]%s[/b][/color] [i]%s[/i]\n\n" % [CAMERA_RED.to_html(false), _esc("[PD]"), Glossary.explain(_esc(Plants.shown(card, who, what, gender, text)), _names_here())])
+			else:
+				_narrate(Plants.shown(card, who, what, gender))
+			if int(data.get("write", {}).get("steers", 0)) > 0:  # (a cue card: their conversation's topic for a while)
+				var chat := _chat_of(target)
+				if chat != null:
+					chat.pd_topic = text
+					chat.pd_topic_lines = int(data["write"]["steers"])
+				else:
+					target.pd_topic = text
+					target.pd_topic_lines = int(data["write"]["steers"])
+			if card == "interview":
+				target.to_camera = true
+			if text != "":
+				_stats.record_written(card, text, who, what, Plants.written_tells(text))
 		"pair":
 			var a: Variant = aimed[0]
 			var b: Variant = aimed[1]
@@ -3398,12 +3486,115 @@ func _on_plant_pressed(card: String) -> void:
 			buyer.order.append("soju")  # (on their bill)
 			buyer.served.append("soju")
 			_add_dish(buyer, "soju")
+		"sponsor":  # (on their table, label to the camera; not on their bill: the sponsor's paying)
+			_sponsor_on_table(aimed[0], Plants.sponsor_of(what))
 		"lights":
 			_lights_out = LIGHTS_OUT_SECONDS
 			_narrate(Plants.happened(card, "", "", what))
-	_event("plant_played", {"card": card, "name": who, "what": what}, about)
+	_event("plant_played", {"card": card, "name": who, "what": what, "text": text}, about)
 	_update_desk()
 	_update_info()
+
+
+## A line said straight to camera (the PD's interview cut), set apart in the transcript like a
+## variety show's interview insert.
+func _show_to_camera(guest: Variant, line: String) -> void:
+	var colour: Color = guest.color.lightened(0.35)
+	_show("[indent][color=#%s][b]● INTERVIEW[/b][/color]  [color=#%s][b]%s[/b], to camera:[/color] [i]%s[/i][/indent]\n\n" % [CAMERA_RED.to_html(false),
+		colour.to_html(false), _esc(_name_label(guest.customer)), Glossary.explain(_esc(line), _names_here())])
+
+
+## What a card is tonight (its variant, picked once: "" for a card without them).
+func _what_for(card: String) -> String:
+	if not _card_what.has(card):
+		_card_what[card] = Plants.variant(card, _plant_dice)
+	return str(_card_what[card])
+
+
+## What a write-in's PD is told before typing: "a text from her landlord" ("" if nothing).
+func _write_from(card: String, guest: Variant) -> String:
+	var from := str(Plants.CARDS[card].get("write", {}).get("from", ""))
+	if from == "":
+		return ""
+	return Plants.gendered(from.replace("{what}", _what_for(card)), str(guest.customer.get("gender", "")) if guest != null else "")
+
+
+## The sponsor's product on someone's table (the PPL card): drawn small, label out, with its hover.
+func _sponsor_on_table(guest: Variant, sponsor: Dictionary) -> void:
+	if sponsor.is_empty() or not is_instance_valid(guest.drinks_row):
+		return
+	var product := ColorRect.new()
+	product.name = "Sponsor"
+	product.custom_minimum_size = Vector2(12, 24)
+	product.color = Color(str(sponsor["colour"]))
+	product.mouse_filter = Control.MOUSE_FILTER_STOP
+	product.tooltip_text = Text.tip("%s %s: %s. On the table for the camera (the sponsor's paying)." % [sponsor["hangul"], sponsor["name"], sponsor["means"]])
+	var label := ColorRect.new()  # (the label, turned to the camera)
+	label.position = Vector2(2, 9)
+	label.size = Vector2(8, 7)
+	label.color = Color("fff4e0")
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	product.add_child(label)
+	guest.drinks_row.add_child(product)
+
+
+# --- The PD writing a card ----------------------------------------------------------------
+
+## A write-in card: the box on the desk opens (the night carries on while the PD types).
+func _open_writing(card: String) -> void:
+	if _writing_box == null or _played.has(card) or not _hand.has(card) or Plants.why_not(card, _plant_now()) != "":
+		return
+	_writing_card = card
+	var write: Dictionary = Plants.CARDS[card]["write"]
+	var aimed := _card_target(card)
+	var target: Variant = aimed[0] if not aimed.is_empty() else null
+	var from := _write_from(card, target)  # (who it's from, said before you type it)
+	var who := ("for %s" % target.customer["name"]) if target != null else ""
+	_writing_label.text = "%s  (%s)" % [write["label"], ", ".join(PackedStringArray([from, who].filter(func(part): return part != "")))]
+	_writing_text.max_length = int(write["max"])
+	_writing_text.placeholder_text = "e.g. %s" % write["hint"]
+	_writing_text.text = ""
+	_writing_problem.text = "Enter to play it, Esc to put it back."
+	_writing_problem.add_theme_color_override("font_color", MUTED)
+	_writing_box.visible = true
+	_writing_text.grab_focus()
+
+
+func _close_writing() -> void:
+	_writing_card = ""
+	if _writing_box != null:
+		_writing_box.visible = false
+		_writing_text.release_focus()
+
+
+## Enter in the box: checked, then played (or why not, and the card stays in the hand).
+func _on_written(typed: String) -> void:
+	if _writing_card == "":
+		return
+	var checked := Plants.check_written(_writing_card, typed)
+	var problem := str(checked["problem"])
+	if problem == "" and Talk.real_brand(str(checked["text"])) != "":
+		problem = "No real brands on the show (the sponsor's the only one we plug)."
+	if problem == "" and Plants.why_not(_writing_card, _plant_now()) != "":
+		problem = Plants.why_not(_writing_card, _plant_now())
+	if problem == "" and _card_target(_writing_card).is_empty():
+		problem = "Nobody at the counter with time left for it."
+	if problem != "":
+		_writing_problem.text = problem
+		_writing_problem.add_theme_color_override("font_color", CAMERA_RED)
+		_stats.written_refused += 1
+		return
+	var card := _writing_card
+	_close_writing()
+	_play_card(card, str(checked["text"]))
+
+
+## Esc in the box puts the card back (and doesn't open Options).
+func _on_writing_key(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key != null and key.pressed and key.keycode == KEY_ESCAPE:
+		_close_writing()
+		_writing_text.accept_event()
 
 
 ## A card happens to someone: their moment, and what happened for the conversation they speak in next.
@@ -3812,6 +4003,23 @@ func _build_ui() -> void:
 	_plant_cards.name = "PlantCards"
 	_plant_cards.add_theme_constant_override("separation", 8)
 	desk_box.add_child(_plant_cards)
+	_writing_box = VBoxContainer.new()
+	_writing_box.name = "PlantWriting"
+	_writing_box.visible = false
+	desk_box.add_child(_writing_box)
+	_writing_label = Label.new()
+	_writing_label.name = "PlantWritingLabel"
+	_writing_label.add_theme_color_override("font_color", ACCENT)
+	_writing_box.add_child(_writing_label)
+	_writing_text = LineEdit.new()
+	_writing_text.name = "PlantWritingText"
+	_writing_text.text_submitted.connect(_on_written)
+	_writing_text.gui_input.connect(_on_writing_key)
+	_writing_box.add_child(_writing_text)
+	_writing_problem = Label.new()
+	_writing_problem.name = "PlantWritingProblem"
+	_writing_problem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_writing_box.add_child(_writing_problem)
 
 	# Bottom right: who's here now, then tonight's debug stats, in tabs.
 	_stats_panel = _panel(Vector2.ZERO, Vector2(SIDE_WIDTH, 100))

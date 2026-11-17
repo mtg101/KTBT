@@ -296,7 +296,7 @@ func test_closing_early_sees_everyone_off_first() -> void:
 	assert_bool(scene._last_orders).is_false()
 	# The owner tells them why, and it's on TV.
 	assert_bool(await _wait_until(func(): return scene._closing_said != "")).override_failure_message("the owner never said why").is_true()
-	assert_bool(guest.transcript.any(func(entry): return str(entry.get("text", "")) == scene._closing_said)).is_true()
+	assert_bool(await _wait_until(func(): return guest.transcript.any(func(entry): return str(entry.get("text", "")) == scene._closing_said))).is_true()  # (once there's been time to read the last line)
 	assert_int(int(scene._stats.captions.get("closing_reason", 0))).is_equal(1)
 	# Nobody new: someone turning up sees the sign and walks on.
 	scene._arrive(scene._clock)

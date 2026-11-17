@@ -10,6 +10,10 @@ const Text = preload("res://scripts/rules/text.gd")
 const APT := Color("17162e")
 const TOWER := Color("1a2340")
 const CHURCH := Color("1c1a2c")
+const SHOPS := Color("1d1b30")
+const SIGN_OFF := Color("2a2840")  # a shop's sign once it's shut
+const SIGN_INK := Color("1a1840")
+const SIGN_SIZE := 12
 const CROSS := Color("ff3346")
 const TOWER_GLASS := Color("cfe0ff")
 const CROWN := Color(0.5, 0.58, 0.84, 0.45)
@@ -79,7 +83,19 @@ func _draw() -> void:
 			"apt":
 				draw_rect(Rect2(x, top, width, height), APT)
 				draw_rect(Rect2(x, top, width, 3), APT.lightened(0.12))  # the roof's edge
-				draw_string(font, Vector2(x, top + 17), Skyline.block_label(int(building["number"])), HORIZONTAL_ALIGNMENT_CENTER, width, NUMBER_SIZE, Skyline.NUMBER_COLOUR)
+			"shops":
+				draw_rect(Rect2(x, top, width, height), SHOPS)
+				var signs: Array = building["signs"]
+				for k in signs.size():  # (a sign on every floor, from the bottom: lit until the shop shuts)
+					var sign_data: Dictionary = Skyline.SIGNS[int(signs[k])]
+					var lit := Skyline.sign_lit(int(signs[k]), minutes)
+					var band := Rect2(x + 4, ground - (k + 1) * Skyline.FLOOR, width - 8, Skyline.FLOOR - 5)
+					var colour := Color(str(sign_data["colour"]))
+					draw_rect(band, Color(colour, 0.9) if lit else SIGN_OFF)
+					if lit:
+						draw_rect(band.grow(2), Color(colour, 0.12))  # its glow
+					draw_string(font, Vector2(band.position.x, band.position.y + band.size.y - 2), str(sign_data["hangul"]), HORIZONTAL_ALIGNMENT_CENTER,
+						band.size.x, SIGN_SIZE, SIGN_INK if lit else SIGN_OFF.lightened(0.15))
 			"tower":
 				draw_rect(Rect2(x, top, width, height), TOWER)
 				var stripe := x + 6.0
@@ -100,7 +116,8 @@ func _draw() -> void:
 			draw_rect(Rect2(Vector2(x + float(window["x"]), ground - float(window["y"]) - Skyline.WINDOW.y), Skyline.WINDOW), Color(colour, 0.7))
 
 
-## What's under the mouse: an APT block (its number explained), an office tower or a church.
+## What's under the mouse: an APT block, a shop building (each sign explained), an office
+## tower or a church.
 func _get_tooltip(at_position: Vector2) -> String:
 	for building in buildings:
 		var x := float(building["x"])
@@ -109,8 +126,12 @@ func _get_tooltip(at_position: Vector2) -> String:
 			continue
 		match str(building["kind"]):
 			"apt":
-				var label := Skyline.block_label(int(building["number"]))
-				return Text.tip("%s: block %d. Every APT (아파트, apateu: an apartment complex) numbers its blocks, painted big on the side. Most of Seoul lives in one." % [label, int(building["number"])])
+				return Text.tip("An APT (아파트, apateu): a block of an apartment complex. Most of Seoul lives in one.")
+			"shops":
+				var named := PackedStringArray()
+				for index in building["signs"]:
+					named.append("%s %s" % [Skyline.SIGNS[int(index)]["hangul"], Skyline.SIGNS[int(index)]["means"]])
+				return Text.tip("A shop building (상가, sangga), a sign on every floor: %s." % " · ".join(named))
 			"tower":
 				return Text.tip("A glass office tower, a big company's headquarters: still lit, because someone's working late (야근, yageun: overtime).")
 			"church":

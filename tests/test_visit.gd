@@ -21,6 +21,7 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Skyline = preload("res://scripts/rules/skyline.gd")
 const RecapScreen = preload("res://scripts/ui/recap_screen.gd")
 const DiaryPage = preload("res://scripts/ui/diary_page.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
@@ -983,6 +984,84 @@ func test_small_world_gets_two_strangers_talking() -> void:
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
 
+func test_the_pd_writes_a_card() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1 and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	scene._hand = ["ppl", "cue_card", "interview", "text_from"]
+	scene._update_desk()
+	# A text from…: who it's from is said before you type it, and it's who it's from when played.
+	Hooks.write_ins_offline = true
+	scene._update_desk()
+	(runner.find_child("Plant_text_from") as Button).pressed.emit()
+	var sender: String = Plants.gendered(str(scene._card_what["text_from"]), str(guest.customer["gender"]))
+	assert_str((runner.find_child("PlantWritingLabel") as Label).text).contains("a text from " + sender)
+	(runner.find_child("PlantWritingText") as LineEdit).text_submitted.emit("come back to the office")
+	assert_str(_transcript(runner)).contains("a text from %s. «come back to the office»" % sender)
+	Hooks.write_ins_offline = false
+	scene._update_desk()
+	# Offline, a write-in's greyed out: the canned lines can't answer what's written.
+	var cue := runner.find_child("Plant_cue_card") as Button
+	# Each kind looks its own: a tag and a stripe (and the hover says what kind it is).
+	assert_str((cue.get_node("Kind") as Label).text).is_equal("WRITE-IN")
+	assert_str((runner.find_child("Plant_ppl").get_node("Kind") as Label).text).is_equal("SPONSOR")
+	assert_str(cue.tooltip_text).starts_with("A write-in")
+	assert_bool(cue.disabled).is_true()
+	assert_str(cue.tooltip_text).contains("Needs the AI")
+	Hooks.write_ins_offline = true
+	scene._update_desk()
+	assert_bool(cue.disabled).is_false()
+	# Clicking it opens the box on the desk (the night carries on).
+	var clock: float = scene._clock
+	cue.pressed.emit()
+	var box := runner.find_child("PlantWriting") as Control
+	var typed := runner.find_child("PlantWritingText") as LineEdit
+	assert_bool(box.visible).is_true()
+	assert_str((runner.find_child("PlantWritingLabel") as Label).text).contains("The conversation turns to").contains(str(guest.customer["name"]))
+	# Esc puts it back (and doesn't open Options).
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	scene._on_writing_key(esc)
+	assert_bool(box.visible).is_false()
+	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_false()
+	# Refused: why, and the card stays in the hand.
+	cue.pressed.emit()
+	typed.text_submitted.emit("hi")
+	assert_str((runner.find_child("PlantWritingProblem") as Label).text).contains("a few words")
+	typed.text_submitted.emit("a night out drinking jinro")
+	assert_str((runner.find_child("PlantWritingProblem") as Label).text).contains("real brands")
+	assert_bool(scene._played.has("cue_card")).is_false()
+	assert_int(scene._stats.written_refused).is_equal(2)
+	# Played: in the scene as a cue card, their conversation's topic for a while, and logged.
+	typed.text_submitted.emit("«her first love»")
+	assert_bool(box.visible).is_false()
+	assert_bool(scene._played.has("cue_card")).is_true()
+	assert_str(_transcript(runner)).contains("[PD]").contains("«her first love»")
+	assert_str(guest.plant_moment).contains("«her first love»")
+	assert_bool(guest.pd_topic_lines > 0 or scene._chat_of(guest) != null).is_true()
+	assert_str(str(scene._stats.written[-1]["text"])).is_equal("her first love")
+	assert_int(int(scene._stats.captions.get("plant_cue_card", 0))).is_equal(1)
+	assert_float(scene._clock).is_greater_equal(clock)
+	# An interview cut: their next line, straight to camera, set apart.
+	scene._play_card("interview", "Who do you wish was here tonight?")
+	assert_bool(guest.to_camera).is_true()
+	await scene._say(guest, false, "Honestly? My grandmother.")
+	assert_bool(guest.to_camera).is_false()
+	assert_str(_transcript(runner)).contains("● INTERVIEW").contains("to camera: Honestly? My grandmother.")
+	# A word from our sponsor: on their table, label out, and not on their bill.
+	var bill: int = Orders.bill(guest.order)
+	scene._play_card("ppl")
+	assert_object(guest.drinks_row.find_child("Sponsor", true, false)).is_not_null()
+	assert_int(Orders.bill(guest.order)).is_equal(bill)
+	assert_int(int(scene._stats.captions.get("plant_ppl", 0))).is_equal(1)
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
 func test_more_of_the_pds_plant_cards() -> void:
 	Hooks.stay_minutes_override = 600
 	Hooks.company_override = "chatty"
@@ -1062,7 +1141,11 @@ func test_the_city_behind_the_tent_and_tonights_date() -> void:
 	assert_int(city.lit_count()).is_less(at_nine)  # windows going dark
 	var apt: Dictionary = city.buildings.filter(func(building): return building["kind"] == "apt")[0]
 	var over := Vector2(float(apt["x"]) + 10, city.ground - 5)
-	assert_str(city._get_tooltip(over)).contains("%d동" % int(apt["number"])).contains("APT")  # Korean on screen explains itself
+	assert_str(city._get_tooltip(over)).contains("APT")  # Korean on screen explains itself
+	var shops: Array = city.buildings.filter(func(building): return building["kind"] == "shops")
+	if not shops.is_empty():
+		var tip: String = city._get_tooltip(Vector2(float(shops[0]["x"]) + 10, city.ground - 5))
+		assert_str(tip).contains("상가").contains(str(Skyline.SIGNS[int(shops[0]["signs"][0])]["hangul"]))
 	# Tonight's date, in the season (the tests' calendar starts on 15 November).
 	assert_str(str(scene._night_date["text"])).is_equal("15 November")
 	assert_str((runner.find_child("MomentLabel", true, false) as Label).text).contains("15 Nov")

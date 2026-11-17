@@ -72,6 +72,11 @@ static func pick_chat_topic(roll: float, cat: String, last: String = "") -> Stri
 	return Text.pick_weighted(weights, roll, last)
 
 
+## The PD's cue card, as a conversation's topic for a few lines (text: what the PD wrote).
+static func cue_hint(text: String) -> String:
+	return "The PD's cue card is still up behind the camera: «%s». Let the conversation turn to it, if it does (naturally, following on from what was just said)." % text
+
+
 ## The game's steer for a line: "Let the conversation turn to: how their day has gone."
 static func topic_hint(topic: String, chat: bool = false) -> String:
 	var text: String = (CHAT_TOPICS if chat else OWNER_TOPICS).get(topic, "")
@@ -531,6 +536,10 @@ const HINT_TELLS := {
 	"plant_round_on": ["thank", "thanks", "on me", "round", "generous", "jjan", "geonbae", "cheers", "kind of you", "congratulations", "promoted", "birthday", "quit", "celebrate"],
 	"plant_small_world": ["small world", "same", "no way", "remember", "school", "classmate", "sunbae", "hoobae", "teacher", "company", "jeju", "busan", "bathhouse", "boss", "goshiwon", "neighbour", "neighbor"],
 	"plant_noraebang": ["song", "sing", "ballad", "noraebang", "karaoke", "music", "voice", "this song", "trot", "duet", "theme", "off-key", "tune"],
+	"plant_ppl": ["sponsor", "plug", "label", "advert", "ad", "haejang", "glow up", "mist", "ginseng", "kkul", "banjjak", "dalbit", "taxi", "phone"],
+	"plant_cue_card": ["cue card"],  # (and the words the PD wrote: see Plants.written_tells)
+	"plant_interview": ["honestly", "to be honest", "camera", "truth", "if i'm honest"],
+	"plant_text_from": ["text", "message", "phone", "read", "says"],
 	"plant_power_goes": ["lights", "light", "dark", "power", "bulb", "cable", "lead", "plug", "trip", "fuse", "battery", "blackout"],
 	"game_spoon_mic": ["sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "floor", "stack"],
 	"game_titanic": ["titanic", "sink", "sank"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],

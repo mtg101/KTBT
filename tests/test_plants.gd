@@ -28,7 +28,8 @@ func test_the_deal_follows_tonight() -> void:
 		assert_array(Plants.deal(dice, {"winter": true, "snowed": true})).not_contains(["first_snow"])  # (only once a winter)
 		assert_array(Plants.deal(dice, {"wet": true})).not_contains(["rain"])  # (it's raining already)
 		var last := Plants.deal(dice, summer)
-		assert_array(Plants.deal(dice, summer, last)).not_contains(last)  # (not last night's again)
+		assert_array(Plants.deal(dice, summer, last)).not_contains(last.filter(func(card): return card != Plants.ALWAYS))  # (not last night's again)
+		assert_str(str(last[-1])).is_equal("ppl")  # (a word from our sponsor, every night)
 	assert_bool(Plants.dealable("first_snow", winter)).is_true()
 
 
@@ -87,3 +88,52 @@ func test_a_cards_moment_is_about_whoever_it_happens_to() -> void:
 	assert_bool(Talk.hint_taken("plant_rain", "Look at that rain!")).is_true()
 	assert_bool(Talk.hint_taken("plant_regular_in", "The producer rang me, can you believe it?")).is_true()
 	assert_bool(Talk.hint_taken("plant_phone", "Another soju, please.")).is_false()
+
+
+func test_every_hand_has_a_write_in() -> void:
+	var dice := RandomNumberGenerator.new()
+	for k in 30:
+		dice.seed = k
+		var hand := Plants.deal(dice)
+		assert_int(hand.filter(func(card): return Plants.is_write(card)).size()).is_equal(1)  # (the PD's own words, every night)
+		assert_int(hand.size()).is_equal(Plants.HAND)  # (three events, a write-in and the sponsor's)
+		assert_int(hand.filter(func(card): return not Plants.is_write(card) and card != Plants.ALWAYS).size()).is_equal(Plants.EVENTS)
+		assert_int(hand.count(Plants.ALWAYS)).is_equal(1)
+		assert_array(hand.map(func(card): return Plants.kind_of(card))).contains_exactly(["event", "event", "event", "write", "sponsor"])
+	for card in Plants.CARDS:
+		if Plants.is_write(card):
+			var write: Dictionary = Plants.CARDS[card]["write"]
+			for field in ["label", "hint", "max", "steers"]:
+				assert_bool(write.has(field)).override_failure_message("%s has no %s" % [card, field]).is_true()
+			assert_str(Plants.why_not(card, {"open": true, "seated": 1, "online": false})).contains("Needs the AI")  # (offline: greyed out)
+
+
+func test_what_the_pd_writes_is_checked() -> void:
+	assert_dict(Plants.check_written("cue_card", "  «her first love»  ")).is_equal({"text": "her first love", "problem": ""})
+	assert_str(str(Plants.check_written("cue_card", "\"the time she\nmissed the last bus\"")["text"])).is_equal("the time she missed the last bus")
+	assert_str(str(Plants.check_written("cue_card", "hi")["problem"])).contains("a few words")
+	assert_str(str(Plants.check_written("cue_card", "x".repeat(81))["problem"])).contains("80")
+	assert_str(str(Plants.check_written("interview", "x".repeat(100))["problem"])).is_empty()  # (a question can be longer)
+	assert_str(str(Plants.check_written("cue_card", "their first time having sex")["problem"])).contains("on air")
+	assert_str(str(Plants.check_written("cue_card", "the time he nearly killed myself laughing")["problem"])).is_empty()  # (whole phrases only)
+	assert_str(str(Plants.check_written("cue_card", "{who} says hi")["text"])).not_contains("{")
+	# What counts as taken up: its longer words, not the commonest.
+	assert_array(Plants.written_tells("Her first love, and the time they met")).is_equal(["first", "love", "time"])
+	assert_array(Plants.written_tells("괜찮아요")).is_equal(["괜찮아요"])  # (Hangul's kept)
+
+
+func test_a_text_and_the_sponsor() -> void:
+	# A text's words are for its reader: the screen shows them, the others only see the phone buzz.
+	assert_str(Plants.happened("text_from", "Kim Ji-ho", "", "their ex", "woman", "we need to talk")).is_equal("Kim Ji-ho's phone buzzes: a text from her ex.")
+	assert_str(Plants.shown("text_from", "Kim Ji-ho", "their ex", "woman", "we need to talk")).ends_with("«we need to talk»")
+	assert_str(Plants.moment("cue_card", "Kim Ji-ho", "", "", "woman", "her first love")).contains("«her first love»")  # (what was written isn't gendered)
+	# The show's sponsors: our own, never a real brand, each explained.
+	var dice := RandomNumberGenerator.new()
+	var what := Plants.variant("ppl", dice)
+	assert_dict(Plants.sponsor_of(what)).is_not_empty()
+	for id in Plants.SPONSORS:
+		var sponsor: Dictionary = Plants.SPONSORS[id]
+		assert_str(Talk.real_brand(str(sponsor["name"]))).override_failure_message(str(sponsor["name"])).is_empty()
+		for field in ["name", "hangul", "means", "what", "colour", "spellings"]:
+			assert_bool(sponsor.has(field)).is_true()
+		assert_str(Talk.made_up_korean("Have you tried %s? It's the best." % sponsor["name"])).is_empty()  # (known, not made-up Korean)

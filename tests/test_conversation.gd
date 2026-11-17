@@ -22,6 +22,8 @@ class Someone:
 	var camera_moment := ""
 	var plant_moment := ""
 	var plant_card := ""
+	var pd_topic := ""
+	var pd_topic_lines := 0
 
 
 func test_the_owners_line_is_given_its_moments_once() -> void:
@@ -124,6 +126,23 @@ func test_a_plant_card_is_the_next_lines_moment_once() -> void:
 	var said := Conversation.chat_line(night, CounterChats.Chat.new(), "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, RandomNumberGenerator.new())
 	assert_str(str(said["hint"])).is_equal("plant_rain")
 	assert_str(guest.plant_moment).is_empty()
+
+
+func test_the_pds_cue_card_is_the_topic_for_a_few_lines() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	guest.topic = "work"
+	guest.pd_topic = "her first love"
+	guest.pd_topic_lines = 2
+	for i in 2:
+		assert_str(str(Conversation.owner_line(night, guest, 2 + i, false, false)["direction"])).contains("«her first love»")
+	assert_str(str(Conversation.owner_line(night, guest, 4, false, false)["direction"])).not_contains("cue card")
+	var chat := CounterChats.Chat.new()
+	chat.pd_topic = "the worst date they've been on"
+	chat.pd_topic_lines = 1
+	var dice := RandomNumberGenerator.new()
+	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).contains("«the worst date")
+	assert_int(chat.pd_topic_lines).is_equal(0)
 
 
 func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:

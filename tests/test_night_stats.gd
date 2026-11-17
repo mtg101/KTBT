@@ -256,6 +256,15 @@ func test_the_pds_camera_is_counted() -> void:
 	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1])
 	assert_str(stats.panel_text(0, 0)).contains("rain taken up 0/0, came up in %d of the next %d lines" % [NightStats.PLANT_WATCH_LINES - 1, NightStats.PLANT_WATCH_LINES])
 	assert_str(stats.hints_text()).not_contains("plant_")
+	# What the PD wrote: the words, who for, and the replies (for the log), and taken up by its own words.
+	stats.record_written("cue_card", "her first love", "Kim Ji-ho", "", ["first", "love"])
+	stats.record_written_line("Kim Ji-ho", ["Kim Ji-ho", "Lee Min-jun"], "My first love? Don't ask.")
+	stats.record_written_line("Park Mi-sook", ["Kang Da-eun"], "Somewhere else entirely.")
+	stats.record_hint("plant_cue_card", "My first love? Don't ask.")
+	assert_int(int(stats.hints_taken.get("plant_cue_card", 0))).is_equal(1)
+	assert_array(stats.written[0]["lines"]).is_equal(["Kim Ji-ho: My first love? Don't ask."])
+	assert_str(stats.panel_text(0, 0)).contains("Written (cue_card, for Kim Ji-ho): «her first love»")
+	assert_str(str(stats.summary({})["pd"]["written"][0]["text"])).is_equal("her first love")
 
 
 func test_the_pocha_life_has_a_section_of_its_own() -> void:

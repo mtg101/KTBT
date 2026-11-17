@@ -24,6 +24,8 @@ class Chat:
 	var game := ""  # the table game it was offered (see Talk.TABLE_GAMES), once a chat
 	var game_on := false  # ... and took up
 	var game_lines := 0  # lines it's still in the air for (see Talk.TABLE_GAME_LINES)
+	var pd_topic := ""  # the PD's cue card: the chat's topic...
+	var pd_topic_lines := 0  # ... for this many more lines
 
 
 var chats: Array = []  # Chat: customer conversations going on at the counter

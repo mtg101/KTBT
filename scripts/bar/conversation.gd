@@ -35,6 +35,9 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			opener = true
 	elif guest.stay_left < 10.0:
 		direction = "The customer is nearly ready to leave."
+	elif guest.pd_topic_lines > 0:  # (the PD's cue card, for a few lines)
+		direction = Talk.cue_hint(guest.pd_topic)
+		guest.pd_topic_lines -= 1
 	elif guest.topic != "":
 		direction = Talk.topic_hint(guest.topic)
 	var hint := ""
@@ -77,6 +80,9 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 static func chat_line(night: Night, chat: Variant, speaker: String, addressee: String, first: bool, speaking: Variant, owner_speaks: bool,
 		close: bool, moment_term: String, met_before: bool, food: Array, fewest_drinks: int, late_enough: bool, dice: RandomNumberGenerator) -> Dictionary:
 	var direction := "This is the first thing they've ever said to each other." if first else Talk.topic_hint(chat.topic, true)
+	if not first and chat.pd_topic_lines > 0:  # (the PD's cue card, for a few lines)
+		direction = Talk.cue_hint(chat.pd_topic)
+		chat.pd_topic_lines -= 1
 	if first and met_before:
 		direction = "They've met here before: they pick up where they left off."
 	if moment_term != "":

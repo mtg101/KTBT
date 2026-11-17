@@ -112,6 +112,10 @@ var rejections := {}  # kind of problem -> how many times
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
 var events: Array = []  # tonight's events (NightEvents.timeline), for the log
+var written: Array = []  # the PD's write-in cards: {"card", "text", "who", "what", "lines" (the replies, for the log)}
+var written_tells := {}  # card -> the words that show a line took up what the PD wrote
+var written_refused := 0  # write-ins the checks sent back
+const WRITTEN_LINES := 4  # replies kept for each, for the log
 var plant_watch := {}  # plant cards played: how many more lines (anyone's) to watch for it coming up
 var plant_mentions := {}  # ... and how many of them did (card: count)
 const PLANT_WATCH_LINES := 12
@@ -189,8 +193,9 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 func record_hint(kind: String, line: String, extra_tells: Array = []) -> void:
 	if kind == "":
 		return
+	extra_tells = extra_tells + written_tells.get(kind.trim_prefix("plant_"), [])
 	hints_given[kind] = int(hints_given.get(kind, 0)) + 1
-	if Talk.hint_taken(kind, line, extra_tells):
+	if Talk.hint_taken(kind, line, extra_tells) or kind == "plant_interview":  # (an interview's next line is the answer, to camera: taken up by being said)
 		hints_taken[kind] = int(hints_taken.get(kind, 0)) + 1
 
 
@@ -229,7 +234,7 @@ func record_line(line: String, names: Array = []) -> void:
 		korean_words[word] = int(korean_words.get(word, 0)) + 1
 	# A plant card just played: does it come up, in anyone's lines (the owner's too), soon after?
 	for card in plant_watch.keys():
-		if Talk.hint_taken("plant_" + str(card), line):
+		if Talk.hint_taken("plant_" + str(card), line, written_tells.get(card, [])):
 			plant_mentions[card] = int(plant_mentions.get(card, 0)) + 1
 		plant_watch[card] = int(plant_watch[card]) - 1
 		if int(plant_watch[card]) <= 0:
@@ -257,6 +262,20 @@ func hints_text(tropes := false) -> String:
 
 static func _is_trope(kind: String) -> bool:
 	return kind.begins_with("game_") or kind.begins_with("plant_") or kind == "stunned" or kind == "camera"  # (in their own sections)
+
+
+## A write-in card played: what the PD wrote, and who for (the replies come in record_written_line).
+func record_written(card: String, text: String, for_who: String, what: String, tells: Array) -> void:
+	written.append({"card": card, "text": text, "who": for_who, "what": what, "lines": []})
+	written_tells[card] = tells
+
+
+## A line said (speaker: who; among: everyone in that conversation): kept for any write-in
+## that's about one of them, until it has its replies.
+func record_written_line(speaker: String, among: Array, line: String) -> void:
+	for entry in written:
+		if (entry["lines"] as Array).size() < WRITTEN_LINES and among.has(entry["who"]):
+			entry["lines"].append("%s: %s" % [speaker, line])
 
 
 ## A line of the owner's conversations or the chats: whether it was on camera (the person the
@@ -437,8 +456,8 @@ func highlights() -> Array:
 			"camera_on":
 				what = "the camera follows %s" % event.get("name", "")
 			"plant_played":
-				what = "plant: %s%s%s" % [event.get("card", ""), (" (%s)" % event["name"]) if str(event.get("name", "")) != "" else "",
-					(": %s" % event["what"]) if str(event.get("what", "")) != "" else ""]
+				what = "plant: %s%s%s%s" % [event.get("card", ""), (" (%s)" % event["name"]) if str(event.get("name", "")) != "" else "",
+					(": %s" % event["what"]) if str(event.get("what", "")) != "" else "", (" «%s»" % event["text"]) if str(event.get("text", "")) != "" else ""]
 			"sat_down":
 				if not full and int(event.get("seated", 0)) >= NightRules.SEATS:
 					full = true
@@ -538,6 +557,10 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Lines on camera %d of %d (%d%%) · noticed the camera %d/%d" % [camera_lines_on, camera_lines, percent(camera_lines_on, camera_lines),
 		int(hints_taken.get("camera", 0)), int(hints_given.get("camera", 0))])
 	var played := plants()
+	for entry in written:
+		lines.append("Written (%s, for %s): «%s» · replies kept %d" % [entry["card"], entry["who"], entry["text"], (entry["lines"] as Array).size()])
+	if written_refused > 0:
+		lines.append("Write-ins sent back by the checks: %d" % written_refused)
 	lines.append("Plants: %s" % (("played %d · " % played.size()) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d of the next %d lines" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3]), PLANT_WATCH_LINES]))) if not played.is_empty() else "none played tonight"))
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
@@ -610,7 +633,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(),
+		"pd": {"camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},

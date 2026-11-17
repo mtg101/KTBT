@@ -57,6 +57,9 @@ static var menu_change_roll := -1.0
 static var regular_roll_override := -1.0
 ## false: no after-visit memory (the game's own verdict is used).
 static var memories := true
+## true: write-in plant cards can be played in offline mode (where they're greyed out, since the
+## canned lines can't answer what's written), so the tests can play them.
+static var write_ins_offline := false
 ## false: no "was that a big moment?" after a spell of talk.
 static var reactions := true
 ## false: the game writes the 3am diary itself.
@@ -137,6 +140,7 @@ static func restore() -> void:
 	regular_roll_override = -1.0
 	memories = true
 	reactions = true
+	write_ins_offline = false
 	diaries = true
 	recaps = true
 	bubbles = true

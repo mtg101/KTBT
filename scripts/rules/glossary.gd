@@ -9,6 +9,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 
 ## Words that aren't on the menu or terms of address. "spellings" are lower case; the first
 ## one, capitalised, is how the hover names it.
@@ -144,6 +145,11 @@ static func lookup() -> Dictionary:
 		for spelling in word["spellings"]:
 			if not found.has(spelling):
 				found[spelling] = {"tip": tip, "colour": WORD_COLOUR, "word": str(word["spellings"][0]).capitalize()}
+	for id in Plants.SPONSORS:  # (the show's sponsors: our own, made up, explained like any word)
+		var sponsor: Dictionary = Plants.SPONSORS[id]
+		for spelling in sponsor["spellings"]:
+			if not found.has(spelling):
+				found[spelling] = {"tip": "%s %s: %s" % [sponsor["hangul"], sponsor["name"], sponsor["means"]], "colour": WORD_COLOUR, "word": str(sponsor["name"])}
 	_lookup = found
 	return _lookup
 
@@ -232,6 +238,8 @@ static func _hangul_known(run: String) -> String:
 		var sources: Array = []
 		for item in Menu.items() + Catalogue.all():
 			sources.append([str(item.get("hangul", "")), _dish_tip(item)])
+		for id in Plants.SPONSORS:
+			sources.append([str(Plants.SPONSORS[id]["hangul"]), "%s %s: %s" % [Plants.SPONSORS[id]["hangul"], Plants.SPONSORS[id]["name"], Plants.SPONSORS[id]["means"]]])
 		for id in WORDS:
 			sources.append([str(WORDS[id]["hangul"]), "%s %s: %s" % [WORDS[id]["hangul"], str(WORDS[id]["spellings"][0]).capitalize() if not WORDS[id]["spellings"].is_empty() else id, WORDS[id]["means"]]])
 		for id in Address.TERMS:

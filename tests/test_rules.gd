@@ -1053,7 +1053,22 @@ func test_the_skyline_behind_the_tent() -> void:
 	assert_int(kinds.count("tower")).is_less_equal(2)
 	var numbers: Array = city.filter(func(building): return building["kind"] == "apt").map(func(building): return int(building["number"]))
 	for k in range(1, numbers.size()):
-		assert_int(numbers[k]).is_equal(numbers[k - 1] + 1)  # 101동, 102동, 103동...
+		assert_int(numbers[k]).is_equal(numbers[k - 1] + 1)  # 101동, 102동, 103동... (for their hover)
+	# Shop buildings: a sign on every floor, all different, and they go dark as the shops shut.
+	var shops: Array = city.filter(func(building): return building["kind"] == "shops")
+	assert_array(shops).is_not_empty()
+	for building in shops:
+		var signs: Array = building["signs"]
+		assert_int(signs.size()).is_equal(roundi((float(building["height"]) - 6.0) / Skyline.FLOOR))
+		for index in signs:
+			assert_int(signs.count(index)).is_equal(1)
+	for k in Skyline.SIGNS.size():
+		assert_str(Talk.real_brand(str(Skyline.SIGNS[k]["means"]))).is_empty()
+	var hagwon: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("학원")
+	assert_bool(Skyline.sign_lit(hagwon, 21 * 60)).is_true()
+	assert_bool(Skyline.sign_lit(hagwon, 23 * 60)).is_false()  # (lessons over)
+	var karaoke: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("노래방")
+	assert_bool(Skyline.sign_lit(karaoke, 27 * 60)).is_true()  # (never shuts)
 	for building in city:
 		for window in building["windows"]:
 			assert_float(float(window["x"]) + Skyline.WINDOW.x).is_less_equal(float(building["width"]))
