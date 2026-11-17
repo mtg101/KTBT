@@ -43,8 +43,9 @@ static func arrivals_per_hour(minutes: int) -> float:
 
 ## Game minutes until the next customer, from a random roll between 0 and 1: on average
 ## 60 / arrivals_per_hour, anywhere from half to one and a half times that, and at least 5.
-static func next_arrival_gap(minutes: int, roll: float) -> int:
-	var average := 60.0 / arrivals_per_hour(minutes)
+## busier: how much busier the show's ratings make tonight (Ratings.busier, 0.9 to 1.1).
+static func next_arrival_gap(minutes: int, roll: float, busier: float = 1.0) -> int:
+	var average := 60.0 / (arrivals_per_hour(minutes) * maxf(busier, 0.1))
 	return maxi(5, roundi(average * (0.5 + roll)))
 
 

@@ -6,13 +6,13 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest (17 Nov):** the edit suite. The next day, as the bar opens, you can step in as the PD and cut last night's episode: its title (three the AI drafts, or your own), the scenes "Previously on…" is made of (your pins, the big moments, what happened), and its cliffhanger (the game's, or your own). "Previously on…" plays your cut. Before that, pinning lines for the episode.
+✅ **Latest (17 Nov):** the show's ratings (시청률). At 3am every episode gets a Korean TV rating, the share of Korea's TV homes said to be watching: a few percent is an ordinary night for a late-night cable show, double digits is a hit, 20% is legend. It comes from what happened (big moments, a mix of moods, the cliffhanger paying off, regulars' stories, the PD's cards taken up) and a little luck, it's on the diary page with a hover saying where it came from, and the last few nights' ratings make the bar a little busier or quieter (±10% at most). Before that, the edit suite, and autoplay you can start from your phone.
 
 **Recently:** the PD's desk (camera, plant cards, write-ins, the edit's spin on a caption, pins); a lighter, cheekier night that stays warm, not "bants"; the city behind the tent; each bar's own menu. The whole story is in [DEVLOG.md](DEVLOG.md).
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Next up:** ratings (시청률), scoring the episode you shaped; then bad visits and customers coming in together. See [PLAN.md](PLAN.md).
+**Next up:** more of being on a show (people hiding from the camera, playing up to it, asking if they'll be in this week's episode); then more PD cards. See [PLAN.md](PLAN.md).
 
 ### What's in it so far
 
@@ -26,10 +26,10 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **The cat:** with a personality, going where it likes, and a greedy one steals fish cakes; everyone talks about it (and now and then to it) as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
-- **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in two seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs.
+- **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in two seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 620 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 631 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -69,7 +69,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
 **No suitable GPU?** Use offline mode, a small model on the CPU, or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
 
-**Autoplay (test nights while you're away):** double-click `tools/autoplay.bat` to play 10 nights by themselves with the real AI (`autoplay.bat 5` for 5; `autoplay.bat 5 <bar id>` to carry on a bar). It needs Ollama running, and Godot's path in `tools/godot_path.txt` (one line; it's this PC's own, so not in git). To let Claude start one from your phone, add `tools/autoplay_mcp.ps1` to the Claude desktop app (see [TOOLCHAIN.md](TOOLCHAIN.md), "Autoplay from your phone"). It starts a bar of its own ("played by autoplay" on the title screen), logs each night as usual, writes a summary to `logs/autoplay/`, and stops after its nights, or at the end of a night if Ollama stops answering. The PD doesn't play yet: nobody's at the desk.
+**Autoplay (test nights while you're away):** run the VS Code task **Autoplay nights** (Ctrl+Shift+P, **Tasks: Run Task**; it asks how many), or double-click `tools/autoplay.bat`, to play 10 nights by themselves with the real AI (`autoplay.bat 5` for 5; `autoplay.bat 5 <bar id>` to carry on a bar). It needs Ollama running, and Godot's path in `tools/godot_path.txt` (one line; it's this PC's own, so not in git). To let Claude start one from your phone, add `tools/autoplay_mcp.ps1` to the Claude desktop app (see [TOOLCHAIN.md](TOOLCHAIN.md), "Autoplay from your phone"). It starts a bar of its own ("played by autoplay" on the title screen), logs each night as usual, writes a summary to `logs/autoplay/` (and, while it runs, `running.json` there, saying so), and stops after its nights, or at the end of a night if Ollama stops answering. The PD doesn't play yet: nobody's at the desk.
 
 **Tests:** open the **GdUnit** panel in Godot and click **Run All**, or run them headless with gdUnit's command-line runner so nothing takes the mouse (they don't need Ollama). See [TESTS.md](TESTS.md).
 

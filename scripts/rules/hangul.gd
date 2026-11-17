@@ -145,6 +145,12 @@ const MEANINGS := {
 	"어색…": "eosaek: awkward",
 	"정적…": "jeongjeok: dead silence",
 	"할 말 없음": "hal mal eopseum: speechless",
+	# The show's ratings (rules/ratings.gd)
+	"시청률": "sicheongnyul: TV ratings, the share of Korea's TV homes watching",
+	"자체 최고 시청률!": "jache choego sicheongnyul!: the show's highest ratings ever",
+	"두 자릿수!": "du jarissu!: double digits (10% or more: a hit)",
+	"시청률 20% 돌파!": "sicheongnyul isip peosenteu dolpa!: ratings break 20%",
+	"돌파": "dolpa: breaking through",
 	# The diary's stamps (rules/story.gd DIARY_STAMPS) and days
 	"참 잘했어요": "cham jalhaesseoyo: very well done (a teacher's stamp on homework)",
 	"단골": "dangol: a regular",

@@ -46,9 +46,19 @@ function GodotPath {
 	return $path
 }
 
-function RunningBatches {
-	return @(Get-CimInstance Win32_Process -Filter "Name LIKE 'Godot%'" |
-		Where-Object { $_.CommandLine -and $_.CommandLine -match '--autoplay=' })
+# The running batch, from the file the game keeps while one's going (logs\autoplay\running.json:
+# its process id, nights, nights played, when it started, the bar), or $null. A file left by a
+# batch that was killed (its process gone) is cleared.
+function RunningBatch {
+	$file = Join-Path $Root 'logs\autoplay\running.json'
+	if (-not (Test-Path $file)) { return $null }
+	try { $info = Get-Content -Path $file -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return $null }
+	$process = Get-Process -Id ([int]$info.pid) -ErrorAction SilentlyContinue
+	if ($null -eq $process -or $process.ProcessName -notlike 'Godot*') {
+		Remove-Item -Path $file -ErrorAction SilentlyContinue
+		return $null
+	}
+	return $info
 }
 
 function OllamaAnswers {
@@ -71,7 +81,7 @@ function StartBatch($arguments) {
 	$bar = ''
 	if ($null -ne $arguments -and $null -ne $arguments.bar_id) { $bar = [string]$arguments.bar_id }
 	if ($bar -ne '' -and $bar -notmatch '^[A-Za-z0-9-]{1,80}$') { return ToolText 'bar_id can only have letters, digits and hyphens.' $true }
-	if ((RunningBatches).Count -gt 0) { return ToolText 'A batch is already running: check on it, or stop it first.' $true }
+	if ($null -ne (RunningBatch)) { return ToolText 'A batch is already running: check on it, or stop it first.' $true }
 	$godot = GodotPath
 	if ($null -eq $godot) { return ToolText "Can't find Godot: put the full path of its .exe on one line in tools\godot_path.txt." $true }
 	if (-not (OllamaAnswers)) { return ToolText "Ollama isn't answering at localhost:11434: start it on the PC first (the nights would only be offline ones)." $true }
@@ -86,8 +96,12 @@ function StartBatch($arguments) {
 
 function Status {
 	$lines = @()
-	$running = RunningBatches
-	if ($running.Count -gt 0) { $lines += "A batch is running (started $($running[0].CreationDate))." } else { $lines += 'No batch is running.' }
+	$running = RunningBatch
+	if ($null -ne $running) {
+		$bar = ''
+		if ([string]$running.bar -ne '') { $bar = " at $($running.bar)" }
+		$lines += "A batch is running$($bar): night $([int]$running.played + 1) of $($running.nights), started $($running.started)."
+	} else { $lines += 'No batch is running.' }
 	if (OllamaAnswers) { $lines += 'Ollama is answering.' } else { $lines += "Ollama isn't answering at localhost:11434." }
 	$summary = NewestSummary
 	if ($null -ne $summary) {
@@ -101,9 +115,10 @@ function Status {
 }
 
 function StopBatch {
-	$running = RunningBatches
-	if ($running.Count -eq 0) { return ToolText 'No batch is running.' }
-	foreach ($process in $running) { Stop-Process -Id $process.ProcessId -Force }
+	$running = RunningBatch
+	if ($null -eq $running) { return ToolText 'No batch is running.' }
+	Stop-Process -Id ([int]$running.pid) -Force
+	Remove-Item -Path (Join-Path $Root 'logs\autoplay\running.json') -ErrorAction SilentlyContinue
 	return ToolText "Stopped. The bar's saved after every visit, so it carries on from there; tonight's log for the night it was in stops where it was."
 }
 

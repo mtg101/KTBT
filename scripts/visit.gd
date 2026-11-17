@@ -65,6 +65,7 @@ const DishView = preload("res://scripts/ui/dish_view.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Ratings = preload("res://scripts/rules/ratings.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
@@ -409,6 +410,12 @@ var _owner_tag: Label
 ## Its own dice for scenery that comes and goes by itself (the neon sign, steam, the cat
 ## prowling), so it never shifts the game's own rolls (tests fix those with a seed).
 var _scenery_dice := RandomNumberGenerator.new()
+## Its own dice for the ratings' luck, so it never shifts the game's own rolls either.
+var _ratings_dice := RandomNumberGenerator.new()
+## How much busier tonight is, from the last few nights' ratings (Ratings.busier), and tonight's
+## rating once it's in (Ratings.score, with "banner" and "record").
+var _busier := 1.0
+var _night_ratings := {}
 var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
 var _skyline: SkylineView  # the city behind the tent
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
@@ -1083,6 +1090,11 @@ func _start_night() -> void:
 	_stats.story["date"] = str(_night_date.get("text", ""))
 	_stats.story["weather"] = _night_weather
 	_stats.story["season"] = _date_words().get_slice(", ", 1)
+	_busier = Ratings.busier(Ratings.from_log(Game.bar.get("night_log", [])))
+	_night_ratings = {}
+	_stats.story["busier"] = _busier
+	if not is_equal_approx(_busier, 1.0):
+		print("Ratings: night %d is %d%% %s, from the last few nights' ratings" % [_night_number, roundi(absf(_busier - 1.0) * 100.0), "busier" if _busier > 1.0 else "quieter"])
 	if not _cliffhanger.is_empty():
 		_stats.story["cliffhanger"] = "%s (%s)" % [_cliffhanger["kind"], ", ".join(PackedStringArray(_cliffhanger["who"].map(func(p): return Names.given_name(str(p)))))]
 	_before_night = {}
@@ -1109,7 +1121,7 @@ func _start_night() -> void:
 	_owner_stunned = ""
 	_night_open = true
 	_update_desk()  # (open now: the desk offers the edit again, until the first customer)
-	_next_arrival = _clock + NightRules.next_arrival_gap(int(_clock), randf())
+	_next_arrival = _clock + NightRules.next_arrival_gap(int(_clock), randf(), _busier)
 	_show_weather(NightRules.weather_kind(_night_weather))
 	_cat_spot = "stove"  # every night starts with the cat asleep by the stove
 	_cat_with = null
@@ -1167,7 +1179,7 @@ func _process(delta: float) -> void:
 				_skip_arrivals -= 1
 			else:
 				_arrive(_next_arrival)
-			_next_arrival += NightRules.next_arrival_gap(int(_next_arrival), randf())
+			_next_arrival += NightRules.next_arrival_gap(int(_next_arrival), randf(), _busier)
 	_give_up_waiting()
 	if not _dawn_shown and _clock >= Captions.DAWN_AT and not _guests.is_empty():
 		_dawn_shown = true
@@ -1251,9 +1263,11 @@ func _end_night() -> void:
 	_fade_regulars()
 	_update_stats_panel()
 	var line := _night_quote()
+	_rate_night()
 	SaveStore.record_night(Game.bar, {
 		"night": _night_number, "day": _night_day, "weather": _night_weather,
 		"customers": _night_visits, "takings": _night_takings,
+		"ratings": float(_night_ratings["rating"]),
 		"line": line.duplicate(),
 		"when": int(Time.get_unix_time_from_system()),
 	})
@@ -1263,6 +1277,7 @@ func _end_night() -> void:
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s  ·  %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers", Menu.format_won(_night_takings)]
+	t += "TV ratings %s  ·  %s\n" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]
 	t += "[color=#%s]%s in total[/color]" % [MUTED.to_html(false), Menu.format_won(_takings)]
 	if not line.is_empty():
 		t += "\n\n[i][color=#%s]\"%s\"[/color][/i]\n[color=#%s]%s[/color]" % [OWNER_TEXT.to_html(false), _esc(line["text"]), MUTED.to_html(false), _esc(line["speaker"])]
@@ -1280,6 +1295,31 @@ func _end_night() -> void:
 		_closing_early = false
 		_leave_button.disabled = false
 		_leave_button.text = "Close the bar"
+
+
+## Last time's ratings, for "Previously on…" ("RATINGS 6.4%"), or "" before the show had them.
+func _last_ratings_text() -> String:
+	var diary: Array = Game.bar.get("diary", [])
+	if diary.is_empty() or not diary[-1].get("ratings", {}).has("rating"):
+		return ""
+	return "RATINGS %s" % Ratings.percent_text(float(diary[-1]["ratings"]["rating"]))
+
+
+## 3am: tonight's episode gets its ratings (Ratings.score), from what happened, the PD's cards
+## taken up and a little luck from its own dice; a new best or a hit gets a banner on the diary
+## page. Counted in the stats and logged.
+func _rate_night() -> void:
+	var cards: int = _stats.plants().values().filter(func(p): return int(p[2]) > 0).size()
+	var before := Ratings.from_log(Game.bar.get("night_log", []))
+	_night_ratings = Ratings.score(_events.timeline, {"cards_taken_up": cards}, _ratings_dice.randf())
+	var rating := float(_night_ratings["rating"])
+	_night_ratings["banner"] = Ratings.banner(rating, before)
+	_night_ratings["record"] = Ratings.is_record(rating, before)
+	_stats.story["ratings"] = rating
+	_stats.story["ratings_text"] = Ratings.log_text(_night_ratings)
+	if str(_night_ratings["banner"]) != "":
+		_stats.story["ratings_banner"] = Glossary.hangul_tip(str(_night_ratings["banner"]))  # (in words: the panel has no hovers)
+	print("Ratings: night %d, %s%s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else ""])
 
 
 ## 3am: the owner writes tonight up in their diary (the AI, from the facts the game picks, or
@@ -1302,7 +1342,8 @@ func _write_diary() -> void:
 	if text == "":
 		text = Story.stitched_diary(facts)
 	var entry := {"episode": _night_number, "night": _night_number, "day": _night_day, "weather": _night_weather,
-		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system())}
+		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system()),
+		"ratings": _night_ratings.duplicate(true)}
 	SaveStore.record_diary(Game.bar, entry)
 	_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
 	Game.save()
@@ -1548,7 +1589,8 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style,
 		"quotes": [] if opener else recap.get("quotes", facts["last"].get("pinned", [])),
 		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "EP. %d · %s" % [int(Game.bar.get("nights", 0)), Story.title_text(recap["title"])],
-		"step_in": not opener and _step_in_open}
+		"step_in": not opener and _step_in_open,
+		"ratings": "" if opener else _last_ratings_text()}
 	if not opener and not facts["last"].get("pinned", []).is_empty():
 		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
@@ -1616,8 +1658,9 @@ func _autoplay_next() -> void:
 	if auto.bar_id == "" and not bool(Game.bar.get("autoplay", false)):
 		Game.bar["autoplay"] = true  # (its own bar: marked as a test bar on the title screen)
 		Game.save()
-	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up)
+	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up, float(_night_ratings.get("rating", -1.0)))
 	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
+	auto.write_running(str(Game.bar.get("name", "")))
 	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
 	if auto.finished():
 		Game.quit()

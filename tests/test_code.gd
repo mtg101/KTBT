@@ -90,6 +90,18 @@ func test_the_docs_have_the_test_count() -> void:
 	assert_str(day).override_failure_message("the newest day in DEVLOG.md doesn't mention \"%d tests\": add an entry for what changed" % count).contains("%d tests" % count)
 
 
+## No doc has a line indented by one space: a list item that lost its start in an edit (PLAN's
+## "Bad visits" item lost its label to one, 17 Nov, and read as half a sentence until spotted).
+func test_no_doc_line_lost_its_start() -> void:
+	var cut := RegEx.create_from_string("(?m)^ [^ ]")
+	for file in DirAccess.get_files_at("res://"):
+		if not file.ends_with(".md"):
+			continue
+		var text := FileAccess.get_file_as_string("res://" + file)
+		var found := cut.search(text)
+		if found != null:
+			fail("%s line %d starts with one space, as if a list item lost its start" % [file, text.substr(0, found.get_start()).count("\n") + 1])
+
 ## Each row of TESTS.md's table says how many tests its suite has, and it's right.
 func test_the_tests_table_has_each_suites_count() -> void:
 	var row := RegEx.create_from_string("(?m)^\\|[^|]*\\|\\s*`tests/(test_\\w+)\\.gd`\\s*\\|\\s*(?:—\\s*\\|\\s*)?✅ (\\d+)")  # (a click-through suite's count is in the last column)

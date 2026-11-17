@@ -62,6 +62,21 @@ func test_panel_shows_every_section() -> void:
 		assert_str(text).contains(part)
 
 
+func test_the_ratings_are_in_the_story() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("Ratings: at 3am · tonight as busy as usual")
+	stats.story["ratings"] = 6.4
+	stats.story["ratings_text"] = "6.4% (a good episode): +2.2 2 big moments, +0.3 luck (what else was on)"
+	stats.story["ratings_banner"] = "jache choego sicheongnyul!: the show's highest ratings ever"
+	stats.story["busier"] = 1.1
+	var text := stats.panel_text(0, 0)
+	assert_str(text).contains("Ratings: 6.4% (a good episode): +2.2 2 big moments").contains("· jache choego sicheongnyul!").contains("tonight 10% busier")
+	stats.story["busier"] = 0.95
+	assert_str(stats.panel_text(0, 0)).contains("tonight 5% quieter")
+	var data = JSON.parse_string(FileAccess.get_file_as_string(stats.save({"bar": "Golmok Pocha", "night": 3}, "golmok-pocha", 3)))
+	assert_float(float(data["story"]["ratings"])).is_equal_approx(6.4, 0.001)
+
+
 func test_the_night_log_is_saved_as_json() -> void:
 	var stats := NightStats.new()
 	stats.served = 4

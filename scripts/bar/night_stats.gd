@@ -701,6 +701,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
+	lines.append("Ratings: %s%s · tonight %s from the last nights' ratings" % [str(story.get("ratings_text", "at 3am")), (" · " + str(story["ratings_banner"])) if story.has("ratings_banner") else "",
+		"as busy as usual" if is_equal_approx(float(story.get("busier", 1.0)), 1.0) else "%d%% %s" % [roundi(absf(float(story.get("busier", 1.0)) - 1.0) * 100.0),
+			"busier" if float(story.get("busier", 1.0)) > 1.0 else "quieter"]])
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])

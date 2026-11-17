@@ -53,6 +53,27 @@ func test_the_summary_says_how_each_night_went() -> void:
 	assert_str(text).contains("Night 1: ").contains("12 customers, AI rejected 9, gave up 1, 1 errors")
 	assert_str(text).contains("Night 2: ").contains("4 customers, AI rejected 0, gave up 0, OFFLINE\n")
 	assert_str(text).contains("Errors: 1:\n  Couldn't save the bar")
+	var rated := Autoplay.new(1)
+	rated.night_done(1, 18, false, 3, 0, 6.4)
+	assert_str(rated.summary_text("Daegongne")).contains("18 customers, ratings 6.4%, AI rejected 3")
 	var path := batch.save_summary("Daegongne", "daegongne-17")
 	assert_str(path).starts_with(TEST_FOLDER).ends_with("_daegongne-17.txt")
 	assert_str(FileAccess.get_file_as_string(path)).is_equal(text)
+
+
+func test_a_running_batch_says_so_with_its_process() -> void:
+	Autoplay.folder = TEST_FOLDER
+	var batch := Autoplay.new(5)
+	batch.write_running()
+	var running = JSON.parse_string(FileAccess.get_file_as_string(Autoplay.running_path()))
+	assert_int(int(running["pid"])).is_equal(OS.get_process_id())  # (the helper checks this process is alive, and stops it)
+	assert_int(int(running["nights"])).is_equal(5)
+	assert_int(int(running["played"])).is_equal(0)
+	batch.night_done(1, 12, false, 9, 1)
+	batch.write_running("Daegongne")
+	running = JSON.parse_string(FileAccess.get_file_as_string(Autoplay.running_path()))
+	assert_int(int(running["played"])).is_equal(1)
+	assert_str(str(running["bar"])).is_equal("Daegongne")
+	Autoplay.clear_running()
+	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_false()
+	Autoplay.clear_running()  # (and again, with nothing there: fine)

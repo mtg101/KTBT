@@ -1,12 +1,13 @@
 extends Control
 ## A page of the owner's diary: cream paper with ruled lines and a red margin, the episode and
 ## the day (in Hangul and English) at the top, the entry in ink, and a stamp in the corner
-## (Story.DIARY_STAMPS). Used at 3am (see visit.gd _end_night) and for the diary book. While the
+## (Story.DIARY_STAMPS), and the episode's TV ratings by the owner's name. Used at 3am (see visit.gd _end_night) and for the diary book. While the
 ## owner's still writing, a pen moves across the page instead.
 
 const Story = preload("res://scripts/rules/story.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Ratings = preload("res://scripts/rules/ratings.gd")
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
@@ -23,6 +24,7 @@ const LEFT := 80.0  # the margin
 var _episode: Label
 var _day: Label
 var _whose: Label
+var _ratings: Label  # "시청률 6.4%", and a banner for a hit or a new best (Ratings), with its hover
 var _body: RichTextLabel  # BBCode, for the Korean words' hover hints
 var _writing: Label
 var _pen: Polygon2D
@@ -55,6 +57,14 @@ func _init() -> void:
 	_whose = _label(18, INK.lightened(0.3))
 	_whose.position = Vector2(LEFT + 12, 92)
 	add_child(_whose)
+	_ratings = _label(20, PINK.darkened(0.25))
+	_ratings.name = "Ratings"
+	_ratings.position = Vector2(PAGE.x - 400, 92)
+	_ratings.size = Vector2(360, 30)
+	_ratings.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ratings.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
+	_ratings.visible = false
+	add_child(_ratings)
 
 	_body = RichTextLabel.new()
 	_body.name = "Entry"
@@ -97,6 +107,7 @@ func show_writing(episode: int, day: String, weather: String, who: String) -> vo
 	_set_header(episode, day, weather, who)
 	_body.visible = false
 	_stamp.visible = false
+	_ratings.visible = false
 	_writing.text = "✎ %s is writing in the diary…" % who
 	_writing.visible = true
 	_pen.visible = true
@@ -125,6 +136,7 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 	_writing.visible = false
 	_body.text = Glossary.explain_hangul(Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK))
 	_body.visible = true
+	_show_ratings(entry.get("ratings", {}))
 	_set_stamp(str(entry.get("stamp", "soju")))
 	_stamp.visible = true
 	_stamp.scale = Vector2(1.6, 1.6)  # thumped down onto the page
@@ -133,6 +145,25 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 	thump.tween_interval(0.3)
 	thump.tween_property(_stamp, "modulate:a", 0.85, 0.05)
 	thump.parallel().tween_property(_stamp, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## The episode's ratings (Ratings.score, as kept with the entry): nothing for nights from before
+## the show had ratings.
+func _show_ratings(ratings: Dictionary) -> void:
+	_ratings.visible = ratings.has("rating")
+	if not _ratings.visible:
+		return
+	var banner := str(ratings.get("banner", ""))
+	_ratings.text = "%s %s%s" % [Ratings.WORD, Ratings.percent_text(float(ratings["rating"])), ("  ·  " + banner) if banner != "" else ""]
+	var tip := Ratings.hover(ratings)
+	if banner != "":
+		tip = "%s: %s\n%s" % [banner, Glossary.hangul_tip(banner), tip]
+	_ratings.tooltip_text = Text.tip(tip)
+
+
+## The ratings as shown ("시청률 6.4%"), or "" if there are none.
+func ratings_text() -> String:
+	return _ratings.text if _ratings.visible else ""
 
 
 ## The entry as written (without the hover hints).

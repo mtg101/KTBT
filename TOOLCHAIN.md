@@ -196,9 +196,11 @@ model="llama3.1:8b"
 
 That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 
-**Autocomplete, hover docs and error underlining (optional):** keep the Godot editor open with the KTBT project loaded, and the extension connects to it automatically; the status bar shows when it's connected. Or, without the editor: turn on **Godot Tools › LSP: Headless** (`godotTools.lsp.headless`), and the extension starts a hidden Godot of its own just for this.
+**Autocomplete, hover docs and error underlining (optional):** keep the Godot editor open with the KTBT project loaded, and the extension connects to it automatically; the status bar shows when it's connected. Or, without the editor: turn on **Godot Tools › LSP: Headless** (`godotTools.lsp.headless`), and the extension starts a hidden Godot of its own just for this. On the desktop that's turned on, and since 17 November 2026 it often fails: "Couldn't connect to the GDScript language server at 127.0.0.1:<a different port each time>" pops up, usually after VS Code starts. It's harmless (the game, tests and autoplay don't use it): click **Ignore**, or turn headless off to rely on the open editor. Why it fails is in PLAN (Lower priority).
 
 **Playing from VS Code (F5):** the extension can start the game itself, with its debugger (errors and `print()` in the Debug Console), so the Godot editor needn't be open to play. Set **Godot Tools › Editor Path: Godot4** in VS Code's settings to your Godot `.exe`, then add `.vscode/launch.json` with one configuration: `"type": "godot"`, `"request": "launch"`, `"project": "${workspaceFolder}"`, `"port": 6010` (not 6007, which the editor uses when it's open). F5, or **Run → Start Debugging**, plays the game. The `.vscode` folder isn't in git (it holds local paths), so each machine sets this up once.
+
+**Autoplay from VS Code:** two more entries, in the same local `.vscode` files: a task, **Autoplay nights** (`tasks.json`: `"command": "${config:godotTools.editorPath.godot4}"`, `"args": ["--path", "${workspaceFolder}", "--", "--autoplay=${input:nights}"]`, with a `promptString` input asking how many, default 10), run from **Ctrl+Shift+P → Tasks: Run Task**; and a launch configuration, **Autoplay 10 nights** (`launch.json`: the same as Play KTBT, with `"additional_options": "-- --autoplay=10"`), for a batch with the debugger.
 
 **Opening scripts from Godot in VS Code (optional):** in Godot, go to **Editor → Editor Settings → Text Editor → External**, tick **Use External Editor**, and set **Exec Path** to VS Code's `Code.exe`.
 
@@ -229,7 +231,7 @@ A batch of autoplay nights (README, "Autoplay") can be started by double-clickin
    ```
    Keep it valid JSON (a comma after the `mcpServers` section), saved as UTF-8.
 5. Start the app again. To check it took, ask Claude in a chat linked to the PC whether it can see the `ktbt-autoplay` tools (it can see which local servers the app started, and whether they're running).
-6. Leave the PC on and awake, with Ollama and the Claude desktop app running. From your phone, in a chat linked to the PC: "start 10 autoplay nights", "how's the batch going?", "stop the batch". Claude reads how it went from the logs (step 7 below).
+6. Leave the PC on and awake (the app's **Settings → Desktop app → Keep computer awake**), with Ollama and the Claude desktop app running. From your phone, in a chat linked to the PC: "start 10 autoplay nights", "how's the batch going?", "stop the batch". The helper knows a batch is running from `logs\autoplay\running.json`, which the game keeps while one is (after a change to the helper, restart the app: it only loads it at the start). Claude reads how it went from the logs (step 7 below).
 7. For Claude to read the results, the chat needs the KTBT folder connected (the desktop app's **Add folder**), and Godot's user folder for `godot.log` and the saves (`%APPDATA%\Godot\app_userdata\KTBT`).
 
 ### Why it's fiddly

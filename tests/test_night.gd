@@ -10,6 +10,7 @@ const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
+const Ratings = preload("res://scripts/rules/ratings.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -89,6 +90,7 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	var summary := (runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()
 	assert_str(summary).contains("Night 1 at %s" % Game.bar["name"])
 	assert_str(summary).contains("customer")
+	assert_str(summary).contains("TV ratings %s" % Ratings.percent_text(float(scene._night_ratings["rating"])))
 	assert_str(_transcript(runner)).contains("pulls down the tarp")
 	assert_array(scene._guests).is_empty()
 
@@ -106,6 +108,10 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_str(str(entry["by"])).is_equal("game")  # (diaries off: the game writes it)
 	assert_int(int(entry["facts"]["customers"])).is_equal(scene._night_visits)  # kept for "Previously on…"
 	assert_bool(Story.DIARY_STAMPS.has(str(entry["stamp"]))).is_true()
+	# The episode's TV ratings, kept with it and shown by the owner's name, with its hover.
+	assert_float(float(entry["ratings"]["rating"])).is_greater(0.0)
+	assert_str(page.ratings_text()).starts_with("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
+	assert_str((page.find_child("Ratings", true, false) as Label).tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")  # (Text.tip wraps it)
 	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
 	# The numbers are behind the Stats button.
 	var numbers := runner.find_child("SummaryText") as Control
@@ -138,6 +144,8 @@ func test_the_finished_night_is_saved() -> void:
 	assert_int(int(entry["night"])).is_equal(1)
 	assert_int(int(entry["customers"])).is_equal(scene._night_visits)
 	assert_int(int(entry["takings"])).is_equal(scene._night_takings)
+	assert_float(float(entry["ratings"])).is_equal_approx(float(scene._night_ratings["rating"]), 0.001)  # (for the next nights' nudge)
+	assert_str(str(scene._stats.story["ratings_text"])).starts_with("%.1f%%" % float(entry["ratings"]))
 
 
 func test_the_night_log_is_written() -> void:
@@ -233,9 +241,11 @@ func test_autoplay_plays_its_nights_then_stops() -> void:
 	var second: bool = await _wait_until(func(): return scene._night_number == 2 and scene._night_open, NIGHT_TIMEOUT_MS)
 	assert_bool(second).override_failure_message("the second night never opened by itself").is_true()
 	assert_bool(bool(Game.bar.get("autoplay", false))).is_true()  # (its own bar, marked as such)
+	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_true()  # (it says it's running...)
 	var quit: bool = await _wait_until(func(): return Game.requested_scene == "quit", NIGHT_TIMEOUT_MS)
 	assert_bool(quit).override_failure_message("it didn't stop after its two nights").is_true()
 	assert_int(batch.played.size()).is_equal(2)
+	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_false()  # (...until it's done)
 	assert_str(_transcript(runner)).contains("Night 2")
 	var summaries := DirAccess.get_files_at(TEST_AUTOPLAY)
 	assert_int(summaries.size()).is_equal(1)

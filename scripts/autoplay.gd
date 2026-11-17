@@ -13,6 +13,8 @@ const NightStats = preload("res://scripts/bar/night_stats.gd")
 
 ## How long the summary page stays up before the next night opens (to see it, if you look in).
 const PAUSE_SECONDS := 8.0
+## The file saying a batch is running (see write_running).
+const RUNNING_FILE := "running.json"
 ## Errors kept word for word in the summary (the rest are only counted).
 const ERRORS_KEPT := 10
 
@@ -22,7 +24,7 @@ static var folder := ""
 var nights := 0  # how many to play
 var bar_id := ""  # the bar to carry on ("": a new one, autoplay's own)
 var begun := false  # the title screen's opened the bar
-var played: Array = []  # each night: {"night", "minutes", "customers", "offline", "rejected", "gave_up", "errors"}
+var played: Array = []  # each night: {"night", "minutes", "customers", "offline", "rejected", "gave_up", "errors", "ratings" (-1: none)}
 var stop_reason := ""  # why it stopped early ("" if it didn't)
 var pause_seconds := PAUSE_SECONDS
 var errors := Errors.new()
@@ -80,11 +82,11 @@ static func from_args(args: PackedStringArray) -> Variant:
 	return new(how_many, carry_on)
 
 
-## A night's done (logged and written up): note it.
-func night_done(night: int, customers: int, offline: bool, rejected: int, gave_up: int) -> void:
+## A night's done (logged and written up): note it. ratings: its TV ratings (Ratings.score), or -1.
+func night_done(night: int, customers: int, offline: bool, rejected: int, gave_up: int, ratings: float = -1.0) -> void:
 	var now := Time.get_ticks_msec()
 	played.append({"night": night, "minutes": snappedf((now - _last_msec) / 60000.0, 0.1), "customers": customers, "offline": offline,
-		"rejected": rejected, "gave_up": gave_up, "errors": errors.count - _errors_before})
+		"rejected": rejected, "gave_up": gave_up, "errors": errors.count - _errors_before, "ratings": ratings})
 	_last_msec = now
 	_errors_before = errors.count
 
@@ -110,8 +112,8 @@ func summary_text(bar_name: String) -> String:
 	var minutes := 0.0
 	for night in played:
 		minutes += float(night["minutes"])
-		lines.append("Night %d: %.1f min, %d customers, AI rejected %d, gave up %d%s%s" % [night["night"], night["minutes"], night["customers"],
-			night["rejected"], night["gave_up"], ", OFFLINE" if night["offline"] else "", ", %d errors" % night["errors"] if int(night["errors"]) > 0 else ""])
+		lines.append("Night %d: %.1f min, %d customers, %sAI rejected %d, gave up %d%s%s" % [night["night"], night["minutes"], night["customers"],
+			("ratings %.1f%%, " % float(night["ratings"])) if float(night.get("ratings", -1.0)) >= 0.0 else "", night["rejected"], night["gave_up"], ", OFFLINE" if night["offline"] else "", ", %d errors" % night["errors"] if int(night["errors"]) > 0 else ""])
 	lines.append("")
 	lines.append("Altogether %.0f min. Errors: %d%s" % [minutes, errors.count, ":" if not errors.kept.is_empty() else "."])
 	for kept in errors.kept:
@@ -136,3 +138,26 @@ func save_summary(bar_name: String, bar: String) -> String:
 	file.store_string(summary_text(bar_name))
 	file.close()
 	return path
+
+
+## The file that says a batch is running, beside the summaries: the game's own process id, so
+## the phone helper (tools/autoplay_mcp.ps1) can tell it's still going, and stop it, without
+## searching Windows for it.
+static func running_path() -> String:
+	return summary_folder().path_join(RUNNING_FILE)
+
+
+## Says the batch is running (at the start, and again after each night, with how far it's got).
+func write_running(bar_name: String = "") -> void:
+	DirAccess.make_dir_recursive_absolute(summary_folder())
+	var file := FileAccess.open(running_path(), FileAccess.WRITE)
+	if file == null:
+		return
+	file.store_string(JSON.stringify({"pid": OS.get_process_id(), "nights": nights, "played": played.size(), "started": _started, "bar": bar_name}))
+	file.close()
+
+
+## The batch has ended (all done, stopped early, or the window closed).
+static func clear_running() -> void:
+	if FileAccess.file_exists(running_path()):
+		DirAccess.remove_absolute(running_path())

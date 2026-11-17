@@ -219,7 +219,8 @@ func _init() -> void:
 ## Plays it: the title, the beats, the teaser, the episode card. Emits finished at the end (or
 ## when skipped). extras: "people" (name -> Hangul), "moments" (the TV reactions, with who and
 ## mood), "weather" (snow, or petals otherwise) and "quotes" (the lines the PD pinned last time,
-## {"speaker", "text"}: one under each beat, in order).
+## {"speaker", "text"}: one under each beat, in order) and "ratings" (last time's, "RATINGS 6.4%",
+## by the episode's title).
 func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: bool = false, extras: Dictionary = {}) -> void:
 	_apply_style(str(extras.get("style", "melodrama")))
 	(_title.get_child(0) as Label).text = "제1화 · THE FIRST EPISODE" if opener else str(_style["title"])
@@ -230,6 +231,8 @@ func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: 
 		drift = "snow"
 	_drift(drift)
 	_episode_title.text = str(extras.get("episode_title", ""))
+	if str(extras.get("ratings", "")) != "":
+		_episode_title.text += ("  ·  " if _episode_title.text != "" else "") + str(extras["ratings"])
 	_slam(_title, -0.05)
 	if bool(extras.get("step_in", false)):
 		show_step_in()

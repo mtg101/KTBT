@@ -35,6 +35,7 @@ func _ready() -> void:
 		OS.add_logger(autoplay.errors)  # (the batch counts the errors, for its summary)
 		AudioServer.set_bus_mute(0, true)  # (nobody's listening)
 		print("Autoplay: %d nights." % autoplay.nights)
+		autoplay.write_running()  # (so the phone helper can see it's going)
 
 
 ## Starts the music if it isn't going yet (the title screen and the bar both ask).
@@ -80,6 +81,8 @@ func back_to_title() -> void:
 ## Save and quit the game (autoplay, at the end of its batch). Tests only record it.
 func quit() -> void:
 	save()
+	if autoplay != null:
+		Autoplay.clear_running()
 	requested_scene = "quit"
 	if change_scenes:
 		get_tree().quit()
@@ -94,3 +97,5 @@ func _go(scene_path: String) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		save()
+		if autoplay != null:
+			Autoplay.clear_running()  # (the batch closed by hand: not running any more)
