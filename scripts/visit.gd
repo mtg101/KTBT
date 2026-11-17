@@ -158,6 +158,7 @@ class Guest:
 	var pd_topic := ""  # the PD's cue card, the topic of their talk with the owner...
 	var pd_topic_lines := 0  # ... for this many more lines
 	var to_camera := false  # their next line's an interview cut: answered straight to camera
+	var cat_talk_done := false  # the cat's taken over their talk with the owner once tonight (only once: it's a tent bar, not a cat cafe)
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
@@ -1967,8 +1968,9 @@ func _talk(guest: Guest) -> void:
 		not guest.customer.get("regular", {}).is_empty(), _late())
 	# The cat's just come to them (or it's up to something): the talk turns to it. (Given only as
 	# a situation, the AI let it go by every time: 0 of 4 one night.)
-	if guest.cat_moment != "" or _owner_cat_moment != "":
+	if (guest.cat_moment != "" or _owner_cat_moment != "") and not guest.cat_talk_done:
 		guest.topic = "the_cat"
+		guest.cat_talk_done = true
 	_stats.record_topic(guest.topic, false)
 	guest.food_news = false
 	# When it's busy, a single exchange, so the voice comes round to everyone (and leaves room
@@ -1978,7 +1980,7 @@ func _talk(guest: Guest) -> void:
 	if _guests.has(guest) and guest.line - guest.reacted_at >= Captions.REACT_EVERY:
 		guest.reacted_at = guest.line
 		var spoken: Array = guest.transcript.filter(func(e): return e.has("text")).slice(-Captions.REACT_EVERY)
-		await _react(spoken, [str(_owner["name"]), str(guest.customer["name"])], guest.order)
+		await _react(spoken, [str(_owner["name"]), str(guest.customer["name"])], guest.order, guest.topic)
 	_task_done()
 
 
@@ -2177,8 +2179,9 @@ func _counter_chat() -> void:
 		var a: Guest = chat.people[0]
 		var b: Guest = chat.people[1]
 		_narrate("%s gets talking to %s." % [a.customer["name"], b.customer["name"]])
-		_event("chat_started", {"name": str(a.customer["name"]), "friend": str(b.customer["name"])}, a.node)
-		chat.transcript.append({"action": "%s turns to %s, a stranger a few stools along, and starts a conversation." % [a.customer["name"], b.customer["name"]]})
+		var quiet := bool(spell.get("drawn_in", false))  # (b keeps to themselves: a turns to them anyway)
+		_event("chat_started", {"name": str(a.customer["name"]), "friend": str(b.customer["name"]), "drawn_in": quiet}, a.node)
+		chat.transcript.append({"action": ("%s turns to %s, a stranger a few stools along who's been keeping to themselves, and starts a conversation." if quiet else "%s turns to %s, a stranger a few stools along, and starts a conversation.") % [a.customer["name"], b.customer["name"]]})
 	elif chat != null:
 		_event("chat_continued", {"people": chat.people.filter(func(g): return g != joiner).map(func(g): return str(g.customer["name"]))})
 		if joiner != null:
@@ -2201,9 +2204,10 @@ func _counter_chat() -> void:
 		_attending = chat.people[0]
 		_move_owner(_beside(chat.people[0]))
 	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
-	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic, _all_close(chat.people), _late())
-	if chat.people.any(func(g): return g.cat_moment != "") or (chat.owner_in and _owner_cat_moment != ""):
-		chat.topic = "the_cat"  # (the cat's just come to one of them: see _talk)
+	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic, Friendliness.know_each_other(Game.bar, chat.people), _late())
+	if (chat.people.any(func(g): return g.cat_moment != "") or (chat.owner_in and _owner_cat_moment != "")) and not chat.cat_talk_done:
+		chat.topic = "the_cat"  # (the cat's just come to one of them: see _talk; once a chat)
+		chat.cat_talk_done = true
 	_stats.record_topic(chat.topic, true)
 	var said := ""  # the last line said in the chat, and who by
 	var said_by := ""
@@ -2261,7 +2265,7 @@ func _counter_chat() -> void:
 		var ordered: Array = []
 		for guest in chat.people:
 			ordered.append_array(guest.order)
-		await _react(spoken, talking, ordered)
+		await _react(spoken, talking, ordered, chat.topic)
 	chat.owner_in = false  # the owner goes back to work after the spell
 	_task_done()
 
@@ -2727,25 +2731,26 @@ func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: 
 ## until she's free, not skipped (the AI's one voice is hers: a busy night used to lose almost
 ## every check). An answer that fails the checks is dropped, not retried. names: who's talking;
 ## items: what they've ordered (a caption can't mention anything else).
-func _react(lines: Array, names: Array, items: Array) -> void:
+func _react(lines: Array, names: Array, items: Array, topic: String = "") -> void:
 	if not Hooks.reactions or not Hooks.captions or _captions_toggle == null or not _captions_toggle.button_pressed or lines.is_empty():
 		return
 	if _urgent():
 		if not _reaction_pending.is_empty():
 			_stats.reactions_skipped += 1  # (a newer one replaces it: only the latest waits)
-		_reaction_pending = {"lines": lines.duplicate(true), "names": names.duplicate(), "items": items.duplicate(), "at": _clock}
+		_reaction_pending = {"lines": lines.duplicate(true), "names": names.duplicate(), "items": items.duplicate(), "topic": topic, "at": _clock}
 		_stats.reactions_put_off += 1
 		return
 	if not _captions_part.reaction_ready():
 		return
 	_stats.reactions_asked += 1
-	var reply: Dictionary = await _ai.ask_json(Prompts.reaction_messages(lines.slice(-Captions.REACTION_LINES), names),
+	var reply: Dictionary = await _ai.ask_json(Prompts.reaction_messages(lines.slice(-Captions.REACTION_LINES), names, Talk.reaction_note(topic)),
 		_validate_reaction.bind(names, items), {"temperature": 0.7}, {"purpose": "reaction", "names": names, "tries": 1})
 	if _stopped:
 		return
 	if reply.is_empty():
 		_stats.reactions_dropped += 1
 		return
+	reply["topic"] = topic  # (for the stats: light talk, and the moments it made)
 	var mood := str(reply["mood"])
 	if mood == "none":
 		_stats.reactions_none += 1
@@ -2774,7 +2779,7 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 	var caption := str(spins[k]["caption"])
 	var who := str(reply["who"])
 	var theirs: Array = lines.filter(func(e): return str(e.get("speaker", "")) == who)
-	_event("big_moment", {"who": who, "mood": mood, "ai_mood": str(spins[0]["mood"]), "edited": k > 0, "caption": caption,
+	_event("big_moment", {"who": who, "mood": mood, "ai_mood": str(spins[0]["mood"]), "edited": k > 0, "caption": caption, "topic": str(reply.get("topic", "")),
 		"said": str(theirs[-1]["text"]) if not theirs.is_empty() else ""})  # (its caption's popped here, below: the AI's words)
 	var about: Variant = _owner_node  # (untyped: someone's node may be gone by now)
 	if who != str(_owner["name"]):
@@ -2936,7 +2941,7 @@ func _ask_pending_reaction() -> void:
 	var pending := _reaction_pending
 	_reaction_pending = {}
 	if _clock - float(pending["at"]) <= Captions.REACTION_STALE_MINUTES:
-		await _react(pending["lines"], pending["names"], pending["items"])
+		await _react(pending["lines"], pending["names"], pending["items"], str(pending.get("topic", "")))
 	else:
 		_stats.reactions_skipped += 1  # too late: the moment's gone
 	_task_done()
@@ -3569,7 +3574,13 @@ func _validate_extra_order(data: Variant, table: Array) -> String:
 ## (Checked against the kitchen as it is when the reply comes, not when it was asked for.)
 func _validate_line(data: Variant, speaker: String, alias: String, items: Array, names: Array, cat: Dictionary, address: Dictionary = {}) -> String:
 	var problem := Talk.validate_line(data, speaker, alias, items, names, cat, address)
-	return problem if problem != "" else Talk.served_already(str(data["line"]), items, _kitchen_part.all_coming())
+	if problem == "":
+		problem = Talk.served_already(str(data["line"]), items, _kitchen_part.all_coming())
+	if problem == "" and not _ai.offline:  # (offline, the pre-written lines repeat by design)
+		var worn := _stats.worn_out_in(str(data["line"]), names)
+		if worn != "":
+			problem = "the line says «%s», and that's been said a lot tonight already: say it another way" % worn
+	return problem
 
 
 func _validate_cat_name(data: Variant, taken: Array) -> String:
@@ -4324,15 +4335,6 @@ func _friend(a: Guest, b: Guest) -> Dictionary:
 
 func _close(a: Guest, b: Guest) -> bool:
 	return Friendliness.are_close(Game.bar, a, b)
-
-
-## Everyone in a chat is close to everyone else (only then can it turn to teasing).
-func _all_close(people: Array) -> bool:
-	for i in people.size():
-		for j in range(i + 1, people.size()):
-			if not _close(people[i], people[j]):
-				return false
-	return people.size() > 1
 
 
 ## After a spell of chat: regulars who chatted remember it (see Friendliness.remember_chat).

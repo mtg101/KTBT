@@ -912,7 +912,8 @@ func test_the_cat_comes_up_only_when_its_about() -> void:
 			with_them += 1
 		if Talk.pick_owner_topic(i / 200.0, false, "tent") == "the_cat":
 			about += 1
-	assert_int(with_them).is_greater(about * 2)  # a cat on your lap is hard to ignore
+	assert_int(with_them).is_greater(about)  # a cat on your lap is hard to ignore (but it's not a cat cafe)
+	assert_float(float(Talk.CAT_TOPIC_WEIGHTS["with_them"])).is_less_equal(1.5)  # (night 23: at 3, the cat was 7 of the owner's 18 topics)
 
 
 func test_topic_hints_say_where_to_steer() -> void:

@@ -68,6 +68,11 @@ const CHAT_TOPIC_WEIGHTS := {"why_here": 2.0, "work": 1.5, "the_night": 1.0, "fo
 const CHAT_RIBBING_WEIGHT := 2.0
 
 
+## The cat as a topic: never with no cat about, a little when it's in the tent, more with it on
+## your lap (it was 3, and the cat was 7 of the owner's 18 topics one night).
+const CAT_TOPIC_WEIGHTS := {"none": 0.0, "tent": 0.7, "with_them": 1.5}
+
+
 ## The night has a shape: before midnight it leans light (teasing, food, silly stories), after
 ## it, people open up. Weights for these are multiplied by the first number before midnight,
 ## the second after. (Nights were mostly sad: every big moment was a heavy one.)
@@ -101,16 +106,17 @@ static func pick_owner_topic(roll: float, food_news: bool, cat: String, last: St
 		weights["last_time"] = 3.0
 	if food_news:
 		weights["food"] = 3.0
-	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
+	weights["the_cat"] = CAT_TOPIC_WEIGHTS.get(cat, 0.0)
 	return Text.pick_weighted(_shaped(weights, late), roll, last)
 
 
-## close: everyone in the chat is close (only then can it turn to teasing).
+## close: everyone in the chat knows each other (close, or regulars who've chatted before):
+## only then can it turn to teasing.
 static func pick_chat_topic(roll: float, cat: String, last: String = "", close: bool = false, late: bool = false) -> String:
 	var weights := CHAT_TOPIC_WEIGHTS.duplicate()
 	if close:
 		weights["ribbing"] = CHAT_RIBBING_WEIGHT
-	weights["the_cat"] = {"none": 0.0, "tent": 0.7, "with_them": 3.0}.get(cat, 0.0)
+	weights["the_cat"] = CAT_TOPIC_WEIGHTS.get(cat, 0.0)
 	return Text.pick_weighted(_shaped(weights, late), roll, last)
 
 
@@ -134,12 +140,26 @@ static func crosses_line(text: String) -> String:
 const TO_CAMERA := "This line is the interview answer: said straight to the camera, answering the PD's question, not to anyone at the counter (so it calls nobody anything)."
 
 
+## For the TV reaction check: what a light spell of talk was about, so a moment that landed
+## isn't read as a sad one ("" for other topics). Left to itself, the check called nearly every
+## big moment sad, even on nights of food fights and teasing.
+static func reaction_note(topic: String) -> String:
+	if not topic in LIGHT_TOPICS:
+		return ""
+	var about: String = CHAT_TOPICS.get(topic, OWNER_TOPICS.get(topic, ""))
+	return "This bit of talk was meant to be light (%s): if something in it landed, it's more likely funny, warm, sweet or awkward than sad." % about.get_slice(":", 0)
+
+
 ## For a line's direction: the turns of phrase already said a lot tonight (NightStats.worn_out),
 ## or "". (One night, four people were "drowning my sorrows".)
 static func worn_out_note(phrases: Array) -> String:
 	if phrases.is_empty():
 		return ""
 	return "Already said a lot tonight, so if it comes up, say it another way: %s." % ", ".join(PackedStringArray(phrases.map(func(p): return "«%s»" % p)))
+
+
+## A quiet customer someone's drawn into a chat (see CounterChats.reserved): %s, their name.
+const QUIET_IN_A_CHAT := "%s keeps to themselves, and was drawn into this: they answer briefly and politely, and might warm up a little."
 
 
 ## The PD's cue card, as a conversation's topic for a few lines (text: what the PD wrote).

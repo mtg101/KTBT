@@ -91,6 +91,21 @@ func test_the_docs_have_the_test_count() -> void:
 	assert_str(day).override_failure_message("the newest day in DEVLOG.md doesn't mention \"%d tests\": add an entry for what changed" % count).contains("%d tests" % count)
 
 
+## No scene test compares the tent's guests themselves (is_equal, contains...): gdUnit compares
+## them field by field, down through their nodes, and on Windows that ran out of stack and
+## crashed the whole run with no error (17 Nov). Compare their names (bar_test.gd's _names).
+func test_no_scene_test_compares_guests_deeply() -> void:
+	var deep := RegEx.create_from_string("assert_(array|object)\\((?!_names\\().*(_guests|\\.people)\\b.*\\.(is_equal|is_not_equal|contains)")
+	for path in _scripts("res://tests"):
+		var text := FileAccess.get_file_as_string(path)
+		if not text.begins_with("extends \"res://tests/support/bar_test.gd\""):
+			continue  # (stand-in guests are small: only the scene's are deep)
+		var lines := text.split("\n")
+		for k in lines.size():
+			if deep.search(lines[k]) != null and not lines[k].contains("_names("):
+				fail("%s:%d compares guests themselves: compare _names(...) instead" % [path, k + 1])
+
+
 ## Every script is in ARCHITECTURE.md's map of the files, and every test file in TESTS.md.
 func test_the_docs_list_every_file() -> void:
 	var architecture := FileAccess.get_file_as_string("res://ARCHITECTURE.md") + FileAccess.get_file_as_string("res://README.md")

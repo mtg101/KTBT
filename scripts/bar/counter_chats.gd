@@ -24,17 +24,34 @@ class Chat:
 	var game := ""  # the table game it was offered (see Talk.TABLE_GAMES), once a chat
 	var game_on := false  # ... and took up
 	var game_lines := 0  # lines it's still in the air for (see Talk.TABLE_GAME_LINES)
+	var cat_talk_done := false  # the cat's taken over this chat's topic once (only once)
 	var pd_topic := ""  # the PD's cue card: the chat's topic...
 	var pd_topic_lines := 0  # ... for this many more lines
 
 
 var chats: Array = []  # Chat: customer conversations going on at the counter
+var drawn_in: Array = []  # names of quiet customers drawn into a chat tonight (once each)
 
 
 ## Someone who can be drawn into a chat right now: not keeping to themselves, settled in
 ## (served), and not about to leave (nobody starts a chat with ten minutes to go).
 func can_chat(guest: Variant) -> bool:
-	return People.joins_chats(guest.company) and guest.stay_left >= CHAT_MIN_STAY_LEFT and not guest.order.is_empty()
+	return People.joins_chats(guest.company) and can_talk(guest)
+
+
+## Someone who can talk in a chat they're already in (a quiet one drawn in too): settled in
+## and not about to leave.
+func can_talk(guest: Variant) -> bool:
+	return guest.stay_left >= CHAT_MIN_STAY_LEFT and not guest.order.is_empty()
+
+
+## Quiet customers a chatty one could turn to, when there's nobody else free to chat with: a
+## quiet one keeps to themselves, but at a busy counter someone talks to them now and then
+## (once a night each; they never start one). Night 28's quiet customers left 128 minutes of
+## a busy night with two to chat, against 260 the night before.
+func reserved(guests: Array) -> Array:
+	return guests.filter(func(guest): return not People.joins_chats(guest.company) and str(guest.company) == "quiet" and can_talk(guest) \
+		and chat_of(guest) == null and not drawn_in.has(str(guest.customer["name"])))
 
 
 ## The chat someone's in, or null.
@@ -52,7 +69,7 @@ func free_to_chat(guests: Array) -> Array:
 
 ## The customers in a chat who can still take part.
 func voices(chat: Chat) -> Array:
-	return chat.people.filter(func(guest): return can_chat(guest))
+	return chat.people.filter(func(guest): return can_talk(guest))
 
 
 ## Whether there could be a chat now (none after last orders).
@@ -62,7 +79,8 @@ func possible(guests: Array, last_orders: bool) -> bool:
 	for chat in chats:
 		if voices(chat).size() >= 2:
 			return true
-	return free_to_chat(guests).size() >= 2
+	var free := free_to_chat(guests)
+	return free.size() >= 2 or (free.size() == 1 and not reserved(guests).is_empty())
 
 
 ## Someone's leaving: out of their chats (and a chat with one left is over).
@@ -102,6 +120,13 @@ func choose_spell(guests: Array, camera: Variant = null, prefer: Variant = null)
 		chat.people = [free[0], free[1]]
 		chats.append(chat)
 		return {"chat": chat, "started": true, "joiner": null}
+	var quiet := reserved(guests)
+	if free.size() == 1 and not quiet.is_empty():  # (nobody else: they turn to a quiet one)
+		var chat := Chat.new()
+		chat.people = [free[0], quiet.pick_random()]
+		drawn_in.append(str(chat.people[1].customer["name"]))
+		chats.append(chat)
+		return {"chat": chat, "started": true, "joiner": null, "drawn_in": true}
 	return {"chat": null, "started": false, "joiner": null}
 
 

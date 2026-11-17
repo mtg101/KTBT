@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 const TEST_FOLDER := "user://test_stats/"
 
@@ -57,7 +58,7 @@ func test_panel_shows_every_section() -> void:
 	stats.chat_lines = 10
 	stats.owner_lines = 30
 	var text := stats.panel_text(3, 1)
-	for part in ["PEOPLE", "TALK", "FOOD", "AI", "Arrived 7", "At the counter 3", "Wait for the owner", "Wait for first drinks", "on the stove now 1", "2 started, 10 lines (25% of all lines)"]:
+	for part in ["PEOPLE", "TALK", "FOOD", "AI", "Arrived 7", "At the counter 3", "Wait for the owner", "Wait for first drinks", "on the stove now 1", "2 started (0 drawing in someone quiet), 10 lines (25% of all lines)"]:
 		assert_str(text).contains(part)
 
 
@@ -236,6 +237,24 @@ func test_what_talk_turned_to_is_counted() -> void:
 	assert_int(logged["talk"]["crossed_the_line"]).is_equal(1)
 
 
+func test_quiet_ones_drawn_into_chats_are_counted() -> void:
+	var stats := NightStats.new()
+	stats.record_event("chat_started", {"name": "Kim Ji-ho", "friend": "Oh Seong-jun", "drawn_in": true})
+	stats.record_event("chat_started", {"name": "Kim Ji-ho", "friend": "Lee Min-jun"})
+	assert_str(stats.panel_text(0, 0)).contains("Customer chats: 2 started (1 drawing in someone quiet)")
+	assert_int(int(stats.summary({})["talk"]["chats_drawn_in"])).is_equal(1)
+
+
+func test_big_moments_are_counted_by_the_talk_they_came_from() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("Big moments from: (none yet)")
+	stats.record_event("big_moment", {"mood": "funny", "ai_mood": "funny", "topic": "food_fight"})
+	stats.record_event("big_moment", {"mood": "roast", "ai_mood": "sad", "topic": "on_their_mind"})  # (the AI's mood counts: the PD's spin is the edit's)
+	stats.record_event("big_moment", {"mood": "sad", "ai_mood": "sad", "topic": ""})
+	assert_str(stats.panel_text(0, 0)).contains("Big moments from: light talk (funny 1) · deep talk (sad 1) · other talk (sad 1)")
+	assert_dict(stats.summary({})["captions"]["reactions"]["from"]).is_equal({"light": {"funny": 1}, "deep": {"sad": 1}, "other": {"sad": 1}})
+
+
 func test_phrases_said_too_often_are_counted() -> void:
 	var stats := NightStats.new()
 	stats.record_line("Can't talk right now, I'm trying to drown my sorrows.")
@@ -244,6 +263,10 @@ func test_phrases_said_too_often_are_counted() -> void:
 	stats.record_line("I'm still drowning my sorrows after today's meetings.")
 	assert_array(stats.worn_out()).contains(["drown my sorrow"])
 	assert_str(stats.panel_text(0, 0)).contains("Said too often").contains("\"drown my sorrow\" 3")
+	# Worn out: a line saying it again is sent back (however it's said), one that doesn't isn't.
+	assert_str(stats.worn_out_in("Drowning your sorrows again, Imo?")).is_equal("drown my sorrow")
+	assert_str(stats.worn_out_in("Another long day, then.")).is_empty()
+	assert_str(Text.problem_kind("the line says «drown my sorrow», and that's been said a lot tonight already: say it another way")).is_equal("said too often")
 	assert_array(stats.summary({})["talk"]["worn_out"]).contains([["drown my sorrow", 3]])
 
 

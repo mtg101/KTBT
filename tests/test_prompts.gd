@@ -468,6 +468,12 @@ func test_the_tv_reaction_prompt() -> void:
 	assert_str(text).contains("at most five words")
 	assert_str(text).contains("\"size\"")
 	assert_str(text).contains("Only a %d or more gets a caption" % Captions.REACTION_MIN_SIZE)
+	# A laugh counts as much as a tear (nearly every big moment was sad), and light talk says so.
+	assert_str(text).contains("A laugh counts as much as a tear").contains("a tease that lands").not_contains("meant to be light")
+	var light := _request(Prompts.reaction_messages([{"speaker": "Kim Ji-ho", "text": "Sauce on? Never."}], ["Kim Ji-ho"], Talk.reaction_note("food_fight")))
+	assert_str(light).contains("meant to be light (a silly, heated argument about food)").contains("funny, warm, sweet or awkward")
+	assert_str(Talk.reaction_note("life")).is_empty()
+	assert_str(Talk.reaction_note("")).is_empty()
 	assert_str(text).contains("\"none\" if it's %d or less" % (Captions.REACTION_MIN_SIZE - 1))
 
 

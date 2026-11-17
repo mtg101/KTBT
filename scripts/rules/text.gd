@@ -27,6 +27,8 @@ static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
 	if p.contains("is still on its way, but it's already on the table"):
 		return "food already served"
+	if p.contains("said a lot tonight"):
+		return "said too often"
 	if p.contains("never how they look"):
 		return "teasing that crossed the line"
 	if p.begins_with("the signature dish"):

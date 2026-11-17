@@ -57,6 +57,14 @@ func _clear_saves() -> void:
 	_clear_folder(_saves)
 
 
+## The names of some of the tent's guests, for comparing them. Never compare the guests
+## themselves with is_equal or contains_exactly: gdUnit compares them field by field, down
+## through their nodes on screen, and on Windows that ran out of stack and crashed the whole
+## run (17 Nov: test_small_world_gets_two_strangers_talking, an access violation with no error).
+func _names(guests: Array) -> Array:
+	return guests.map(func(g): return str(g.customer["name"]))
+
+
 ## Waits (a frame at a time) until condition() is true. Returns false on timeout.
 func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
 	var start := Time.get_ticks_msec()

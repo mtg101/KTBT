@@ -26,6 +26,10 @@ class Someone:
 	var pd_topic_lines := 0
 
 
+func test_a_quiet_one_drawn_into_a_chat_keeps_it_short() -> void:
+	assert_str(Talk.QUIET_IN_A_CHAT % "Oh Seong-jun").contains("Oh Seong-jun keeps to themselves").contains("briefly")
+
+
 func test_lines_are_asked_to_say_worn_out_phrases_another_way() -> void:
 	var night := Night.new()
 	var guest := Someone.new()

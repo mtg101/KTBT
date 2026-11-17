@@ -39,11 +39,14 @@ func test_regulars_who_chat_get_friendlier() -> void:
 	var older: Someone = made[1]
 	var younger: Someone = made[2]
 	assert_dict(Friendliness.friend_record(bar, younger, older)).is_empty()
+	assert_bool(Friendliness.know_each_other(bar, [older, younger])).is_false()  # (strangers: no teasing)
 	for night in Friendliness.FRIENDLY_AFTER:
 		Friendliness.remember_chat(bar, [older, younger], [{"speaker": "Kang Da-eun", "text": "I'm Da-eun, by the way."}], "See you!", night + 1)
 		Friendliness.remember_chat(bar, [older, younger], [], "Again!", night + 1)  # (once a night per pair)
 	var record := Friendliness.friend_record(bar, older, younger)
 	assert_int(int(record["meetings"])).is_equal(Friendliness.FRIENDLY_AFTER)
+	assert_bool(Friendliness.know_each_other(bar, [older, younger])).is_true()  # (chatted before: they can tease)
+	assert_bool(Friendliness.know_each_other(bar, [older])).is_false()
 	assert_bool(bool(record["names"])).is_true()  # (her name was said)
 	assert_str(str(record["last"])).is_equal("Again!")
 	# Time for "can I call you eonni?": the younger asks the older, not the other way round.

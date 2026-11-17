@@ -51,6 +51,7 @@ var owner_lines_each: Array = []  # for each customer who paid: lines in their c
 var owner_lines := 0  # lines in owner–customer conversations (either of them speaking)
 var chat_lines := 0  # lines in customer chats (owner joining in included)
 var chats_started := 0
+var chats_drawn_in := 0  # ...of them, a quiet customer drawn in by a chatty one (CounterChats.reserved)
 var phrases := {}  # three-word turns of phrase said tonight -> how many lines (Text.phrases_in)
 var _known_words := {}  # every word of the Korean the game knows (the menu among it): never part of a turn of phrase
 const WORN_OUT := 3  # said in this many lines, a phrase is worn out: the next lines are asked to say it another way
@@ -94,6 +95,7 @@ var captions := {}  # kind -> how many shown tonight
 var captions_held_back := 0  # ones that would have come too soon after another
 var reactions_asked := 0  # times the AI was asked "was that a big moment?"
 var reactions_shown := {}  # mood -> how many shown
+var moments_from := {}  # "light", "deep" or "other" talk (its topic: Talk.LIGHT_TOPICS) -> the AI's mood for each big moment it made -> how many
 var reactions_none := 0  # ...answered "nothing special"
 var reactions_dropped := 0  # ...answered with something that failed the checks
 var reactions_put_off := 0  # ...put off, because someone was waiting for the owner (asked once she's free)
@@ -191,6 +193,8 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 			served += 1
 		"chat_started":
 			chats_started += 1
+			if bool(facts.get("drawn_in", false)):
+				chats_drawn_in += 1
 		"chat_continued":
 			chats_continued += 1
 		"joined_chat":
@@ -204,6 +208,10 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 		"big_moment":
 			var mood := str(facts.get("mood", ""))
 			reactions_shown[mood] = int(reactions_shown.get(mood, 0)) + 1
+			var talk := "light" if str(facts.get("topic", "")) in Talk.LIGHT_TOPICS else ("deep" if str(facts.get("topic", "")) in Talk.DEEP_TOPICS else "other")
+			var by_mood: Dictionary = moments_from.get(talk, {})
+			by_mood[str(facts.get("ai_mood", mood))] = int(by_mood.get(str(facts.get("ai_mood", mood)), 0)) + 1
+			moments_from[talk] = by_mood
 
 
 ## A line said with a hint in its direction (see Talk.moment_kind): counted, and whether
@@ -250,19 +258,7 @@ func record_street(what: String) -> void:
 func record_line(line: String, names: Array = []) -> void:
 	for word in Glossary.words_in(line, names):
 		korean_words[word] = int(korean_words.get(word, 0)) + 1
-	if _known_words.is_empty():
-		for spelling in Glossary.lookup():
-			for part in Text.words(str(spelling)):
-				_known_words[part] = true
-		for item in Menu.items():  # (and what people call it: "a bowl of rice" is an order, not a cliché)
-			for called in [str(item["name"])] + Array(item.get("aliases", [])):
-				for part in Text.words(str(called)):
-					_known_words[part] = true
-	var skip := _known_words.duplicate()
-	for person in names:
-		for part in Text.words(str(person)):
-			skip[part] = true
-	for phrase in Text.phrases_in(line, skip):
+	for phrase in Text.phrases_in(line, _not_phrases(names)):
 		phrases[phrase] = int(phrases.get(phrase, 0)) + 1
 	# A plant card just played: does it come up, in anyone's lines (the owner's too), soon after?
 	for card in plant_watch.keys():
@@ -271,6 +267,33 @@ func record_line(line: String, names: Array = []) -> void:
 		plant_watch[card] = int(plant_watch[card]) - 1
 		if int(plant_watch[card]) <= 0 and not plant_watch_for.has(card):
 			plant_watch.erase(card)
+
+
+## Words that are never part of a turn of phrase: the Korean the game knows (the menu among
+## it), what people call the dishes ("a bowl of rice" is an order, not a cliché), and names.
+func _not_phrases(names: Array) -> Dictionary:
+	if _known_words.is_empty():
+		for spelling in Glossary.lookup():
+			for part in Text.words(str(spelling)):
+				_known_words[part] = true
+		for item in Menu.items():
+			for called in [str(item["name"])] + Array(item.get("aliases", [])):
+				for part in Text.words(str(called)):
+					_known_words[part] = true
+	var skip := _known_words.duplicate()
+	for person in names:
+		for part in Text.words(str(person)):
+			skip[part] = true
+	return skip
+
+
+## A worn-out phrase (said in WORN_OUT lines already tonight) that a line would say again, or "".
+## (The note asking for another way was ignored now and then: night 28's "a long night", ×4.)
+func worn_out_in(line: String, names: Array = []) -> String:
+	for phrase in Text.phrases_in(line, _not_phrases(names)):
+		if int(phrases.get(phrase, 0)) >= WORN_OUT:
+			return str(phrase)
+	return ""
 
 
 ## The phrases said in WORN_OUT lines or more tonight, most first (at most most).
@@ -593,7 +616,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("")
 	lines.append("[b]TALK[/b]")
 	lines.append("Owner conversations: %d lines" % owner_lines)
-	lines.append("Customer chats: %d started, %d lines (%d%% of all lines)" % [chats_started, chat_lines, percent(chat_lines, owner_lines + chat_lines)])
+	lines.append("Customer chats: %d started (%d drawing in someone quiet), %d lines (%d%% of all lines)" % [chats_started, chats_drawn_in, chat_lines, percent(chat_lines, owner_lines + chat_lines)])
 	lines.append("Joined in: owner %d, another customer %d" % [owner_joins, customer_joins])
 	lines.append("Chat chances: %d · taken %d (%d new, %d carried on)" % [chat_chances, chats_started + chats_continued, chats_started, chats_continued])
 	lines.append("Owner free: %d times (a chat possible in %d)" % [free_turns, chat_chances])
@@ -601,7 +624,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Talk turned to: light %d · deep %d%s" % [mix[0], mix[1], (" · " + counts_text(topics, 8)) if not topics.is_empty() else ""])
 	lines.append("Teasing that crossed the line (dropped): %d" % int(rejections.get("teasing that crossed the line", 0)))
 	var worn := worn_out()
-	lines.append("Said too often (%d+ lines, asked for another way): %s" % [WORN_OUT, " · ".join(PackedStringArray(worn.map(func(p): return "\"%s\" %d" % [p, int(phrases[p])]))) if not worn.is_empty() else "(nothing yet)"])
+	lines.append("Said too often (%d+ lines, asked for another way; %d lines sent back for it): %s" % [WORN_OUT, int(rejections.get("said too often", 0)), " · ".join(PackedStringArray(worn.map(func(p): return "\"%s\" %d" % [p, int(phrases[p])]))) if not worn.is_empty() else "(nothing yet)"])
 	var ordinary := hints_text()
 	lines.append("Hints taken up: %s" % (ordinary if ordinary != "" else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
@@ -656,6 +679,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Reactions: asked %d · shown %d%s · none %d · dropped %d · put off (busy) %d, never asked %d" % [reactions_asked, shown_reactions,
 		(" (" + ", ".join(PackedStringArray(reactions_shown.keys().map(func(k): return "%s %d" % [k, int(reactions_shown[k])]))) + ")") if not reactions_shown.is_empty() else "",
 		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
+	lines.append("Big moments from: %s" % (" · ".join(PackedStringArray(["light", "deep", "other"].filter(func(k): return moments_from.has(k)).map(func(k): return "%s talk (%s)" % [k, counts_text(moments_from[k])]))) if not moments_from.is_empty() else "(none yet)"))
 	lines.append("")
 	lines.append("[b]FOOD AND THE MENU[/b]")
 	if story.has("menu_by"):
@@ -720,7 +744,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_lines_each": {"average": average(owner_lines_each), "fewest": shortest(owner_lines_each), "most": longest(owner_lines_each)},
 		},
 		"talk": {
-			"owner_lines": owner_lines, "chat_lines": chat_lines, "chats_started": chats_started,
+			"owner_lines": owner_lines, "chat_lines": chat_lines, "chats_started": chats_started, "chats_drawn_in": chats_drawn_in,
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
@@ -735,7 +759,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
 		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back,
-			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
+			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "from": moments_from.duplicate(true), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
 			"specials": specials.duplicate(), "sold_out": sold_out.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,

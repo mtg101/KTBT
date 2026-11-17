@@ -977,7 +977,7 @@ func test_small_world_gets_two_strangers_talking() -> void:
 	assert_bool((runner.find_child("Plant_small_world") as Button).disabled).is_false()  # (two who could get talking)
 	scene._pd.press("small_world")
 	assert_int(scene._chats.size()).is_equal(1)
-	assert_array(scene._chats[0].people).contains_exactly_in_any_order(scene._guests)
+	assert_array(_names(scene._chats[0].people)).contains_exactly_in_any_order(_names(scene._guests))  # (by name: see _names)
 	assert_str(_transcript(runner)).contains("gets talking to").contains("have just worked out that they")
 	assert_bool(scene._stats.events.any(func(e): return str(e["kind"]) == "plant_played" and str(e.get("what", "")) != "")).is_true()
 	_time_up(scene)

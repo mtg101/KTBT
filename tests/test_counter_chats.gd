@@ -9,6 +9,7 @@ const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 class Someone:
 	extends RefCounted
 	var company := "chatty"
+	var customer := {"name": "Kim Ji-ho"}
 	var stay_left := 60.0
 	var order: Array = ["soju"]
 	var version := 0
@@ -27,9 +28,31 @@ func test_who_can_chat() -> void:
 	assert_bool(counter.can_chat(quiet)).is_false()  # (keeping to themselves)
 	assert_bool(counter.can_chat(leaving)).is_false()  # (about to go)
 	assert_bool(counter.can_chat(waiting)).is_false()  # (not settled in)
-	assert_bool(counter.possible([chatty, quiet], false)).is_false()  # (one's not enough)
+	assert_bool(counter.possible([chatty], false)).is_false()  # (one's not enough)
+	assert_bool(counter.possible([quiet, Someone.new()], false)).is_true()  # (a chatty one can turn to a quiet one: see below)
+	var also_quiet := Someone.new()
+	also_quiet.company = "quiet"
+	assert_bool(counter.possible([quiet, also_quiet], false)).is_false()  # (quiet ones never start one)
 	assert_bool(counter.possible([chatty, Someone.new()], false)).is_true()
 	assert_bool(counter.possible([chatty, Someone.new()], true)).is_false()  # (not after last orders)
+
+
+func test_a_quiet_one_is_drawn_in_now_and_then() -> void:
+	var counter := CounterChats.new()
+	var chatty := Someone.new()
+	var quiet := Someone.new()
+	quiet.company = "quiet"
+	quiet.customer = {"name": "Oh Seong-jun"}
+	var spell := counter.choose_spell([chatty, quiet])
+	assert_bool(bool(spell.get("drawn_in", false))).is_true()
+	assert_array(spell["chat"].people).is_equal([chatty, quiet])
+	assert_int(counter.voices(spell["chat"]).size()).is_equal(2)  # (drawn in, they can carry on talking)
+	counter.leave(chatty)
+	assert_bool(counter.possible([Someone.new(), quiet], false)).is_false()  # (once a night: they'd rather be left alone)
+	# Someone chatty to talk to comes first.
+	var other := CounterChats.new()
+	var friend := Someone.new()
+	assert_bool(bool(other.choose_spell([chatty, quiet, friend]).get("drawn_in", false))).is_false()
 
 
 func test_a_spell_starts_carries_on_and_ends() -> void:

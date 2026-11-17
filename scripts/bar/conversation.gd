@@ -138,6 +138,8 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 		direction = speaking.camera_moment + " " + direction
 		hint = "camera"
 		speaking.camera_moment = ""
+	if speaking != null and "company" in speaking and str(speaking.company) == "quiet":
+		direction = (direction + " " + Talk.QUIET_IN_A_CHAT % speaker).strip_edges()
 	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()
 	return {"direction": direction, "hint": hint, "moment_term": moment_term, "game": game}
 

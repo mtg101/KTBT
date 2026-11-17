@@ -55,6 +55,16 @@ static func friend_record(bar: Dictionary, a: Variant, b: Variant) -> Dictionary
 	return mine.get("friends", {}).get(str(b.customer["regular_id"]), {})
 
 
+## Whether everyone in a chat knows everyone else: close, or regulars who've chatted here
+## before (only then can it turn to teasing; strangers never do). people: the chat's guests.
+static func know_each_other(bar: Dictionary, people: Array) -> bool:
+	for i in people.size():
+		for j in range(i + 1, people.size()):
+			if friend_record(bar, people[i], people[j]).is_empty():
+				return false
+	return people.size() > 1
+
+
 ## Whether two regulars are close (on "eonni" terms, say).
 static func are_close(bar: Dictionary, a: Variant, b: Variant) -> bool:
 	return bool(friend_record(bar, a, b).get("close", false))

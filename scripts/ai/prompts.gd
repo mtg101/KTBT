@@ -767,19 +767,20 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 
 
 ## After a spell of conversation: was anything a big moment, worth a Korean variety show's
-## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking.
-static func reaction_messages(lines: Array, names: Array) -> Array:
+## pop-up caption? lines: the latest {"speaker", "text"}; names: who's talking; about: what
+## the talk was meant to be (Talk.reaction_note), if anything.
+static func reaction_messages(lines: Array, names: Array, about: String = "") -> Array:
 	var moods := PackedStringArray()
 	for mood in Captions.ai_moods():
 		moods.append("\"%s\" (%s)" % [mood, Captions.REACTIONS[mood]["means"]])
 	var request := """You're the caption editor on a Korean variety show, watching a conversation at a street tent bar:
 %s
-
-How big a moment was the biggest thing in these lines, from 1 to 5?
+%s
+How big a moment was the biggest thing in these lines, from 1 to 5? Big means the audience would react: laugh, cringe, say "aww" or gasp, as much as tear up. A laugh counts as much as a tear.
 1 or 2: ordinary chat, small talk, orders, a tired sigh. Most lines are this.
-3: a bit personal or a bit funny: a hard day at work, missing someone, a good joke, a small confession.
-4: a real moment: a confession, a secret out, a big laugh, two people clicking.
-5: huge: a breakup, a proposal, a death, someone in tears, a scene.
+3: a bit personal or a bit of fun: a hard day at work, missing someone, a good joke, a tease that lands, a silly boast, a food argument.
+4: a real moment: a confession, a secret out, a big laugh, a perfect comeback, a boast that backfires, two people clicking.
+5: huge: a breakup, a proposal, a death, someone in tears, someone laughing till they cry, a scene.
 Only a %d or more gets a caption: editors save them for the best bits.
 
 Reply with ONLY a JSON object:
@@ -790,7 +791,7 @@ Reply with ONLY a JSON object:
 - "flip_caption": the same moment captioned the opposite way (if it's sad or a shock, make it funny; if it's funny or warm, make it touching; if it's awkward, make it sweet), at most five words, in English capitals ("" if "mood" is "none")
 - "roast_caption": the same moment as a cheeky roast, the editors teasing what they said or did (never their looks, body or anything that would really hurt), at most five words, in English capitals, like "NOBODY ASKED, BUT OK", "THE CONFIDENCE, THOUGH" ("" if "mood" is "none")
 
-Only what was actually said: nothing invented.""" % [transcript_text(lines), Captions.REACTION_MIN_SIZE, Captions.REACTION_MIN_SIZE - 1, ", ".join(moods), ", ".join(PackedStringArray(names))]
+Only what was actually said: nothing invented.""" % [transcript_text(lines), ("\n" + about + "\n") if about != "" else "", Captions.REACTION_MIN_SIZE, Captions.REACTION_MIN_SIZE - 1, ", ".join(moods), ", ".join(PackedStringArray(names))]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
