@@ -35,6 +35,7 @@ const Friendliness = preload("res://scripts/bar/friendliness.gd")
 const Conversation = preload("res://scripts/bar/conversation.gd")
 const Scenery = preload("res://scripts/bar/scenery.gd")
 const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
+const PdCamera = preload("res://scripts/bar/camera.gd")
 const SaveUpgrades = preload("res://scripts/save/save_upgrades.gd")
 const Prompts = preload("res://scripts/ai/prompts.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
@@ -148,6 +149,7 @@ class Guest:
 	var food_moment := ""  # a Talk.served_moment direction for their next line, now and then after something arrives
 	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
 	var stunned := ""  # a Talk.stunned_moment for their next line, after a shock they heard
+	var camera_moment := ""  # a Talk.camera_moment for their next line: the PD's camera has just turned to them
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
@@ -182,6 +184,9 @@ var _takings := 0
 
 # Who's here and what the owner's doing
 var _guests: Array = []  # Guest: whoever's on a stool
+var _camera := PdCamera.new()  # the PD's camera: who the show's following tonight (scripts/bar/camera.gd)
+const CAMERA_RED := Color("ff4f6d")  # the camera's REC (the shock caption's red)
+var _camera_rec: Label  # "● REC" and who, in the stage's top corner, while the camera's on someone
 var _counter_chats := CounterChats.new()  # customers chatting: who's in which chat, choosing the next spell (scripts/bar/counter_chats.gd)
 var _chats: Array:  # Chat: customer conversations going on at the counter
 	get:
@@ -452,7 +457,7 @@ func _open_saved_bar() -> void:
 		_show_cat()
 	_update_info()
 	if Hooks.recaps and int(Game.bar.get("nights", 0)) > 0:
-		_loading_note = "Writing \"Previously on…\""
+		_loading_note = "The editors are cutting \"Previously on…\""
 		var recap := await _write_recap()
 		_loading_note = ""
 		if _closed():
@@ -482,7 +487,7 @@ func _fill_in_hangul() -> void:
 		var person_name := str(person["name"])
 		var hangul := str(Names.CAT_HANGUL.get(person_name, ""))
 		if hangul == "":
-			_typing_label.text = "The AI is writing %s in Hangul..." % person_name
+			_typing_label.text = "The subtitle team are writing %s in Hangul..." % person_name
 			var reply: Dictionary = await _ai.ask_json(Prompts.hangul_messages(person_name), _validate_hangul.bind(person_name),
 				{"temperature": 0.2}, {"purpose": "hangul", "name": person_name})
 			_typing_label.text = ""
@@ -535,7 +540,7 @@ func _loading_status() -> String:
 		return text
 	if waited < LOADING_WAKING:
 		return "%s  (%ds)" % [text, waited]
-	return "%s  (%ds: the AI may be waking up, which can take a minute after it's been idle)" % [text, waited]
+	return "%s  (%ds: the writers' room may be waking up: the AI can take a minute after it's been idle)" % [text, waited]
 
 
 const LOADING_PATIENCE := 5  # seconds before the status counts them
@@ -583,7 +588,7 @@ func _on_try_again_pressed() -> void:
 func _invent_owner() -> void:
 	_owner_working = true
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling a tarp...")
-	_typing_label.text = "The AI is inventing the tent's owner..."
+	_typing_label.text = "The casting team are finding the tent's owner..."
 	var gender: String = ["woman", "man"].pick_random()
 	# The game decides their age range and how they look; the AI invents who they are.
 	var look := Looks.pick_look(gender, Looks.pick_age_range(randf(), true), "", true)
@@ -631,7 +636,7 @@ func _invent_owner() -> void:
 
 ## A new bar: the AI names the tent (the game names it if the AI can't), and it's saved.
 func _name_bar() -> void:
-	_typing_label.text = "The AI is painting the sign..."
+	_typing_label.text = "The owner's painting the sign..."
 	var named: Dictionary = await _ai.ask_json(Prompts.bar_name_messages(_owner), _validate_bar_name, {"temperature": 0.9},
 		{"purpose": "bar_name", "owner_name": _owner["name"]})
 	_typing_label.text = ""
@@ -649,7 +654,7 @@ func _name_bar() -> void:
 ## A new bar's look: the AI chooses the tarp, the sign's style and Hangul, and a touch or
 ## two, from the game's options, to suit the owner and the name (plain, if it can't).
 func _choose_look() -> void:
-	_typing_label.text = "The AI is putting up the tarp..."
+	_typing_label.text = "The owner's putting up the tarp..."
 	_look_offer = {} if Hooks.offer_every_look else BarLook.look_offer()
 	var look: Dictionary = await _ai.ask_json(
 		Prompts.bar_look_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", "")), _look_offer),
@@ -691,7 +696,7 @@ func _put_up_menu() -> void:
 ## A new bar's menu: the owner chooses it, from the catalogue, within the house rules (the
 ## game builds one by the same rules if the AI can't). Saved with the bar, and in use.
 func _choose_menu() -> void:
-	_typing_label.text = "The AI is writing the menu..."
+	_typing_label.text = "The owner's writing out the menu..."
 	var chosen: Dictionary = await _ai.ask_json(Prompts.menu_messages(_owner, str(Game.bar["name"]), str(Game.bar.get("name_meaning", ""))),
 		Catalogue.validate_menu, {"temperature": 0.8}, {"purpose": "menu", "bar_name": Game.bar["name"]})
 	_typing_label.text = ""
@@ -821,7 +826,7 @@ func _new_cat(cat_name: String, coat: String, personality: String, sex: String, 
 func _show_cat() -> void:
 	_cat = Game.bar["cat"].duplicate()
 	_tent_cat.paint(_cat_label())
-	_cat_node.tooltip_text = Text.tip("%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")])
+	_cat_node.tooltip_text = _cat_tooltip()
 	_narrate("%s, the tent's %s cat, is %s." % [_cat["name"], _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], _cat["personality"]).get_slice(":", 0)])
 
 
@@ -1018,6 +1023,9 @@ func _start_night() -> void:
 	_night_takings = 0
 	_night_lines = []
 	_stats = NightStats.new()
+	_camera = PdCamera.new()
+	_camera.cat = _tent_cat
+	_show_camera()
 	_events = NightEvents.new()
 	_events.happened.connect(_stats.record_event)
 	_events.happened.connect(_caption_for_event)
@@ -1066,7 +1074,7 @@ func _start_night() -> void:
 	_show_weather(NightRules.weather_kind(_night_weather))
 	_cat_spot = "stove"  # every night starts with the cat asleep by the stove
 	_cat_with = null
-	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
+	_cat_next = _camera.cat_stay(randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y))
 	_tent_cat.place()
 	_update_clock_label()
 	_start_transcript()
@@ -1447,7 +1455,7 @@ func _left_alone_longest() -> Guest:
 
 
 func _neediness(guest: Guest) -> int:
-	return guest.attended - (3 if guest.company == "owner" else 0)
+	return _camera.neediness(guest, guest.attended - (3 if guest.company == "owner" else 0))
 
 
 func _task_done() -> void:
@@ -1704,7 +1712,7 @@ func _new_customer(arrived: String, ahead: bool = false) -> Dictionary:
 	# 1. Who is it? First just a name and gender: a quick ask, so if the name's taken, asking
 	# again costs little. Then the rest of that person.
 	if not ahead:
-		_typing_label.text = "Someone is coming down the street..."
+		_typing_label.text = "The casting team are finding the next customer..."
 	var taken: Array = [str(_owner["name"])]  # nobody at the counter shares a name
 	for other in _guests:
 		taken.append(str(other.customer["name"]))
@@ -1907,6 +1915,8 @@ func _settle_up(guest: Guest) -> void:
 		"regular": standing, "ordered": ", ".join(PackedStringArray(guest.order.map(func(id): return str(Menu.find(id).get("name", id))))),
 		"order_ids": guest.order.duplicate(), "bill": bill, "amount": Menu.format_won(bill)}, guest.node)
 	_clear_table(guest)
+	if _camera.is_on(guest):
+		_camera_off("left")
 	_walk_out(guest)  # off they go; the owner gets on with the next thing
 	_guests.erase(guest)
 	_refresh_tags()
@@ -2118,7 +2128,7 @@ func _leave_chats(guest: Guest) -> void:
 ## A few lines, cut short if something more urgent comes up.
 func _counter_chat() -> void:
 	_owner_working = true
-	var spell := _counter_chats.choose_spell(_guests)  # (carry one on, someone joining in, or strangers getting talking)
+	var spell := _counter_chats.choose_spell(_guests, _camera)  # (carry one on, someone joining in, or strangers getting talking)
 	var chat: Chat = spell["chat"]
 	var joiner: Guest = spell["joiner"]
 	if chat != null and bool(spell["started"]):
@@ -2276,6 +2286,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	chat.transcript.append({"speaker": speaker, "text": line})
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
+	_stats.record_camera_line(_camera.on_camera(chat.people))
 	_stats.record_hint(hint, line, _tent_cat.tells())
 	_stats.record_line(line, names)
 	if guest != null:
@@ -2375,7 +2386,7 @@ func _move_cat(spot: String = "") -> void:
 		_owner_cat_moment = moment
 	elif moment != "" and with != null:
 		with.cat_moment = moment
-	_cat_next = randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y)
+	_cat_next = _camera.cat_stay(randf_range(CAT_MOVE_MINUTES.x, CAT_MOVE_MINUTES.y))
 	var cat_name := str(_cat["name"])
 	var was_out := _cat_node.visible == false
 	if before != null and before != with and _guests.has(before):
@@ -2573,6 +2584,7 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	guest.transcript.append({"speaker": str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), "text": text})
 	_stats.owner_lines += 1
 	_stats.record_line(text, [_owner["name"], guest.customer["name"]])
+	_stats.record_camera_line(_camera.on_camera([guest]))
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
 	_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])])
@@ -3010,6 +3022,7 @@ func _update_hover(guest: Guest) -> void:
 		area.position = Vector2(4, 0)
 		area.size = Vector2(72, 150)
 		area.mouse_filter = Control.MOUSE_FILTER_STOP
+		area.gui_input.connect(_on_guest_clicked.bind(guest))
 		guest.node.add_child(area)
 	area.tooltip_text = _hover_text(guest)
 
@@ -3040,11 +3053,142 @@ func _hover_text(guest: Guest) -> String:
 	var remembered := _remembered_briefly(known)
 	if remembered != "":
 		lines.append("The owner remembers: %s" % remembered)
+	lines.append("● The camera's on them: click to stop" if _camera.is_on(guest) else "Click to follow them with the camera")
 	# (Tooltips don't wrap: a long mood or memory would stretch it across the screen.)
 	return "\n".join(PackedStringArray(Array(lines).map(func(each): return Text.wrap(str(each), HOVER_WIDTH))))
 
 
 const HOVER_WIDTH := 44  # characters per line in a customer's hover
+
+
+# --- The PD's camera ------------------------------------------------------------------------
+
+## Clicking a customer: the camera follows them (or, if it already is, stops). Never pauses
+## anything: it changes who gets the airtime from the next turn on (see bar/camera.gd).
+func _on_guest_clicked(event: InputEvent, guest: Guest) -> void:
+	if not _left_click(event) or not _guests.has(guest):
+		return
+	if _camera.is_on(guest):
+		_camera_off("pd")
+	else:
+		_camera_on(guest)
+
+
+## Clicking the cat: the camera follows it (the airtime goes to whoever it's with).
+func _on_cat_clicked(event: InputEvent) -> void:
+	if not _left_click(event) or _cat.is_empty():
+		return
+	if _camera.on_cat:
+		_camera_off("pd")
+	else:
+		_camera_on(null)
+
+
+func _left_click(event: InputEvent) -> bool:
+	var click := event as InputEventMouseButton
+	return click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT
+
+
+## The camera turns to someone (null: the cat).
+func _camera_on(guest: Guest) -> void:
+	var previous: Variant = _camera.follow(guest) if guest != null else _camera.follow_cat()
+	_viewfinder_off(previous)
+	var named := str(guest.customer["name"]) if guest != null else str(_cat["name"])
+	if guest != null:
+		_viewfinder(guest.node, Rect2(-4, -8, 88, 166))
+		_narrate("The camera follows %s." % named)
+	else:
+		_viewfinder(_cat_node, Rect2(-6, -6, 58, 40))
+		_cat_next *= PdCamera.CAT_RESTLESS
+		_narrate("The camera follows %s, the cat." % named)
+	_event("camera_on", {"name": named, "cat": guest == null, "from": _camera_name(previous),
+		"noticing": guest != null and guest.camera_moment != ""}, guest.node if guest != null else _cat_node)
+	_show_camera()
+
+
+## why: "pd" (the player stopped it) or "left" (they went home).
+func _camera_off(why: String) -> void:
+	var was: Variant = _camera.stop()
+	if was == null:
+		return
+	_viewfinder_off(was)
+	if why == "pd":
+		_narrate("The camera stops following %s." % _camera_name(was))
+	_event("camera_off", {"name": _camera_name(was), "why": why}, _cat_node if str(was) == "cat" else was.node)
+	_show_camera()
+
+
+## A Guest's name, the cat's ("cat"), or "".
+func _camera_name(who: Variant) -> String:
+	if who == null:
+		return ""
+	if who is String:
+		return str(_cat.get("name", "the cat"))
+	return str(who.customer["name"])
+
+
+## The corner's "● REC" and who, and the hovers saying what a click does.
+func _show_camera() -> void:
+	if _camera_rec != null:
+		var who := ""
+		if _camera.on_cat:
+			who = "%s (the cat)" % _cat.get("name", "")
+			_camera_rec.tooltip_text = _cat_tooltip()
+		elif _camera.following != null:
+			who = str(_camera.following.customer["name"])
+			_camera_rec.tooltip_text = Text.tip("The show's camera is following %s. Click them to stop." % who)
+		_camera_rec.text = "● REC  %s" % who
+		_camera_rec.visible = who != ""
+	for guest in _guests:
+		_update_hover(guest)
+	if not _cat.is_empty() and _tent_cat != null and _tent_cat.node != null:
+		_cat_node.tooltip_text = _cat_tooltip()
+
+
+func _cat_tooltip() -> String:
+	var text := "%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")]
+	text += "\n" + ("● The camera's on it: click to stop" if _camera.on_cat else "Click to follow it with the camera")
+	return Text.tip(text)
+
+
+## The camera's viewfinder: corner marks round whoever it's on (round their body, clear of the
+## speech bubbles over their heads).
+func _viewfinder(node: Control, frame: Rect2) -> void:
+	if not is_instance_valid(node) or node.get_node_or_null("CameraBadge") != null:
+		return
+	var marks := Control.new()
+	marks.name = "CameraBadge"
+	marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var arm := 14.0
+	var thick := 3.0
+	for corner in [frame.position, Vector2(frame.end.x, frame.position.y), Vector2(frame.position.x, frame.end.y), frame.end]:
+		var right: bool = corner.x > frame.position.x
+		var down: bool = corner.y > frame.position.y
+		var across := ColorRect.new()
+		across.color = CAMERA_RED
+		across.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		across.size = Vector2(arm, thick)
+		across.position = Vector2(corner.x - (arm if right else 0.0), corner.y - (thick if down else 0.0))
+		marks.add_child(across)
+		var upright := ColorRect.new()
+		upright.color = CAMERA_RED
+		upright.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		upright.size = Vector2(thick, arm)
+		upright.position = Vector2(corner.x - (thick if right else 0.0), corner.y - (arm if down else 0.0))
+		marks.add_child(upright)
+	node.add_child(marks)
+
+
+## Takes the viewfinder off whoever it was on (a Guest, "cat", or null).
+func _viewfinder_off(who: Variant) -> void:
+	if who == null:
+		return
+	var node: Variant = _cat_node if who is String else who.node
+	if not is_instance_valid(node):
+		return
+	var marks: Node = node.get_node_or_null("CameraBadge")
+	if marks != null:
+		marks.queue_free()
 const HOVER_REMEMBERED := 60  # ...and at most this much of what the owner remembers
 
 
@@ -3572,6 +3716,7 @@ func _build_stage(stage: Control) -> void:
 	_tent_view.roof.polygon = PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
 	_tent_view.roof.color = ACCENT
 	_tent_cat.build(stage)
+	_tent_cat.node.gui_input.connect(_on_cat_clicked)
 	stage.add_child(_tent_view.roof)
 	_tent_view.roof_stripes = _layer(stage, "TarpStripes")
 	_tent_view.roof_edge = _rect(stage, Vector2(22, 112), Vector2(w - 44, 10), Color("c8612a"))
@@ -3591,6 +3736,13 @@ func _build_stage(stage: Control) -> void:
 	_captions_part = CaptionsOnScreen.new(_night, STAGE_SIZE.x, _show, _ambience.sting)
 	_caption_layer = _layer(stage, "Captions")
 	_caption_layer.z_index = 5  # in front of everything, bubbles included
+	_camera_rec = Ktv.label("", 20, CAMERA_RED, 6)
+	_camera_rec.name = "CameraRec"
+	_camera_rec.position = Vector2(28, 16)
+	_camera_rec.z_index = 6  # never hidden: over the bubbles and captions, in the stage's corner
+	_camera_rec.mouse_filter = Control.MOUSE_FILTER_PASS
+	_camera_rec.visible = false
+	stage.add_child(_camera_rec)
 	_captions_part.layer = _caption_layer
 	var red_frame := Panel.new()
 	red_frame.name = "RedFrame"
@@ -3683,7 +3835,7 @@ func _make_founding_regulars() -> void:
 		var years := randi_range(2, 12)
 		var since := "for %d years" % years
 		var usual: Array = [_menu_pick("drink"), _menu_pick("main")]
-		_typing_label.text = "Someone's been coming here for years..."
+		_typing_label.text = "The casting team are finding the regulars..."
 		var reply: Dictionary = await _ai.ask_json(
 			Prompts.founding_regular_messages(_owner, str(Game.bar["name"]), gender, look, str(roles[i]), since, str(habit[0]), usual, taken),
 			_validate_founding.bind(taken, gender, str(look["age_range"])), {"temperature": 0.9},

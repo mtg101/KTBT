@@ -18,6 +18,7 @@ class Someone:
 	var stunned := ""
 	var food_moment := ""
 	var cat_moment := ""
+	var camera_moment := ""
 
 
 func test_the_owners_line_is_given_its_moments_once() -> void:
@@ -82,6 +83,27 @@ func test_a_chat_line_is_given_its_moments() -> void:
 	chat.game_lines = 2
 	chat.game_on = true
 	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 3, true, dice)["hint"])).is_empty()
+
+
+func test_the_camera_turning_to_someone_is_their_next_lines_moment_once() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	guest.camera_moment = Talk.camera_moment("Kim Ji-ho")
+	# Not the owner's line (it's the customer who notices the camera) ...
+	assert_str(str(Conversation.owner_line(night, guest, 2, false, false)["hint"])).is_not_equal("camera")
+	# ... theirs.
+	var theirs := Conversation.owner_line(night, guest, 3, false, false)
+	assert_str(str(theirs["hint"])).is_equal("camera")
+	assert_str(str(theirs["direction"])).contains("camera")
+	assert_str(guest.camera_moment).is_empty()
+	assert_str(str(Conversation.owner_line(night, guest, 5, false, false)["hint"])).is_not_equal("camera")
+	# In a chat at the counter too.
+	var chat := CounterChats.Chat.new()
+	var dice := RandomNumberGenerator.new()
+	guest.camera_moment = Talk.camera_moment("Kim Ji-ho")
+	var said := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)
+	assert_str(str(said["hint"])).is_equal("camera")
+	assert_str(guest.camera_moment).is_empty()
 
 
 func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:

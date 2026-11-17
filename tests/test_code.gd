@@ -37,6 +37,22 @@ func test_no_local_shadows_a_name_godot_or_gdunit_already_has() -> void:
 			assert_bool(clashes).override_failure_message("%s:%d: \"%s\" shadows a name Godot or gdUnit already has" % [path, i + 1, local]).is_false()
 
 
+## A test file built on the shared base (tests/support/bar_test.gd) quietly replaces any
+## helper it defines again with the same name, and every test that used the base's breaks.
+func test_no_test_redefines_a_shared_helper() -> void:
+	var defined := RegEx.create_from_string("(?m)^func\\s+(\\w+)\\s*\\(")
+	var shared: Array = defined.search_all(FileAccess.get_file_as_string("res://tests/support/bar_test.gd")).map(func(m): return m.get_string(1)) \
+		.filter(func(helper): return not ["before", "after", "before_test", "after_test", "_setup"].has(helper))  # (hooks meant to be overridden: gdUnit's, and the base's own _setup)
+	assert_array(shared).is_not_empty()
+	for path in _scripts("res://tests"):
+		var text := FileAccess.get_file_as_string(path)
+		if not text.begins_with("extends \"res://tests/support/bar_test.gd\""):
+			continue
+		for found in defined.search_all(text):
+			var helper := found.get_string(1)
+			assert_bool(shared.has(helper)).override_failure_message("%s: \"%s\" is already a shared helper in tests/support/bar_test.gd (pick another name)" % [path, helper]).is_false()
+
+
 func test_indents_are_tabs() -> void:
 	for path in _scripts("res://scripts") + _scripts("res://tests"):
 		var lines := FileAccess.get_file_as_string(path).split("\n")

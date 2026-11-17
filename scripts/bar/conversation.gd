@@ -1,10 +1,11 @@
 extends RefCounted
 ## The conversations' situations: what each line is given to work with, as a direction for the
 ## AI (never the words): the opener (just served, or a quick hello on a busy night), the topic,
-## nearly leaving, and the moments that come up (something stunning just said, food just
-## arrived, the cat), each used once. And for a customers' chat: meeting again, "can I call you
-## eonni?", something to share, a table game late on, the stunned moment, the cat. How someone's
-## known to strangers (as they look, until a name's been said), and who spoke last.
+## nearly leaving, and the moments that come up (something stunning just said, the PD's camera
+## turning to them, food just arrived, the cat), each used once. And for a customers' chat:
+## meeting again, "can I call you eonni?", something to share, a table game late on, the
+## stunned moment, the cat, the camera. How someone's known to strangers (as they look, until
+## a name's been said), and who spoke last.
 ## The tent's scene asks the AI, shows the lines and keeps the stats; this decides what each
 ## line is given. The dice: the game's (randf) where the night's rolls always were, the
 ## scenery's for the table games.
@@ -45,6 +46,10 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			night.owner_stunned = ""
 		else:
 			guest.stunned = ""
+	elif line > 0 and not owner_speaks and guest.camera_moment != "":  # (the PD's camera has just turned to them)
+		direction = (guest.camera_moment + " " + direction).strip_edges()
+		hint = "camera"
+		guest.camera_moment = ""  # once
 	elif line > 0 and guest.food_moment != "":
 		direction = (guest.food_moment + " " + direction).strip_edges()
 		hint = Talk.moment_kind(guest.food_moment)
@@ -112,6 +117,11 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 				night.owner_cat_moment = ""
 			else:
 				speaking.cat_moment = ""
+	# The PD's camera has just turned to the speaker.
+	if hint == "" and not first and speaking != null and speaking.camera_moment != "":
+		direction = speaking.camera_moment + " " + direction
+		hint = "camera"
+		speaking.camera_moment = ""
 	return {"direction": direction, "hint": hint, "moment_term": moment_term, "game": game}
 
 

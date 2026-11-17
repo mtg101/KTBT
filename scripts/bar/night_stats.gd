@@ -112,6 +112,8 @@ var rejections := {}  # kind of problem -> how many times
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
 var events: Array = []  # tonight's events (NightEvents.timeline), for the log
+var camera_lines := 0  # lines said tonight (the owner's conversations and the chats)...
+var camera_lines_on := 0  # ...and how many of them with whoever the PD's camera was following
 var gave_up_by := {}  # what the AI was being asked for -> how many times it gave up
 var calls_by := {}  # what the AI was being asked for -> how many times (the bar opening's too: menu, signatures, recap)
 var gave_up := 0  # calls that never got a usable reply
@@ -242,7 +244,34 @@ func hints_text(tropes := false) -> String:
 
 
 static func _is_trope(kind: String) -> bool:
-	return kind.begins_with("game_") or kind == "stunned"
+	return kind.begins_with("game_") or kind == "stunned" or kind == "camera"  # (in their own sections)
+
+
+## A line of the owner's conversations or the chats: whether it was on camera (the person the
+## PD's camera was following was in it).
+func record_camera_line(on: bool) -> void:
+	camera_lines += 1
+	if on:
+		camera_lines_on += 1
+
+
+## The PD's camera tonight: who it followed, in order, and for how long (game minutes):
+## [{"name", "minutes"}], and the noticing moments: [given, taken up].
+func camera_follows() -> Array:
+	var follows: Array = []
+	var current := {}
+	for event in events:
+		var kind := str(event.get("kind", ""))
+		if kind == "camera_on" or kind == "camera_off":
+			if not current.is_empty():
+				current["minutes"] = int(event.get("at", 0)) - int(current["from"])
+				follows.append({"name": current["name"], "minutes": current["minutes"]})
+				current = {}
+			if kind == "camera_on":
+				current = {"name": str(event.get("name", "")), "from": int(event.get("at", 0))}
+	if not current.is_empty():
+		follows.append({"name": current["name"], "minutes": -1})  # (still on them at the end)
+	return follows
 
 
 ## The table games: {game: [offered, taken up]}, a chat each (a game's in the air for a few
@@ -381,6 +410,8 @@ func highlights() -> Array:
 				what = "closed up early"
 			"menu_changed":
 				what = "menu change: %s off, %s on" % [event.get("out", ""), event.get("in", "")]
+			"camera_on":
+				what = "the camera follows %s" % event.get("name", "")
 			"sat_down":
 				if not full and int(event.get("seated", 0)) >= NightRules.SEATS:
 					full = true
@@ -401,7 +432,7 @@ func signature_orders() -> Dictionary:
 
 ## The panel's tabs: each section's short name (the panel shows one section at a time).
 const TAB_NAMES := {"HIGHLIGHTS": "Highlights", "TONIGHT": "Tonight", "PEOPLE": "People", "TALK": "Talk",
-	"POCHA LIFE": "Pocha life", "REGULARS": "Regulars", "THE STORY": "Story", "TV CAPTIONS": "TV",
+	"POCHA LIFE": "Pocha life", "THE PD": "PD", "REGULARS": "Regulars", "THE STORY": "Story", "TV CAPTIONS": "TV",
 	"FOOD AND THE MENU": "Menu", "AI": "AI", "EVERYTHING THAT HAPPENED": "Everything"}
 
 
@@ -474,6 +505,12 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Double-takes: offered %d, taken up %d · hwaiting chorus %d · first snow %s" % [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0)),
 		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
 	lines.append("")
+	lines.append("[b]THE PD[/b]")
+	var follows := camera_follows()
+	lines.append("Camera: %s" % ("followed %d · %s" % [follows.size(), " · ".join(PackedStringArray(follows.map(func(f): return "%s %s" % [f["name"], ("%d min" % int(f["minutes"])) if int(f["minutes"]) >= 0 else "(still on)"])))] if not follows.is_empty() else "not used tonight"))
+	lines.append("Lines on camera %d of %d (%d%%) · noticed the camera %d/%d" % [camera_lines_on, camera_lines, percent(camera_lines_on, camera_lines),
+		int(hints_taken.get("camera", 0)), int(hints_given.get("camera", 0))])
+	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
 	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
@@ -544,6 +581,8 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
+		"pd": {"camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines],
+			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},
 		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},

@@ -1865,6 +1865,9 @@ func test_table_games_only_when_the_night_is_right() -> void:
 	assert_bool(Talk.hint_taken("game_spoon_mic", "What's the spoon for?")).is_false()
 	assert_bool(Talk.hint_taken("game_apartment", "I needed a break from my apartment, you know?")).is_false()  # (a real night's false start)
 	assert_bool(Talk.hint_taken("game_apartment", "Fourth floor, then.")).is_true()
+	# Noticing the PD's camera.
+	assert_bool(Talk.hint_taken("camera", "Is that camera on me? Don't put this in the episode!")).is_true()
+	assert_bool(Talk.hint_taken("camera", "Long day at the office.")).is_false()
 	assert_array(Glossary.words_in("Kya~! A love shot, then.")).contains(["Kya", "Love Shot"])
 
 
@@ -1986,7 +1989,7 @@ func test_every_hover_is_a_sensible_width() -> void:
 			if at == -1:
 				continue
 			var said := line.substr(at + ".tooltip_text = ".length())
-			var short := said.begins_with("str(item[") or said.begins_with("_hover_text(")  # (a dish's name; the customer's own wrapping)
+			var short := said.begins_with("str(item[") or said.begins_with("_hover_text(") or said.begins_with("_cat_tooltip(")  # (a dish's name; the customer's and the cat's own wrapping)
 			assert_bool(short or said.begins_with("Text.tip(")).override_failure_message("%s: %s" % [path, line.strip_edges()]).is_true()
 
 

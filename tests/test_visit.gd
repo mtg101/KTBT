@@ -6,6 +6,7 @@ extends "res://tests/support/bar_test.gd"
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
+const PdCamera = preload("res://scripts/bar/camera.gd")
 const Ai = preload("res://scripts/ai/ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -830,6 +831,69 @@ func test_drinking_rituals_and_table_games() -> void:
 	assert_int(int(scene._stats.rituals.get("turned_away", 0))).is_equal(1)
 	assert_str(_transcript(runner)).contains("turns away to drink")
 	assert_str(scene._stats.panel_text(0, 0)).contains("Rituals:")
+
+
+func _click_person(scene, guest) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	scene._on_guest_clicked(press, guest)
+
+
+func test_the_pds_camera_follows_whoever_is_clicked() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests.all(func(g): return g.node.get_node_or_null("Hover") != null))).is_true()
+	var followed = scene._guests[0]
+	assert_str(str(followed.node.get_node("Hover").tooltip_text)).contains("Click to follow them with the camera")
+	_click_person(scene, followed)
+	assert_bool(scene._camera.is_on(followed)).is_true()
+	assert_object(followed.node.get_node_or_null("CameraBadge")).is_not_null()
+	assert_str(str(followed.node.get_node("Hover").tooltip_text)).contains("click to stop")
+	assert_str(_transcript(runner)).contains("The camera follows %s." % followed.customer["name"])
+	assert_str((runner.find_child("CameraRec") as Label).text).contains(str(followed.customer["name"]))
+	assert_int(int(scene._stats.event_counts.get("camera_on", 0))).is_equal(1)
+	# The owner gets to them sooner (as if they'd waited longer).
+	assert_int(scene._neediness(followed)).is_equal(followed.attended - PdCamera.PULL - (3 if followed.company == "owner" else 0))
+	# Clicked again: it stops.
+	_click_person(scene, followed)
+	assert_bool(scene._camera.is_on(followed)).is_false()
+	assert_str(_transcript(runner)).contains("The camera stops following %s." % followed.customer["name"])
+	await get_tree().process_frame
+	assert_object(followed.node.get_node_or_null("CameraBadge")).is_null()
+	# Followed again, and they go home: the camera stops with them.
+	_click_person(scene, followed)
+	followed.stay_left = 0.0
+	assert_bool(await _wait_until(func(): return not scene._guests.has(followed))).is_true()
+	assert_object(scene._camera.following).is_null()
+	assert_array(scene._stats.events.filter(func(e): return str(e["kind"]) == "camera_off").map(func(e): return str(e["why"]))).is_equal(["pd", "left"])
+	assert_str(scene._stats.panel_text(0, 0)).contains("THE PD")
+
+
+func test_the_pds_camera_can_follow_the_cat() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var rec := runner.find_child("CameraRec") as Label
+	assert_bool(rec.visible).is_false()
+	assert_str(scene._cat_node.tooltip_text).contains("Click to follow it with the camera")
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	scene._on_cat_clicked(press)
+	assert_bool(scene._camera.on_cat).is_true()
+	assert_object(scene._cat_node.get_node_or_null("CameraBadge")).is_not_null()
+	# The corner says so, over everything (never hidden behind a speech bubble).
+	assert_bool(rec.visible).is_true()
+	assert_str(rec.text).contains(str(scene._cat["name"]))
+	assert_int(rec.z_index).is_greater(scene._bubble_layer.z_index)
+	assert_str(_transcript(runner)).contains("The camera follows %s, the cat." % scene._cat["name"])
+	# Clicked again, it stops.
+	scene._on_cat_clicked(press)
+	assert_bool(scene._camera.on_cat).is_false()
+	assert_bool(rec.visible).is_false()
+	assert_array(scene._stats.events.filter(func(e): return str(e["kind"]).begins_with("camera_")).map(func(e): return str(e["kind"]))).is_equal(["camera_on", "camera_off"])
 
 
 func test_last_times_cliffhanger_comes_true() -> void:

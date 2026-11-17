@@ -520,6 +520,7 @@ const HINT_TELLS := {
 	"pour": ["pour", "top up", "top you up", "fill", "glass"], "close": ["bite", "feed", "try this", "say ah", "aah", "open"],
 	"cat": ["kitty", "puss", "good girl", "good boy", "get down", "get off", "little one", "you little", "naughty", "meow"],  # (and its name)
 	"stunned": ["mwo", "heol", "what", "jinjja", "really", "seriously", "wait", "no way"],
+	"camera": ["camera", "film", "on tv", "episode", "crew", "broadcast"],
 	"game_spoon_mic": ["sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "floor", "stack"],
 	"game_titanic": ["titanic", "sink", "sank"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
 	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"],
@@ -604,6 +605,15 @@ static func says_hwaiting(line: String, names: Array = []) -> bool:
 
 ## A big shock just now (a TV reaction rated it so): whoever else heard it is stunned, for their
 ## next line. The situation, never the words: the AI finds its own "Mwo?!".
+## The PD's camera turns to someone for the first time tonight: everyone knows they're on a
+## show, so they notice (and play up to it, hide from it, or carry on: theirs to choose).
+const CAMERA_MOMENT := "The show's camera crew have just turned their camera on {who}, and they've noticed."
+
+
+static func camera_moment(who: String) -> String:
+	return CAMERA_MOMENT.replace("{who}", Names.given_name(who))
+
+
 const STUNNED_MOMENT := "What {who} just said has stunned them: they can hardly believe their ears."
 
 

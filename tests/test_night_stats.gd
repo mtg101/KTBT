@@ -220,6 +220,26 @@ func test_everything_gets_counted() -> void:
 	assert_int(int(logged["talk"]["hints_given"]["pour"])).is_equal(1)
 
 
+func test_the_pds_camera_is_counted() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("THE PD").contains("Camera: not used tonight")
+	stats.events = [{"kind": "camera_on", "name": "Kim Ji-ho", "at": 1300}, {"kind": "camera_on", "name": "Lee Min-jun", "at": 1330, "from": "Kim Ji-ho"},
+		{"kind": "camera_off", "name": "Lee Min-jun", "why": "left", "at": 1345}, {"kind": "camera_on", "name": "Kim Ji-ho", "at": 1400}]
+	assert_array(stats.camera_follows()).is_equal([{"name": "Kim Ji-ho", "minutes": 30}, {"name": "Lee Min-jun", "minutes": 15}, {"name": "Kim Ji-ho", "minutes": -1}])
+	stats.record_camera_line(true)
+	stats.record_camera_line(false)
+	stats.record_hint("camera", "Is that a camera?")
+	var text := stats.panel_text(0, 0)
+	for part in ["Camera: followed 3 · Kim Ji-ho 30 min · Lee Min-jun 15 min · Kim Ji-ho (still on)", "Lines on camera 1 of 2 (50%)", "noticed the camera 1/1"]:
+		assert_str(text).contains(part)
+	assert_str(stats.hints_text()).not_contains("camera")  # (in its own section)
+	assert_array(stats.highlights()).contains(["9:40pm  the camera follows Kim Ji-ho"])
+	var logged := stats.summary({})
+	assert_array(logged["pd"]["lines_on_camera"]).is_equal([1, 2])
+	assert_array(logged["pd"]["noticed_camera"]).is_equal([1, 1])
+	assert_int(logged["pd"]["camera"].size()).is_equal(3)
+
+
 func test_the_pocha_life_has_a_section_of_its_own() -> void:
 	var stats := NightStats.new()
 	stats.story = {"date": "15 November", "season": "late autumn", "weather": "thick fog"}
