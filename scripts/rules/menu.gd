@@ -88,15 +88,26 @@ static func cook_minutes(id: String) -> int:
 
 ## Matches whatever the AI wrote ("soju", "Gyeran-mari", " Tteokbokki ") to a menu id.
 ## Returns "" if it isn't on the menu.
+## Hyphens, spaces and underscores don't count: the AI writes Korean dish names every which
+## way ("Dak-bokkeumtang", "Dakbokkeumtang", "Dak-bokkeum-tang"), and each was turned away.
 static func resolve(text: String) -> String:
-	var key := _normalise(text)
+	var key := compact(text)
 	for item in items():
-		if key == item["id"] or key == _normalise(item["name"]):
+		if key == compact(str(item["id"])) or key == compact(str(item["name"])):
 			return item["id"]
 		for alias in item.get("aliases", []):
-			if key == _normalise(alias):
+			if key == compact(str(alias)):
 				return item["id"]
 	return ""
+
+
+## A name without its case, hyphens, spaces, underscores or apostrophes: "dakbokkeumtang".
+static func compact(text: String) -> String:
+	var out := ""
+	for c in text.strip_edges().to_lower():
+		if not "-_ '’.".contains(c):
+			out += c
+	return out
 
 
 ## The menu as a list for the AI to read.

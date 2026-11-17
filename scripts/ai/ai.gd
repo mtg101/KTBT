@@ -48,6 +48,9 @@ signal _frame
 ## included), the problems with any replies that were rejected, and whether it got a
 ## usable reply in the end.
 signal answered(purpose: String, seconds: float, problems: Array, ok: bool)
+## Each reply that was rejected, with what it said, for the logs (so a rejection can be checked
+## afterwards: was the reply wrong, or the check?).
+signal rejected(purpose: String, problem: String, reply: String)
 
 
 func _process(_delta: float) -> void:
@@ -108,6 +111,7 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 		if problem == "":
 			return data
 		problems.append(problem)
+		rejected.emit(str(request.get("purpose", "")), problem, content)
 		last_error = "the AI's reply was rejected %d times (last time because %s)" % [attempt + 1, problem]
 		convo = messages.duplicate()
 		convo.append({"role": "assistant", "content": content})
@@ -129,6 +133,7 @@ func _ask_canned(validator: Callable, request: Dictionary, problems: Array) -> D
 		if problem == "":
 			return data
 		problems.append(problem)
+		rejected.emit(str(request.get("purpose", "")), problem, JSON.stringify(data))
 		last_error = "the canned reply was rejected %d times (last time because %s)" % [attempt + 1, problem]
 	return {}
 

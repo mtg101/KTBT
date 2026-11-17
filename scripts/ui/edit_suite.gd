@@ -10,6 +10,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 ## The cut: {"title", "title_by", "cliffhanger" (if the PD chose one), "cliffhanger_by",
 ## "own_teaser"}; {} leaves it all to the writers.
@@ -22,6 +23,10 @@ var _titles: Array = []  # {"hangul", "english"}: the writers' pick first
 var _options: Array = []  # cliffhangers the night can answer: {"kind", "who", "teaser"}
 var _title_picks: Array = []  # CheckBoxes: the titles, then "your own"
 var _cliff_picks: Array = []  # CheckBoxes: the writers', the options, then "your own"
+var _scenes: Array = []  # what "Previously on…" could be made of (Story.scene_options), in the order it happened
+var _scene_ticks: Array = []  # CheckBoxes, one a scene
+var _ticked: Array = []  # ...the ticked ones, oldest tick first (a fourth drops the oldest)
+var _first_ticks: Array = []  # ...as it opened (the pins): unchanged, nothing's rewritten
 var own_title: LineEdit
 var own_teaser: LineEdit
 var problem: Label
@@ -36,20 +41,26 @@ func _init() -> void:
 
 
 ## Opens it on last night's episode: its number, the drafted titles (the writers' first), the
-## writers' teaser, and the cliffhangers the night can answer.
-func open(episode: int, titles: Array, writers_teaser: String, options: Array) -> void:
+## writers' teaser, the cliffhangers the night can answer, and the scenes it could be made of.
+func open(episode: int, titles: Array, writers_teaser: String, options: Array, scenes: Array = []) -> void:
 	_titles = titles.duplicate(true)
 	_options = options.duplicate(true)
+	_scenes = scenes.duplicate(true)
 	var dim := ColorRect.new()
 	dim.color = Color(Ktv.BACKGROUND, 0.97)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
+	var scroll := ScrollContainer.new()  # (a busy night has a long list of scenes)
+	scroll.name = "EditScroll"
+	scroll.position = Vector2((1920.0 - WIDTH) / 2.0 - 20, 50)
+	scroll.size = Vector2(WIDTH + 40, 1000)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(scroll)
 	var box := VBoxContainer.new()
-	box.position = Vector2((1920.0 - WIDTH) / 2.0, 70)
 	box.custom_minimum_size = Vector2(WIDTH, 0)
 	box.add_theme_constant_override("separation", 12)
-	add_child(box)
+	scroll.add_child(box)
 	var heading := Ktv.label("편집실 · THE EDIT SUITE · EPISODE %d" % episode, 40, Ktv.CREAM, 8)
 	heading.mouse_filter = Control.MOUSE_FILTER_STOP
 	heading.tooltip_text = Text.tip(Glossary.hangul_tip("편집실"))
@@ -63,6 +74,28 @@ func open(episode: int, titles: Array, writers_teaser: String, options: Array) -
 			pick.tooltip_text = Text.tip(Glossary.hangul_tip(str(title["hangul"])))
 		box.add_child(pick)
 	own_title = _own("Your own title", Story.TITLE_MOST, _title_picks, box)
+	if not _scenes.is_empty():
+		box.add_child(_heading("PREVIOUSLY ON…  (up to %d)" % Story.MAX_SCENES))
+		box.add_child(_note("Tick the scenes it's made of: they play in the order they happened. Your pins are ticked; a fourth tick drops the oldest. Nothing ticked: the writers choose."))
+		for k in _scenes.size():
+			var scene: Dictionary = _scenes[k]
+			var tick := CheckBox.new()
+			tick.name = "Scene%d" % k
+			tick.focus_mode = Control.FOCUS_NONE
+			tick.add_theme_font_size_override("font_size", 19)
+			tick.add_theme_color_override("checkbox_unchecked_color", Ktv.MUTED)
+			tick.add_theme_color_override("checkbox_checked_color", RED)
+			tick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			tick.custom_minimum_size = Vector2(WIDTH, 0)
+			var when := NightRules.clock_text(int(scene["at"])) if int(scene["at"]) >= 0 else "all night"
+			tick.text = "%s · %s%s" % [when, {"pin": "📌 ", "moment": "💥 "}.get(str(scene["kind"]), ""), Text.shorten(str(scene["text"]), 150)]
+			if str(scene["kind"]) == "pin" and _ticked.size() < Story.MAX_SCENES:
+				tick.button_pressed = true
+				_ticked.append(k)
+			tick.toggled.connect(_on_scene_ticked.bind(k))
+			_scene_ticks.append(tick)
+			box.add_child(tick)
+		_first_ticks = _ticked.duplicate()
 	box.add_child(_heading("THE CLIFFHANGER"))
 	box.add_child(_pick("«%s»    (the writers')" % writers_teaser, _cliff_picks))
 	for option in _options:
@@ -139,6 +172,28 @@ func _button(button_name: String, text: String, action: Callable) -> Button:
 	return button
 
 
+## A scene ticked or unticked: three at most, a fourth dropping the oldest tick.
+func _on_scene_ticked(on: bool, k: int) -> void:
+	_ticked.erase(k)
+	if on:
+		_ticked.append(k)
+		if _ticked.size() > Story.MAX_SCENES:
+			var oldest: int = _ticked.pop_front()
+			(_scene_ticks[oldest] as CheckBox).set_pressed_no_signal(false)
+
+
+## Ticks (or unticks) scene k, as a click would.
+func tick_scene(k: int, on: bool = true) -> void:
+	(_scene_ticks[k] as CheckBox).button_pressed = on
+
+
+## The scenes ticked now, in the order they happened.
+func ticked_scenes() -> Array:
+	var order := _ticked.duplicate()
+	order.sort()
+	return order.map(func(k): return _scenes[k])
+
+
 ## Ticks title k (the last: your own) or cliffhanger k (0: the writers'; the last: your own).
 func pick_title(k: int) -> void:
 	(_title_picks[k] as CheckBox).button_pressed = true
@@ -171,6 +226,13 @@ func cut() -> void:
 	else:
 		chosen["title"] = _titles[t]
 		chosen["title_by"] = "writers" if t == 0 else "pd"
+	var now := _ticked.duplicate()
+	now.sort()
+	var first := _first_ticks.duplicate()
+	first.sort()
+	if not now.is_empty() and now != first:  # (changed, and not to nothing: the PD's scenes, so it's rewritten)
+		chosen["scenes"] = ticked_scenes()
+		chosen["scenes_by"] = "pd"
 	var c := _picked(_cliff_picks)
 	if c == _options.size() + 1:  # (your own)
 		var checked := Story.check_typed(own_teaser.text, Story.TEASER_MOST, true)

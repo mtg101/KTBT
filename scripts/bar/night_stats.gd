@@ -10,6 +10,7 @@ const Talk = preload("res://scripts/rules/talk.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 ## Where the logs go: "" for the default (the project's logs/stats/ when playing from the
 ## editor, beside the transcripts, so a night's log can be read and checked; otherwise stats/
@@ -97,6 +98,7 @@ var reactions_asked := 0  # times the AI was asked "was that a big moment?"
 var reactions_shown := {}  # mood -> how many shown
 var moments_from := {}  # "light", "deep" or "other" talk (its topic: Talk.LIGHT_TOPICS) -> the AI's mood for each big moment it made -> how many
 var reactions_none := 0  # ...answered "nothing special"
+var reaction_sizes := {}  # ...how big the AI called each moment ("1" to "5"), to tune the bar for a caption
 var reactions_dropped := 0  # ...answered with something that failed the checks
 var reactions_put_off := 0  # ...put off, because someone was waiting for the owner (asked once she's free)
 var reactions_skipped := 0  # ...of those, never asked: too late by then, or a newer one came along
@@ -117,6 +119,11 @@ var rejections := {}  # kind of problem -> how many times
 ## often ("order: there's no food... (x3)"), for tuning prompts. Only in the log.
 var rejection_reasons := {}
 const REASONS_PER_KIND := 10
+## A few of the rejected replies themselves, for each kind of problem: {kind: [{"for", "problem",
+## "reply"}]}, so the logs show what the AI wrote, not just why it was turned down.
+var rejected_replies := {}
+const REPLIES_PER_KIND := 3
+const REPLY_MOST := 600
 var events: Array = []  # tonight's events (NightEvents.timeline), for the log
 var pins_made := 0  # lines the PD pinned for the episode tonight...
 var pins_dropped := 0  # ...a fourth dropping the oldest
@@ -440,6 +447,16 @@ func record_ai(seconds: float, problems: Array, ok: bool, purpose: String = "") 
 		gave_up_by[asked] = int(gave_up_by.get(asked, 0)) + 1
 
 
+## A rejected reply, kept (the first few of each kind, cut short if long) for the logs.
+func record_rejected(purpose: String, problem: String, reply: String) -> void:
+	var kind := Text.problem_kind(problem)
+	var kept: Array = rejected_replies.get(kind, [])
+	if kept.size() >= REPLIES_PER_KIND:
+		return
+	kept.append({"for": purpose if purpose != "" else "other", "problem": problem, "reply": reply.left(REPLY_MOST)})
+	rejected_replies[kind] = kept
+
+
 static func average(values: Array) -> float:
 	if values.is_empty():
 		return 0.0
@@ -657,7 +674,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Last night's episode: %s" % (("cut by the PD (stepped in %s) · title %s · cliffhanger %s%s · \"%s\"" % [
 		{"loading": "while loading", "recap": "mid-recap", "night": "early in the night"}.get(str(cut.get("stepped_in", "")), "?"),
 		"the PD's" if str(cut.get("title_by", "")) == "pd" else "the writers'", "the PD's" if str(cut.get("cliffhanger_by", "")) == "pd" else "the writers'",
-		" (their own words)" if bool(cut.get("own_teaser", false)) else "", cut.get("title", "")]) if not cut.is_empty() and not bool(cut.get("left_to_writers", false))
+		" (their own words)" if bool(cut.get("own_teaser", false)) else "", cut.get("title", "")]) + ((" · scenes the PD's (%d, rewritten in %ss, kept %s)" % [
+		int(cut["rewrite"].get("scenes", 0)), cut["rewrite"].get("seconds", 0), cut["rewrite"].get("kept", "?")]) if not cut.get("rewrite", {}).is_empty() else " · scenes the writers'")
+		if not cut.is_empty() and not bool(cut.get("left_to_writers", false))
 		else ("stepped in, then left it to the writers" if not cut.is_empty() else "the writers' cut")))
 	lines.append("Pinned: %d%s · kept %d%s%s" % [pins_made, (" (%d dropped, a fourth pushing out the oldest)" % pins_dropped) if pins_dropped > 0 else "", pinned.size(),
 		(": " + " · ".join(PackedStringArray(pinned.map(func(p): return "%s «%s»" % [p["speaker"], Text.shorten(str(p["text"]), 40)])))) if not pinned.is_empty() else "",
@@ -691,6 +710,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Reactions: asked %d · shown %d%s · none %d · dropped %d · put off (busy) %d, never asked %d" % [reactions_asked, shown_reactions,
 		(" (" + ", ".join(PackedStringArray(reactions_shown.keys().map(func(k): return "%s %d" % [k, int(reactions_shown[k])]))) + ")") if not reactions_shown.is_empty() else "",
 		reactions_none, reactions_dropped, reactions_put_off, reactions_skipped])
+	lines.append("Moment sizes (a caption at %d+): %s" % [Captions.REACTION_MIN_SIZE, " · ".join(PackedStringArray(["1", "2", "3", "4", "5"].map(func(k): return "%s: %d" % [k, int(reaction_sizes.get(k, 0))]))) if not reaction_sizes.is_empty() else "(none asked yet)"])
 	lines.append("Big moments from: %s" % (" · ".join(PackedStringArray(["light", "deep", "other"].filter(func(k): return moments_from.has(k)).map(func(k): return "%s talk (%s)" % [k, counts_text(moments_from[k])]))) if not moments_from.is_empty() else "(none yet)"))
 	lines.append("")
 	lines.append("[b]FOOD AND THE MENU[/b]")
@@ -771,7 +791,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
 		},
 		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back,
-			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "from": moments_from.duplicate(true), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
+			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "from": moments_from.duplicate(true), "sizes": reaction_sizes.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},
 		"food": {
 			"ordered": ordered.duplicate(), "first_orders": first_orders, "extra_orders": extra_orders,
 			"specials": specials.duplicate(), "sold_out": sold_out.duplicate(), "cravings": cravings, "sides_added": sides_added, "unsaid_dropped": unsaid_dropped,
@@ -781,7 +801,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"ai": {
 			"calls": ai_calls, "average_seconds": average(ai_seconds), "longest_seconds": longest(ai_seconds),
 			"rejected": rejected, "rejections": rejections.duplicate(), "gave_up": gave_up, "gave_up_by": gave_up_by.duplicate(),
-			"rejection_reasons": rejection_reasons.duplicate(true), "stale_redone": stale_redone, "calls_by": calls_by.duplicate(),
+			"rejection_reasons": rejection_reasons.duplicate(true), "rejected_replies": rejected_replies.duplicate(true), "stale_redone": stale_redone, "calls_by": calls_by.duplicate(),
 		},
 		"time": {
 			"real_seconds": real_seconds,

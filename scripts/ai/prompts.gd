@@ -766,6 +766,20 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 	return "They're a regular here (this is their %s visit), and know the owner as \"%s\"%s." % [Regulars.ordinal(int(known.get("visits", 1)) + 1), owner["title"], owner_name]
 
 
+## What the recap's beats are to be: the PD's scenes (one each, in order), or the lines they
+## pinned, or (neither) the writers' choice.
+static func _recap_scenes_text(scenes: Array, last: Dictionary) -> String:
+	if not scenes.is_empty():
+		var listed := PackedStringArray()
+		for k in scenes.size():
+			listed.append("%d. %s" % [k + 1, Story.scene_text(scenes[k])])
+		return ". But the PD has chosen the scenes: write exactly %d beat%s, one for each of these, in this order (each a short, dramatic sentence about it):\n%s\n" % [
+			scenes.size(), "" if scenes.size() == 1 else "s", "\n".join(listed)]
+	if not last.get("pinned", []).is_empty():
+		return ". The show kept %d line%s for the episode (above): make the beats those moments, one each, in order" % [last["pinned"].size(), "" if last["pinned"].size() == 1 else "s"]
+	return ""
+
+
 ## Three titles for last night's episode, from the facts the diary was written from (and the
 ## lines the PD pinned): the edit suite offers them, and the writers' cut uses the first.
 static func title_messages(facts: Dictionary) -> Array:
@@ -955,7 +969,7 @@ Only what's above: no other names, no numbers but the ones above, nothing invent
 Then say what the teaser asks, so the show knows if it comes true tonight: a "kind" from this list, and "who" (the full names it's about, if any): %s.
 
 Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
-		(". The show kept %d line%s for the episode (above): make the beats those moments, one each, in order" % [last.get("pinned", []).size(), "" if last.get("pinned", []).size() == 1 else "s"]) if not last.get("pinned", []).is_empty() else "",
+		_recap_scenes_text(facts.get("scenes", []), last),
 		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0])), Story.cliffhanger_kinds_text()]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},

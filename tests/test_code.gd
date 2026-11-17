@@ -60,7 +60,6 @@ func test_indents_are_tabs() -> void:
 			assert_bool(lines[i].begins_with(" ")).override_failure_message("%s:%d: indented with spaces (tabs only)" % [path, i + 1]).is_false()
 
 
-## Every script under a folder, its subfolders too.
 ## PLAN.md is only what's left (see its opening): nothing in it says it's done. When part of
 ## an item's built, that part moves to the DEVLOG (and how it works, to CONCEPT.md).
 const DONE_IN_A_PLAN := ["\\(done\\b", "\\bdone \\(", "\\bpartly done\\b", "\\bbuilt \\d", "\\(fixed\\b", "\\bfixed \\d", "\\bsince \\d+ (nov|dec|jan)",
@@ -91,6 +90,16 @@ func test_the_docs_have_the_test_count() -> void:
 	assert_str(day).override_failure_message("the newest day in DEVLOG.md doesn't mention \"%d tests\": add an entry for what changed" % count).contains("%d tests" % count)
 
 
+## Each row of TESTS.md's table says how many tests its suite has, and it's right.
+func test_the_tests_table_has_each_suites_count() -> void:
+	var row := RegEx.create_from_string("(?m)^\\|[^|]*\\|\\s*`tests/(test_\\w+)\\.gd`\\s*\\|\\s*(?:—\\s*\\|\\s*)?✅ (\\d+)")  # (a click-through suite's count is in the last column)
+	var rows := row.search_all(FileAccess.get_file_as_string("res://TESTS.md"))
+	assert_int(rows.size()).is_greater(20)
+	for found in rows:
+		var suite := "res://tests/%s.gd" % found.get_string(1)
+		var count := RegEx.create_from_string("(?m)^func test_").search_all(FileAccess.get_file_as_string(suite)).size()
+		assert_int(int(found.get_string(2))).override_failure_message("TESTS.md says %s has %s tests, but it has %d" % [found.get_string(1), found.get_string(2), count]).is_equal(count)
+
 ## No scene test compares the tent's guests themselves (is_equal, contains...): gdUnit compares
 ## them field by field, down through their nodes, and on Windows that ran out of stack and
 ## crashed the whole run with no error (17 Nov). Compare their names (bar_test.gd's _names).
@@ -117,6 +126,7 @@ func test_the_docs_list_every_file() -> void:
 			assert_str(tests).override_failure_message("%s isn't in TESTS.md" % path).contains(str(path).get_file())
 
 
+## Every script under a folder, its subfolders too.
 func _scripts(folder: String) -> Array:
 	var found: Array = []
 	for file in DirAccess.get_files_at(folder):

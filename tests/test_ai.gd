@@ -10,11 +10,13 @@ const FakeOllama = preload("res://tests/support/fake_ollama.gd")
 const MESSAGES := [{"role": "system", "content": "You are a test."}, {"role": "user", "content": "Say 2."}]
 
 var _answers: Array = []  # what each answered signal said
+var _rejected: Array = []  # what each rejected signal said
 
 
 func before_test() -> void:
 	AiSettings.override = {"backend": "ollama"}  # (no "are you there?" check, no fallback)
 	_answers = []
+	_rejected = []
 
 
 func after_test() -> void:
@@ -31,6 +33,7 @@ func _ai_with(replies: Array) -> Array:
 	ai._client = fake
 	ai.add_child(fake)
 	ai.answered.connect(func(purpose, seconds, problems, ok): _answers.append([purpose, seconds, problems, ok]))
+	ai.rejected.connect(func(purpose, problem, reply): _rejected.append([purpose, problem, reply]))
 	return [ai, fake]
 
 
@@ -73,6 +76,8 @@ func test_a_rejected_reply_goes_back_with_the_reason() -> void:
 	assert_array(_answers[0][2]).is_equal(["it wasn't a JSON object", "\"x\" must be 2"])
 	assert_bool(_answers[0][3]).is_true()
 	assert_str(str(_answers[0][0])).is_equal("test")
+	# And the logs hear what each rejected reply said, not just why.
+	assert_array(_rejected).is_equal([["test", "it wasn't a JSON object", "not json at all"], ["test", "\"x\" must be 2", "{\"x\": 1}"]])
 
 
 func test_it_gives_up_after_max_attempts() -> void:

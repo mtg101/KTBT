@@ -209,8 +209,13 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 		var text := Text.unquote(Text.tidy_text(beat))
 		if text != "":
 			beats.append(text)
-	if beats.size() < 2 or beats.size() > 3:
+	var scenes: Array = facts.get("scenes", [])
+	if scenes.is_empty() and (beats.size() < 2 or beats.size() > 3):
 		return "the recap needs two or three beats"
+	if not scenes.is_empty():
+		var off := scenes_problem(beats, scenes)
+		if off != "":
+			return off
 	for beat in beats:
 		if beat.length() > MAX_RECAP_BEAT:
 			return "a beat of the recap is too long: one short sentence each"
@@ -222,7 +227,7 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 	var all := " ".join(PackedStringArray(beats)) + " " + teaser
 	if Talk.real_brand(all) != "":
 		return "the recap names a real brand (%s): describe it instead" % Talk.real_brand(all)
-	var known: Array = facts.get("names", [])
+	var known: Array = facts.get("names", []) + [str(facts.get("cat", ""))]  # (the cat's name too: night 34's recap was sent back twice for "Nyang-i")
 	var invented := unknown_name(all, known)
 	if invented != "":
 		return "the recap mentions %s, who isn't in the story: only the people in the facts" % invented
@@ -335,22 +340,22 @@ static func stitched_recap(facts: Dictionary) -> Dictionary:
 	if int(facts.get("episode", 1)) <= 1 or facts.get("last", {}).is_empty():
 		return series_opener(facts)
 	var last: Dictionary = facts["last"]
-	var beats: Array = []
-	for moment in last.get("moments", []).slice(0, 2):
+	var beats: Array = scene_beats(facts.get("scenes", []))  # (the PD's scenes, if they chose any)
+	for moment in ([] if not beats.is_empty() else last.get("moments", []).slice(0, 2)):
 		var said := str(moment.get("said", ""))
 		beats.append(("%s said it out loud: \"%s\"" % [Names.given_name(str(moment["who"])), said]) if said != "" else "%s had a night to remember." % Names.given_name(str(moment["who"])))
-	for pair in last.get("friendlier", []).slice(0, 1):
+	for pair in ([] if not facts.get("scenes", []).is_empty() else last.get("friendlier", []).slice(0, 1)):
 		beats.append("%s." % str(pair))
-	for name in last.get("new_regulars", []).slice(0, 1):
+	for name in ([] if not facts.get("scenes", []).is_empty() else last.get("new_regulars", []).slice(0, 1)):
 		beats.append("%s found somewhere to belong." % Names.given_name(str(name)))
 	var line: Dictionary = last.get("line", {})
-	if beats.size() < 2 and not line.is_empty():
+	if beats.size() < 2 and not line.is_empty() and facts.get("scenes", []).is_empty():
 		beats.append("\"%s\"" % str(line["text"]).left(MAX_RECAP_BEAT - 2))
-	if beats.size() < 2 and int(last.get("walked_on", 0)) > 0:
+	if beats.size() < 2 and int(last.get("walked_on", 0)) > 0 and facts.get("scenes", []).is_empty():
 		beats.append("Every stool was taken, and someone walked on into the night.")
-	if beats.size() < 2:
+	if beats.size() < 2 and facts.get("scenes", []).is_empty():
 		beats.append("Under the overpass, %s kept the pots on." % Names.given_name(str(facts.get("owner", "the owner"))))
-	if beats.size() < 2:
+	if beats.size() < 2 and facts.get("scenes", []).is_empty():
 		beats.append("The bulbs swung in the wind, and the soju went round.")
 	var teaser := "Who will duck under the tarp tonight?"
 	var cliff := {"kind": "other", "who": []}
@@ -437,6 +442,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 	var new_regulars: Array = []
 	var laps: Array = []
 	var thefts: Array = []  # whose odeng the cat stole
+	var happenings: Array = []  # other things that happened, for the PD's "Previously on…" scenes: {"at", "text", "who"}
 	var walked_on := 0
 	var peak := 0
 	var peak_at := -1
@@ -451,13 +457,32 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 						ordered.append(id)
 			"big_moment":
 				# (the mood as the AI judged it: the owner's diary is sincere, whatever the edit aired)
-				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("ai_mood", event.get("mood", ""))), "caption": str(event.get("caption", "")), "said": str(event.get("said", ""))})
+				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("ai_mood", event.get("mood", ""))), "caption": str(event.get("caption", "")), "said": str(event.get("said", "")),
+					"at": int(event.get("at", -1))})
 			"friendlier":
 				friendlier.append("%s and %s are on \"%s\" terms now" % [event.get("a", ""), event.get("b", ""), event.get("term", "")])
+				happenings.append({"at": int(event.get("at", -1)), "text": "%s and %s are on \"%s\" terms now." % [event.get("a", ""), event.get("b", ""), event.get("term", "")],
+					"who": [str(event.get("a", "")), str(event.get("b", ""))]})
 			"became_regular":
 				new_regulars.append(str(event.get("name", "")))
+				happenings.append({"at": int(event.get("at", -1)), "text": "%s looks like becoming a regular." % event.get("name", ""), "who": [str(event.get("name", ""))]})
 			"cat_stole":
 				thefts.append(str(event.get("name", "")))
+				happenings.append({"at": int(event.get("at", -1)), "text": "%s, the cat, stole a skewer of odeng off %s's plate." % [event.get("cat", "The cat"), event.get("name", "")], "who": [str(event.get("name", ""))]})
+			"plant_played":
+				var card := str(event.get("card", ""))
+				if Plants.CARDS.has(card):
+					var who := str(event.get("name", ""))
+					happenings.append({"at": int(event.get("at", -1)), "text": Plants.happened(card, who, "", str(event.get("what", ""))), "who": [who] if who != "" and not who.contains(" and ") else []})
+			"table_game":
+				happenings.append({"at": int(event.get("at", -1)), "text": "A drinking game got going at the counter: %s." % GAME_NAMES.get(str(event.get("game", "")), "a table game"), "who": []})
+			"first_snow":
+				happenings.append({"at": int(event.get("at", -1)), "text": "The first snow of the winter fell on the tarp.", "who": []})
+			"cheered_on":
+				happenings.append({"at": int(event.get("at", -1)), "text": "The whole counter cheered someone on: hwaiting!", "who": []})
+			"cliffhanger_answered":
+				happenings.append({"at": int(event.get("at", -1)), "text": "Last time's cliffhanger came true%s." % ((": " + str(event.get("name", "")) + " came in") if str(event.get("name", "")) != "" else ""),
+					"who": [str(event["name"])] if str(event.get("name", "")) != "" else []})
 			"cat_moved":
 				if str(event.get("spot", "")) == "lap" and bool(event.get("new_lap", false)) and not laps.has(str(event.get("with", ""))):
 					laps.append(str(event.get("with", "")))
@@ -478,6 +503,8 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 			missing.append(regular_name)  # the old regulars are missed when they don't come
 		else:
 			not_here.append(regular_name)
+	if peak >= NightRules.SEATS:
+		happenings.append({"at": peak_at, "text": "Every stool was taken.", "who": []})
 	var before: Array = context.get("before", [])
 	return {
 		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "date": str(context.get("date", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
@@ -488,7 +515,8 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		"moments": moments, "friendlier": friendlier, "new_regulars": new_regulars,
 		"cat": str(context.get("cat", "")), "cat_laps": laps, "cat_thefts": thefts, "walked_on": walked_on,
 		"line": context.get("line", {}).duplicate(), "ordered": ordered,
-		"pinned": context.get("pinned", []).duplicate(true),  # the lines the PD kept for the episode ({"speaker", "text"}), oldest first "specials": context.get("specials", []).duplicate(),
+		"pinned": context.get("pinned", []).duplicate(true),  # the lines the PD kept for the episode ({"speaker", "text", "at"}), oldest first
+		"happenings": happenings,  # other things that happened (for the PD's "Previously on…" scenes) "specials": context.get("specials", []).duplicate(),
 		"closed_early": str(context.get("closed_early", "")),  # the time, if the owner closed up early
 		"closed_said": str(context.get("closed_said", "")),  # and what they told the counter, why
 		"cliffhanger": context.get("cliffhanger", {}).duplicate(),  # last time's teaser, and whether it came true
@@ -749,3 +777,93 @@ static func apply_cut(recap: Dictionary, cut: Dictionary) -> Dictionary:
 		out["teaser"] = str(cliff["teaser"])
 		out["cliffhanger"] = {"kind": str(cliff.get("kind", "other")), "who": cliff.get("who", []).duplicate()}
 	return out
+
+
+# --- The PD's "Previously on…" scenes (the edit suite) -------------------------------------
+
+const MAX_SCENES := 3  # "Previously on…" is three things
+## The table games, by name (Talk.TABLE_GAMES), for the scenes.
+const GAME_NAMES := {"spoon_mic": "the spoon-mic singalong", "apartment": "the apartment game", "titanic": "the Titanic",
+	"nunchi": "the nunchi game", "369": "3-6-9", "love_shot": "a love shot"}
+
+
+## Everything last night's "Previously on…" could be made of, for the PD to tick, in the order
+## it happened: the lines they pinned, the big moments, and what happened (a new regular, the
+## cat, the cards they played, a regular who didn't come, at the end). Each {"kind" ("pin",
+## "moment", "happened"), "at" (game minutes, or -1), "text" (as shown), "who", "quote" (a pin's
+## {"speaker", "text"}), "caption" and "mood" (a big moment's)}.
+static func scene_options(facts: Dictionary) -> Array:
+	var scenes: Array = []
+	for said in facts.get("pinned", []):
+		scenes.append({"kind": "pin", "at": int(said.get("at", -1)), "text": "%s: «%s»" % [said.get("speaker", ""), said.get("text", "")],
+			"who": [str(said.get("speaker", ""))], "quote": {"speaker": str(said.get("speaker", "")), "text": str(said.get("text", ""))}})
+	for moment in facts.get("moments", []):
+		scenes.append({"kind": "moment", "at": int(moment.get("at", -1)), "text": "%s: %s (%s)%s" % [moment.get("who", ""), moment.get("caption", ""), moment.get("mood", ""),
+			(", \"%s\"" % moment["said"]) if str(moment.get("said", "")) != "" else ""], "who": [str(moment.get("who", ""))], "caption": str(moment.get("caption", "")),
+			"mood": str(moment.get("mood", ""))})
+	for happened in facts.get("happenings", []):
+		scenes.append({"kind": "happened", "at": int(happened.get("at", -1)), "text": str(happened.get("text", "")), "who": happened.get("who", []).duplicate()})
+	var timed := scenes.filter(func(s): return int(s["at"]) >= 0)
+	timed.sort_custom(func(a, b): return int(a["at"]) < int(b["at"]))
+	var untimed := scenes.filter(func(s): return int(s["at"]) < 0)
+	for name in facts.get("missing", []):
+		untimed.append({"kind": "happened", "at": -1, "text": "%s, a regular, didn't come in." % name, "who": [str(name)]})
+	return timed + untimed
+
+
+## A scene's line for the recap prompt: what happened, with who said what.
+static func scene_text(scene: Dictionary) -> String:
+	match str(scene.get("kind", "")):
+		"pin":
+			return "%s said: \"%s\"" % [scene["quote"]["speaker"], scene["quote"]["text"]]
+		"moment":
+			return str(scene["text"])
+	return str(scene.get("text", ""))
+
+
+## Whether a beat kept to its scene: it names someone in it, or has a telling word of its line.
+static func beat_keeps_to(beat: String, scene: Dictionary) -> bool:
+	var said := beat.to_lower()
+	for person in scene.get("who", []):
+		if str(person) != "" and (said.contains(Names.given_name(str(person)).to_lower()) or said.contains(str(person).to_lower())):
+			return true
+	var words := Text.words(str(scene.get("quote", {}).get("text", scene.get("caption", scene.get("text", "")))))
+	for word in words:
+		if word.length() >= 4 and not COMMON_WORDS.has(word) and said.contains(word):
+			return true
+	return false
+
+
+## The recap's beats against the PD's scenes: "" if one each, in order, each keeping to its
+## scene; otherwise what's wrong (for the recap check).
+static func scenes_problem(beats: Array, scenes: Array) -> String:
+	if beats.size() != scenes.size():
+		return "the PD chose %d scene%s: write one beat for each, in order" % [scenes.size(), "" if scenes.size() == 1 else "s"]
+	for k in scenes.size():
+		if not beat_keeps_to(str(beats[k]), scenes[k]):
+			return "beat %d should be the PD's scene %d (%s)" % [k + 1, k + 1, scene_text(scenes[k]).left(80)]
+	return ""
+
+
+## The recap's beats from the PD's scenes, by the game (offline, or the writers couldn't): one
+## plain beat each.
+static func scene_beats(scenes: Array) -> Array:
+	var beats: Array = []
+	for scene in scenes:
+		match str(scene.get("kind", "")):
+			"pin":
+				beats.append(("%s says it: \"%s\"" % [Names.given_name(str(scene["quote"]["speaker"])), scene["quote"]["text"]]).left(MAX_RECAP_BEAT))
+			"moment":
+				beats.append(("%s: %s" % [Names.given_name(str(scene["who"][0])), str(scene["caption"]).capitalize()]).left(MAX_RECAP_BEAT))
+			_:
+				beats.append(str(scene.get("text", "")).left(MAX_RECAP_BEAT))
+	return beats
+
+
+## How many beats kept to their scenes ("2/3"), for the stats.
+static func scenes_kept(beats: Array, scenes: Array) -> String:
+	var kept := 0
+	for k in mini(beats.size(), scenes.size()):
+		if beat_keeps_to(str(beats[k]), scenes[k]):
+			kept += 1
+	return "%d/%d" % [kept, scenes.size()]

@@ -17,3 +17,6 @@ Thumbs.db
 
 # Night transcripts, written when playing from the editor
 /logs/
+
+# This PC's own path to Godot, for tools/autoplay.bat
+/tools/godot_path.txt

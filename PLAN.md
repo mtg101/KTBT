@@ -9,11 +9,13 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 ## Stages
 
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
-  1. **The edit suite: choosing the "Previously on…" scenes (next):** in the suite, up to three scenes from the night: your pins ticked first, the big moments, things that happened (a new regular, the first snow, the power going); a fourth drops the oldest. Your scenes become the recap's beats, so it's rewritten (a few seconds): meanwhile the recap's style keeps moving and TV pop-ups keep coming ("편집 중… EDITING", "재편집! RE-CUT!"), never a dead screen. Counted with the rest of the cut.
-  2. **Ratings (시청률):** the score, from the night's moments (big ones, a mix of moods, cliffhangers paid off, regulars' stories carrying on). They nudge how busy the bar gets, a little: it's still mostly about the cosy.
-  3. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
-  4. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
-- **Bad visits and customers coming in together:** a rough visit now and then (see **Every visit goes well**, under Richer play) and groups with the bill fight (see **Customers coming in together**).
+  1. **Ratings (next) (시청률):** the score, from the night's moments (big ones, a mix of moods, cliffhangers paid off, regulars' stories carrying on). They nudge how busy the bar gets, a little: it's still mostly about the cosy.
+  2. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
+  3. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
+- **Autoplay, what's left** (how it works now: README, "Autoplay"):
+  - **A whole batch started from the phone:** so far only a short test batch, stopped by hand partway through a night. Let one run all its nights, check its summary in `logs/autoplay/`, and fix whatever turns up.
+  - **An autopilot PD,** so the PD's parts get played too, not just watched: now and then it follows someone with the camera, plays a card (a write-in with a line from a small list), pins a line or two, picks a spin in the edit, and the next day steps in and cuts the episode (a title, scenes, a cliffhanger). From its own dice, logged as the autopilot's, so its choices are told apart from a player's.
+ a rough visit now and then (see **Every visit goes well**, under Richer play) and groups with the bill fight (see **Customers coming in together**).
 - **Real art, sound and polish:** today's art, sound and music are placeholders made in code (the tent, the people, the weather, the ambience and Arirang). Replace them with real assets (see **Character art** and **Ambience** in the later ideas), finish the background animation, and style the UI. Add visual (screenshot) tests once the art settles.
 
 
@@ -47,7 +49,7 @@ Grouped by type. Within each group, roughly in order of importance.
 ### Richer play
 
 - **Follow-ups from the Night as a story stage:**
-  - **TV reactions:** the bar for a caption is a 3 out of 5. Watch from the stats (asked, shown, none, put off) whether the 3s feel like real moments; back to 4 if they feel cheap.
+  - **TV reactions:** the bar for a caption is a 4 out of 5, and in nights 29–34 Llama answered "none" to 70 of 75 checks. The stats now show how big it rated each moment: if most land at 3, look at the prompt (what makes a 4) rather than lowering the bar, since at 3 the captions went soft.
   - **The diary and the recap:** watch real entries and recaps for repeated openings, the same few moments every night, or facts bent out of shape; more stamps and recap styles as ideas come (a stormy-night horror-drama style is in; a sports-broadcast one for a record night).
   - **More from the story:** the diary book could show a night's TV reactions and line of the night beside the entry; "Previously on…" could show the people it's about, drawn small in their looks; a season recap after every ten episodes.
 - **Follow-ups from the 15 Nov playtest review** (six nights, about 115 customers):

@@ -469,6 +469,9 @@ func _show_quote(quotes: Array, k: int) -> void:
 		return
 	var said: Dictionary = quotes[k]
 	var words := str(said.get("text", ""))
+	if words == "":  # (this beat's scene isn't a pinned line)
+		_quote.text = ""
+		return
 	if words.length() > QUOTE_MOST:
 		words = words.left(QUOTE_MOST).rstrip(" ,.;:") + "…"
 	_quote.text = "“%s”  — %s" % [words, Names.given_name(str(said.get("speaker", "")))]

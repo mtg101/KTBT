@@ -447,6 +447,11 @@ func test_the_recap_prompt_tells_last_time() -> void:
 	assert_str(pinned).contains("The lines the show kept for the episode").contains("Kim Ji-ho: \"I quit today, and I'm glad.\"")
 	assert_str(pinned).contains("The show kept 2 lines for the episode (above): make the beats those moments, one each, in order")
 	assert_str(pinned).not_contains("The longest thing anyone said")  # (the pins, not the longest line)
+	# The PD's scenes: exactly those, one each, in order.
+	facts["scenes"] = [{"kind": "pin", "at": 1260, "text": "", "who": ["Kim Ji-ho"], "quote": {"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}},
+		{"kind": "happened", "at": 1380, "text": "Every stool was taken.", "who": []}]
+	var scened := _request(Prompts.recap_messages(facts))
+	assert_str(scened).contains("the PD has chosen the scenes: write exactly 2 beats").contains("1. Kim Ji-ho said: \"I quit today, and I'm glad.\"").contains("2. Every stool was taken.")
 
 
 func test_the_owners_life_is_in_every_prompt() -> void:

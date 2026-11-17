@@ -8,6 +8,7 @@ extends Node
 ## you quit simply ends; the bar carries on with the next customer.
 
 const SaveStore = preload("res://scripts/save/save_store.gd")
+const Autoplay = preload("res://scripts/autoplay.gd")
 
 const TITLE_SCENE := "res://scenes/title.tscn"
 const VISIT_SCENE := "res://scenes/visit.tscn"
@@ -23,6 +24,17 @@ var requested_scene := ""
 
 ## The music, which carries on from scene to scene (see music.gd).
 var music: Music = null
+
+## A batch of nights playing themselves (`-- --autoplay=10`: see autoplay.gd), or null.
+var autoplay: Autoplay = null
+
+
+func _ready() -> void:
+	autoplay = Autoplay.from_args(OS.get_cmdline_user_args())
+	if autoplay != null:
+		OS.add_logger(autoplay.errors)  # (the batch counts the errors, for its summary)
+		AudioServer.set_bus_mute(0, true)  # (nobody's listening)
+		print("Autoplay: %d nights." % autoplay.nights)
 
 
 ## Starts the music if it isn't going yet (the title screen and the bar both ask).
@@ -63,6 +75,14 @@ func back_to_title() -> void:
 	save()
 	bar = {}
 	_go(TITLE_SCENE)
+
+
+## Save and quit the game (autoplay, at the end of its batch). Tests only record it.
+func quit() -> void:
+	save()
+	requested_scene = "quit"
+	if change_scenes:
+		get_tree().quit()
 
 
 func _go(scene_path: String) -> void:

@@ -30,6 +30,7 @@ const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const PdDesk = preload("res://scripts/bar/pd_desk.gd")
 const EditSuite = preload("res://scripts/ui/edit_suite.gd")
+const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
@@ -374,7 +375,7 @@ var _diary_page: Control  # the 3am diary page (see diary_page.gd)
 var _summary_buttons: Array = []  # disabled while the owner writes
 var _stats_button: Button
 var _recap_said := ""  # tonight's "Previously on…"
-var _setup_ai: Array = []  # the AI's answers while a night's being got ready (the bar opening: its menu, own dishes, recap), counted in that night's stats
+var _setup_ai: Array = []  # the AI's answers while a night's being got ready (the bar opening: its menu, own dishes, recap), counted in that night's stats; [purpose, problem, reply] for a rejected reply
 var _getting_ready := true  # the bar's opening, or the next night's being got ready (not yet open)
 ## Its cliffhanger (Story.CLIFFHANGERS): {"kind", "who", "teaser", "answered"}, if tonight can answer it.
 var _cliffhanger := {}
@@ -440,6 +441,7 @@ func _ready() -> void:
 	_build_loading()
 	_ai.offline_started.connect(_on_offline_started)
 	_ai.answered.connect(_on_ai_answered)
+	_ai.rejected.connect(_on_ai_rejected)
 	if _ai.offline:
 		_show_offline_mode()
 	Menu.use(Menu.for_bar(Game.bar))  # this bar's own menu (the classic one if it has none)
@@ -592,6 +594,8 @@ func _start_loading() -> void:
 ## Ollama couldn't be reached partway through, so the AI switched to canned replies.
 func _on_offline_started(reason: String) -> void:
 	_show_offline_mode()
+	if Game.autoplay != null:
+		Game.autoplay.stop("the AI stopped answering (%s)" % reason)  # (at the end of tonight)
 	_narrate("(Couldn't reach the local AI, so the game switched to offline mode: %s.)" % reason)
 
 
@@ -1063,7 +1067,10 @@ func _start_night() -> void:
 	_events.happened.connect(_watch_cliffhanger)
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	for answer in _setup_ai:  # (the AI's answers before tonight opened: the menu, the recap...)
-		_stats.record_ai(float(answer[1]), answer[2], bool(answer[3]), str(answer[0]))
+		if answer.size() == 3:  # (a rejected reply: purpose, problem, what it said)
+			_stats.record_rejected(str(answer[0]), str(answer[1]), str(answer[2]))
+		else:
+			_stats.record_ai(float(answer[1]), answer[2], bool(answer[3]), str(answer[0]))
 	_setup_ai = []
 	_getting_ready = false
 	_stats.specials = _specials.duplicate()
@@ -1267,6 +1274,8 @@ func _end_night() -> void:
 	await _write_diary()
 	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
+	if Game.autoplay != null:
+		_autoplay_next()
 	if _closing_early:  # (written up: the button's for leaving again)
 		_closing_early = false
 		_leave_button.disabled = false
@@ -1318,7 +1327,7 @@ func _diary_facts() -> Dictionary:
 		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
 		"cat": str(_cat.get("name", "")), "line": _night_quote(), "specials": _specials.duplicate(),
-		"pinned": [] if _pd == null else _pd.pins.map(func(p): return {"speaker": str(p["speaker"]), "text": str(p["text"])}),
+		"pinned": [] if _pd == null else _pd.pins.map(func(p): return {"speaker": str(p["speaker"]), "text": str(p["text"]), "at": int(p.get("at", -1))}),
 		"closed_early": NightRules.clock_text(int(_closed_early_at)) if _closing_early else "",
 		"closed_said": _closing_said if _closing_early else "",
 		"menu_change": _menu_change.duplicate(),
@@ -1332,8 +1341,10 @@ func _recap_facts() -> Dictionary:
 
 
 ## The recap for tonight: the AI's, checked, or the game's own from the same facts.
-func _write_recap() -> Dictionary:
+## scenes: the PD's, from the edit suite (Story.scene_options): the beats are those, one each.
+func _write_recap(scenes: Array = []) -> Dictionary:
 	var facts := _recap_facts()
+	facts["scenes"] = scenes
 	var reply: Dictionary = await _ai.ask_json(Prompts.recap_messages(facts), _validate_recap.bind(facts), {"temperature": 0.85},
 		{"purpose": "recap", "facts": facts, "tries": 2})  # (two goes, then the game's own: it's on the loading screen)
 	if _closed():  # (the bar closed while it was waiting)
@@ -1408,22 +1419,76 @@ func _cut_episode() -> Dictionary:
 	var entry: Dictionary = Game.bar.get("diary", [])[-1]
 	var suite := EditSuite.new()
 	add_child(suite)
-	suite.open(int(entry.get("episode", 0)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})))
+	suite.open(int(entry.get("episode", 0)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
+		Story.scene_options(entry.get("facts", {})))
 	var cut: Dictionary = await suite.finished
+	var base := _writers_recap
+	var rewrite := {}
+	if cut.has("scenes"):  # (the PD's scenes: the recap's rewritten from them, with the show going on meanwhile)
+		var started := Time.get_ticks_msec()
+		var screen := _editing_screen()
+		var scenes: Array = cut["scenes"]
+		base = await _write_recap(scenes)
+		if is_instance_valid(screen):
+			screen.queue_free()
+		if _closed():
+			_editing = false
+			return {}
+		base["quotes"] = scenes.map(func(s): return s.get("quote", {}))  # (a pinned line, quoted under its beat)
+		rewrite = {"scenes": scenes.size(), "kept": Story.scenes_kept(base.get("beats", []), scenes), "seconds": snappedf((Time.get_ticks_msec() - started) / 1000.0, 0.1)}
+		entry["scenes"] = scenes.map(func(s): return {"kind": s["kind"], "at": s["at"], "text": s["text"]})
 	_editing = false
-	var airing := Story.apply_cut(_writers_recap, cut)
+	if not cut.has("title"):
+		cut["title"] = _writers_title()
+	var airing := Story.apply_cut(base, cut)
 	entry["title"] = airing.get("title", {}).duplicate()
-	entry["cut_by"] = {"title": str(cut.get("title_by", "writers")), "cliffhanger": str(cut.get("cliffhanger_by", "writers"))}
+	entry["cut_by"] = {"title": str(cut.get("title_by", "writers")), "cliffhanger": str(cut.get("cliffhanger_by", "writers")), "scenes": str(cut.get("scenes_by", "writers"))}
 	Game.save()
 	var noted := {"stepped_in": _step_in_when, "title_by": str(cut.get("title_by", "writers")), "cliffhanger_by": str(cut.get("cliffhanger_by", "writers")),
-		"own_teaser": bool(cut.get("own_teaser", false)), "left_to_writers": cut.is_empty(), "title": Story.title_text(airing.get("title", {}))}
+		"scenes_by": str(cut.get("scenes_by", "writers")), "rewrite": rewrite,
+		"own_teaser": bool(cut.get("own_teaser", false)), "left_to_writers": not cut.has("title_by"), "title": Story.title_text(airing.get("title", {}))}
 	if _night_open:
 		_stats.story["edit"] = noted
 	else:
 		_before_night["edit"] = noted
 	_show("[i][color=#%s]✂ The PD steps in: episode %d, %s%s.[/color][/i]\n\n" % [CAMERA_RED.to_html(false), int(entry.get("episode", 0)),
-		_esc("\"%s\"" % Story.title_text(airing.get("title", {}))), " (left to the writers)" if cut.is_empty() else (", cliffhanger «%s»" % _esc(airing.get("teaser", "")))])
+		_esc("\"%s\"" % Story.title_text(airing.get("title", {}))), " (left to the writers)" if not cut.has("title_by") else (", cliffhanger «%s»" % _esc(airing.get("teaser", "")))])
 	return airing
+
+
+## While the recap's rewritten from the PD's scenes: the show goes on, TV pop-ups about the
+## edit drifting over the night, never a dead screen.
+const EDIT_LINES := [
+	["편집 중…", "PYEONJIP JUNG… EDITING", "✂", "ff4f6d"],
+	["재편집!", "JAEPYEONJIP! RE-CUT!", "🎬", "ffd27f"],
+	["PD 등판!", "THE PD STEPS IN", "📣", "7ee8c8"],
+	["작가 멘붕", "JAKGA MENBUNG: THE WRITERS PANIC", "😱", "ff7eb6"],
+	["밤샘 편집", "BAMSAEM PYEONJIP: AN ALL-NIGHT EDIT", "☕", "c79bff"],
+]
+
+
+func _editing_screen() -> Control:
+	var screen := Control.new()
+	screen.name = "EditingScreen"
+	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.mouse_filter = Control.MOUSE_FILTER_STOP
+	screen.z_index = 40
+	var dim := ColorRect.new()
+	dim.color = Color(Ktv.BACKGROUND, 0.96)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.add_child(dim)
+	var note := Ktv.label("✂  Cutting your episode…  the writers are on it", 34, Ktv.CREAM, 8)
+	note.position = Vector2(0, 500)
+	note.size = Vector2(SCREEN.x, 60)
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	screen.add_child(note)
+	var reel := CaptionReel.new()
+	reel.size = SCREEN
+	reel.lines = EDIT_LINES
+	reel.areas = [Rect2(120, 140, 600, 300), Rect2(1200, 140, 600, 300), Rect2(300, 640, 1300, 300)]
+	screen.add_child(reel)
+	add_child(screen)
+	return screen
 
 
 ## The title the writers give last night's episode: the first drafted.
@@ -1481,7 +1546,7 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	Game.bar["last_recap_style"] = style
 	_before_night["recap_style"] = style
 	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style,
-		"quotes": [] if opener else facts["last"].get("pinned", []),
+		"quotes": [] if opener else recap.get("quotes", facts["last"].get("pinned", [])),
 		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "EP. %d · %s" % [int(Game.bar.get("nights", 0)), Story.title_text(recap["title"])],
 		"step_in": not opener and _step_in_open}
 	if not opener and not facts["last"].get("pinned", []).is_empty():
@@ -1522,6 +1587,14 @@ func _on_ai_answered(purpose: String, seconds: float, problems: Array, ok: bool)
 		_stats.record_ai(seconds, problems, ok, purpose)
 
 
+## A reply the AI gave that was turned down, kept (a few of each kind) in the night's log.
+func _on_ai_rejected(purpose: String, problem: String, reply: String) -> void:
+	if _getting_ready:
+		_setup_ai.append([purpose, problem, reply])
+	else:
+		_stats.record_rejected(purpose, problem, reply)
+
+
 func _on_next_night_pressed() -> void:
 	_summary.visible = false
 	_story.forget_before()  # (the end of last night, the diary: not tonight's)
@@ -1533,6 +1606,27 @@ func _on_next_night_pressed() -> void:
 		if _closed():
 			return
 	_start_night()
+
+
+## Autoplay (see autoplay.gd): tonight's logged and written up, so note it in the batch's
+## summary, then, after a pause on the summary page, open for another night; or, when the
+## batch is done (or the AI stopped answering), quit.
+func _autoplay_next() -> void:
+	var auto = Game.autoplay
+	if auto.bar_id == "" and not bool(Game.bar.get("autoplay", false)):
+		Game.bar["autoplay"] = true  # (its own bar: marked as a test bar on the title screen)
+		Game.save()
+	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up)
+	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
+	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
+	if auto.finished():
+		Game.quit()
+		return
+	if auto.pause_seconds > 0.0:
+		await get_tree().create_timer(auto.pause_seconds).timeout
+	if _closed() or Game.autoplay != auto:
+		return
+	_on_next_night_pressed()
 
 
 func _update_clock_label() -> void:
@@ -1684,6 +1778,7 @@ func _save_stats(finished: bool) -> void:
 		"saved_at": Time.get_datetime_string_from_system(false, true),
 		"ai_backend": str(_ai.settings.get("backend", "")), "ai_model": str(_ai.settings.get("model", "")),
 		"offline": _ai.offline, "time_speeds": NightRules.TIME_SPEEDS, "reading_pauses": _reading_toggle.button_pressed,
+		"autoplay": Game.autoplay.progress_text() if Game.autoplay != null else "",
 	}
 	var path := _stats.save(context, str(Game.bar.get("id", "bar")), _night_number)
 	if path != "" and Hooks.print_paths:
@@ -1773,8 +1868,8 @@ func _start_transcript() -> void:
 	var path := _story.start(str(Game.bar.get("id", "bar")), _night_number, [
 		"KTBT transcript: %s, night %d" % [Game.bar.get("name", ""), _night_number],
 		"%s, %s. Started %s." % [_night_day, _night_weather, Time.get_datetime_string_from_system(false, true)],
-		"AI: %s%s (%s), reading pauses %s." % [_ai.settings.get("backend", ""), model, "offline" if _ai.offline else "online",
-			"on" if _reading_toggle.button_pressed else "off"],
+		"AI: %s%s (%s), reading pauses %s%s." % [_ai.settings.get("backend", ""), model, "offline" if _ai.offline else "online",
+			"on" if _reading_toggle.button_pressed else "off", "; autoplay, " + Game.autoplay.progress_text() if Game.autoplay != null else ""],
 	])
 	_recap_said = ""
 	if path != "" and Hooks.print_paths:
@@ -2970,6 +3065,8 @@ func _react(lines: Array, names: Array, items: Array, topic: String = "") -> voi
 		_stats.reactions_dropped += 1
 		return
 	reply["topic"] = topic  # (for the stats: light talk, and the moments it made)
+	var how_big := str(clampi(int(reply.get("size", 0)), 1, 5))
+	_stats.reaction_sizes[how_big] = int(_stats.reaction_sizes.get(how_big, 0)) + 1
 	var mood := str(reply["mood"])
 	if mood == "none":
 		_stats.reactions_none += 1

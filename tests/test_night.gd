@@ -9,6 +9,7 @@ const CannedAi = preload("res://scripts/ai/canned_ai.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Autoplay = preload("res://scripts/autoplay.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -16,6 +17,7 @@ const TEST_SAVES := "user://test_saves_night/"
 const NIGHT_TIMEOUT_MS := 60000
 const TEST_TRANSCRIPTS := "user://test_transcripts_night/"
 const TEST_STATS := "user://test_stats_night/"
+const TEST_AUTOPLAY := "user://test_autoplay_night/"
 
 
 func _setup() -> void:
@@ -219,3 +221,26 @@ func test_a_saved_bar_carries_on_from_its_next_night() -> void:
 	var runner := await _open_bar()
 	assert_str(_transcript(runner)).contains("Night 4")
 	assert_str((runner.find_child("MomentLabel") as Label).text).contains("Thursday")
+
+
+func test_autoplay_plays_its_nights_then_stops() -> void:
+	Autoplay.folder = TEST_AUTOPLAY
+	var batch := Autoplay.new(2)
+	batch.pause_seconds = 0.0
+	Game.autoplay = batch
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var second: bool = await _wait_until(func(): return scene._night_number == 2 and scene._night_open, NIGHT_TIMEOUT_MS)
+	assert_bool(second).override_failure_message("the second night never opened by itself").is_true()
+	assert_bool(bool(Game.bar.get("autoplay", false))).is_true()  # (its own bar, marked as such)
+	var quit: bool = await _wait_until(func(): return Game.requested_scene == "quit", NIGHT_TIMEOUT_MS)
+	assert_bool(quit).override_failure_message("it didn't stop after its two nights").is_true()
+	assert_int(batch.played.size()).is_equal(2)
+	assert_str(_transcript(runner)).contains("Night 2")
+	var summaries := DirAccess.get_files_at(TEST_AUTOPLAY)
+	assert_int(summaries.size()).is_equal(1)
+	assert_str(FileAccess.get_file_as_string(TEST_AUTOPLAY + summaries[0])).contains("2 of 2 nights played, all done").contains("Night 2: ")
+	Game.autoplay = null
+	Autoplay.folder = ""
+	for file_name in summaries:
+		DirAccess.remove_absolute(TEST_AUTOPLAY + file_name)

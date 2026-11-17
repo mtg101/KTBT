@@ -237,6 +237,14 @@ func test_what_talk_turned_to_is_counted() -> void:
 	assert_int(logged["talk"]["crossed_the_line"]).is_equal(1)
 
 
+func test_how_big_the_moments_were_is_counted() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("Moment sizes (a caption at 4+): (none asked yet)")
+	stats.reaction_sizes = {"2": 5, "3": 1}
+	assert_str(stats.panel_text(0, 0)).contains("Moment sizes (a caption at 4+): 1: 0 · 2: 5 · 3: 1 · 4: 0 · 5: 0")
+	assert_dict(stats.summary({})["captions"]["reactions"]["sizes"]).is_equal({"2": 5, "3": 1})
+
+
 func test_quiet_ones_drawn_into_chats_are_counted() -> void:
 	var stats := NightStats.new()
 	stats.record_event("chat_started", {"name": "Kim Ji-ho", "friend": "Oh Seong-jun", "drawn_in": true})
@@ -387,3 +395,15 @@ func test_the_highlights_list_tonights_special_moments_in_order() -> void:
 	assert_str(str(sections[0]["tab"])).is_equal("Highlights 8")  # (the panel's tabs: one section each)
 	assert_str(str(sections[0]["text"])).starts_with("9:12pm").not_contains("PEOPLE")
 	assert_array(sections.map(func(s): return s["tab"])).contains(["People", "Talk", "Pocha life", "Menu", "AI", "Everything"])
+
+
+func test_a_few_rejected_replies_are_kept_for_the_logs() -> void:
+	var stats := NightStats.new()
+	for k in 5:
+		stats.record_rejected("order", "the line mentions Dakgalbi, but that isn't in \"items\"", "{\"line\": \"Dak galbi, please %d\"}" % k)
+	stats.record_rejected("", "it wasn't a JSON object", "x".repeat(2000))
+	var kept: Dictionary = stats.summary({})["ai"]["rejected_replies"]
+	assert_int(kept["food that wasn't ordered"].size()).is_equal(NightStats.REPLIES_PER_KIND)  # (the first few of each kind)
+	assert_dict(kept["food that wasn't ordered"][0]).is_equal({"for": "order", "problem": "the line mentions Dakgalbi, but that isn't in \"items\"", "reply": "{\"line\": \"Dak galbi, please 0\"}"})
+	var other: Array = kept.values().filter(func(replies): return replies[0]["for"] == "other")
+	assert_int(str(other[0][0]["reply"]).length()).is_equal(NightStats.REPLY_MOST)  # (cut short)

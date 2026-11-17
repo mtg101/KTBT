@@ -402,11 +402,13 @@ const DOUBLED_STARTS := ["jj", "kk", "tt", "pp", "ss"]
 ## Ways of saying a dish is still on its way.
 const ON_ITS_WAY := ["not ready", "isnt ready", "not done", "still cooking", "taking longer", "taking a while", "takes a bit longer",
 	"takes a little longer", "on its way", "almost done", "almost ready", "nearly ready", "nearly done", "wont be long", "finally ready",
-	"is coming", "coming right up", "be out in", "out in a bit", "out in a minute", "when its ready", "when its done", "ill bring it"]
+	"is coming", "coming right up", "coming soon", "be out in", "out in a bit", "out in a minute", "out soon", "ready soon", "be ready in",
+	"any minute", "on the way", "wont take long", "when its ready", "when its done", "ill bring it"]
 
 
 ## A line that says a dish is still on its way when it's already on their table (night 25:
-## "Sundae's finally ready, take it with you", long after it was served), or "". items: what's
+## "Sundae's finally ready, take it with you", long after it was served; night 32: "Tteokbokki will
+## be out soon", long after), or "". items: what's
 ## been ordered (served or not); coming: the dishes still cooking or waiting to go over.
 static func served_already(line: String, items: Array, coming: Array) -> String:
 	if Text.find_phrase(line, ON_ITS_WAY) == "":

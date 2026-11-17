@@ -969,6 +969,39 @@ func test_the_cliffhangers_the_pd_can_choose() -> void:
 	assert_dict(Story.apply_cut(writers, {})).is_equal(writers)
 
 
+func test_the_scenes_previously_on_could_be_made_of() -> void:
+	# What happened, from the night's events, with its time (for the PD's scenes).
+	var facts := Story.diary_facts([
+		{"kind": "big_moment", "at": 1262, "who": "Kim Ji-ho", "mood": "shock", "ai_mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."},
+		{"kind": "became_regular", "at": 1300, "name": "Lee Da-eun"},
+		{"kind": "plant_played", "at": 1240, "card": "rain", "name": "", "what": ""},
+		{"kind": "table_game", "at": 1400, "game": "apartment"},
+		{"kind": "cat_stole", "at": 1350, "cat": "Nabi", "name": "Kim Ji-ho"},
+	], {"pinned": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad.", "at": 1260}], "regulars": [{"name": "Hwang Tae-oh", "founding": true}]})
+	var scenes := Story.scene_options(facts)
+	assert_array(scenes.map(func(s): return s["kind"])).is_equal(["happened", "pin", "moment", "happened", "happened", "happened", "happened"])
+	assert_array(scenes.map(func(s): return int(s["at"]))).is_equal([1240, 1260, 1262, 1300, 1350, 1400, -1])  # (in the order they happened; who didn't come, at the end)
+	assert_str(str(scenes[5]["text"])).contains("the apartment game")
+	assert_str(str(scenes[6]["text"])).is_equal("Hwang Tae-oh, a regular, didn't come in.")
+	# The recap's beats against them: one each, in order, each keeping to its scene.
+	var chosen := [scenes[1], scenes[3]]
+	assert_str(Story.scenes_problem(["Ji-ho is glad she quit.", "Da-eun finds a home here."], chosen)).is_empty()
+	assert_str(Story.scenes_problem(["Ji-ho is glad she quit."], chosen)).contains("one beat for each")
+	assert_str(Story.scenes_problem(["The rain falls.", "Da-eun finds a home here."], chosen)).contains("beat 1")
+	assert_str(Story.scenes_kept(["The rain falls.", "Da-eun finds a home here."], chosen)).is_equal("1/2")
+	# The game's own beats from them, when the writers can't: and they keep to them.
+	var stitched := Story.stitched_recap({"episode": 5, "owner": "Park Mi-sook", "last": facts, "scenes": chosen})
+	assert_array(stitched["beats"]).is_equal(["Ji-ho says it: \"I quit today, and I'm glad.\"", "Lee Da-eun looks like becoming a regular."])
+	assert_str(Story.scenes_problem(stitched["beats"], chosen)).is_empty()
+
+
+func test_the_recap_may_name_the_cat() -> void:
+	# Night 34: "Previously on…" sent back twice for naming Nyang-i, the tent's cat.
+	var facts := {"names": ["Kim Ji-ho"], "cat": "Nyang-i"}
+	assert_str(Story.validate_recap({"beats": ["Nyang-i curls up by the stove.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, facts)).is_empty()
+	assert_str(Story.validate_recap({"beats": ["Min-jun walks in.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, facts)).contains("Min-jun")
+
+
 func test_the_pds_pins_go_with_the_night() -> void:
 	var pinned := [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}, {"speaker": "Hwang Tae-oh", "text": "Save my stool."}]
 	var facts := Story.diary_facts([], {"pinned": pinned})
@@ -1026,6 +1059,7 @@ func test_food_already_served_isnt_still_on_its_way() -> void:
 	assert_str(Talk.served_already("Tteokbokki's finally ready, take it with you when you go.", ["tteokbokki", "soju"], ["tteokbokki"])).is_empty()  # (still cooking: true)
 	assert_str(Talk.served_already("Enjoy your tteokbokki!", ["tteokbokki"], [])).is_empty()
 	assert_str(Talk.served_already("The odeng's not ready yet.", ["tteokbokki"], [])).is_empty()  # (not theirs: the other checks deal with that)
+	assert_str(Talk.served_already("You eat the banchan first, okay? Tteokbokki will be out soon.", ["tteokbokki", "beer"], [])).contains("already on the table")  # (night 32)
 	assert_str(Text.problem_kind("the line says the Tteokbokki is still on its way, but it's already on the table")).is_equal("food already served")
 	# (Night 28: a later order's "say 'this soju'" was counted here too.)
 	assert_str(Text.problem_kind("the line asks for more Soju, but that isn't in \"items\" (to talk about the Soju already on the table, say \"this soju\")")).is_not_equal("food already served")

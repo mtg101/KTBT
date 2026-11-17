@@ -15,6 +15,16 @@ func test_resolve_accepts_exact_id() -> void:
 	assert_str(Menu.resolve("soju")).is_equal("soju")
 
 
+func test_resolve_ignores_hyphens_spaces_and_case() -> void:
+	# The AI writes Korean names every which way (night 30: "Dak-bokkeumtang" orders turned away).
+	assert_str(Menu.resolve("Gyeranmari")).is_equal(Menu.resolve("Gyeran-mari"))
+	assert_str(Menu.resolve("gyeran mari")).is_equal(Menu.resolve("Gyeran-mari"))
+	assert_str(Menu.resolve("Gyeran-ma-ri")).is_equal(Menu.resolve("Gyeran-mari"))
+	assert_str(Menu.resolve("Gyeran-mari")).is_not_empty()
+	assert_str(Menu.compact(" Dak-bokkeum tang ")).is_equal("dakbokkeumtang")
+	assert_str(Menu.resolve("sundae pie")).is_empty()  # (not on the menu: still nothing)
+
+
 func test_resolve_accepts_display_name_with_hyphen() -> void:
 	assert_str(Menu.resolve("Gyeran-mari")).is_equal("gyeran_mari")
 

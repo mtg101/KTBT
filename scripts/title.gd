@@ -23,6 +23,15 @@ func _ready() -> void:
 	Game.start_music()
 	_build_ui()
 	_fill_list()
+	if Game.autoplay != null and not Game.autoplay.begun:  # (a batch of nights: straight in, once the screen's up)
+		Game.autoplay.begun = true
+		_start_autoplay.call_deferred()
+
+
+## Autoplay: its bar (or a new one of its own, if it named none or that one won't load).
+func _start_autoplay() -> void:
+	if Game.autoplay.bar_id == "" or not Game.open_bar(Game.autoplay.bar_id):
+		Game.new_bar()
 
 
 func _on_new_bar_pressed() -> void:
@@ -117,6 +126,8 @@ func _bar_button(bar: Dictionary, index: int) -> Button:
 		regulars, "regular" if regulars == 1 else "regulars",
 		Menu.format_won(int(bar.get("takings", 0))),
 		_when(int(bar.get("last_played", 0)))]
+	if bool(bar.get("autoplay", false)):
+		button.text += "  ·  played by autoplay"  # (a test bar: see autoplay.gd)
 	button.add_theme_font_size_override("font_size", 18)
 	button.pressed.connect(_on_bar_pressed.bind(str(bar["id"])))
 	return button

@@ -208,6 +208,43 @@ That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 
 ---
 
+## 6a. Autoplay from your phone (optional)
+
+A batch of autoplay nights (README, "Autoplay") can be started by double-clicking `tools\autoplay.bat`. To let Claude start one when you're not at the PC (from the Claude app on your phone, in a chat linked to this PC), add the project's small helper, `tools\autoplay_mcp.ps1`, as a local MCP server in the Claude desktop app. It can do three things only: start a batch, say how one's going (and whether Ollama's answering), and stop one. No other programs, no general shell, and Ollama stays on `localhost`.
+
+1. Put Godot's path in `tools\godot_path.txt` (one line, the full path of its `.exe`), if it isn't there already.
+2. **Quit the Claude desktop app completely** (right-click its tray icon, **Quit**: closing the window isn't enough). It rewrites its config file while it runs, so an edit made with it open can be lost.
+3. Open the app's config file, `claude_desktop_config.json`. Where it is depends on how the app was installed (see "Why it's fiddly" below). On the Microsoft Store version it's in `%LOCALAPPDATA%\Claude-Data\claude_<letters>\`, next to the app's own `config.json`; on the other installer it's usually `%APPDATA%\Claude\`. The app makes this file itself, so it's normally there already, full of its own settings: don't replace it, add to it.
+4. Add the helper as a top-level `mcpServers` section, with your own path to the KTBT folder and every `\` doubled (if there's already an `mcpServers` section, add the `"ktbt-autoplay": {...}` entry inside it):
+   ```json
+   {
+     "mcpServers": {
+       "ktbt-autoplay": {
+         "command": "powershell.exe",
+         "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\path\\to\\KTBT\\tools\\autoplay_mcp.ps1"]
+       }
+     },
+     ...the app's own settings, unchanged...
+   }
+   ```
+   Keep it valid JSON (a comma after the `mcpServers` section), saved as UTF-8.
+5. Start the app again. To check it took, ask Claude in a chat linked to the PC whether it can see the `ktbt-autoplay` tools (it can see which local servers the app started, and whether they're running).
+6. Leave the PC on and awake, with Ollama and the Claude desktop app running. From your phone, in a chat linked to the PC: "start 10 autoplay nights", "how's the batch going?", "stop the batch". Claude reads how it went from the logs (step 7 below).
+7. For Claude to read the results, the chat needs the KTBT folder connected (the desktop app's **Add folder**), and Godot's user folder for `godot.log` and the saves (`%APPDATA%\Godot\app_userdata\KTBT`).
+
+### Why it's fiddly
+
+Set up on 17 November 2026, after a long evening. What got in the way, for next time:
+
+- **Claude's shell can't start Windows programs.** In a chat linked to the PC, Claude's "shell on the PC" is a small Linux virtual machine the desktop app runs, with your connected folders shared into it. There's no `cmd.exe` or PowerShell in it, and no Godot, so it can't start `Godot.exe`; and its network goes through an allowlist, so it can't reach Ollama on `localhost` either. It's for reading and changing files (the logs, the code), not running the game.
+- **Only the desktop app can start things on Windows.** Claude can also click and type on the screen (computer use), but that takes over the PC and needs approving app by app. The other way is a local MCP server: a program the app itself starts, whose tools Claude can call. That's what the helper is, and why it only does three things.
+- **There's no Developer settings page.** Older guides (and an earlier version of this section) say **Settings → Developer → Edit Config**; this version of the app has no such page, so the file has to be found and edited by hand.
+- **The Store version keeps its files in odd places.** Windows gives a Store app a private copy of `%APPDATA%`: the app sees `%APPDATA%\Claude`, but in Explorer it isn't there (it's really under `%LOCALAPPDATA%\Packages\Claude_<letters>\LocalCache\Roaming\Claude`). And the app has since moved its data out of that too, into `%LOCALAPPDATA%\Claude-Data\claude_<letters>\`, leaving only a marker file (`.user-data-left...`) behind. A config file put in either of the old places is quietly ignored. The app's own log, `%LOCALAPPDATA%\Claude\logs\main.log`, says where its data is (search it for `config.json`), and says `no stdio servers connected` when it found no helper.
+- **Claude can't look in the app's own folders.** It's not allowed to read the desktop app's data or logs, even when asked, so finding the config file and reading the log are jobs for you.
+- **An extension isn't the same thing.** A `.mcpb` "extension" installed through the app is a different route; it needs its settings filled in before it's switched on. The helper doesn't use one.
+
+---
+
 ## 7. Testing: GdUnit4
 
 KTBT's automated tests use **GdUnit4**, a free Godot add-on. How we use it is in [TESTS.md](TESTS.md). This section covers installing and running it.

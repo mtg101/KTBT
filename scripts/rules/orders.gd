@@ -339,6 +339,8 @@ static func mentions(line: String, with_aliases: bool) -> Array:
 	var phrases: Array = []
 	for item in Menu.items():
 		phrases.append({"id": item["id"], "words": [Text.words(str(item["name"]))[0]]})
+		if Text.words(str(item["name"])).size() > 1:  # (and run together as one word: "Dakbokkeumtang")
+			phrases.append({"id": item["id"], "words": [Menu.compact(str(item["name"]))]})
 		if with_aliases:
 			for alias in item.get("aliases", []):
 				phrases.append({"id": item["id"], "words": Array(Text.words(str(alias)))})

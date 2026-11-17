@@ -60,7 +60,7 @@ const CAPTIONS := {
 		["찐친 등장!", "THE <DUO|PAIR|TAG TEAM> IS BACK ∞"]],
 		"icon": "🤝", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
 	# At the counter
-	"cheers": {"words": [["짠!", "JJAN! <CHEERS|BOTTOMS UP|HERE WE GO>!"], ["건배!", "GEONBAE! <CHEERS|TO TONIGHT|TO SURVIVING MONDAY>!"], ["원샷!", "ONE SHOT<!|!!|, NO SIPPING!>"],
+	"cheers": {"words": [["짠!", "JJAN! <CHEERS|BOTTOMS UP|HERE WE GO>!"], ["건배!", "GEONBAE! <CHEERS|TO TONIGHT|TO SURVIVING TODAY>!"], ["원샷!", "ONE SHOT<!|!!|, NO SIPPING!>"],
 		["짠!", "{drink} <TIME|O'CLOCK|FIRST>!"]],
 		"chance": 0.7, "icon": "🍶", "colour": "7fd8ff", "sound": "pop", "emergency": false},
 	"another_round": {"words": [["한 잔 더!", "<ONE MORE|ANOTHER|AND ANOTHER><!|?!|…>"], ["한 잔 더!", "ROUND {drinks}<!|?!|, FIGHT!>"], ["달린다!", "DALLINDA! <ON A ROLL|FULL SPEED|NO BRAKES>!"],

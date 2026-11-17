@@ -285,7 +285,7 @@ func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
 	assert_str(transcript).contains("The PD steps in: episode 4, \"Salt and Overtime\"").contains("Previously on… (Salt and Overtime)").contains("Will Tae-oh stay away again?")
 	assert_dict(scene._cliffhanger).contains_key_value("kind", "stays_away")  # (it nudges him in, as the game's cliffhangers do)
 	assert_str(str(Game.bar["diary"][-1]["title"]["english"])).is_equal("Salt and Overtime")
-	assert_dict(Game.bar["diary"][-1]["cut_by"]).is_equal({"title": "pd", "cliffhanger": "pd"})
+	assert_dict(Game.bar["diary"][-1]["cut_by"]).is_equal({"title": "pd", "cliffhanger": "pd", "scenes": "writers"})
 	assert_str(scene._stats.panel_text(0, 0)).contains("Last night's episode: cut by the PD (stepped in while loading) · title the PD's · cliffhanger the PD's")
 	# Until the first customer, the desk offers to cut it again; then not.
 	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("re-cut episode 4")
@@ -293,6 +293,36 @@ func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
 	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).not_contains("re-cut episode")
 	scene._step_in()  # (too late: nothing)
 	assert_object(runner.find_child("EditSuite")).is_null()
+
+
+func test_the_pd_chooses_the_scenes_and_it_is_rewritten() -> void:
+	Hooks.recaps = true
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 4
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}, {"name": "Lee Da-eun", "job": "teacher"}],
+			"pinned": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad.", "at": 1260}],
+			"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today.", "at": 1262}],
+			"happenings": [{"at": 1300, "text": "Lee Da-eun looks like becoming a regular.", "who": ["Lee Da-eun"]}, {"at": 1380, "text": "Every stool was taken.", "who": []}]}})
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	scene._step_in()
+	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
+	var suite = runner.find_child("EditSuite")
+	assert_array(suite.ticked_scenes().map(func(s): return s["kind"])).is_equal(["pin"])  # (the PD's pin, ticked to start with)
+	suite.tick_scene(0, false)  # (not the pin after all...)
+	suite.tick_scene(2)  # (...Da-eun becoming a regular...)
+	suite.tick_scene(3)  # (...and the full house)
+	suite.cut()
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the cut").is_true()
+	var transcript := (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
+	assert_str(transcript).contains("Previously on… (She Quit?!) Lee Da-eun looks like becoming a regular. Every stool was taken.")  # (the PD's scenes, as the beats, in order)
+	assert_array(Game.bar["diary"][-1]["scenes"].map(func(s): return s["text"])).is_equal(["Lee Da-eun looks like becoming a regular.", "Every stool was taken."])
+	assert_str(str(Game.bar["diary"][-1]["cut_by"]["scenes"])).is_equal("pd")
+	assert_dict(scene._stats.story["edit"]["rewrite"]).contains_key_value("kept", "2/2")
+	assert_str(scene._stats.panel_text(0, 0)).contains("scenes the PD's (2, rewritten in").contains("kept 2/2)")
 
 
 func test_the_pd_steps_in_mid_recap_and_it_plays_again() -> void:
