@@ -124,7 +124,7 @@ const CARDS := {
 		"write": {"label": "The text says…", "hint": "we need to talk", "max": 80, "steers": 0, "from": "a text from {what}"},
 		"variants": ["their ex", "their sister", "the bank", "their landlord", "their mum", "a number they don't know", "their boss"],
 		"about": "Someone gets a text, and you write what it says (who it's from is the card's).",
-		"moment": "{who}'s phone has just buzzed: a text from {what}. It says: «{text}».",
+		"moment": "{who}'s phone has just buzzed: a text from {what}. It says: «{text}». Their next line reacts to what it says (out loud, or to themselves).",
 		"happened": "{who}'s phone buzzes: a text from {what}.",
 		"shown": "{who}'s phone buzzes: a text from {what}. «{text}»"},
 	"power_goes": {"title": "The power goes", "for": "tent", "fact": "lights",

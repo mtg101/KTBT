@@ -25,7 +25,7 @@ static func pick_weighted(weights: Dictionary, roll: float, skip: String) -> Str
 ## grouped so the most common mistakes stand out.
 static func problem_kind(problem: String) -> String:
 	var p := problem.to_lower()
-	if p.contains("already on the table"):
+	if p.contains("is still on its way, but it's already on the table"):
 		return "food already served"
 	if p.contains("never how they look"):
 		return "teasing that crossed the line"

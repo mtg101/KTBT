@@ -969,6 +969,8 @@ func test_food_already_served_isnt_still_on_its_way() -> void:
 	assert_str(Talk.served_already("Enjoy your tteokbokki!", ["tteokbokki"], [])).is_empty()
 	assert_str(Talk.served_already("The odeng's not ready yet.", ["tteokbokki"], [])).is_empty()  # (not theirs: the other checks deal with that)
 	assert_str(Text.problem_kind("the line says the Tteokbokki is still on its way, but it's already on the table")).is_equal("food already served")
+	# (Night 28: a later order's "say 'this soju'" was counted here too.)
+	assert_str(Text.problem_kind("the line asks for more Soju, but that isn't in \"items\" (to talk about the Soju already on the table, say \"this soju\")")).is_not_equal("food already served")
 
 
 func test_strangers_never_tease_each_other() -> void:
