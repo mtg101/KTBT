@@ -1067,6 +1067,32 @@ func test_the_skyline_behind_the_tent() -> void:
 	var hagwon: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("학원")
 	assert_bool(Skyline.sign_lit(hagwon, 21 * 60)).is_true()
 	assert_bool(Skyline.sign_lit(hagwon, 23 * 60)).is_false()  # (lessons over)
+	# A mix, mostly APTs: and at most one district office and one block going up, gaps where
+	# the mountains show, no two shop buildings side by side.
+	var counts := {}
+	for k in 40:
+		var plan := Skyline.plan(1872.0, k)
+		for building in plan:
+			counts[building["kind"]] = int(counts.get(building["kind"], 0)) + 1
+		assert_int(plan.filter(func(b): return b["kind"] == "office").size()).is_less_equal(1)
+		assert_int(plan.filter(func(b): return b["kind"] == "construction").size()).is_less_equal(1)
+		for n in range(1, plan.size()):
+			assert_bool(plan[n]["kind"] == "shops" and plan[n - 1]["kind"] == "shops").is_false()
+	for kind in ["apt", "tower", "church", "shops", "office", "construction", "gap"]:
+		assert_int(int(counts.get(kind, 0))).override_failure_message("no %s in 40 skylines" % kind).is_greater(0)
+	assert_int(int(counts["apt"])).is_greater(int(counts["shops"]) + int(counts["office"]) + int(counts["construction"]) + int(counts["gap"]))
+	# The district office empties early (bar the night desk).
+	var office: Dictionary = {}
+	for k in 40:
+		for building in Skyline.plan(1872.0, k):
+			if building["kind"] == "office" and office.is_empty():
+				office = building
+	var lit_late: int = office["windows"].filter(func(w): return Skyline.lit(w, 23 * 60)).size()
+	assert_int(lit_late).is_less(office["windows"].filter(func(w): return Skyline.lit(w, 18 * 60)).size())
+	# The mountains behind, with the old hillside houses (some with a rooftop room).
+	var hills := Skyline.hills(1872.0, 42)
+	assert_float(float(hills["near"][-1].x)).is_greater_equal(1872.0)
+	assert_str(str(hills)).is_equal(str(Skyline.hills(1872.0, 42)))
 	var karaoke: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("노래방")
 	assert_bool(Skyline.sign_lit(karaoke, 27 * 60)).is_true()  # (never shuts)
 	for building in city:

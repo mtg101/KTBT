@@ -1142,6 +1142,10 @@ func test_the_city_behind_the_tent_and_tonights_date() -> void:
 	var apt: Dictionary = city.buildings.filter(func(building): return building["kind"] == "apt")[0]
 	var over := Vector2(float(apt["x"]) + 10, city.ground - 5)
 	assert_str(city._get_tooltip(over)).contains("APT")  # Korean on screen explains itself
+	assert_dict(city.hills).is_not_empty()  # (the mountains behind)
+	var gaps: Array = city.buildings.filter(func(building): return building["kind"] == "gap")
+	if not gaps.is_empty():  # (in a gap, the mountains: explained)
+		assert_str(city._get_tooltip(Vector2(float(gaps[0]["x"]) + float(gaps[0]["width"]) / 2.0, city.ground - 2))).contains("산")
 	var shops: Array = city.buildings.filter(func(building): return building["kind"] == "shops")
 	if not shops.is_empty():
 		var tip: String = city._get_tooltip(Vector2(float(shops[0]["x"]) + 10, city.ground - 5))

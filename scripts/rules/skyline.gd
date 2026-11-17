@@ -1,11 +1,14 @@
 extends RefCounted
 ## The city behind the tent: a skyline of its own for each bar (from the bar's id, so it's the
-## same every night), drawn from rectangles. Rows of APT blocks (아파트), a glass office tower
-## or two with a red light on top (nameless: no real company), now and then a church's red neon
-## cross, and shop buildings (상가) with a lit sign on every floor, the way Seoul does it:
-## karaoke, a PC bang, chicken and beer, a cram school, a clinic (generic signs, never a
-## brand). Windows go dark through the night: busy at nine, a few night owls at two; each
-## shop's sign goes off when it shuts (the karaoke and the PC bang never do).
+## same every night), drawn from rectangles. Mostly APT blocks (아파트); a chaebol's glass
+## tower or two with a red light on top (nameless: no real company); now and then a church's
+## red neon cross, shop buildings (상가) with a lit sign on every floor (karaoke, a PC bang,
+## chicken and beer, a cram school, a clinic: generic signs, never a brand), a district
+## office (구청) with its flag, or a block going up (공사중) with its crane; and gaps, where the
+## mountains show behind, with a hillside of old houses and their rooftop rooms (옥탑방, where
+## every K-drama's hard-up lead lives). Windows go dark through the night: busy at nine, a few
+## night owls at two; offices empty by nine; each shop's sign goes off when it shuts (the
+## karaoke and the PC bang never do).
 ## (Part of the game's rules: pure functions and the tables they use, with any dice rolls
 ## passed in, so they can be tested on their own. See ARCHITECTURE.md.)
 
@@ -20,6 +23,7 @@ const WARM := Color("f2c46b")
 const TV := Color("a9c4ff")
 const NUMBER_COLOUR := Color("8a8fb8")
 const FLOOR := 20.0  # a shop building's floor, in pixels: one sign each
+const SHOP_FLOORS := Vector2i(4, 7)
 
 ## The signs on a shop building's floors: generic shops (never a brand), each with its colour,
 ## what it means (for the hover) and when it shuts (game minutes; past 27 * 60: never, tonight).
@@ -51,16 +55,26 @@ static func plan(width: float, seed_value: int) -> Array:
 	var x := dice.randf_range(-30.0, 10.0)
 	var number := 100 + dice.randi_range(1, 8)
 	var towers := 0
+	var offices := false  # (one district office at most)
+	var building_site := false  # (one block going up at most)
 	while buildings.is_empty() or float(buildings[-1]["x"]) + float(buildings[-1]["width"]) < width:  # (right across: no gap at the end)
 		var roll := dice.randf()
 		var building := {}
-		if roll < 0.12 and towers < 2 and x > 200.0 and x < width - 200.0:
+		if roll < 0.09 and towers < 2 and x > 200.0 and x < width - 200.0:
 			towers += 1
 			building = {"kind": "tower", "width": dice.randf_range(70.0, 100.0), "height": dice.randf_range(165.0, 215.0)}
-		elif roll < 0.2:
+		elif roll < 0.15:
 			building = {"kind": "church", "width": dice.randf_range(50.0, 70.0), "height": dice.randf_range(55.0, 80.0)}
-		elif roll < 0.5:
-			var floors := dice.randi_range(4, 7)
+		elif roll < 0.21 and not offices:
+			offices = true
+			building = {"kind": "office", "width": dice.randf_range(130.0, 175.0), "height": dice.randf_range(80.0, 105.0)}
+		elif roll < 0.26 and not building_site:
+			building_site = true
+			building = {"kind": "construction", "width": dice.randf_range(80.0, 110.0), "height": dice.randf_range(120.0, 175.0)}
+		elif roll < 0.36 and not buildings.is_empty() and str(buildings[-1]["kind"]) != "gap":
+			building = {"kind": "gap", "width": dice.randf_range(60.0, 150.0), "height": 0.0}  # (the mountains show through)
+		elif roll < 0.48 and (buildings.is_empty() or str(buildings[-1]["kind"]) != "shops"):  # (a mix: not two side by side)
+			var floors := dice.randi_range(SHOP_FLOORS.x, SHOP_FLOORS.y)
 			var signs: Array = []
 			var choices: Array = range(SIGNS.size())
 			for k in floors:
@@ -78,14 +92,17 @@ static func plan(width: float, seed_value: int) -> Array:
 
 static func _windows(building: Dictionary, dice: RandomNumberGenerator) -> Array:
 	var windows: Array = []
-	if building["kind"] == "shops":
-		return windows  # (their signs are their windows)
+	if ["shops", "construction", "gap"].has(building["kind"]):
+		return windows  # (signs for windows, or none yet, or no building)
 	var top := float(building["height"]) - 12.0
 	var across := floori((float(building["width"]) - MARGIN * 2 + WINDOW_GAP.x) / (WINDOW.x + WINDOW_GAP.x))
 	var y := MARGIN
 	while y + WINDOW.y < top:
 		for k in across:
-			windows.append({"x": MARGIN + k * (WINDOW.x + WINDOW_GAP.x), "y": y, "dark_at": dice.randf(), "tv": dice.randf() < TV_CHANCE})
+			var window := {"x": MARGIN + k * (WINDOW.x + WINDOW_GAP.x), "y": y, "dark_at": dice.randf(), "tv": dice.randf() < TV_CHANCE}
+			if building["kind"] == "office":  # (a district office empties early: a few on the night desk)
+				window["until"] = (27 * 60) if dice.randf() < 0.05 else (18 * 60 + dice.randf_range(30.0, 180.0))
+			windows.append(window)
 		y += WINDOW.y + WINDOW_GAP.y
 	return windows
 
@@ -100,7 +117,44 @@ static func lit_share(minutes: float) -> float:
 
 ## Whether a window's lit at this time: until the city's share falls to its dark_at.
 static func lit(window: Dictionary, minutes: float) -> bool:
+	if window.has("until"):
+		return minutes < float(window["until"])
 	return float(window["dark_at"]) < lit_share(minutes)
+
+
+## The mountains behind the city, for a stage this wide (from the same seed as the
+## buildings): {"far": [Vector2...], "near": [Vector2...]} (ridges, left to right: x, and
+## height above the ground), and "houses": [{"x", "height", "width", "rooftop" (a rooftop room
+## on it), "dark_at"}], an old hillside neighbourhood on the near ridge.
+static func hills(width: float, seed_value: int) -> Dictionary:
+	var dice := RandomNumberGenerator.new()
+	dice.seed = seed_value + 7
+	var ridges := {}
+	for which in ["far", "near"]:
+		var points: Array = []
+		var x := -20.0
+		var low := 120.0 if which == "far" else 70.0
+		var high := 175.0 if which == "far" else 125.0
+		var height := dice.randf_range(low, high)
+		while x < width + 40.0:
+			points.append(Vector2(x, height))
+			x += dice.randf_range(60.0, 140.0)
+			height = clampf(height + dice.randf_range(-35.0, 35.0), low, high)
+		points.append(Vector2(x, height))  # (right across)
+		ridges[which] = points
+	var houses: Array = []
+	var near: Array = ridges["near"]
+	for k in range(near.size() - 1):
+		if dice.randf() < 0.45:  # (an old neighbourhood up this slope)
+			var from: Vector2 = near[k]
+			var to: Vector2 = near[k + 1]
+			var count := dice.randi_range(2, 4)
+			for n in count:
+				var along := dice.randf_range(0.1, 0.9)
+				var at := from.lerp(to, along)
+				houses.append({"x": at.x, "height": at.y - dice.randf_range(4.0, 14.0), "width": dice.randf_range(10.0, 16.0),
+					"rooftop": dice.randf() < 0.4, "dark_at": dice.randf()})
+	return {"far": ridges["far"], "near": near, "houses": houses}
 
 
 ## Whether a shop's sign is still lit at this time (game minutes).

@@ -39,7 +39,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
 | `rules/story.gd` | The owner's diary at 3am, "Previously on...", and the owner's reason for closing early |
 | `rules/seasons.gd` | The calendar (each bar's nights through the year), Korea's seasons and the monsoon, and tonight's weather following on from last night's |
-| `rules/skyline.gd` | The city behind the tent: each bar's skyline (APT blocks, office towers, churches, shop buildings with a sign on every floor), its windows going dark through the night and its shops' signs as they shut |
+| `rules/skyline.gd` | The city behind the tent: each bar's skyline (mostly APT blocks; towers, churches, shop buildings with a sign on every floor, a district office, a block going up, and gaps), the mountains behind with their hillside houses and rooftop rooms, its windows going dark through the night and its shops' signs as they shut |
 | `rules/catalogue.gd` | Every dish and drink a pocha might serve, by layer (always, the classics, the bar's own), and a bar's menu: the house rules the AI's choice is checked against, and the game's own menu when it can't choose |
 | `rules/signatures.gd` | A bar's signature dishes: the AI's (named in romanised Korean and Hangul, with what the name means, from the owner's story) checked, the game's price and cooking time set, and the game's own when the AI can't |
 | `rules/specials.gd` | Tonight's specials and what's sold out, from the bar's own menu: by the weather and the season, never a staple or last night's again, now and then the owner's own dish |
