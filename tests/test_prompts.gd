@@ -280,7 +280,7 @@ func _cat() -> Dictionary:
 
 func test_dialogue_prompts_say_where_the_cat_is() -> void:
 	var cat := Prompts.describe_cat(_cat(), "Nabi is curled up asleep by the stove.")
-	assert_str(cat).contains("Nabi, the tent's ginger cat, lazy: sleeps most of the night")
+	assert_str(cat).contains("Nabi, the tent's ginger cat (a stray that moved in: \"Nabi\", butterfly, is the nickname the owner and the regulars gave it), lazy: sleeps most of the night")
 	assert_str(cat).contains("nobody strokes it")
 	var line := _request(Prompts.dialogue_messages(_owner_data(), _customer_data(), _moment(), "Soju", [], true, "", cat))
 	assert_str(line).contains("Right now: Nabi is curled up asleep by the stove.")
@@ -291,7 +291,10 @@ func test_dialogue_prompts_say_where_the_cat_is() -> void:
 func test_cat_name_prompt_knows_the_cat() -> void:
 	var text := _request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "calico", "greedy"))
 	assert_str(text).contains("a calico female cat, greedy")
-	assert_str(text).contains("Korean pet name")
+	assert_str(text).contains("nickname, the kind Koreans give street cats")
+	assert_str(text).contains("- Samsaek-i (three colours: what Koreans call a calico)")  # (its coat's first)
+	assert_int(text.find("Samsaek-i")).is_less(text.find("Nabi"))
+	assert_str(text).not_contains("Chijeu")  # (a ginger cat's)
 
 
 # --- Speaking English, and knowing only what you've been told --------------------------------
@@ -321,7 +324,7 @@ func test_details_prompt_asks_for_someone_different_from_tonights_others() -> vo
 func test_the_cat_is_a_she_or_a_he() -> void:
 	var cat := {"name": "Nabi", "coat": "ginger", "personality": "lazy", "sex": "he"}
 	assert_str(Prompts.describe_cat(cat, "Nabi is asleep.")).contains("(a male: call the cat \"he\")")
-	assert_str(_request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "black", "curious", "he", ["Ssal"]))).contains("Other tents' cats are called Ssal")
+	assert_str(_request(Prompts.cat_name_messages(_owner_data(), "Golmok Pocha", "black", "curious", "he", ["Kkami"]))).not_contains("Kkami (")  # (another tent's)
 
 
 func test_everyone_speaks_fluently() -> void:

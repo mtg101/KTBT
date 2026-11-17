@@ -8,6 +8,7 @@ const Menu = preload("res://scripts/rules/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
 
 ## Words that aren't on the menu or terms of address. "spellings" are lower case; the first
 ## one, capitalised, is how the hover names it.
@@ -30,6 +31,7 @@ const WORDS := {
 	"mashisseoyo": {"spellings": ["mashisseoyo", "masisseoyo", "mashita", "mashisseo"], "hangul": "맛있어요", "means": "it's delicious."},
 	"jal meokgesseumnida": {"spellings": ["jal meokgesseumnida", "jal meokgetseumnida"], "hangul": "잘 먹겠습니다", "means": "\"I'll eat well\": said before eating, as thanks to whoever cooked or is paying."},
 	"noraebang": {"spellings": ["noraebang", "norebang"], "hangul": "노래방", "means": "a karaoke room: a private booth for singing with friends, often where a night out ends up."},
+	"goshiwon": {"spellings": ["goshiwon", "gosiwon"], "hangul": "고시원", "means": "a tiny rented room, barely bigger than the bed: where many start out in Seoul."},
 	"hoesik": {"spellings": ["hoesik"], "hangul": "회식", "means": "a work night out: dinner and drinks with colleagues, often not optional."},
 	"maknae": {"spellings": ["maknae"], "hangul": "막내", "means": "the youngest in a family or group (who pours the drinks)."},
 	"nunchi": {"spellings": ["nunchi"], "hangul": "눈치", "means": "reading the room: knowing what people feel without being told."},
@@ -217,6 +219,9 @@ static func hangul_tip(run: String) -> String:
 static func _hangul_known(run: String) -> String:
 	_keep_up_with_menu()
 	var bare := _bare(run)
+	for nickname in CatRules.CAT_NICKNAMES:  # (a cat's nickname: what it means, before "its name in Hangul")
+		if _bare(str(CatRules.CAT_NICKNAMES[nickname]["hangul"])) == bare:
+			return "%s %s: %s" % [CatRules.CAT_NICKNAMES[nickname]["hangul"], nickname, CatRules.CAT_NICKNAMES[nickname]["means"]]
 	if _remembered.has(bare):
 		return str(_remembered[bare])
 	if _known_hangul.is_empty():

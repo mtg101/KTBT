@@ -112,6 +112,18 @@ const CAPTIONS := {
 		"icon": "☔", "colour": "7fd8ff", "sound": "whoosh", "emergency": false, "always": true},
 	"plant_phone": {"words": [["따르릉!", "RING RING!"], ["전화 왔다!", "<A CALL|THE PHONE>! FOR {name}?!"]],
 		"icon": "📱", "colour": "7fd8ff", "sound": "ding", "emergency": false, "always": true},
+	"plant_text": {"words": [["문자 한 통", "ONE TEXT<…|!>"], ["문자 한 통", "{name}'S FACE <SAYS IT ALL|CHANGES>…"]],
+		"icon": "💬", "colour": "7fd8ff", "sound": "ding", "emergency": false, "always": true},
+	"plant_ex_walks_past": {"words": [["전 애인 등장?!", "<IS THAT|WAS THAT> THE EX?!"], ["전 애인 등장?!", "{name} <FREEZES|SAW A GHOST>…"]],
+		"icon": "💔", "colour": "ff8fc0", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_round_on": {"words": [["한 턱 쏜다!", "{name} <BUYS A ROUND|SHOUTS THE COUNTER>!"], ["한 턱 쏜다!", "<A ROUND FOR THE COUNTER|THIS ROUND'S ON THEM>!"]],
+		"icon": "🍶", "colour": "8cf05a", "sound": "sparkle", "emergency": false, "always": true},
+	"plant_small_world": {"words": [["세상 좁다!", "SMALL WORLD<!|!!>"], ["세상 좁다!", "THE SAME SCHOOL?!"]],
+		"icon": "🏫", "colour": "ffd23f", "sound": "pop", "emergency": false, "always": true},
+	"plant_noraebang": {"words": [["추억의 노래", "<THAT OLD SONG|A SONG FROM BACK THEN>…"], ["추억의 노래", "<CUE THE BALLAD|NOW PLAYING>…"]],
+		"icon": "🎶", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
+	"plant_power_goes": {"words": [["정전?!", "<LIGHTS OUT|POWER CUT|BLACKOUT>?!"], ["정전?!", "WHO <TURNED OUT|TRIPPED OVER> THE LIGHTS?!"]],
+		"icon": "💡", "colour": "ffd23f", "sound": "whoosh", "emergency": false, "always": true},
 	# A table game, taken up (see Talk.TABLE_GAMES).
 	"game_spoon_mic": {"words": [["노래 시작!", "THE SPOON MIC IS <ON|LIVE>!"], ["숟가락 마이크", "SPOON MIC, <LIVE|ON AIR>!"]],
 		"icon": "🎤", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
@@ -428,7 +440,8 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 		"table_game":
 			return {"kind": "game_" + str(facts.get("game", "")), "fill": {}}
 		"plant_played":
-			return {"kind": "plant_" + str(facts.get("card", "")), "fill": {"name": facts.get("name", "")}}
+			if CAPTIONS.has("plant_" + str(facts.get("card", ""))):  # (the first snow has its own caption, as it falls)
+				return {"kind": "plant_" + str(facts.get("card", "")), "fill": {"name": facts.get("name", "")}}
 		"closed_early":
 			if str(facts.get("reason", "")) != "":
 				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}

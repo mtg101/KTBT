@@ -153,6 +153,7 @@ class Guest:
 	var camera_moment := ""  # a Talk.camera_moment for their next line: the PD's camera has just turned to them
 	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
 	var plant_card := ""  # ... which card
+	var plant_happened := ""  # ... and what happened, for whichever conversation they speak in next
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
@@ -195,6 +196,10 @@ var _played: Array = []  # ... and the ones played
 var _planted_regular := ""  # the regular the PD rang tonight, until they're in (their id)
 var _plant_dice := RandomNumberGenerator.new()  # the cards' own (dealing them never shifts anything else's rolls)
 var _plant_cards: VBoxContainer  # the cards on the PD's desk
+var _picked := {}  # card -> the Guest the game picked for it (with nobody on camera), until it's played
+var _lights_out := 0.0  # real seconds left of the lights being out (the lights-flicker card)
+const LIGHTS_OUT_SECONDS := 2.5
+const PLANT_STAY_LEFT := 20.0  # game minutes someone needs left for a card picked for them (a pair: both)
 const PLANT_REGULAR_MINUTES := 15.0  # how long a regular the PD rang takes to get here
 var _counter_chats := CounterChats.new()  # customers chatting: who's in which chat, choosing the next spell (scripts/bar/counter_chats.gd)
 var _chats: Array:  # Chat: customer conversations going on at the counter
@@ -819,11 +824,11 @@ func _name_cat() -> void:
 			taken.append(name_taken)
 	_typing_label.text = "Something furry is watching from under the counter..."
 	var named: Dictionary = await _ai.ask_json(Prompts.cat_name_messages(_owner, str(Game.bar["name"]), coat, personality, sex, taken),
-		_validate_cat_name.bind(taken), {"temperature": 0.9}, {"purpose": "cat_name", "taken": taken})
+		_validate_cat_name.bind(taken), {"temperature": 0.9}, {"purpose": "cat_name", "taken": taken, "coat": coat})
 	_typing_label.text = ""
 	if _closed():  # (the bar closed while it was waiting)
 		return
-	var cat_name := str(named["name"]) if not named.is_empty() else CatRules.fallback_cat_name(randf(), taken)
+	var cat_name := str(named["name"]) if not named.is_empty() else CatRules.fallback_cat_name(randf(), taken, coat)
 	var cat_hangul := str(named.get("hangul", "")) if not named.is_empty() else str(Names.CAT_HANGUL.get(cat_name, ""))
 	_new_cat(cat_name, coat, personality, sex, cat_hangul)
 
@@ -1036,9 +1041,12 @@ func _start_night() -> void:
 	_camera = PdCamera.new()
 	_camera.cat = _tent_cat
 	_plant_dice.seed = hash("%s night %d" % [Game.bar.get("id", ""), _night_number])
-	_hand = Plants.deal(_plant_dice)
+	_hand = Plants.deal(_plant_dice, _plant_tonight(), Game.bar.get("last_hand", []))
+	Game.bar["last_hand"] = _hand.duplicate()  # (not the same cards tomorrow; saved with the night)
 	_played = []
+	_picked = {}
 	_planted_regular = ""
+	_lights_out = 0.0
 	_show_camera()
 	_events = NightEvents.new()
 	_events.happened.connect(_stats.record_event)
@@ -1104,6 +1112,9 @@ func _start_night() -> void:
 func _process(delta: float) -> void:
 	_frame_done.emit()  # (first: whatever's waiting a frame carries on)
 	_update_light()
+	if _lights_out > 0.0:  # (a plant card: the lights flicker and go out for a moment)
+		_lights_out -= delta
+		_tent_view.lights_out(int(_lights_out * 8.0) % 3 != 0)  # (stuttering back on)
 	_skyline.set_minutes(_clock)
 	if _loading != null and _loading.visible:
 		_loading.status = _loading_status()
@@ -1469,7 +1480,10 @@ func _left_alone_longest() -> Guest:
 
 
 func _neediness(guest: Guest) -> int:
-	return _camera.neediness(guest, guest.attended - (3 if guest.company == "owner" else 0))
+	var base := guest.attended - (3 if guest.company == "owner" else 0)
+	if guest.plant_moment != "":
+		base -= PdCamera.PULL  # (something's just happened to them: the owner turns to them sooner)
+	return _camera.neediness(guest, base)
 
 
 func _task_done() -> void:
@@ -1612,10 +1626,11 @@ func _greet() -> void:
 			return
 		look = customer["look"]
 		if str(regular.get("id", "")) == _planted_regular:  # (the PD rang them: they know why they're here)
-			guest.plant_moment = Plants.moment("regular_in", str(regular["name"]))
+			guest.plant_moment = Plants.moment("regular_in", str(regular["name"]), "", "", str(regular.get("gender", "")))
 			guest.plant_card = "regular_in"
+			guest.plant_happened = Plants.happened("regular_in", str(regular["name"]), "", "", str(regular.get("gender", "")))
 			_planted_regular = ""
-			_narrate("(%s)" % Plants.happened("regular_in", str(regular["name"])))
+			_narrate("(%s)" % guest.plant_happened)
 	else:
 		_narrate("%s. Someone ducks under the tarp." % guest.arrived)
 		customer = _take_prepared()
@@ -2139,7 +2154,7 @@ func _leave_chats(guest: Guest) -> void:
 ## A few lines, cut short if something more urgent comes up.
 func _counter_chat() -> void:
 	_owner_working = true
-	var spell := _counter_chats.choose_spell(_guests, _camera)  # (carry one on, someone joining in, or strangers getting talking)
+	var spell := _counter_chats.choose_spell(_guests, _camera, _plant_waiting())  # (carry one on, someone joining in, or strangers getting talking)
 	var chat: Chat = spell["chat"]
 	var joiner: Guest = spell["joiner"]
 	if chat != null and bool(spell["started"]):
@@ -2185,6 +2200,10 @@ func _counter_chat() -> void:
 			voices.append(str(_owner["name"]))
 		var first := said == "" and chat.last_speaker == ""
 		var speaker: String = voices[0] if first else voices.filter(func(v): return v != chat.last_speaker).pick_random()
+		# Something's just happened to one of them (a PD's plant card): they speak next.
+		var happened_to: Array = voices.filter(func(v): return v != chat.last_speaker and _guest_named(v) != null and _guest_named(v).plant_moment != "")
+		if not happened_to.is_empty():
+			speaker = happened_to[0]
 		var addressee: String = chat.last_speaker if voices.has(chat.last_speaker) and chat.last_speaker != speaker else voices.filter(func(v): return v != speaker).pick_random()
 		var line := await _chat_line(chat, speaker, addressee, first)
 		if line == "":
@@ -3109,6 +3128,7 @@ func _camera_on(guest: Guest) -> void:
 	var named := str(guest.customer["name"]) if guest != null else str(_cat["name"])
 	if guest != null:
 		_viewfinder(guest.node, Rect2(-4, -8, 88, 166))
+		_plant_in(guest.transcript, guest)  # (they've noticed: it's in their conversation)
 		_narrate("The camera follows %s." % named)
 	else:
 		_viewfinder(_cat_node, Rect2(-6, -6, 58, 40))
@@ -3187,7 +3207,8 @@ func _update_desk() -> void:
 
 # --- The PD's plant cards -------------------------------------------------------------------
 
-## Tonight's cards on the desk: one button each, greyed out once played or while they can't be.
+## Tonight's cards on the desk: one button each, greyed out once played or while they can't be,
+## the hover saying what it does, who it's for, and why not.
 func _update_plant_cards() -> void:
 	if _plant_cards == null:
 		return
@@ -3210,15 +3231,89 @@ func _update_plant_cards() -> void:
 		var card := str(button.name).trim_prefix("Plant_")
 		var played := _played.has(card)
 		var why := Plants.why_not(card, now)
+		if why == "" and ["someone", "pair"].has(str(Plants.CARDS[card]["for"])) and _card_target(card).is_empty():
+			why = "Nobody at the counter with time left for it."
 		button.text = "%s%s" % [Plants.CARDS[card]["title"], "  (played)" if played else ""]
 		button.disabled = played or why != ""
-		button.tooltip_text = Text.tip(str(Plants.CARDS[card]["about"]) + ("\nPlayed tonight." if played else ("\n" + why if why != "" else "")))
+		var tip := str(Plants.CARDS[card]["about"])
+		if played:
+			tip += "\nPlayed tonight."
+		elif why != "":
+			tip += "\n" + why
+		else:
+			tip += _aim_text(card)
+		button.tooltip_text = Text.tip(tip)
+
+
+## Who a card would happen to, for its hover: "→ Kim Ji-ho (the camera's on them)".
+func _aim_text(card: String) -> String:
+	var aimed := _card_target(card)
+	if aimed.is_empty():
+		return ""
+	var named := " and ".join(PackedStringArray(aimed.map(func(g): return str(g.customer["name"]))))
+	var on_camera: bool = _camera.subject() == aimed[0]
+	var leaving: bool = not on_camera and _camera.subject() != null and _guests.has(_camera.subject())
+	return "\n→ %s (%s)" % [named, "the camera's on them" if on_camera else ("picked: whoever the camera's on is about to go" if leaving else "picked: follow someone with the camera to choose")]
+
+
+## What the deal needs to know about tonight (see Plants.dealable).
+func _plant_tonight() -> Dictionary:
+	var winter := Seasons.winter_number(int(Game.bar.get("first_date", 0)), _night_number)
+	return {"winter": str(_night_date.get("season", "")) == "winter", "snowed": int(Game.bar.get("snowed_winter", -1)) == winter,
+		"wet": ["rain", "drizzle", "snow"].has(NightRules.weather_kind(_night_weather))}
 
 
 ## What the cards need to know about right now (see Plants.why_not).
 func _plant_now() -> Dictionary:
 	return {"open": _night_open and not _closing_early and not _last_orders, "seated": _guests.size(),
+		"pairable": _guests.any(func(g): return _pair_ok(g)),
 		"regulars_away": _regulars_away().size(), "weather_kind": _weather_kind}
+
+
+## Who a card happens to: [] for the tent's and nobody's; [someone] (whoever the camera's on,
+## or someone the game picks and keeps to); a pair: [them, who they're chatting with].
+func _card_target(card: String) -> Array:
+	var kind := str(Plants.CARDS[card]["for"])
+	if kind != "someone" and kind != "pair" or _guests.is_empty():
+		return []
+	var fits := func(g): return _guests.has(g) and g.stay_left >= PLANT_STAY_LEFT and (kind == "someone" or _pair_partner(g) != null)  # (not someone about to go)
+	var who: Variant = _camera.subject()
+	if who == null or not fits.call(who):
+		who = _picked.get(card)
+		if who == null or not fits.call(who):
+			var choices: Array = _guests.filter(func(g): return fits.call(g))
+			if choices.is_empty():
+				return []
+			who = choices[_plant_dice.randi_range(0, choices.size() - 1)]
+			_picked[card] = who
+	return [who] if kind == "someone" else [who, _pair_partner(who)]
+
+
+## Who a pair's card would pair someone with, or null: who they're chatting with, or (if
+## they're not chatting) someone free to get talking; both with time left (not a chat that's
+## about to break up).
+func _pair_partner(guest: Variant) -> Variant:
+	if not _can_chat(guest) or guest.stay_left < PLANT_STAY_LEFT:
+		return null
+	var partner: Variant = _chat_partner(guest)
+	if _chat_of(guest) != null:
+		return partner if partner != null and partner.stay_left >= PLANT_STAY_LEFT else null
+	var free: Array = _free_to_chat().filter(func(g): return g != guest and g.stay_left >= PLANT_STAY_LEFT)
+	free.sort_custom(func(a, b): return a.seat < b.seat)
+	return free[0] if not free.is_empty() else null
+
+
+func _pair_ok(guest: Variant) -> bool:
+	return _pair_partner(guest) != null
+
+
+## Someone they're chatting with at the counter, or null.
+func _chat_partner(guest: Variant) -> Variant:
+	var chat := _chat_of(guest)
+	if chat == null:
+		return null
+	var others: Array = _chat_voices(chat).filter(func(g): return g != guest)
+	return others[0] if not others.is_empty() else null
 
 
 ## The bar's regulars who aren't here tonight and aren't waiting to come in.
@@ -3227,15 +3322,58 @@ func _regulars_away() -> Array:
 	return RegularsTonight.all(Game.bar).filter(func(r): return not here.has(str(r["id"])) and not _waiting_who.has(str(r["id"])) and str(r["id"]) != _planted_regular)
 
 
-## The PD plays a card: it happens, now (a game fact), and whoever it happens to is given it
-## for their next line. Never pauses anything.
+## The PD plays a card: it happens, now, to whoever it's for (told in the conversation they
+## speak in next, and as a moment for their line), and a fact card makes its fact true.
+## Never pauses anything.
 func _on_plant_pressed(card: String) -> void:
 	if _played.has(card) or not _hand.has(card) or Plants.why_not(card, _plant_now()) != "":
 		return
+	var data: Dictionary = Plants.CARDS[card]
+	var aimed := _card_target(card)
+	if ["someone", "pair"].has(str(data["for"])) and aimed.is_empty():
+		return
 	_played.append(card)
+	_picked.erase(card)
+	var what := Plants.variant(card, _plant_dice)  # (what it is this time: "", for a card without variants)
 	var who := ""
-	var about: Variant = null  # (who the caption goes over: nobody in particular, unless it's their phone)
-	match card:
+	var about: Variant = null  # (who the caption goes over: nobody in particular, unless it happened to someone)
+	match str(data["for"]):
+		"someone":
+			var target: Variant = aimed[0]
+			who = str(target.customer["name"])
+			var gender := str(target.customer.get("gender", ""))
+			_plant_on(target, card, Plants.moment(card, who, "", what, gender), Plants.happened(card, who, "", what, gender))
+			if str(data.get("others", "")) != "":
+				for other in _guests:
+					if other != target:
+						_plant_on(other, card, Plants.others_moment(card, who), Plants.happened(card, who, "", what, gender))
+			about = target.node
+			_narrate(Plants.happened(card, who, "", what, gender))
+		"pair":
+			var a: Variant = aimed[0]
+			var b: Variant = aimed[1]
+			who = "%s and %s" % [a.customer["name"], b.customer["name"]]
+			if _chat_of(a) == null:  # (not chatting yet: this gets them talking)
+				var chat := Chat.new()
+				chat.people = [a, b]
+				_chats.append(chat)
+				_narrate("%s gets talking to %s." % [a.customer["name"], b.customer["name"]])
+				_event("chat_started", {"name": str(a.customer["name"]), "friend": str(b.customer["name"])}, a.node)
+				chat.transcript.append({"action": "%s turns to %s, a stranger a few stools along, and starts a conversation." % [a.customer["name"], b.customer["name"]]})
+			var said := Plants.happened(card, str(a.customer["name"]), str(b.customer["name"]), what)
+			_plant_on(a, card, Plants.moment(card, str(a.customer["name"]), str(b.customer["name"]), what), said)
+			_plant_on(b, card, Plants.moment(card, str(b.customer["name"]), str(a.customer["name"]), what), said)
+			about = a.node
+			_narrate(said)
+		"tent":
+			for guest in _guests:
+				_plant_on(guest, card, Plants.moment(card, str(guest.customer["name"]), "", what), Plants.happened(card, "", "", what))
+			for chat in _chats:
+				chat.transcript.append({"action": Plants.happened(card, "", "", what)})
+			if str(data.get("fact", "")) == "":
+				_narrate(Plants.happened(card, "", "", what))
+	# The facts: what the game makes true.
+	match str(data.get("fact", "")):
 		"regular_in":
 			var away := _regulars_away()
 			var regular: Dictionary = away[_plant_dice.randi_range(0, away.size() - 1)]
@@ -3245,47 +3383,76 @@ func _on_plant_pressed(card: String) -> void:
 				if str(due["id"]) == _planted_regular:
 					_regulars_due.erase(due)  # (coming anyway, later: the call brings them sooner)
 			_regulars_due.append({"time": _clock + PLANT_REGULAR_MINUTES, "id": _planted_regular})
-			_regulars_due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
+			_regulars_due.sort_custom(func(x, y): return float(x["time"]) < float(y["time"]))
 			_narrate("The PD rings %s: could they come down to the tent tonight?" % who)
-		"rain":
-			_night_weather = str(Plants.CARDS["rain"]["weather"])
-			_show_weather(NightRules.weather_kind(_night_weather))
-			_stats.story["weather_changed"] = _night_weather
+		"weather":
+			_change_weather(str(data["weather"]))
 			_narrate("Out of nowhere, the heavens open: rain drums on the tarp.")
-			for guest in _guests:
-				guest.moment["weather"] = _night_weather
-				guest.plant_moment = Plants.moment("rain", str(guest.customer["name"]))
-				guest.plant_card = "rain"
-				_plant_in(guest.transcript, guest)
-			for chat in _chats:
-				chat.transcript.append({"action": Plants.happened("rain")})
-			_update_clock_label()
-		"phone":
-			var target: Variant = _camera.subject()
-			if target == null or not _guests.has(target):
-				target = _guests[_plant_dice.randi_range(0, _guests.size() - 1)]
-			who = str(target.customer["name"])
-			target.plant_moment = Plants.moment("phone", who)
-			target.plant_card = "phone"
-			_plant_in(target.transcript, target)
-			about = target.node
-			_narrate(Plants.happened("phone", who))
-	_event("plant_played", {"card": card, "name": who}, about)
+		"first_snow":
+			_change_weather(Seasons.FIRST_SNOW)
+			Game.bar["snowed_winter"] = Seasons.winter_number(int(Game.bar.get("first_date", 0)), _night_number)
+			_narrate("It's started to snow: the first snow of winter.")
+			_event("first_snow")
+		"round":
+			var buyer: Variant = aimed[0]
+			buyer.order.append("soju")  # (on their bill)
+			buyer.served.append("soju")
+			_add_dish(buyer, "soju")
+		"lights":
+			_lights_out = LIGHTS_OUT_SECONDS
+			_narrate(Plants.happened(card, "", "", what))
+	_event("plant_played", {"card": card, "name": who, "what": what}, about)
 	_update_desk()
+	_update_info()
 
 
-## A plant card that's happened to someone, in the conversation they're about to speak in (if
-## it isn't there yet), so "what just happened" includes it, as well as their moment.
+## A card happens to someone: their moment, and what happened for the conversation they speak in next.
+func _plant_on(guest: Variant, card: String, moment: String, what: String) -> void:
+	guest.plant_moment = moment
+	guest.plant_card = card
+	guest.plant_happened = what
+	_plant_in(guest.transcript, guest)
+
+
+## Tonight's weather changes (a plant card): the tent, the sound, the street, the top bar and
+## everyone's prompts from now on.
+func _change_weather(weather: String) -> void:
+	_night_weather = weather
+	_show_weather(NightRules.weather_kind(_night_weather))
+	_stats.story["weather_changed"] = _night_weather
+	for guest in _guests:
+		guest.moment["weather"] = _night_weather
+	_update_clock_label()
+
+
+## A plant card that's happened to someone (or the camera turning to them), in the conversation
+## they're about to speak in (if it isn't there yet), so "what just happened" includes it, as
+## well as their moment.
 func _plant_in(transcript: Array, guest: Variant) -> void:
-	if guest == null or guest.plant_moment == "" or guest.plant_card == "":
+	if guest == null:
 		return
-	var what := Plants.happened(guest.plant_card, str(guest.customer["name"]))
-	if not transcript.any(func(entry): return str(entry.get("action", "")) == what):
-		transcript.append({"action": what})
+	var said: Array = []
+	if guest.camera_moment != "":
+		said.append(Talk.camera_happened(str(guest.customer["name"])))
+	if guest.plant_moment != "" and guest.plant_happened != "":
+		said.append(guest.plant_happened)
+	for what in said:
+		if not transcript.any(func(entry): return str(entry.get("action", "")) == what):
+			transcript.append({"action": what})
+
+
+## Someone something's just happened to (a plant card) who's chatting at the counter, or null.
+func _plant_waiting() -> Variant:
+	for guest in _guests:
+		if guest.plant_moment != "" and _chat_of(guest) != null:
+			return guest
+	return null
 
 
 func _cat_tooltip() -> String:
 	var text := "%s, the tent's %s cat (%s)" % [_with_hangul(_cat), _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], "")]
+	if CatRules.is_nickname(str(_cat["name"])):
+		text += "\nA stray that moved in: the regulars' nickname for it, %s, means %s." % [_cat["name"], CatRules.CAT_NICKNAMES[str(_cat["name"])]["means"]]
 	text += "\n" + ("● The camera's on it: click to stop" if _camera.on_cat else "Click to follow it with the camera")
 	return Text.tip(text)
 

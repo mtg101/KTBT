@@ -36,7 +36,50 @@ const CAT_SPOT_WEIGHTS := {
 
 
 ## Korean pet names, for a bar whose cat the AI couldn't name (or an older bar that had none).
-const CAT_NAMES := ["Nabi", "Dubu", "Gamja", "Mandu", "Bori", "Kongi", "Duri", "Hodu", "Nuri", "Dalgi", "Kkami", "Chorong"]
+## The tent's cat is a stray that wandered in one night and stayed: it isn't anyone's, so the
+## owner and the regulars gave it a nickname, the kind Koreans give street cats. Always one of
+## these (never a person's name, which mixed it up with the customers: a cat called Ji-eun,
+## and a Park Ji-eun at the counter). coats: the coats it suits ([]: any). Each name's Hangul
+## and meaning, for the hover.
+const CAT_NICKNAMES := {
+	"Nabi": {"hangul": "나비", "means": "butterfly: what Koreans have called street cats for generations", "coats": []},
+	"Nyang-i": {"hangul": "냥이", "means": "kitty", "coats": []},
+	"Mandu": {"hangul": "만두", "means": "dumpling", "coats": []},
+	"Kong-i": {"hangul": "콩이", "means": "little bean", "coats": []},
+	"Gamja": {"hangul": "감자", "means": "potato", "coats": []},
+	"Bori": {"hangul": "보리", "means": "barley", "coats": ["tabby", "ginger", "grey"]},
+	"Chijeu": {"hangul": "치즈", "means": "cheese: what Koreans call a ginger cat", "coats": ["ginger"]},
+	"Hotteok": {"hangul": "호떡", "means": "a sweet street pancake: round and golden", "coats": ["ginger"]},
+	"Kkami": {"hangul": "까미", "means": "blackie", "coats": ["black"]},
+	"Kkamjang-i": {"hangul": "깜장이", "means": "little black one", "coats": ["black"]},
+	"Dubu": {"hangul": "두부", "means": "tofu", "coats": ["white"]},
+	"Seolgi": {"hangul": "설기", "means": "a white rice cake", "coats": ["white"]},
+	"Godeungeo": {"hangul": "고등어", "means": "mackerel: what Koreans call a striped tabby", "coats": ["tabby", "grey"]},
+	"Hodu": {"hangul": "호두", "means": "walnut", "coats": ["tabby"]},
+	"Samsaek-i": {"hangul": "삼색이", "means": "three colours: what Koreans call a calico", "coats": ["calico"]},
+	"Jaetbit": {"hangul": "잿빛", "means": "ash grey", "coats": ["grey"]},
+}
+const CAT_NAMES := ["Nabi", "Nyang-i", "Mandu", "Kong-i", "Gamja", "Bori", "Chijeu", "Hotteok", "Kkami", "Kkamjang-i", "Dubu", "Seolgi", "Godeungeo", "Hodu", "Samsaek-i", "Jaetbit"]
+
+
+## The nicknames that suit a cat of this coat (its own first, then the ones for any coat).
+static func nicknames_for(coat: String) -> Array:
+	var own: Array = CAT_NAMES.filter(func(n): return (CAT_NICKNAMES[n]["coats"] as Array).has(coat))
+	return own + CAT_NAMES.filter(func(n): return (CAT_NICKNAMES[n]["coats"] as Array).is_empty())
+
+
+## Whether a name's one of the nicknames (a bar from before them has a cat with some other name).
+static func is_nickname(cat_name: String) -> bool:
+	return CAT_NICKNAMES.has(cat_name)
+
+
+## A nickname for a cat from before nicknames, the game's own pick (no dice: the same every
+## time for the same cat): one that suits its coat, not another bar's.
+static func nickname_for_old_cat(cat: Dictionary, taken: Array = []) -> String:
+	var choices: Array = nicknames_for(str(cat.get("coat", ""))).filter(func(n): return not taken.has(n))
+	if choices.is_empty():
+		choices = CAT_NAMES
+	return str(choices[posmod(hash(str(cat.get("name", ""))), choices.size())])
 
 
 const CAT_WORDS := ["cat", "cats", "kitty", "kitten", "goyangi", "puss", "pussycat", "moggy"]
@@ -166,29 +209,30 @@ static func validate_cat_name(data: Variant, owner_name: String = "", taken: Arr
 	var problem := Text.check_fields(data, ["name"])
 	if problem != "":
 		return problem
-	var cat_name := Text.unquote(Text.tidy_text(data["name"]))
-	if cat_name.split(" ", false).size() > 2:
-		return "a cat's name is one or two words"
-	if cat_name.length() > MAX_CAT_NAME_LENGTH:
-		return "the name is too long for a cat"
-	for c in cat_name:
-		if not ((c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c in [" ", "-", "'"]):
-			return "the name must be in English letters"
+	var said := Text.unquote(Text.tidy_text(data["name"]))
+	var cat_name := ""
+	for nickname in CAT_NAMES:  # (one of the nicknames: spelled as the list has it)
+		if said.to_lower().replace(" ", "-") == str(nickname).to_lower():
+			cat_name = nickname
+	if cat_name == "":
+		return "the cat's nickname must be one from the list given: \"%s\" isn't" % said
 	for part in owner_name.split(" ", false):
-		if cat_name.to_lower() == part.to_lower() or cat_name.to_lower() == owner_name.to_lower():
+		if cat_name.to_lower() == part.to_lower():
 			return "the cat can't have the owner's name"
 	for other in taken:
 		if cat_name.to_lower() == str(other).to_lower():
 			return "another bar's cat is already called %s: pick a different name" % cat_name
 	data["name"] = cat_name
-	data["hangul"] = Names.fit_hangul(cat_name, data.get("hangul", ""))  # shown only if it fits
+	data["hangul"] = str(CAT_NICKNAMES[cat_name]["hangul"])  # (the game's own)
 	return ""
 
 
-static func fallback_cat_name(roll: float, taken: Array = []) -> String:
-	var free := CAT_NAMES.filter(func(n): return not taken.has(n))
+## The game's own pick of a nickname (when the AI can't): one that suits the coat ("": any).
+static func fallback_cat_name(roll: float, taken: Array = [], coat: String = "") -> String:
+	var suits: Array = nicknames_for(coat) if coat != "" else CAT_NAMES
+	var free := suits.filter(func(n): return not taken.has(n))
 	if free.is_empty():
-		free = CAT_NAMES
+		free = suits
 	return free[clampi(floori(roll * free.size()), 0, free.size() - 1)]
 
 

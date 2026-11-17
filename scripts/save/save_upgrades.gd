@@ -2,17 +2,20 @@ extends RefCounted
 ## Bars saved by older versions of the game, brought up to date in one place (step 6 of the
 ## refactor: see DEVLOG.md). Two kinds:
 ## - upgrade: what the game fills in itself, as the bar opens (an owner from before looks gets
-##   a look for their age; one from before owners had a fixed life gets one): saved straight away.
+##   a look for their age; one from before owners had a fixed life gets one; a cat from before
+##   nicknames gets one, its old name kept as "former_name"): saved straight away.
 ## - ai_needs: what it needs the AI for, once, while the bar opens (names in Hangul, founding
 ##   regulars for a bar from before regulars, signature dishes for a menu from before them).
 ## Each upgrade happens once: what it fills in is saved, so the next time there's nothing to do.
 
 const Looks = preload("res://scripts/rules/looks.gd")
 const People = preload("res://scripts/rules/people.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
 
 
 ## What the game fills in itself, without the AI. Returns what it filled in ([]: nothing):
-## "owner_look", "owner_life". (The game's dice, in the order they always were: the look first.)
+## "owner_look", "owner_life", "cat_nickname". (The game's dice, in the order they always were:
+## the look first; the cat's nickname needs none.)
 static func upgrade(bar: Dictionary) -> Array:
 	var changed: Array = []
 	var owner_data: Dictionary = bar.get("owner", {})
@@ -21,6 +24,12 @@ static func upgrade(bar: Dictionary) -> Array:
 		changed.append("owner_look")
 	if People.fill_owner_life(owner_data, randf()):  # a bar from before owners had a fixed life
 		changed.append("owner_life")
+	var cat: Dictionary = bar.get("cat", {})
+	if not cat.is_empty() and not CatRules.is_nickname(str(cat.get("name", ""))):  # a cat from before nicknames (no dice)
+		cat["former_name"] = str(cat.get("name", ""))
+		cat["name"] = CatRules.nickname_for_old_cat(cat)
+		cat["hangul"] = str(CatRules.CAT_NICKNAMES[cat["name"]]["hangul"])
+		changed.append("cat_nickname")
 	return changed
 
 

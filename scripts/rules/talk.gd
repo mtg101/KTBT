@@ -305,9 +305,10 @@ static func off_menu_here(line: String) -> String:
 
 
 const MADE_UP_KOREAN_WORDS := 3  # this many romanised-looking words in a line, and it's made-up Korean
-## ...or one that ends like a Korean verb, which no English word does ("haetjuseyo"). A real
-## one ("annyeonghaseyo", "gomawoyo") is in the glossary, so it's fine.
-const KOREAN_ENDINGS := ["seyo", "nida", "haeyo", "jiyo", "eoyo", "deyo"]
+## ...or one that ends like a Korean verb, which no English word does ("haetjuseyo", and
+## "norahae", a garbled 노래해 "sing", said three times in one night). A real one
+## ("annyeonghaseyo", "gomawoyo") is in the glossary, so it's fine.
+const KOREAN_ENDINGS := ["seyo", "nida", "haeyo", "jiyo", "eoyo", "deyo", "hae"]
 
 
 ## The romanised-Korean-looking words in a line, if there are enough to be made-up Korean
@@ -523,7 +524,14 @@ const HINT_TELLS := {
 	"camera": ["camera", "film", "on tv", "episode", "crew", "broadcast"],
 	"plant_regular_in": ["rang", "phoned", "called me", "invited", "producer", "pd", "on tv", "camera", "episode"],
 	"plant_rain": ["rain", "pour", "umbrella", "wet", "soaked", "downpour", "drumming", "tarp"],
-	"plant_phone": ["phone", "call", "ring", "answer", "text", "message", "mum", "mom", "boss"],
+	"plant_phone": ["phone", "call", "ring", "answer", "text", "message", "mum", "mom", "boss", "eomma", "brother", "number", "ignore"],
+	"plant_first_snow": ["snow", "first snow", "wish", "winter", "snowflake"],
+	"plant_text": ["text", "message", "read", "says", "wrote", "phone", "who was that"],
+	"plant_ex_walks_past": ["ex", "was that", "saw", "outside", "used to", "go after", "my heart", "with someone", "flowers", "wedding", "dog"],
+	"plant_round_on": ["thank", "thanks", "on me", "round", "generous", "jjan", "geonbae", "cheers", "kind of you", "congratulations", "promoted", "birthday", "quit", "celebrate"],
+	"plant_small_world": ["small world", "same", "no way", "remember", "school", "classmate", "sunbae", "hoobae", "teacher", "company", "jeju", "busan", "bathhouse", "boss", "goshiwon", "neighbour", "neighbor"],
+	"plant_noraebang": ["song", "sing", "ballad", "noraebang", "karaoke", "music", "voice", "this song", "trot", "duet", "theme", "off-key", "tune"],
+	"plant_power_goes": ["lights", "light", "dark", "power", "bulb", "cable", "lead", "plug", "trip", "fuse", "battery", "blackout"],
 	"game_spoon_mic": ["sing", "song", "microphone", "mic"], "game_apartment": ["apateu", "floor", "stack"],
 	"game_titanic": ["titanic", "sink", "sank"], "game_nunchi": ["nunchi", "stand up", "on your feet", "count to", "count us"],
 	"game_369": ["369", "three six nine", "clap"], "game_love_shot": ["love shot", "loveshot", "link arms", "arms linked", "linked arms"],
@@ -615,6 +623,15 @@ const CAMERA_MOMENT := "The show's camera crew have just turned their camera on 
 
 static func camera_moment(who: String) -> String:
 	return CAMERA_MOMENT.replace("{who}", Names.given_name(who))
+
+
+## ...and what happened, as it goes in the conversation they speak in next (who: full name):
+## as with the plant cards, a moment in the direction alone was ignored (0 of 3).
+const CAMERA_HAPPENED := "The show's crew turn their camera on {who}."
+
+
+static func camera_happened(who: String) -> String:
+	return CAMERA_HAPPENED.replace("{who}", who)
 
 
 const STUNNED_MOMENT := "What {who} just said has stunned them: they can hardly believe their ears."

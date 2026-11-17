@@ -437,7 +437,8 @@ func highlights() -> Array:
 			"camera_on":
 				what = "the camera follows %s" % event.get("name", "")
 			"plant_played":
-				what = "plant: %s%s" % [event.get("card", ""), (" (%s)" % event["name"]) if str(event.get("name", "")) != "" else ""]
+				what = "plant: %s%s%s" % [event.get("card", ""), (" (%s)" % event["name"]) if str(event.get("name", "")) != "" else "",
+					(": %s" % event["what"]) if str(event.get("what", "")) != "" else ""]
 			"sat_down":
 				if not full and int(event.get("seated", 0)) >= NightRules.SEATS:
 					full = true

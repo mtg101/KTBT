@@ -200,7 +200,7 @@ func reply(request: Dictionary) -> Variant:
 				"touches": [BarLook.BAR_TOUCHES.keys().pick_random()],
 			}
 		"cat_name":
-			var cat_name := CatRules.fallback_cat_name(randf(), request.get("taken", []))
+			var cat_name := CatRules.fallback_cat_name(randf(), request.get("taken", []), str(request.get("coat", "")))
 			return {"name": cat_name, "hangul": Names.CAT_HANGUL.get(cat_name, "")}
 		"order":
 			return _order(title, int(request.get("max_mains", 1)), int(request.get("max_drinks", 1)))

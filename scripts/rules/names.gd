@@ -95,8 +95,9 @@ const ROMAN_STARTS := [
 
 
 ## The fallback cat names in Hangul.
-const CAT_HANGUL := {"Nabi": "나비", "Dubu": "두부", "Gamja": "감자", "Mandu": "만두", "Bori": "보리", "Kongi": "콩이",
-	"Duri": "두리", "Hodu": "호두", "Nuri": "누리", "Dalgi": "딸기", "Kkami": "까미", "Chorong": "초롱"}
+const CAT_HANGUL := {"Nabi": "나비", "Nyang-i": "냥이", "Mandu": "만두", "Kong-i": "콩이", "Gamja": "감자", "Bori": "보리", "Chijeu": "치즈",
+	"Hotteok": "호떡", "Kkami": "까미", "Kkamjang-i": "깜장이", "Dubu": "두부", "Seolgi": "설기", "Godeungeo": "고등어", "Hodu": "호두",
+	"Samsaek-i": "삼색이", "Jaetbit": "잿빛"}  # (the cats' nicknames: see CatRules.CAT_NICKNAMES)
 
 
 ## A name in Hangul, if it fits the romanised name: Hangul letters only, a sensible length, the

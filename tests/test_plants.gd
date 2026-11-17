@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 
 const Plants = preload("res://scripts/rules/plants.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 
 func test_a_hand_is_dealt_from_the_cards() -> void:
@@ -17,6 +18,20 @@ func test_a_hand_is_dealt_from_the_cards() -> void:
 	assert_array(Plants.deal(dice)).is_equal(hand)  # (the same dice, the same hand)
 
 
+func test_the_deal_follows_tonight() -> void:
+	var dice := RandomNumberGenerator.new()
+	var summer := {"winter": false, "snowed": false, "wet": false}
+	var winter := {"winter": true, "snowed": false, "wet": false}
+	for k in 30:
+		dice.seed = k
+		assert_array(Plants.deal(dice, summer)).not_contains(["first_snow"])  # (no first snow in summer)
+		assert_array(Plants.deal(dice, {"winter": true, "snowed": true})).not_contains(["first_snow"])  # (only once a winter)
+		assert_array(Plants.deal(dice, {"wet": true})).not_contains(["rain"])  # (it's raining already)
+		var last := Plants.deal(dice, summer)
+		assert_array(Plants.deal(dice, summer, last)).not_contains(last)  # (not last night's again)
+	assert_bool(Plants.dealable("first_snow", winter)).is_true()
+
+
 func test_every_card_is_complete() -> void:
 	for card in Plants.CARDS:
 		var data: Dictionary = Plants.CARDS[card]
@@ -24,10 +39,16 @@ func test_every_card_is_complete() -> void:
 		assert_str(str(data.get("about", ""))).is_not_empty()
 		assert_str(str(data.get("moment", ""))).is_not_empty()
 		assert_bool(Talk.HINT_TELLS.has("plant_" + str(card))).override_failure_message("no tells for %s" % card).is_true()
+		assert_bool(["someone", "pair", "tent", "nobody"].has(str(data.get("for", "")))).override_failure_message("who's %s for?" % card).is_true()
+		# Seen happening: a caption of its own (or, for the first snow, the one it already has).
+		assert_bool(Captions.CAPTIONS.has("plant_" + str(card)) or card == "first_snow").override_failure_message("no caption for %s" % card).is_true()
+		# Its moment and what happened name nobody but who it's for.
+		assert_str(Plants.happened(card, "Kim Ji-ho", "Lee Min-jun", "went to the same school")).not_contains("{")
+		assert_str(Plants.moment(card, "Kim Ji-ho", "Lee Min-jun", "went to the same school")).not_contains("{")
 
 
 func test_when_a_card_can_be_played() -> void:
-	var now := {"open": true, "seated": 2, "regulars_away": 1, "weather_kind": ""}
+	var now := {"open": true, "seated": 2, "pairable": true, "regulars_away": 1, "weather_kind": ""}
 	for card in Plants.CARDS:
 		assert_str(Plants.why_not(card, now)).is_empty()
 		assert_str(Plants.why_not(card, {"open": false})).is_not_empty()  # (not before or after the night, or closing up)
@@ -35,12 +56,32 @@ func test_when_a_card_can_be_played() -> void:
 	assert_str(Plants.why_not("rain", {"open": true, "weather_kind": "drizzle"})).contains("already wet")
 	assert_str(Plants.why_not("rain", {"open": true, "weather_kind": "snow"})).contains("already wet")
 	assert_str(Plants.why_not("phone", {"open": true, "seated": 0})).contains("Nobody")
+	assert_str(Plants.why_not("round_on", {"open": true, "seated": 1})).contains("Nobody else")  # (a round needs someone to buy for)
+	assert_str(Plants.why_not("small_world", {"open": true, "seated": 2, "pairable": false})).contains("chat")
+	assert_str(Plants.why_not("first_snow", {"open": true, "weather_kind": "snow"})).contains("already snowing")
 
 
 func test_a_cards_moment_is_about_whoever_it_happens_to() -> void:
 	assert_str(Plants.moment("phone", "Kim Ji-ho")).starts_with("Ji-ho's phone")
-	assert_str(Plants.moment("regular_in", "Park Mi-sook")).contains("Mi-sook").contains("PD")
+	assert_str(Plants.moment("regular_in", "Park Mi-sook")).contains("Mi-sook is only here tonight because the show's PD rang them")
+	# About one woman or man: "her ex", not "their ex" (and anyone else, "their").
+	assert_str(Plants.happened("ex_walks_past", "Lee Ji-hyun", "", "carrying flowers", "woman")).is_equal("Someone walks past outside the tarp, and Lee Ji-hyun freezes: it's her ex, carrying flowers.")
+	assert_str(Plants.happened("round_on", "Kim Min-seok", "", "it's their birthday", "man")).ends_with(": it's his birthday.")
+	assert_str(Plants.gendered("They've quit their job, so tell them.", "woman")).is_equal("She's quit her job, so tell her.")
+	assert_str(Plants.gendered("it's their ex", "non-binary")).is_equal("it's their ex")
+	assert_str(Plants.gendered("the theory of themes", "man")).is_equal("the theory of themes")  # (whole words only)
 	assert_str(Plants.moment("rain")).contains("pouring")
+	assert_str(Plants.moment("small_world", "Kim Ji-ho", "Lee Min-jun", "went to the same school")).is_equal("Ji-ho and Min-jun have just worked out that they went to the same school.")
+	# A card with variants isn't the same every time.
+	var dice := RandomNumberGenerator.new()
+	var seen := {}
+	for k in 40:
+		seen[Plants.variant("small_world", dice)] = true
+	assert_int(seen.size()).is_greater(3)
+	assert_str(Plants.variant("rain", dice)).is_empty()  # (the rain's just the rain)
+	for card in ["phone", "text", "ex_walks_past", "round_on", "noraebang", "power_goes"]:
+		assert_str(Plants.variant(card, dice)).is_not_empty()
+	assert_str(Plants.others_moment("round_on", "Kim Ji-ho")).starts_with("Ji-ho has just bought")
 	# Taken up: talking about it, not just carrying on.
 	assert_bool(Talk.hint_taken("plant_phone", "Sorry, I have to take this call.")).is_true()
 	assert_bool(Talk.hint_taken("plant_rain", "Look at that rain!")).is_true()

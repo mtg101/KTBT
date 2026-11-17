@@ -858,11 +858,24 @@ func test_cat_names() -> void:
 	var data := {"name": " Dubu "}
 	assert_str(CatRules.validate_cat_name(data, "Park Mi-sook")).is_empty()
 	assert_str(str(data["name"])).is_equal("Dubu")
-	assert_str(CatRules.validate_cat_name({"name": "Mi-sook"}, "Park Mi-sook")).contains("owner's name")
-	assert_str(CatRules.validate_cat_name({"name": "The Very Fluffy One"})).contains("one or two words")
-	assert_str(CatRules.validate_cat_name({"name": "두부"})).contains("English letters")
+	assert_str(str(data["hangul"])).is_equal("두부")  # (the game's own)
+	# Always one of the nicknames: never a person's name (a cat called Ji-eun, and a Park Ji-eun at the counter).
+	assert_str(CatRules.validate_cat_name({"name": "Ji-eun"}, "Park Mi-sook")).contains("from the list")
+	assert_str(CatRules.validate_cat_name({"name": "두부"})).contains("from the list")
+	var spelled := {"name": "samsaek i"}
+	assert_str(CatRules.validate_cat_name(spelled)).is_empty()
+	assert_str(str(spelled["name"])).is_equal("Samsaek-i")  # (spelled as the list has it)
 	assert_bool(CatRules.fallback_cat_name(0.5) in CatRules.CAT_NAMES).is_true()
 	assert_str(CatRules.fallback_cat_name(1.0)).is_equal(CatRules.CAT_NAMES.back())
+	for i in 10:
+		assert_bool(CatRules.nicknames_for("ginger").has(CatRules.fallback_cat_name(i / 10.0, [], "ginger"))).is_true()  # (one that suits its coat)
+	for nickname in CatRules.CAT_NAMES:
+		assert_str(Names.fit_hangul(nickname, CatRules.CAT_NICKNAMES[nickname]["hangul"])).override_failure_message(nickname).is_not_empty()
+		assert_str(Glossary.hangul_tip(str(CatRules.CAT_NICKNAMES[nickname]["hangul"]))).contains(str(CatRules.CAT_NICKNAMES[nickname]["means"]))
+	# A cat from before nicknames gets one: the game's own, one that suits its coat, the same each time.
+	var old_cat := {"name": "Ji-eun", "coat": "tabby"}
+	assert_bool(CatRules.nicknames_for("tabby").has(CatRules.nickname_for_old_cat(old_cat))).is_true()
+	assert_str(CatRules.nickname_for_old_cat(old_cat)).is_equal(CatRules.nickname_for_old_cat(old_cat))
 
 
 # --- What conversations turn to -----------------------------------------------------------
@@ -914,7 +927,7 @@ func test_lines_with_brackets_are_rejected() -> void:
 
 
 func test_every_bars_cat_has_its_own_name() -> void:
-	assert_str(CatRules.validate_cat_name({"name": "Ssal"}, "Park Mi-sook", ["ssal", "Dubu"])).contains("already called")
+	assert_str(CatRules.validate_cat_name({"name": "Nabi"}, "Park Mi-sook", ["nabi", "Dubu"])).contains("already called")
 	assert_str(Text.problem_kind("another bar's cat is already called Ssal: pick a different name")).is_equal("same name")
 	for i in 20:
 		assert_str(CatRules.fallback_cat_name(i / 20.0, ["Nabi", "Dubu"])).is_not_equal("Nabi")
@@ -1856,7 +1869,8 @@ func test_table_games_only_when_the_night_is_right() -> void:
 		assert_bool(Captions.CAPTIONS.has("game_" + str(id))).is_true()
 	assert_bool(Talk.hint_taken("game_spoon_mic", "Give me that spoon, I'm singing!")).is_true()
 	assert_bool(Talk.hint_taken("game_titanic", "Whoever sinks it drinks it!")).is_true()
-	assert_bool(Talk.hint_taken("game_nunchi", "I used to teach music in the countryside.")).is_false()  # (whole words: a real night's false start)
+	assert_bool(Talk.hint_taken("game_nunchi", "I used to teach music in the countryside.")).is_false()
+	assert_str(Talk.made_up_korean("It reminds me of my own norahae days.")).contains("norahae")  # (a garbled 노래해, three times in a night)  # (whole words: a real night's false start)
 	assert_bool(Talk.hint_taken("game_love_shot", "My arms ache from the deliveries.")).is_false()
 	# What's there at the table isn't taking it up: only playing it is.
 	for id in Talk.TABLE_GAMES:

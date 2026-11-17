@@ -75,13 +75,18 @@ func leave(guest: Variant) -> void:
 ## two strangers get talking. {"chat": the Chat (null: nobody to chat), "started": a new one,
 ## "joiner": who joined (or null)}. camera: the PD's camera (bar/camera.gd), leaning the spell
 ## towards whoever it's following (the dice are rolled as ever, then it leans).
-func choose_spell(guests: Array, camera: Variant = null) -> Dictionary:
+## prefer: someone something's just happened to (a PD's plant card): their chat carries on.
+func choose_spell(guests: Array, camera: Variant = null, prefer: Variant = null) -> Dictionary:
 	var ongoing := chats.filter(func(c): return voices(c).size() >= 2)
 	var free := free_to_chat(guests)
 	if not ongoing.is_empty() and (free.size() < 2 or randf() < CARRY_ON_CHANCE):
 		var chat: Chat = ongoing.pick_random()
 		if camera != null:
 			chat = camera.choose_chat(ongoing, chat)
+		if prefer != null:
+			for each in ongoing:
+				if each.people.has(prefer):
+					chat = each
 		var joiner: Variant = null
 		if not free.is_empty() and randf() < JOIN_CHANCE:
 			joiner = free.pick_random()

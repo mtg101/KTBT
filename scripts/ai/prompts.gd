@@ -407,8 +407,11 @@ static func describe_cat(cat: Dictionary, now: String) -> String:
 	var sex := ""
 	if cat.has("sex"):
 		sex = " (a %s: call the cat \"%s\")" % ["female" if cat["sex"] == "she" else "male", cat["sex"]]
-	return "THE CAT: %s, the tent's %s cat%s, %s. Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
-		cat["name"], cat["coat"], sex, CatRules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
+	var nickname := ""
+	if CatRules.is_nickname(str(cat.get("name", ""))):
+		nickname = " (a stray that moved in: \"%s\", %s, is the nickname the owner and the regulars gave it)" % [cat["name"], CatRules.CAT_NICKNAMES[str(cat["name"])]["means"].get_slice(":", 0)]
+	return "THE CAT: %s, the tent's %s cat%s%s, %s. Right now: %s Only mention the cat as it really is right now: nobody strokes it, or talks of it on a lap, unless it's on their lap." % [
+		cat["name"], cat["coat"], nickname, sex, CatRules.CAT_PERSONALITIES.get(cat["personality"], cat["personality"]), now]
 
 
 ## Messages asking the AI to name the bar's cat. The game has decided its coat and personality.
@@ -426,16 +429,17 @@ Reply with ONLY a JSON object with exactly one key:
 
 
 static func cat_name_messages(owner: Dictionary, bar_name: String, coat: String, personality: String, sex: String = "she", taken: Array = []) -> Array:
-	var request := """%s, the owner of %s, has a cat that lives at the tent: a %s %s cat, %s.
+	var choices := PackedStringArray()
+	for nickname in CatRules.nicknames_for(coat):
+		if not taken.has(nickname):
+			choices.append("- %s (%s)" % [nickname, CatRules.CAT_NICKNAMES[nickname]["means"]])
+	var request := """A stray cat wandered into %s, %s's tent bar, one night and stayed: a %s %s cat, %s. It isn't anyone's, so the owner and the regulars gave it a nickname, the kind Koreans give street cats.
 
-What's the cat called? A short Korean pet name in English letters, the kind Koreans give their cats.""" % [owner["name"], bar_name, coat, "female" if sex == "she" else "male", CatRules.CAT_PERSONALITIES.get(personality, personality)]
-	if not taken.is_empty():
-		request += " Other tents' cats are called %s, so pick something else." % ", ".join(PackedStringArray(taken))
-	request += """
+Which of these nicknames did they give it?
+%s
 
-Reply with ONLY a JSON object with exactly these keys:
-- "name": the cat's name, in English letters
-- "hangul": the same name in Korean letters (Hangul), e.g. "나비" for Nabi"""
+Reply with ONLY a JSON object with exactly one key:
+- "name": the nickname, spelled exactly as above""" % [bar_name, owner["name"], coat, "female" if sex == "she" else "male", CatRules.CAT_PERSONALITIES.get(personality, personality), "\n".join(choices)]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

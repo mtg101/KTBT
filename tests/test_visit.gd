@@ -732,9 +732,10 @@ func test_the_cat_steals_a_fish_cake() -> void:
 	guest.served.append("odeng")
 	scene._add_dish(guest, "odeng")
 	var on_table: int = guest.food_row.get_child_count()
+	var odeng_before: int = guest.served.count("odeng")  # (they may have ordered some themselves: the seed and the frames decide)
 	var bill: int = Orders.bill(guest.order)
 	scene._cat_steals(guest)
-	assert_bool(guest.served.has("odeng")).is_false()  # gone from the table...
+	assert_int(guest.served.count("odeng")).is_equal(odeng_before - 1)  # gone from the table...
 	assert_int(guest.food_row.get_child_count()).is_equal(on_table - 1)
 	assert_int(Orders.bill(guest.order)).is_equal(bill)  # ...but still on the bill
 	assert_str(_transcript(runner)).contains("%s snatches an odeng skewer off %s's plate" % [cat_name, guest.customer["name"]])
@@ -866,6 +867,7 @@ func test_the_pds_camera_follows_whoever_is_clicked() -> void:
 	assert_str(str(followed.node.get_node("Hover").tooltip_text)).contains("click to stop")
 	assert_str(_transcript(runner)).contains("The camera follows %s." % followed.customer["name"])
 	assert_str((runner.find_child("CameraRec") as Label).text).contains(str(followed.customer["name"]))
+	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == Talk.camera_happened(followed.customer["name"]))).is_true()  # (noticed: in their conversation)
 	assert_int(int(scene._stats.event_counts.get("camera_on", 0))).is_equal(1)
 	# The owner gets to them sooner (as if they'd waited longer).
 	assert_int(scene._neediness(followed)).is_equal(followed.attended - PdCamera.PULL - (3 if followed.company == "owner" else 0))
@@ -916,6 +918,9 @@ func test_the_pds_plant_cards() -> void:
 	var cards := runner.find_child("PlantCards") as Control
 	assert_int(cards.get_child_count()).is_equal(Plants.HAND)
 	assert_bool(scene._hand.all(func(card): return Plants.CARDS.has(card))).is_true()
+	assert_array(Game.bar["last_hand"]).is_equal(scene._hand)  # (remembered: not the same tomorrow)
+	scene._hand = ["phone", "rain", "regular_in"]  # (these three, for this test)
+	scene._update_desk()
 	var phone := cards.get_node("Plant_phone") as Button
 	assert_bool(phone.disabled).is_true()  # (nobody at the counter yet)
 	_crowd(scene, 2)
@@ -929,8 +934,8 @@ func test_the_pds_plant_cards() -> void:
 	phone.pressed.emit()
 	assert_str(followed.plant_card).is_equal("phone")
 	assert_str(followed.plant_moment).contains("phone has just started ringing")
-	assert_str(_transcript(runner)).contains("%s's phone starts ringing." % followed.customer["name"])
-	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == Plants.happened("phone", followed.customer["name"]))).is_true()
+	assert_str(_transcript(runner)).contains("%s's phone starts ringing: it's " % followed.customer["name"])  # (who's calling, this time)
+	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == followed.plant_happened)).is_true()
 	assert_int(int(scene._stats.captions.get("plant_phone", 0))).is_equal(1)  # (so you can see it happen)
 	# Whichever conversation they speak in next has it too (once).
 	var elsewhere: Array = []
@@ -955,6 +960,78 @@ func test_the_pds_plant_cards() -> void:
 		assert_str(_transcript(runner)).contains("The PD rings")
 	assert_int(int(scene._stats.event_counts.get("plant_played", 0))).is_equal(3 if not away.is_empty() else 2)
 	assert_str(scene._stats.panel_text(0, 0)).contains("Plants: played")
+
+
+func test_small_world_gets_two_strangers_talking() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 0.0  # (nobody chatting by themselves)
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests.all(func(g): return scene._can_chat(g)))).is_true()
+	assert_array(scene._chats).is_empty()
+	scene._hand = ["small_world", "phone", "rain"]
+	scene._update_desk()
+	assert_bool((runner.find_child("Plant_small_world") as Button).disabled).is_false()  # (two who could get talking)
+	scene._on_plant_pressed("small_world")
+	assert_int(scene._chats.size()).is_equal(1)
+	assert_array(scene._chats[0].people).contains_exactly_in_any_order(scene._guests)
+	assert_str(_transcript(runner)).contains("gets talking to").contains("have just worked out that they")
+	assert_bool(scene._stats.events.any(func(e): return str(e["kind"]) == "plant_played" and str(e.get("what", "")) != "")).is_true()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_more_of_the_pds_plant_cards() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.company_override = "chatty"
+	Hooks.chat_chance_override = 1.0
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 3)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 3 and scene._guests.any(func(g): return scene._chat_partner(g) != null))).override_failure_message("nobody got chatting").is_true()
+	scene._hand = ["round_on", "small_world", "power_goes"]
+	scene._update_desk()
+	# Aimed with the camera: the hover says who.
+	var buyer = scene._guests[0]
+	_click_person(scene, buyer)
+	assert_str((runner.find_child("Plant_round_on") as Button).tooltip_text).contains(str(buyer.customer["name"])).contains("the camera's on them")
+	# A round on them: a bottle on their bill and their table, and everyone else told.
+	var bill_before: Array = buyer.order.duplicate()
+	scene._on_plant_pressed("round_on")
+	assert_int(buyer.order.size()).is_equal(bill_before.size() + 1)
+	assert_str(str(buyer.order[-1])).is_equal("soju")
+	assert_str(buyer.plant_card).is_equal("round_on")
+	for other in scene._guests:
+		if other != buyer:
+			assert_str(other.plant_moment).contains(Names.given_name(str(buyer.customer["name"])))
+	assert_int(int(scene._stats.captions.get("plant_round_on", 0))).is_equal(1)
+	# Something's just happened to them: the owner turns to them sooner, and a chat of theirs carries on.
+	var waiting = scene._guests.filter(func(g): return g != buyer)[0]
+	assert_int(scene._neediness(waiting)).is_equal(waiting.attended - PdCamera.PULL - (3 if waiting.company == "owner" else 0))
+	# Small world: two chatting, both told (not a chat about to break up).
+	scene._camera_off("pd")
+	var partner = scene._chat_partner(scene._card_target("small_world")[0])
+	var stays: float = partner.stay_left
+	partner.stay_left = 5.0
+	assert_bool(scene._pair_ok(partner)).is_false()
+	partner.stay_left = stays
+	var pair: Array = scene._card_target("small_world")
+	assert_int(pair.size()).is_equal(2)
+	scene._on_plant_pressed("small_world")
+	assert_str(pair[0].plant_card).is_equal("small_world")
+	assert_str(pair[1].plant_card).is_equal("small_world")
+	assert_str(pair[0].plant_moment).contains(Names.given_name(str(pair[1].customer["name"])))
+	assert_bool(Plants.CARDS["small_world"]["variants"].any(func(v): return pair[0].plant_moment.contains(v))).is_true()  # (what it is, this time)
+	# The tent's lights go out: out for a moment, and back.
+	scene._on_plant_pressed("power_goes")
+	assert_float(scene._lights_out).is_greater(0.0)
+	assert_bool(await _wait_until(func(): return scene._lights_out <= 0.0, 5000)).is_true()
+	assert_str(_transcript(runner)).contains("The tent's lights go out")
+	assert_int(int(scene._stats.event_counts.get("plant_played", 0))).is_equal(3)
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
 
 func test_last_times_cliffhanger_comes_true() -> void:

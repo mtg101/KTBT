@@ -212,6 +212,16 @@ func update_light(minutes: float, weather_kind: String, closing: bool) -> void:
 		bulb_lights[-1].color = BULB_OFF
 
 
+## The lights going out for a moment (a plant card), over what update_light set this frame:
+## off (true) or stuttering back on (false: as update_light left them).
+func lights_out(off: bool) -> void:
+	if not off:
+		return
+	glow.color.a = 0.02
+	for bulb in bulb_lights:
+		bulb.color = BULB_OFF
+
+
 ## Tonight's weather, as you'd see it: rain or snow falling, fog drifting, a warm haze, and
 ## the bulbs swinging (more in a breeze).
 func show_weather(kind: String) -> void:
