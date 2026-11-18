@@ -71,6 +71,8 @@ func test_the_street_draws_its_pieces_on_its_own_pixel_grid_or_is_just_the_sky()
 	assert_vector(street.size).is_equal(Vector2(StreetArt.PIXELS * StreetArt.SCALE))
 	assert_int(street.stretch_shrink).is_equal(StreetArt.SCALE)  # (each street pixel SCALE screen pixels)
 	assert_bool(street.has_art()).is_true()
+	street.show_street("bar-1")
+	assert_array(street.chosen).is_equal(["", "", "", "", "street/shops", ""])  # (only the shops have art here)
 	var shops: TextureRect = street.pieces[0]
 	assert_vector(shops.size).is_equal(shops.texture.get_size())  # (one image pixel to a grid pixel)
 	assert_vector(shops.position + Vector2(shops.size.x / 2, shops.size.y)).is_equal(Vector2(300, StreetArt.GROUND))
@@ -78,10 +80,28 @@ func test_the_street_draws_its_pieces_on_its_own_pixel_grid_or_is_just_the_sky()
 	street.set_sky(Color.RED)
 	assert_that(street.sky.color).is_equal(Color.RED)
 	assert_array(Art.summary()["drawn"]).contains(["street/overpass", "street/apartments"])  # (the rest, still the stage's own city)
+	street.show_street("bar-2")  # (another bar: the street's redrawn, not added to)
+	assert_int(street.pieces.size()).is_equal(1)
 	Art.folder = "res://tests/support/no_art_here/"
 	Art.reset()
 	var bare: StreetArt = auto_free(StreetArt.new())
 	assert_bool(bare.has_art()).is_false()
+
+
+func test_each_bar_has_its_own_street_the_same_every_night() -> void:
+	Art.reset()  # (the game's own art folder: a few of each piece)
+	var street: StreetArt = auto_free(StreetArt.new())
+	street.show_street("bar-1")
+	var first: Array = street.chosen.duplicate()
+	assert_array(first).not_contains([""])
+	assert_str(first[0]).is_not_equal(first[1])  # (two blocks, never the same one twice)
+	street.show_street("bar-1")
+	assert_array(street.chosen).is_equal(first)  # (the same bar, the same street)
+	var streets := {}
+	for k in 12:
+		street.show_street("bar-%d" % k)
+		streets[str(street.chosen)] = true
+	assert_int(streets.size()).is_greater(6)  # (bars differ)
 
 
 func test_a_manifest_only_has_what_the_game_draws_with_its_sources_and_licences() -> void:

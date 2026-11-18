@@ -19,8 +19,10 @@ static func ids(kind: String) -> Array:
 	match kind:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
-		"street":  # the pieces of the street behind the tent (street_art.gd's LAYOUT)
-			return ["overpass", "apartments", "apartments_2", "shops", "karaoke", "corner_shop"]
+		"street":  # the pieces of the street behind the tent (street_art.gd's SLOTS: a few of each, so bars differ)
+			return ["overpass", "overpass_2", "apartments", "apartments_2", "apartments_3", "apartments_4", "apartments_5", "apartments_6",
+				"shops", "shops_2", "shops_3", "shops_4", "karaoke", "karaoke_2", "karaoke_3", "karaoke_4",
+				"corner_shop", "corner_shop_2", "corner_shop_3", "corner_shop_4"]
 	return []
 
 ## Where the art is (tests point it at their own).

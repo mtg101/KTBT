@@ -1055,6 +1055,7 @@ func _start_night() -> void:
 	var bar_id := str(Game.bar.get("id", ""))
 	if _skyline.seed_for != bar_id:
 		_skyline.show_city(Skyline.plan(STAGE_SIZE.x, hash(bar_id)), bar_id, Skyline.hills(STAGE_SIZE.x, hash(bar_id)))  # (its own dice: the game's rolls don't shift)
+		_street_art.show_street(bar_id)  # (this bar's own street, from the art there is: its own dice too)
 	var board_dice := RandomNumberGenerator.new()
 	board_dice.seed = hash([randf(), randf()])  # (two rolls of the game's dice, as before: its other rolls don't shift)
 	var board := Specials.tonight(Menu.items(), NightRules.weather_kind(_night_weather), str(_night_date.get("season", "")),
