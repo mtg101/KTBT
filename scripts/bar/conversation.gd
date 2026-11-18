@@ -24,6 +24,7 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 	var owner_speaks := line % 2 == 0
 	var direction := ""
 	var opener := false
+	var used_steer := false  # (this line's direction is the PD's lingering steer)
 	if line == 0 and guest.quick_greeting:
 		direction = "It's been busy: this is the owner's first proper word with them since taking their order."
 	elif line == 0:
@@ -38,6 +39,7 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 	elif guest.pd_topic_lines > 0:  # (the PD's cue card, or a card's moment lingering, for a few lines)
 		direction = guest.pd_topic
 		guest.pd_topic_lines -= 1
+		used_steer = true
 	elif guest.topic != "":
 		direction = Talk.topic_hint(guest.topic)
 	var hint := ""
@@ -50,11 +52,15 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 		else:
 			guest.stunned = ""
 	elif owner_speaks and night.owner_plant_moment != "":  # (a PD's card for the whole tent: the owner reacts too, 18 Nov)
-		direction = (night.owner_plant_moment + " " + direction).strip_edges()
+		if used_steer:
+			guest.pd_topic_lines += 1  # (not used up on this line)
+		direction = night.owner_plant_moment + " " + Talk.JUST_HAPPENED
 		hint = "plant_" + night.owner_plant_card
 		night.owner_plant_moment = ""  # once
 	elif line > 0 and not owner_speaks and guest.plant_moment != "":  # (a PD's plant card: it's happened to them)
-		direction = (guest.plant_moment + " " + direction).strip_edges()
+		if used_steer:
+			guest.pd_topic_lines += 1  # (not used up on this line)
+		direction = guest.plant_moment + " " + Talk.JUST_HAPPENED
 		hint = "plant_" + guest.plant_card
 		guest.plant_moment = ""  # once
 	elif line > 0 and not owner_speaks and guest.camera_moment != "":  # (the PD's camera has just turned to them)
@@ -132,9 +138,14 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 				night.owner_cat_moment = ""
 			else:
 				speaking.cat_moment = ""
-	# A PD's plant card has just happened to the speaker.
-	if hint == "" and not first and speaking != null and speaking.plant_moment != "":
-		direction = speaking.plant_moment + " " + direction
+	# A PD's plant card has just happened to the speaker (on a chat's first line too: a card that
+	# gets two people talking is why they're talking, 18 Nov). It's the whole of this line's
+	# direction: given alongside the chat's topic and "a little while ago…", it was ignored (18 Nov:
+	# the power cut, and the chat carried on about gochujang). What lingers starts on the next line.
+	if hint == "" and speaking != null and speaking.plant_moment != "":
+		if not first and chat.pd_topic_lines > 0 and direction == chat.pd_topic:
+			chat.pd_topic_lines += 1  # (not used up on this line)
+		direction = speaking.plant_moment + " " + Talk.JUST_HAPPENED + (" " + "This is the first thing they've ever said to each other." if first else "")
 		hint = "plant_" + speaking.plant_card
 		speaking.plant_moment = ""
 	# The PD's camera has just turned to the speaker.

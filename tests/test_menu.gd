@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 const Menu = preload("res://scripts/rules/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
+const Text = preload("res://scripts/rules/text.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Specials = preload("res://scripts/rules/specials.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
@@ -435,3 +436,20 @@ func test_a_dish_asked_for_as_the_menu_describes_it_is_that_dish() -> void:
 	assert_array(said).not_contains(["tteokbokki"])
 	assert_array(Orders.mentions("Spicy rice cakes, please.", true).map(func(m): return str(m["id"]))).contains(["tteokbokki"])  # (still tteokbokki)
 	Menu.use([])
+
+
+func test_the_kimchi_on_the_table_isnt_kimchi_jjigae() -> void:
+	# 18 Nov: "Eat the kimchi first" turned down 10 times as mentioning Kimchi-jjigae (the banchan's free).
+	Menu.use([Menu.find("tteokbokki"), Catalogue.find("kimchi_jjigae"), Menu.find("soju")])
+	assert_str(Orders.unordered_mention("Eat the kimchi first, you're too thin.", ["tteokbokki", "soju"])).is_empty()
+	assert_str(Orders.unordered_mention("Is the kimchi jjigae any good tonight?", ["tteokbokki", "soju"])).is_equal("Kimchi-jjigae")  # (by name: still found)
+	assert_str(Orders.unordered_mention("Kimchijjigae, please.", ["tteokbokki", "soju"])).is_equal("Kimchi-jjigae")
+	Menu.use([])
+
+
+func test_a_menu_id_written_another_way_is_still_found() -> void:
+	# 18 Nov: "gyeran-mari" for gyeran_mari turned the new bar's menu down.
+	assert_str(Catalogue.loose_id("gyeran-mari")).is_equal("gyeran_mari")
+	assert_str(Catalogue.loose_id("Gyeran Mari")).is_equal("gyeran_mari")
+	assert_str(Catalogue.loose_id("sunda")).is_empty()  # (not a dish: still turned down)
+	assert_str(Text.problem_kind("\"sunda\" isn't in the catalogue: use the ids as listed")).is_equal("menu ids")  # (not "the cat")

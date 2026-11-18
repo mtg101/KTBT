@@ -43,7 +43,9 @@ static func problem_kind(problem: String) -> String:
 		return "address rules"
 	if p.contains("already at the counter") or p.contains("already called"):
 		return "same name"
-	if p.contains("the cat"):
+	if p.contains("isn't in the catalogue"):
+		return "menu ids"
+	if p.contains("the cat") and not p.contains("the catalogue"):  # (18 Nov: "isn't in the catalogue" counted as the cat)
 		return "the cat"
 	if p.contains("hangul") or p.contains("\"tarp\"") or p.contains("\"sign\"") or p.contains("\"shape\"") or p.contains("touches"):
 		return "the bar's look"
@@ -200,7 +202,9 @@ static func sentence_case(text: String) -> String:
 
 
 ## The numbers written in digits in text, without their commas ("₩412,000" -> "412000").
-static func numbers_in(text: String) -> Array:
+static func numbers_in(text: String, not_times: bool = false) -> Array:
+	if not_times:  # (a time of night, "3 am", "11:30pm": the game's clock, not a made-up fact; 18 Nov)
+		text = RegEx.create_from_string("(?i)\\b\\d{1,2}(:\\d{2})?\\s*(am|pm|a\\.m\\.|p\\.m\\.|o'clock)").sub(text, " ", true)
 	var found: Array = []
 	var digits := ""
 	for c in text + " ":

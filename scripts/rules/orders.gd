@@ -331,6 +331,11 @@ static func with_somaek_parts(items: Array) -> Array:
 	return allowed
 
 
+## The free banchan's words: a dish whose name starts with one (Kimchi-jjigae, Kimchi-jeon) is
+## only found by its whole name, since "eat the kimchi first" is about the banchan.
+const BANCHAN_WORDS := ["kimchi", "radish", "danmuji"]
+
+
 ## Every menu item a line mentions, in order: [{"id", "start"}], where start is the word
 ## position. Looks for the first word of each name (and, with_aliases, every alias and the
 ## menu's description), longest phrases first, so "fried rice" counts as fried rice and not
@@ -339,8 +344,11 @@ static func mentions(line: String, with_aliases: bool) -> Array:
 	var said := Text.words(line)
 	var phrases: Array = []
 	for item in Menu.items():
-		phrases.append({"id": item["id"], "words": [Text.words(str(item["name"]))[0]]})
-		if Text.words(str(item["name"])).size() > 1:  # (and run together as one word: "Dakbokkeumtang")
+		var name_words := Text.words(str(item["name"]))
+		if not BANCHAN_WORDS.has(name_words[0]):  # ("kimchi" alone is the free banchan, not Kimchi-jjigae: 18 Nov)
+			phrases.append({"id": item["id"], "words": [name_words[0]]})
+		if name_words.size() > 1:  # (the whole name, word by word, and run together as one word: "Dakbokkeumtang")
+			phrases.append({"id": item["id"], "words": Array(name_words)})
 			phrases.append({"id": item["id"], "words": [Menu.compact(str(item["name"]))]})
 		if with_aliases:
 			for alias in item.get("aliases", []):

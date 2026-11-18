@@ -215,14 +215,20 @@ func press(card: String) -> void:
 	play(card)
 
 
+## Whether a card can be played now: in the hand, not played yet, possible tonight, and (if
+## it's for someone, or a pair) somebody here with time left for it.
+func can_play(card: String) -> bool:
+	if played.has(card) or not hand.has(card) or Plants.why_not(card, now.call()) != "":
+		return false
+	return not ["someone", "pair"].has(str(Plants.CARDS[card]["for"])) or not target(card).is_empty()
+
+
 ## Plays a card (text: what the PD wrote, for a write-in): the tent makes it happen, to
 ## whoever it's for. Not one already played, or one that can't be, now.
 func play(card: String, typed: String = "") -> void:
-	if played.has(card) or not hand.has(card) or Plants.why_not(card, now.call()) != "":
+	if not can_play(card):
 		return
 	var aimed := target(card)
-	if ["someone", "pair"].has(str(Plants.CARDS[card]["for"])) and aimed.is_empty():
-		return
 	played.append(card)
 	picked.erase(card)
 	happens.call(card, typed, aimed, what_for(card))

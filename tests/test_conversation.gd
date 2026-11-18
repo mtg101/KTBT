@@ -199,3 +199,44 @@ func test_the_owner_reacts_to_a_card_for_the_whole_tent() -> void:
 	assert_str(str(given["hint"])).is_equal("plant_power_goes")
 	assert_str(night.owner_plant_moment).is_empty()  # (once)
 	assert_str(str(Conversation.owner_line(night, guest, 4, true, false)["direction"])).not_contains("power")
+
+
+func test_a_card_that_starts_a_chat_is_its_first_line() -> void:
+	# 18 Nov: Small world got Sora and Yu-mi talking, and their first line was about mapping hospitals.
+	var night := Night.new()
+	var chat := CounterChats.Chat.new()
+	var speaking := Someone.new()
+	speaking.plant_moment = "Jung Sora and Choi Yu-mi have just worked out that they went to the same school."
+	speaking.plant_card = "small_world"
+	var dice := RandomNumberGenerator.new()
+	var given := Conversation.chat_line(night, chat, "Jung Sora", "Choi Yu-mi", true, speaking, false, false, "", false, [0, 0, false], 0, false, dice)
+	assert_str(str(given["direction"])).contains("same school").contains("first thing they've ever said")
+	assert_str(str(given["hint"])).is_equal("plant_small_world")
+
+
+func test_the_line_reacting_to_a_card_is_given_only_that() -> void:
+	# 18 Nov: the power went, and the next line, told that and the chat's topic and "a little while
+	# ago…", carried on about gochujang.
+	var night := Night.new()
+	var chat := CounterChats.Chat.new()
+	chat.topic = "food_fight"
+	chat.pd_topic = Talk.aftermath_hint("The tent's lights go out.")
+	chat.pd_topic_lines = 2
+	var speaking := Someone.new()
+	speaking.plant_moment = "The tent's power has just cut out for a moment, then come back on."
+	speaking.plant_card = "power_goes"
+	var dice := RandomNumberGenerator.new()
+	var given := Conversation.chat_line(night, chat, "Moon Jae-yeon", "Kang Eun-bi", false, speaking, false, false, "", false, [0, 0, false], 0, false, dice)
+	assert_str(str(given["direction"])).contains("power has just cut out").contains(Talk.JUST_HAPPENED).not_contains("A little while ago")
+	assert_int(chat.pd_topic_lines).is_equal(2)  # (what lingers starts on the next line)
+	var next_line := Conversation.chat_line(night, chat, "Kang Eun-bi", "Moon Jae-yeon", false, Someone.new(), false, false, "", false, [0, 0, false], 0, false, dice)
+	assert_str(str(next_line["direction"])).contains("A little while ago")
+	# The same with the owner: the line with the moment is given only that.
+	var guest := Someone.new()
+	guest.pd_topic = Talk.aftermath_hint("The tent's lights go out.")
+	guest.pd_topic_lines = 2
+	guest.plant_moment = "The tent's power has just cut out for a moment."
+	guest.plant_card = "power_goes"
+	var owner_given := Conversation.owner_line(night, guest, 3, false, false)
+	assert_str(str(owner_given["direction"])).contains("power has just cut out").not_contains("A little while ago")
+	assert_int(guest.pd_topic_lines).is_equal(2)

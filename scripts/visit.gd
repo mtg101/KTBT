@@ -30,6 +30,7 @@ const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const PdDesk = preload("res://scripts/bar/pd_desk.gd")
 const EditSuite = preload("res://scripts/ui/edit_suite.gd")
+const Autopilot = preload("res://scripts/bar/autopilot.gd")
 const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
@@ -396,6 +397,8 @@ var _log_panel: PanelContainer
 var _moment_label: Label
 var _mode_label: Label
 var _takings_label: Label
+## The autopilot PD (an autoplay batch only: see autopilot.gd), or null: a player's at the desk.
+var _autopilot: Autopilot = null
 var _ratings_label: Label  # 시청률: tonight's so far, the final at 3am, or last time's (see _update_ratings)
 var _title_label: Label
 var _log: RichTextLabel
@@ -434,6 +437,8 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
+	if Game.autoplay != null:  # (a batch playing itself: the PD's desk is played too)
+		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
 	_tent_cat = Cat.new(_scenery_dice, STAGE_SIZE.x)
 	_scenery = Scenery.new(_scenery_dice, STAGE_SIZE.x)
@@ -1066,6 +1071,8 @@ func _start_night() -> void:
 	_pd.camera = _camera
 	var hand := _pd.deal("%s night %d" % [Game.bar.get("id", ""), _night_number], _plant_tonight(), Game.bar.get("last_hand", []))
 	Game.bar["last_hand"] = hand.duplicate()  # (not the same cards tomorrow; saved with the night)
+	if _autopilot != null:
+		_autopilot.plan(hand, _clock)
 	_planted_regular = ""
 	_lights_out = 0.0
 	_show_camera()
@@ -1170,6 +1177,8 @@ func _process(delta: float) -> void:
 		_cat_next -= minutes
 		if _cat_next <= 0.0:
 			_move_cat()
+	if _autopilot != null:
+		_autopilot_tick()
 	if Hooks.run_clock:
 		# After 3am the clock runs on while the last customers finish up.
 		_clock += minutes
@@ -1309,6 +1318,57 @@ func _last_ratings_text() -> String:
 	return "RATINGS %s" % Ratings.percent_text(float(diary[-1]["ratings"]["rating"]))
 
 
+# --- The autopilot PD (an autoplay batch: see autopilot.gd) ------------------------------------
+
+## Each frame of a night: a card that's due, and the camera now and then.
+func _autopilot_tick() -> void:
+	var due := _autopilot.card_due(_clock)
+	if not due.is_empty():
+		var card := str(due["card"])
+		var text := str(due["text"])
+		var played := false
+		if text != "":
+			var checked := Plants.check_written(card, text)  # (checked like a player's)
+			text = str(checked["text"]) if str(checked["problem"]) == "" else ""
+		if (text != "" or not Plants.is_write(card)) and _pd.can_play(card):
+			_autopilot_did("plays %s%s" % [Plants.CARDS[card]["title"], (" «%s»" % text) if text != "" else ""])  # (first: then what happens)
+			_pd.play(card, text)
+			played = _pd.played.has(card)
+		_autopilot.card_tried(card, played, _clock)
+	var move := _autopilot.camera_due(_clock, _guests.size(), _camera.following != null)
+	match str(move.get("do", "")):
+		"follow":
+			var who: Guest = _guests[int(move["who"])]
+			if _camera.following != who:
+				_camera_on(who)
+		"stop":
+			_camera_off("pd")
+	_stats.autopilot = _autopilot.counts.duplicate(true)
+
+
+## In the edit suite: the autopilot's picks, then "Cut it" (or, if that won't go, the writers').
+func _autopilot_cuts(suite: EditSuite, titles: int, options: int, scenes: int) -> void:
+	if not is_instance_valid(suite):
+		return
+	var chosen := _autopilot.cut_choices(titles, options, scenes)
+	if int(chosen["title"]) >= 0:
+		suite.pick_title(int(chosen["title"]))
+	suite.pick_cliffhanger(int(chosen["cliffhanger"]))
+	for k in chosen["scenes"]:
+		suite.tick_scene(int(k))
+	_autopilot_did("cuts the episode: title %d, cliffhanger %d, %d scenes ticked" % [int(chosen["title"]), int(chosen["cliffhanger"]), chosen["scenes"].size()])
+	suite.cut()
+	if is_instance_valid(suite) and not suite.is_queued_for_deletion():
+		suite.leave_it()
+
+
+## What the autopilot did, in the transcript (so it's told apart from a player's) and the stats.
+func _autopilot_did(what: String) -> void:
+	_show("[i][color=#%s](Autopilot PD %s.)[/color][/i]\n\n" % [MUTED.to_html(false), _esc(what)])
+	if _stats != null:
+		_stats.autopilot = _autopilot.counts.duplicate(true)
+
+
 ## The 시청률 beside the takings: tonight's so far (worked out as at 3am, before the luck, as
 ## things happen), tonight's once it's rated, or, before a night, last time's. Its hover says what
 ## ratings are and where the number comes from; the stats panel's RATINGS section has the rest.
@@ -1444,6 +1504,9 @@ func _offer_step_in() -> void:
 	if _loading != null and _loading.visible:
 		var button: Button = _loading.show_step_in("✂  The writers are cutting episode %d…  Step in as the PD (Enter)" % int(Game.bar.get("nights", 0)))
 		button.pressed.connect(_step_in)
+	if _autopilot != null and _autopilot.steps_in():
+		_autopilot.counts["stepped_in"] = "yes"
+		_step_in.call_deferred()
 
 
 ## The PD steps in (Enter, or a click): the edit suite opens as soon as it can (once loading's
@@ -1495,6 +1558,8 @@ func _cut_episode() -> Dictionary:
 	add_child(suite)
 	suite.open(int(entry.get("episode", 0)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
 		Story.scene_options(entry.get("facts", {})))
+	if _autopilot != null:
+		_autopilot_cuts.call_deferred(suite, entry.get("titles", []).size(), Story.cliffhanger_options(entry.get("facts", {})).size(), Story.scene_options(entry.get("facts", {})).size())
 	var cut: Dictionary = await suite.finished
 	var base := _writers_recap
 	var rewrite := {}
@@ -1795,10 +1860,16 @@ func _left_alone_longest() -> Guest:
 	return best
 
 
+## How far ahead of everyone else someone a card's just happened to is, for the owner's next
+## turn: first, whatever else is waiting (18 Nov: a text that changed everything, on a busy night,
+## and she never spoke again; a head start of 3 turns wasn't one).
+const PLANT_PULL := 1000
+
+
 func _neediness(guest: Guest) -> int:
 	var base := guest.attended - (3 if guest.company == "owner" else 0)
 	if guest.plant_moment != "":
-		base -= PdCamera.PULL  # (something's just happened to them: the owner turns to them sooner)
+		base -= PLANT_PULL  # (something's just happened to them: the owner turns to them next)
 	return _camera.neediness(guest, base)
 
 
@@ -1878,6 +1949,8 @@ func _show(bbcode: String, pin: int = -1) -> void:
 ## A line said, kept so the PD can pin it for the episode (see _on_transcript_link). Its id.
 func _said_line(speaker: String, text: String) -> int:
 	_said.append({"id": _said.size(), "speaker": speaker, "text": text, "at": int(_clock), "night": _night_number})
+	if _autopilot != null and _night_open and _autopilot.pins_it():
+		_on_transcript_link.call_deferred("pin:%d" % (_said.size() - 1))  # (once it's on screen)
 	return _said.size() - 1
 
 
@@ -2554,6 +2627,16 @@ func _chat_voices(chat: Chat) -> Array:
 	return _counter_chats.voices(chat)
 
 
+## Who speaks next in a chat (voices: the names in it): someone something's just happened to (a
+## PD's card), even if they spoke last (18 Nov: a text came, the other one answered, and the
+## moment was lost); otherwise not whoever spoke last (the first line: the one who started it).
+func _chat_speaker(chat: Chat, voices: Array, first: bool) -> String:
+	var happened_to: Array = voices.filter(func(v): return _guest_named(v) != null and _guest_named(v).plant_moment != "")
+	if not happened_to.is_empty():
+		return str(happened_to[0])
+	return str(voices[0]) if first else str(voices.filter(func(v): return v != chat.last_speaker).pick_random())
+
+
 ## Someone with something still on their mind (a PD's card that lingers, or a cue card) starts
 ## or joins a chat: it comes with them (17 Nov: the ex walked past, Yeon-mi got talking to
 ## Joon-hyung, and two lines on they were arguing about ramyeon).
@@ -2628,11 +2711,7 @@ func _counter_chat() -> void:
 		if chat.owner_in:
 			voices.append(str(_owner["name"]))
 		var first := said == "" and chat.last_speaker == ""
-		var speaker: String = voices[0] if first else voices.filter(func(v): return v != chat.last_speaker).pick_random()
-		# Something's just happened to one of them (a PD's plant card): they speak next.
-		var happened_to: Array = voices.filter(func(v): return v != chat.last_speaker and _guest_named(v) != null and _guest_named(v).plant_moment != "")
-		if not happened_to.is_empty():
-			speaker = happened_to[0]
+		var speaker := _chat_speaker(chat, voices, first)
 		var addressee: String = chat.last_speaker if voices.has(chat.last_speaker) and chat.last_speaker != speaker else voices.filter(func(v): return v != speaker).pick_random()
 		var line := await _chat_line(chat, speaker, addressee, first)
 		if line == "":
@@ -3177,6 +3256,11 @@ func _react(lines: Array, names: Array, items: Array, topic: String = "") -> voi
 	var roll := randf()  # (the caption's Hangul: the game's dice, as ever)
 	if spins.size() > 1 and _pd != null and _pd.panel != null:
 		_pd.offer_edit(spins, reply, lines, names, roll)
+		if _autopilot != null:
+			var k := _autopilot.spin_for(spins.size())
+			if k >= 0:
+				_autopilot_did("picks the edit's spin: %s, «%s»" % [spins[k]["mood"], spins[k]["caption"]])
+				_pd.air_edit.call_deferred(k)
 	else:
 		_air_moment(0, [spins[0]], reply, lines, names, roll)
 
@@ -3764,6 +3848,10 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 			_plant_on(b, card, Plants.moment(card, str(b.customer["name"]), str(a.customer["name"]), what), said)
 			about = a.node
 			_narrate(said)
+			var pair_chat := _chat_of(a)
+			if Plants.lingers(card) > 0 and pair_chat != null:  # (it's what they talk about for a while)
+				pair_chat.pd_topic = Talk.aftermath_hint(said)
+				pair_chat.pd_topic_lines = Plants.lingers(card)
 		"tent":
 			for guest in _guests:
 				_plant_on(guest, card, Plants.moment(card, str(guest.customer["name"]), "", what), Plants.happened(card, "", "", what))

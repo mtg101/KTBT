@@ -243,10 +243,13 @@ func test_autoplay_plays_its_nights_then_stops() -> void:
 	var batch := Autoplay.new(2)
 	batch.pause_seconds = 0.0
 	Game.autoplay = batch
-	await _open_bar()
+	var first := await _open_bar()
 	# After the first night, it opens the saved bar again, as the next day does ("Previously on…").
 	var reopened: bool = await _wait_until(func(): return Game.requested_scene == Game.VISIT_SCENE, NIGHT_TIMEOUT_MS)
 	assert_bool(reopened).override_failure_message("the bar was never opened again for night 2").is_true()
+	# The autopilot PD was at the desk (what it plays depends on the hand: see test_visit.gd).
+	assert_object(first.scene()._autopilot).is_not_null()
+	assert_dict(first.scene()._stats.autopilot).is_not_empty()
 	assert_bool(bool(Game.bar.get("autoplay", false))).is_true()  # (its own bar, marked as such, and saved so)
 	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_true()  # (it says it's running...)
 	var runner := await _open_bar()  # (the scene the game asked for: tests don't switch scenes themselves)

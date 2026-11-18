@@ -167,6 +167,10 @@ static func cue_hint(text: String) -> String:
 	return "The PD's cue card is still up behind the camera: «%s». Let the conversation turn to it, if it does (naturally, following on from what was just said)." % text
 
 
+## After a card's moment, on the line that reacts to it: nothing else that line, so it's not lost.
+const JUST_HAPPENED := "It's only just happened, this second: this line reacts to it, whatever was being said before."
+
+
 ## A big moment a few lines on (a PD's card that lingers): still on their minds, for the talk to
 ## come back to, but not every line, and not as if it had only just happened.
 static func aftermath_hint(happened: String) -> String:

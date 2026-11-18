@@ -2664,3 +2664,10 @@ func test_the_sponsors_caption_names_the_product() -> void:
 			assert_str(english).contains("HAEJANG HERO")
 		if english.contains("TABLE"):
 			assert_str(english).is_equal("HAEJANG HERO, ON JAE-SEOK'S TABLE")
+
+
+func test_a_time_of_night_isnt_a_made_up_number() -> void:
+	# 18 Nov: the diary was turned down for "It's 3 am and the rain's finally letting up".
+	assert_array(Text.numbers_in("It's 3 am, and at 11:30pm she left, ₩12,000 later.", true)).is_equal(["12000"])
+	assert_array(Text.numbers_in("It's 3 am", false)).is_equal(["3"])  # (the plain count still sees it)
+	assert_str(Story.validate_diary({"entry": "It's 3 am and the rain's finally letting up. Ji-ho stayed till the end, and laughed for the first time in weeks."}, {"names": ["Kim Ji-ho"], "customers": 4})).not_contains("number")

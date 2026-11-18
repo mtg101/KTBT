@@ -109,7 +109,7 @@ const CARDS := {
 		"moment": "{who} has just bought a bottle of soju for the whole counter, because {what}.",
 		"others": "{who} has just bought a bottle of soju for the whole counter, everyone here included: it's only polite to thank them.",
 		"happened": "{who} buys a bottle of soju for the whole counter: {what}."},
-	"small_world": {"title": "Small world", "for": "pair",
+	"small_world": {"title": "Small world", "for": "pair", "lingers": 3,
 		"about": "Two people at the counter work out they're connected: the same school, the same old job, the same street growing up…",
 		"variants": ["went to the same school", "worked at the same company years ago", "grew up three streets apart in Jeju",
 			"grew up in the same apartment block in Busan", "had the same terrifying maths teacher", "go to the same bathhouse every Sunday",

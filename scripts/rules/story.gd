@@ -116,7 +116,7 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 	var allowed := {}
 	for number in Text.numbers_in(JSON.stringify(facts)):
 		allowed[number] = true
-	for number in Text.numbers_in(entry):
+	for number in Text.numbers_in(entry, true):
 		if not allowed.has(number):
 			return "the diary has a number (%s) that isn't in tonight's facts" % number
 	if Talk.real_brand(entry) != "":
@@ -236,7 +236,7 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 	var allowed := {}
 	for number in Text.numbers_in(JSON.stringify(facts)):
 		allowed[number] = true
-	for number in Text.numbers_in(all):
+	for number in Text.numbers_in(all, true):
 		if not allowed.has(number):
 			return "the recap has a number (%s) that isn't in the facts" % number
 	if not Talk.romanised_korean(all, known + [str(facts.get("bar", "")), str(facts.get("cat", ""))]).is_empty():

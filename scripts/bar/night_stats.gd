@@ -38,6 +38,8 @@ var story := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
+## The autopilot PD's night, in an autoplay batch (Autopilot.counts): {} when a player's at the desk.
+var autopilot := {}
 var ratings_before: Array = []
 var arrived := 0
 var served := 0  # paid and left
@@ -690,6 +692,9 @@ func panel_text(seated: int, cooking: int) -> String:
 		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
 	lines.append("")
 	lines.append("[b]THE PD[/b]")
+	if not autopilot.is_empty():
+		lines.append("Autopilot PD (an autoplay batch): cards played %d · camera moves %d · pinned %d · spins picked %d · stepped in: %s" % [int(autopilot.get("cards", 0)),
+			int(autopilot.get("camera", 0)), int(autopilot.get("pins", 0)), int(autopilot.get("spins", 0)), str(autopilot.get("stepped_in", "")) if str(autopilot.get("stepped_in", "")) != "" else "no"])
 	var follows := camera_follows()
 	lines.append("Camera: %s" % ("followed %d · %s" % [follows.size(), " · ".join(PackedStringArray(follows.map(func(f): return "%s %s" % [f["name"], ("%d min" % int(f["minutes"])) if int(f["minutes"]) >= 0 else "(still on)"])))] if not follows.is_empty() else "not used tonight"))
 	lines.append("Lines on camera %d of %d (%d%%) · noticed the camera %d/%d" % [camera_lines_on, camera_lines, percent(camera_lines_on, camera_lines),
@@ -790,7 +795,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused,
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true),
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},

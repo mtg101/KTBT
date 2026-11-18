@@ -141,6 +141,22 @@ static func find(id: String) -> Dictionary:
 	return {}
 
 
+## The catalogue id an id or name means, written any which way ("gyeran-mari", "Gyeran mari" are
+## gyeran_mari), or "" if none.
+static func loose_id(text: String) -> String:
+	var loose := func(t: String) -> String:
+		var out := ""
+		for c in t.strip_edges().to_lower():
+			if not "-_ '’.".contains(c):
+				out += c
+		return out
+	var wanted: String = loose.call(text)
+	for item in all():
+		if loose.call(str(item["id"])) == wanted or loose.call(str(item["name"])) == wanted:
+			return str(item["id"])
+	return ""
+
+
 ## The words naming a dish that's in the catalogue but not on tonight's menu: a line can talk
 ## about them, but not as if they're served here (see Talk.off_menu_here).
 static func off_menu_words() -> Array:
@@ -167,7 +183,9 @@ static func validate_menu(data: Variant) -> String:
 	for entry in data["dishes"]:
 		var id := str(entry).strip_edges()
 		if find(id).is_empty():
-			return "\"%s\" isn't in the catalogue: use the ids as listed" % id
+			id = loose_id(id)  # (18 Nov: "gyeran-mari" for gyeran_mari, and the menu turned down)
+		if find(id).is_empty():
+			return "\"%s\" isn't in the catalogue: use the ids as listed" % str(entry).strip_edges()
 		if chosen.has(id) or ALWAYS.has(id) or MIXED.has(id):
 			continue
 		chosen.append(id)

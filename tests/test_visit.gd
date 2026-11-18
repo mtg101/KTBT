@@ -9,6 +9,7 @@ const PeopleView = preload("res://scripts/bar/people_view.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
+const Autopilot = preload("res://scripts/bar/autopilot.gd")
 const Ai = preload("res://scripts/ai/ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -1190,9 +1191,24 @@ func test_more_of_the_pds_plant_cards() -> void:
 	assert_str(fresh.pd_topic).is_equal("the ex")
 	assert_int(fresh.pd_topic_lines).is_equal(2)
 	assert_int(mindful.pd_topic_lines).is_equal(0)
+	# In a chat, whoever a card's just happened to speaks next, even if they spoke last.
+	var talking = CounterChats.Chat.new()
+	var other = scene._guests.filter(func(g): return g != mindful)[0]
+	talking.people = [mindful, other]
+	talking.last_speaker = str(mindful.customer["name"])
+	var voices := [str(mindful.customer["name"]), str(other.customer["name"])]
+	var kept := [mindful.plant_moment, other.plant_moment]  # (put back after: the round's moments)
+	mindful.plant_moment = ""
+	other.plant_moment = ""
+	assert_str(scene._chat_speaker(talking, voices, false)).is_equal(str(other.customer["name"]))  # (not whoever spoke last)
+	mindful.plant_moment = "Their phone's just buzzed: a text from their sister."
+	assert_str(scene._chat_speaker(talking, voices, false)).is_equal(str(mindful.customer["name"]))
+	mindful.plant_moment = kept[0]
+	other.plant_moment = kept[1]
 	# Something's just happened to them: the owner turns to them sooner, and a chat of theirs carries on.
 	var waiting = scene._guests.filter(func(g): return g != buyer)[0]
-	assert_int(scene._neediness(waiting)).is_equal(waiting.attended - PdCamera.PULL - (3 if waiting.company == "owner" else 0))
+	assert_int(scene._neediness(waiting)).is_equal(waiting.attended - scene.PLANT_PULL - (3 if waiting.company == "owner" else 0))
+
 	# Small world: two chatting, both told (not a chat about to break up).
 	scene._camera_off("pd")
 	var partner = scene._chat_partner(scene._pd.target("small_world")[0])
@@ -2192,3 +2208,26 @@ func test_waits_belong_to_the_tent_and_stop_when_the_bar_closes() -> void:
 	scene._stopped = true
 	assert_bool(scene._closed()).is_true()
 	scene._stopped = false
+
+
+func test_the_autopilot_pd_plays_a_card_when_its_due() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_object(scene._autopilot).is_null()  # (a player's at the desk: no autopilot)
+	scene._autopilot = Autopilot.new("a test night")
+	scene._pd.hand = ["power_goes", "rain", "phone"]
+	scene._autopilot.plan(["power_goes"], scene._clock)
+	scene._autopilot.schedule[0]["at"] = scene._clock  # (due now)
+	scene._autopilot_tick()
+	assert_bool(scene._pd.played.has("power_goes")).is_true()
+	assert_str(_transcript(runner)).contains("(Autopilot PD plays The power goes.)\n\nThe tent's lights go out")  # (said first, then what happens)
+	assert_int(int(scene._stats.autopilot["cards"])).is_equal(1)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Autopilot PD (an autoplay batch): cards played 1")
+	assert_array(scene._autopilot.schedule).is_empty()  # (played: not again)
+	# A card nobody's here for isn't played (or said to be), and is tried again later.
+	scene._autopilot.plan(["phone"], scene._clock)
+	scene._autopilot.schedule[0]["at"] = scene._clock
+	scene._autopilot_tick()
+	assert_bool(scene._pd.played.has("phone")).is_false()
+	assert_str(_transcript(runner)).not_contains("Autopilot PD plays A phone rings")
+	assert_float(float(scene._autopilot.schedule[0]["at"])).is_greater(scene._clock)
