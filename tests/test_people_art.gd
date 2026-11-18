@@ -52,6 +52,22 @@ func _on(ramp: Array, pixel: Color) -> bool:
 	return ramp.any(func(step: Color): return absi(step.r8 - pixel.r8) <= 1 and absi(step.g8 - pixel.g8) <= 1 and absi(step.b8 - pixel.b8) <= 1)
 
 
+func test_the_oldest_stoop() -> void:
+	var young := OWNER.duplicate()
+	young["age_range"] = "40s"
+	var old := OWNER.duplicate()
+	old["age_range"] = "70s"
+	var standing := PeopleArt.texture(young, "front").get_image()
+	var stooped := PeopleArt.texture(old, "front").get_image()
+	var top := func(image: Image) -> int:
+		for y in PeopleArt.SIZE.y:
+			if image.get_pixel(16, y).a > 0.5:
+				return y
+		return -1
+	assert_int(top.call(stooped)).is_equal(top.call(standing) + PeopleArt.STOOP)  # (their head lower)
+	assert_bool(stooped.get_pixel(16, 60).is_equal_approx(standing.get_pixel(16, 60))).is_true()  # (the rest as it was)
+
+
 func test_the_ramp_is_the_drawn_arts() -> void:
 	# (tools/art/palette.py ramp("e8833a"), the same sums: the people match the tent)
 	var expected := [[51, 12, 7], [84, 27, 14], [121, 49, 23], [167, 82, 37], [232, 131, 58], [239, 143, 71], [246, 154, 84]]
@@ -108,6 +124,15 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	var up: Image = frames[1].get_image()
 	assert_float(up.get_pixel(11, PeopleArt.SIZE.y - 1).a).is_equal(0.0)  # (up a pixel off the ground)
 	assert_float(up.get_pixel(11, PeopleArt.SIZE.y - 2).a).is_equal(1.0)
+	# A big moment's mood in their pose: a slump, then back to themselves.
+	view.pose(person, "sad")
+	assert_str(front.pose_mood).is_equal("sad")
+	front._process(0.1)
+	assert_float(upper.position.y).is_equal(PixelPerson.GRID * 2)  # (head down)
+	front._process(PixelPerson.POSES["sad"])
+	assert_str(front.pose_mood).is_empty()
+	view.pose(person, "baffled")  # (a mood with no pose: nothing)
+	assert_str(front.pose_mood).is_empty()
 	view.turn(person, false)  # seated: their name comes down with their head
 	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y + PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
 	view.turn(person, true)

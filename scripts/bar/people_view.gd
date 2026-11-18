@@ -10,6 +10,7 @@ const Draw = preload("res://scripts/bar/draw.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PixelPerson = preload("res://scripts/ui/pixel_person.gd")
+const PixelShape = preload("res://scripts/ui/pixel_shape.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const Night = preload("res://scripts/bar/night.gd")
 
@@ -22,7 +23,7 @@ const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Col
 const UMBRELLA_COLOURS := [Color(0.85, 0.9, 1.0, 0.35), Color("26252e"), Color("2c3a5c"), Color("7a2a2a"), Color("8a7a2a")]
 const TAG_Y := -30.0  # a person's name, above their head
 const UMBRELLA_CLEAR := Color(0.85, 0.9, 1.0, 0.3)
-const UMBRELLA_HAND := Vector2(40, 10)
+const UMBRELLA_HAND := Vector2(48, 6)
 ## Each shape's canopy: half-width, height, how far the rim hangs below its middle, how many ribs.
 const UMBRELLA_CANOPIES := {
 	"dome": {"across": 64.0, "high": 30.0, "rim": 6.0, "ribs": 4, "middle": -18.0},
@@ -289,6 +290,15 @@ func _dress_in_pixels(person: Control, look: Dictionary) -> bool:
 	return true
 
 
+## Someone's big moment's mood, in their pose (pixel_person.gd POSES: a laugh, a slump, a jolt, a
+## nod, a fidget), whichever way round they are; people drawn in shapes have none.
+func pose(person: Control, mood: String) -> void:
+	for view in ["Look/Front", "Look/Back"]:
+		var picture := person.get_node_or_null(view)
+		if picture is PixelPerson and picture.visible:
+			picture.pose(mood)
+
+
 ## Which way someone's facing: toward us (walking, coming in, leaving, the owner), or away
 ## (sitting at the counter, facing their food and the owner).
 func turn(person: Control, toward_us: bool) -> void:
@@ -336,11 +346,11 @@ func _frame(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) ->
 ## A phone held up in front of them, its screen lighting their face, glancing up now and then.
 func add_phone(person: Control) -> void:
 	person.set_meta("on_phone", true)
-	var glow := Draw.rect(person, Vector2(30, 14), Vector2(26, 26), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
+	var glow := Draw.rect(person, Vector2(36, 15), Vector2(27, 30), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
 	glow.name = "PhoneGlow"
-	var phone := Draw.rect(person, Vector2(36, 34), Vector2(12, 20), Color("1c1c24"))
+	var phone := Draw.rect(person, Vector2(42, 45), Vector2(12, 21), Color("1c1c24"))  # (in whole pixels of the grid's size, held up at the chest)
 	phone.name = "Phone"
-	var screen := Draw.rect(phone, Vector2(1.5, 2), Vector2(9, 15), Color(0.7, 0.85, 1.0))
+	var screen := Draw.rect(phone, Vector2(3, 3), Vector2(6, 15), Color(0.7, 0.85, 1.0))
 	screen.name = "Screen"
 	var flicker := screen.create_tween().set_loops()  # scrolling: the light changes a little
 	flicker.tween_property(screen, "color", Color(0.85, 0.9, 1.0), Draw.scaled(randf_range(0.6, 1.4)))
@@ -361,8 +371,6 @@ func add_umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape"
 	var high := float(shape["high"])
 	var metal := Color("55536b")
 	holder.add_child(_bar(Vector2(-1, middle.y - high + 8), Vector2(2, high - 8 - middle.y), metal))  # the shaft, down to the hand
-	var canopy := Polygon2D.new()
-	canopy.name = "Canopy"
 	var points := PackedVector2Array()
 	for step in 13:
 		var angle: float = PI + PI * step / 12.0
@@ -372,8 +380,8 @@ func add_umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape"
 		points.append(middle + Vector2(-across + 2.0 * across * (rib + 0.5) / ribs, float(shape["rim"])))
 		if rib > 0:
 			points.append(middle + Vector2(-across + 2.0 * across * rib / ribs, 0))
-	canopy.polygon = points
-	canopy.color = UMBRELLA_CLEAR if str(gear.get("shape", "")) == "bubble" else UMBRELLA_COLOURS.pick_random()
+	var canopy := PixelShape.sprite(points, UMBRELLA_CLEAR if str(gear.get("shape", "")) == "bubble" else UMBRELLA_COLOURS.pick_random(), holder.scale.x)  # (in pixels: the grid's size)
+	canopy.name = "Canopy"
 	holder.add_child(canopy)
 	holder.add_child(_bar(Vector2(-2, middle.y - high - 4), Vector2(4, 6), metal))  # the tip
 	# The weather lands on it (unlike some K-drama umbrellas): snow builds up on top, and
@@ -389,8 +397,6 @@ func add_umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape"
 
 ## Snow settling on an umbrella: a white cap over the top, building up while they walk.
 func _snow_cap(holder: Node2D, middle: Vector2, across: float, high: float) -> void:
-	var cap := Polygon2D.new()
-	cap.name = "SnowCap"
 	var points := PackedVector2Array()
 	for step in 11:  # along the top, a little above the canopy...
 		var angle: float = PI * 1.12 + PI * 0.76 * step / 10.0
@@ -398,8 +404,8 @@ func _snow_cap(holder: Node2D, middle: Vector2, across: float, high: float) -> v
 	for step in range(10, -1, -1):  # ...and back along it, lower in the middle: thicker on top
 		var angle: float = PI * 1.12 + PI * 0.76 * step / 10.0
 		points.append(middle + Vector2(cos(angle) * across * 0.95, sin(angle) * high * 0.82))
-	cap.polygon = points
-	cap.color = Color(1, 1, 1, 0.92)
+	var cap := PixelShape.sprite(points, Color(0.95, 0.96, 1.0, 0.95), holder.scale.x, false)  # (in pixels, as the canopy)
+	cap.name = "SnowCap"
 	cap.modulate.a = 0.0
 	holder.add_child(cap)
 	cap.create_tween().tween_property(cap, "modulate:a", 1.0, Draw.scaled(5.0))  # building up

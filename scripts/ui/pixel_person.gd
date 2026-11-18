@@ -14,7 +14,13 @@ const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const STEP := 20.0  # on the stage: up or down a pixel every this far they go
 const STILL_AFTER := 0.12  # seconds without moving: standing again
 
+## Poses for a big moment's mood (people_view.gd pose): a laugh shakes their shoulders, a sad
+## one slumps them, a shock jolts them up, a warm or sweet one's a nod, an awkward one a fidget.
+const POSES := {"funny": 1.4, "roast": 1.4, "sad": 8.0, "shock": 0.35, "warm": 0.8, "sweet": 0.8, "awkward": 1.0}
+
 var split := 20  # the rows above this rise (head and shoulders); the rest stay
+var pose_mood := ""  # the pose they're in now ("" for none: for the tests)
+var _pose_left := 0.0
 var walk_frame := -1  # the bob's frame showing (0 down, 1 up), or -1 standing still (for the tests)
 var _walker: TextureRect  # walking, facing us: the frames (none from behind: seated)
 var _frames: Array = []
@@ -64,9 +70,37 @@ func _process(delta: float) -> void:
 	if _clock >= _next_breath:
 		breathing = 1.0 if breathing == 0.0 else 0.0
 		_next_breath = _clock + (BREATH_IN if breathing == 1.0 else randf_range(BREATH_SECONDS.x, BREATH_SECONDS.y))
-	_upper.position.y = -GRID * breathing
+	var upper_y := -GRID * breathing
+	var nudge := Vector2.ZERO
+	if _pose_left > 0.0:
+		_pose_left -= delta
+		var t: float = POSES[pose_mood] - _pose_left  # (how long they've been in it)
+		match pose_mood:
+			"funny", "roast":  # shoulders shaking
+				upper_y = -GRID * (int(t * 10.0) % 2)
+			"sad":  # slumped, head down
+				upper_y = GRID * 2
+			"shock":  # jolted up off their feet or seat
+				nudge.y = -GRID * 2
+			"warm", "sweet":  # a nod or two
+				upper_y = GRID * (int(t * 5.0) % 2)
+			"awkward":  # a fidget, side to side
+				nudge.x = GRID * (1 if int(t * 8.0) % 2 == 0 else -1)
+		if _pose_left <= 0.0:
+			pose_mood = ""
+	_upper.position.y = upper_y
 	_walk(delta)
 	snap()
+	position += nudge
+
+
+## A big moment's mood, in their pose for a while (POSES); one they haven't got, nothing.
+func pose(mood: String) -> void:
+	if not POSES.has(mood):
+		return
+	pose_mood = mood
+	_pose_left = float(POSES[mood])
+	breathing = 0.0
 
 
 ## The bob's frame for however far they've gone; standing again once they stop.

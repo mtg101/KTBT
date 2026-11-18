@@ -3288,6 +3288,9 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 		about = guest.node if guest != null else null
 	if mood == "shock":
 		_stun_listeners(who, names)
+	if about is Control and is_instance_valid(about):
+		_people_view.pose(about, mood)  # (laughing, slumped, jolted, a nod, a fidget)
+		_stats.poses += 1
 	var data: Dictionary = Captions.REACTIONS[mood]
 	_captions_part.pop(Captions.reaction_words(mood, caption, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
 

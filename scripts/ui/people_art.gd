@@ -14,6 +14,8 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const SIZE := Vector2i(32, 72)  # a person on the grid (96 x 216 on the stage, a pixel to 3: Layout.PERSON_SIZE)
 const SEATED_DOWN := 2  # seated, from behind, they're drawn this many rows lower (tools/art/people.py: no taller than standing)
 const BREATHE_FROM := 28  # standing: the rows above this (head and shoulders) rise as they breathe
+const NECK_ROWS := 21  # the head and neck, to the shoulders' line (tools/art/people.py TOP)
+const STOOP := 2  # the oldest: their head this many rows lower, sunk a little into their shoulders
 const SCALE := 3
 
 ## What a layer's pixel is made of (its green, over 36), and, for FIXED, which (its blue, over 8).
@@ -78,6 +80,8 @@ static func texture(look: Dictionary, view: String) -> ImageTexture:
 			continue
 		_paint(picture, layer.get_image(), colours)
 	if complete:
+		if str(look.get("age_range", "")) == "70s":
+			_stoop(picture, NECK_ROWS + (SEATED_DOWN if view == "back" else 0))
 		made = ImageTexture.create_from_image(picture)
 	_cache[key] = made
 	return made
@@ -104,6 +108,17 @@ static func walk_frames(picture: Texture2D) -> Array:
 static func reset() -> void:
 	_cache = {}
 	_walks = {}
+
+
+## The oldest stoop: their head and neck come down a little into their shoulders.
+static func _stoop(picture: Image, to_row: int) -> void:
+	var old := picture.duplicate() as Image
+	for y in range(to_row + STOOP, -1, -1):
+		for x in SIZE.x:
+			var from := y - STOOP
+			var pixel := old.get_pixel(x, from) if from >= 0 else Color(0, 0, 0, 0)
+			if pixel.a > 0.5 or y < to_row:  # (the head's rows move down whole; below them, onto the shoulders, only the head itself)
+				picture.set_pixel(x, y, pixel)
 
 
 ## A layer onto the picture: each pixel on its colour's ramp, at its step.
