@@ -1209,6 +1209,7 @@ func test_the_pds_edit() -> void:
 
 
 func test_more_of_the_pds_plant_cards() -> void:
+	Hooks.cat_wanders = false  # (the cat coming and going makes lines be asked for again, as in the other chat tests)
 	Hooks.stay_minutes_override = 600
 	Hooks.company_override = "chatty"
 	Hooks.chat_chance_override = 1.0
@@ -1372,7 +1373,8 @@ func test_the_cat_faces_the_way_its_going() -> void:
 	var cat := runner.find_child("Cat") as Control
 	scene._move_cat("counter")  # from the stove (left) to the far end of the counter (right)
 	assert_float(cat.scale.x).is_equal(1.0)
-	await get_tree().create_timer(0.1).timeout  # let it get there
+	# Let it get there (waited for, not timed: GitHub's machines are slower than ours).
+	assert_bool(await _wait_until(func(): return not scene._tent_cat.tween.is_running(), 5000)).override_failure_message("the cat never got to the counter").is_true()
 	scene._move_cat("stove")  # and back to the left
 	assert_float(cat.scale.x).is_equal(-1.0)
 
@@ -1383,13 +1385,13 @@ func test_a_prowling_cat_keeps_moving() -> void:
 	var scene = runner.scene()
 	var cat := runner.find_child("Cat") as Control
 	scene._move_cat("stools")
-	await get_tree().create_timer(0.1).timeout  # (there by now, at test speed)
+	await get_tree().create_timer(0.1).timeout  # (on its way, if not there yet: either way it's moving)
 	var first_x := cat.position.x
 	assert_bool(await _wait_until(func(): return absf(cat.position.x - first_x) > 5.0, 5000)).override_failure_message("the cat just sat there").is_true()
 	assert_float(cat.position.y).is_equal(348.0)  # along the floor
 	# Off somewhere else: the prowling stops.
 	scene._move_cat("stove")
-	await get_tree().create_timer(0.1).timeout
+	assert_bool(await _wait_until(func(): return not scene._tent_cat.tween.is_running(), 5000)).override_failure_message("the cat never got to the stove").is_true()
 	var at_stove := cat.position
 	await get_tree().create_timer(0.2).timeout
 	assert_vector(cat.position).is_equal(at_stove)
