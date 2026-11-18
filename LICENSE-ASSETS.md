@@ -24,6 +24,42 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 
 | File | What | Source | Licence |
 | --- | --- | --- | --- |
+| `art/cats/grey_walk_3.png` | cat/grey_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/grey_walk_2.png` | cat/grey_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/grey_walk_1.png` | cat/grey_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/grey_walk_0.png` | cat/grey_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/grey_sit.png` | cat/grey_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/grey_sleep.png` | cat/grey_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_walk_3.png` | cat/calico_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_walk_2.png` | cat/calico_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_walk_1.png` | cat/calico_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_walk_0.png` | cat/calico_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_sit.png` | cat/calico_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/calico_sleep.png` | cat/calico_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_walk_3.png` | cat/tabby_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_walk_2.png` | cat/tabby_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_walk_1.png` | cat/tabby_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_walk_0.png` | cat/tabby_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_sit.png` | cat/tabby_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/tabby_sleep.png` | cat/tabby_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_walk_3.png` | cat/white_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_walk_2.png` | cat/white_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_walk_1.png` | cat/white_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_walk_0.png` | cat/white_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_sit.png` | cat/white_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/white_sleep.png` | cat/white_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_walk_3.png` | cat/black_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_walk_2.png` | cat/black_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_walk_1.png` | cat/black_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_walk_0.png` | cat/black_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_sit.png` | cat/black_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/black_sleep.png` | cat/black_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_walk_3.png` | cat/ginger_walk_3 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_walk_2.png` | cat/ginger_walk_2 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_walk_1.png` | cat/ginger_walk_1 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_walk_0.png` | cat/ginger_walk_0 | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_sit.png` | cat/ginger_sit | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
+| `art/cats/ginger_sleep.png` | cat/ginger_sleep | drawn in code by tools/art/cat.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_backpack.png` | person/side_backpack | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_tote.png` | person/side_tote | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_apron.png` | person/side_apron | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |

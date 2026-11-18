@@ -10,6 +10,9 @@ const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Prompts = preload("res://scripts/ai/prompts.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Layout = preload("res://scripts/bar/layout.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const PixelCat = preload("res://scripts/ui/pixel_cat.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
 const MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
 
@@ -18,6 +21,7 @@ var spot := "stove"
 var with_guest: Variant = null  # the customer it's on, at the feet of, or begging from (the tent's Guest)
 var next_move := 0.0  # game minutes until it moves on
 var node: Control
+var picture: PixelCat  # the cat in pixel art (pixel_cat.gd), if there's art for its coat; else its shapes
 var tween: Tween
 var dice: RandomNumberGenerator  # the scenery's (it never shifts the game's own rolls)
 var stage_width := 0.0
@@ -64,6 +68,8 @@ func place() -> void:
 		"feet": target = Vector2(Layout.SEAT_X[with_guest.seat] + 18, 348)
 		"food": target = Vector2(Layout.SEAT_X[with_guest.seat] + 48, 318)
 	node.visible = true
+	if picture.coat != "":
+		picture.settle(_rest_pose())
 	face_towards(target.x)
 	if tween != null and tween.is_valid():
 		tween.kill()
@@ -114,9 +120,15 @@ func build(stage: Control) -> void:
 	node.mouse_filter = Control.MOUSE_FILTER_STOP
 	node.visible = false
 	stage.add_child(node)
+	PixelLight.light(node, "people")  # lit by the hour as the people are (pixel_light.gd); its parts share it, its name doesn't
 	for part in [["Tail", Vector2(-10, 10), Vector2(12, 4)], ["Body", Vector2(0, 10), Vector2(32, 16)], ["Head", Vector2(28, 2), Vector2(15, 14)],
 			["EarLeft", Vector2(29, -2), Vector2(4, 5)], ["EarRight", Vector2(38, -2), Vector2(4, 5)], ["Patch", Vector2(8, 12), Vector2(10, 7)]]:
-		Draw.rect(node, part[1], part[2], Color.WHITE).name = part[0]
+		var shape := Draw.rect(node, part[1], part[2], Color.WHITE)
+		shape.name = part[0]
+		shape.use_parent_material = true
+	picture = PixelCat.new()
+	picture.visible = false
+	node.add_child(picture)
 	var tag := Label.new()  # its name, above it (centred on the cat, so it stays put when it turns)
 	tag.name = "Tag"
 	tag.position = Vector2(-77, -24)
@@ -138,3 +150,19 @@ func paint(label: String) -> void:
 	var patch := node.get_node("Patch") as ColorRect
 	patch.visible = info["coat"] in ["calico", "tabby"]
 	patch.color = Color("d9883a") if info["coat"] == "calico" else coat.darkened(0.35)
+	# In pixel art, if there's art for its coat (and then not its shapes).
+	var pixels := PixelCat.has_art(str(info["coat"]))
+	if not pixels:
+		Art.drawn("cat/%s_sit" % info["coat"])
+	picture.visible = pixels
+	picture.coat = str(info["coat"]) if pixels else ""
+	if pixels:
+		picture.settle(_rest_pose())
+	for part in ["Tail", "Body", "Head", "EarLeft", "EarRight"]:
+		(node.get_node(part) as CanvasItem).visible = not pixels
+	patch.visible = patch.visible and not pixels
+
+
+## How the cat rests where it is: curled up asleep by the stove or on a lap, else sitting up.
+func _rest_pose() -> String:
+	return "sleep" if spot in ["stove", "lap"] else "sit"

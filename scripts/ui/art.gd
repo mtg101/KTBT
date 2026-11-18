@@ -11,9 +11,11 @@ extends RefCounted
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const CatRules = preload("res://scripts/rules/cat_rules.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
 const SCALE := 3
+const CAT_POSES := ["sleep", "sit", "walk_0", "walk_1", "walk_2", "walk_3"]  # (tools/art/cat.py POSES)
 
 ## The kinds of thing that can have art, and the ids each can have: what the game decides.
 ## More kinds come with their stage of the art (the street, people, food: PLAN.md).
@@ -41,6 +43,12 @@ static func ids(kind: String) -> Array:
 				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)
 			return layers
+		"cat":  # the cat, in each coat and pose (drawn in code by tools/art/cat.py; pixel_cat.gd shows them)
+			var cats: Array = []
+			for coat in CatRules.CAT_COATS:
+				for pose in CAT_POSES:
+					cats.append("%s_%s" % [coat, pose])
+			return cats
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
 			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove", "bulb", "neon_board"]
 		"menu":  # the menu board, in each of its styles (menu_board.gd STYLE_ORDER; drawn in code by tools/art/fittings.py)

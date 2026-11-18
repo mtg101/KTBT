@@ -1,4 +1,184 @@
 {
+	"cat/black_sit": {
+		"file": "cats/black_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/black_sleep": {
+		"file": "cats/black_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/black_walk_0": {
+		"file": "cats/black_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/black_walk_1": {
+		"file": "cats/black_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/black_walk_2": {
+		"file": "cats/black_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/black_walk_3": {
+		"file": "cats/black_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_sit": {
+		"file": "cats/calico_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_sleep": {
+		"file": "cats/calico_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_walk_0": {
+		"file": "cats/calico_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_walk_1": {
+		"file": "cats/calico_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_walk_2": {
+		"file": "cats/calico_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/calico_walk_3": {
+		"file": "cats/calico_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_sit": {
+		"file": "cats/ginger_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_sleep": {
+		"file": "cats/ginger_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_walk_0": {
+		"file": "cats/ginger_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_walk_1": {
+		"file": "cats/ginger_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_walk_2": {
+		"file": "cats/ginger_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/ginger_walk_3": {
+		"file": "cats/ginger_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_sit": {
+		"file": "cats/grey_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_sleep": {
+		"file": "cats/grey_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_walk_0": {
+		"file": "cats/grey_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_walk_1": {
+		"file": "cats/grey_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_walk_2": {
+		"file": "cats/grey_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/grey_walk_3": {
+		"file": "cats/grey_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_sit": {
+		"file": "cats/tabby_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_sleep": {
+		"file": "cats/tabby_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_walk_0": {
+		"file": "cats/tabby_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_walk_1": {
+		"file": "cats/tabby_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_walk_2": {
+		"file": "cats/tabby_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/tabby_walk_3": {
+		"file": "cats/tabby_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_sit": {
+		"file": "cats/white_sit.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_sleep": {
+		"file": "cats/white_sleep.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_walk_0": {
+		"file": "cats/white_walk_0.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_walk_1": {
+		"file": "cats/white_walk_1.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_walk_2": {
+		"file": "cats/white_walk_2.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat/white_walk_3": {
+		"file": "cats/white_walk_3.png",
+		"source": "drawn in code by tools/art/cat.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"menu/floor": {
 		"file": "menus/floor.png",
 		"source": "drawn in code by tools/art/tent.py",
