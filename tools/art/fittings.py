@@ -37,9 +37,11 @@ class Sprite:
     def clear(self, x0, y0, x1, y1):
         self.mask[max(0, y0):y1, max(0, x0):x1] = False
 
-    def image(self):
+    def image(self, dither=0.9):
+        """In the palette's ramps; dither 0 for clean steps (small things, people: a dither's
+        checks are noise at their size)."""
         yy, xx = np.mgrid[0:self.h, 0:self.w]
-        return ramped(self.base, steps(self.light, yy, xx), self.mask)
+        return ramped(self.base, steps(self.light, yy, xx, dither), self.mask)
 
 
 GLOW = 1.4  # what glows by itself: lit to the top of its ramp

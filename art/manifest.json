@@ -19,6 +19,276 @@
 		"source": "drawn in code by tools/art/tent.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/back_apron": {
+		"file": "people/back_apron.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_backpack": {
+		"file": "people/back_backpack.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_blazer": {
+		"file": "people/back_body_blazer.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_cardigan": {
+		"file": "people/back_body_cardigan.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_hoodie": {
+		"file": "people/back_body_hoodie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_knit": {
+		"file": "people/back_body_knit.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_padded": {
+		"file": "people/back_body_padded.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_scrubs": {
+		"file": "people/back_body_scrubs.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_suit": {
+		"file": "people/back_body_suit.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_trench": {
+		"file": "people/back_body_trench.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_tshirt": {
+		"file": "people/back_body_tshirt.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_body_work_jacket": {
+		"file": "people/back_body_work_jacket.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_balding": {
+		"file": "people/back_hair_balding.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_bob": {
+		"file": "people/back_hair_bob.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_bun": {
+		"file": "people/back_hair_bun.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_buzz": {
+		"file": "people/back_hair_buzz.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_long": {
+		"file": "people/back_hair_long.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_perm": {
+		"file": "people/back_hair_perm.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_pixie": {
+		"file": "people/back_hair_pixie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_ponytail": {
+		"file": "people/back_hair_ponytail.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_short": {
+		"file": "people/back_hair_short.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_side_part": {
+		"file": "people/back_hair_side_part.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hair_two_block": {
+		"file": "people/back_hair_two_block.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hairback_long": {
+		"file": "people/back_hairback_long.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_head": {
+		"file": "people/back_head.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_apron": {
+		"file": "people/front_apron.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_backpack": {
+		"file": "people/front_backpack.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_blazer": {
+		"file": "people/front_body_blazer.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_cardigan": {
+		"file": "people/front_body_cardigan.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_hoodie": {
+		"file": "people/front_body_hoodie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_knit": {
+		"file": "people/front_body_knit.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_padded": {
+		"file": "people/front_body_padded.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_scrubs": {
+		"file": "people/front_body_scrubs.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_suit": {
+		"file": "people/front_body_suit.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_trench": {
+		"file": "people/front_body_trench.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_tshirt": {
+		"file": "people/front_body_tshirt.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_body_work_jacket": {
+		"file": "people/front_body_work_jacket.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_briefcase": {
+		"file": "people/front_briefcase.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_glasses": {
+		"file": "people/front_glasses.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_balding": {
+		"file": "people/front_hair_balding.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_bob": {
+		"file": "people/front_hair_bob.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_bun": {
+		"file": "people/front_hair_bun.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_buzz": {
+		"file": "people/front_hair_buzz.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_long": {
+		"file": "people/front_hair_long.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_perm": {
+		"file": "people/front_hair_perm.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_pixie": {
+		"file": "people/front_hair_pixie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_ponytail": {
+		"file": "people/front_hair_ponytail.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_short": {
+		"file": "people/front_hair_short.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_side_part": {
+		"file": "people/front_hair_side_part.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hair_two_block": {
+		"file": "people/front_hair_two_block.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hairback_long": {
+		"file": "people/front_hairback_long.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_head": {
+		"file": "people/front_head.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_head_old": {
+		"file": "people/front_head_old.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_tote": {
+		"file": "people/front_tote.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"sign/banner": {
 		"file": "signs/banner.png",
 		"source": "drawn in code by tools/art/tent.py",

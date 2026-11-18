@@ -9,6 +9,7 @@ extends RefCounted
 ## load is an error (in the log, and in an autoplay batch's summary), and drawn in code instead.
 
 const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Looks = preload("res://scripts/rules/looks.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
 const SCALE := 3
@@ -19,6 +20,15 @@ static func ids(kind: String) -> Array:
 	match kind:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
+		"person":  # the people's layers (drawn in code by tools/art/people.py; people_art.gd stacks them)
+			var layers: Array = ["front_head_old", "front_glasses", "front_tote", "front_briefcase"]
+			for view in ["front", "back"]:
+				for clothes in Looks.CLOTHES:
+					layers.append("%s_body_%s" % [view, clothes])
+				for hair in Looks.HAIR_STYLES:
+					layers.append("%s_hair_%s" % [view, hair])
+				layers.append_array(["%s_head" % view, "%s_hairback_long" % view, "%s_apron" % view, "%s_backpack" % view])
+			return layers
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
 			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove", "bulb", "neon_board"]
 		"menu":  # the menu board, in each of its styles (menu_board.gd STYLE_ORDER; drawn in code by tools/art/fittings.py)

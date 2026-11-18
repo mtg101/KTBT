@@ -8,6 +8,8 @@ extends RefCounted
 
 const Draw = preload("res://scripts/bar/draw.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
+const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const Art = preload("res://scripts/ui/art.gd")
 const Night = preload("res://scripts/bar/night.gd")
 
 ## The colours people are drawn in before they're dressed (and the bags held over heads).
@@ -80,6 +82,10 @@ func dress(person: Control, look: Dictionary) -> void:
 			person.remove_child(old)
 			old.queue_free()
 	var tag := person.get_node_or_null("Tag")
+	if _dress_in_pixels(person, look):
+		if tag != null:
+			person.move_child(tag, -1)  # the name stays on top
+		return
 	var outfit := _layer_in(person, "Look")
 	var skin := Color(Looks.SKIN_TONES[clampi(int(look.get("skin", 0)), 0, Looks.SKIN_TONES.size() - 1)])
 	var hair_colour := Color(str(Looks.HAIR_COLOURS.get(look.get("hair_colour", "black"), Looks.HAIR_COLOURS["black"])[0]))
@@ -262,6 +268,29 @@ func dress(person: Control, look: Dictionary) -> void:
 			Draw.rect(back, Vector2(-20, 120), Vector2(30, 22), Color("4a3020"))
 	if tag != null:
 		person.move_child(tag, -1)  # the name stays on top
+
+
+## The person in pixel art, both ways round, if there's art for their look (people_art.gd):
+## whether they were.
+func _dress_in_pixels(person: Control, look: Dictionary) -> bool:
+	var front_art := PeopleArt.texture(look, "front")
+	var back_art := PeopleArt.texture(look, "back")
+	if front_art == null or back_art == null:
+		Art.drawn("person/front_body_%s" % str(look.get("clothes", "knit")))
+		return false
+	var outfit := _layer_in(person, "Look")
+	for view in [["Front", front_art], ["Back", back_art]]:
+		var picture := TextureRect.new()
+		picture.name = view[0]
+		picture.texture = view[1]
+		picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_SCALE
+		picture.size = Vector2(PeopleArt.SIZE * PeopleArt.SCALE)
+		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		outfit.add_child(picture)
+	outfit.get_node("Back").visible = false
+	return true
 
 
 ## Which way someone's facing: toward us (walking, coming in, leaving, the owner), or away

@@ -184,7 +184,8 @@ def preview(picture, result, path):
 def add_to_game(result, key, source, licence):
     """Into art/, its manifest, and LICENSE-ASSETS.md (each replaced if it was there)."""
     kind, ident = key.split("/")
-    file = "%s/%s.png" % (kind + ("es" if kind.endswith(("ch", "sh", "s")) else "s"), ident)  # (touches, streets...)
+    folder = {"person": "people"}.get(kind, kind + ("es" if kind.endswith(("ch", "sh", "s")) else "s"))  # (touches, streets, people...)
+    file = "%s/%s.png" % (folder, ident)
     path = os.path.join(palette.ROOT, "art", file)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     result.save(path)

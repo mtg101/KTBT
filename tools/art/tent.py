@@ -172,11 +172,11 @@ def stool(colour):
     return ramped(base, step, mask)
 
 
-def steps(light, yy, xx):
-    """Each pixel's step on its ramp, from the light, dithered between steps (4x4 Bayer)."""
+def steps(light, yy, xx, dither=0.9):
+    """Each pixel's step on its ramp, from the light, dithered between steps (4x4 Bayer; 0: none)."""
     bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0 - 0.5
     t = np.interp(light, [0.15, 0.3, 0.45, 0.62, 0.85, 1.15, 1.5], range(7))
-    return np.clip(np.floor(t + 0.5 + bayer[yy % 4, xx % 4] * 0.9), 0, 6).astype(int)
+    return np.clip(np.floor(t + 0.5 + bayer[yy % 4, xx % 4] * dither), 0, 6).astype(int)
 
 
 def ramped(base, step, mask):
