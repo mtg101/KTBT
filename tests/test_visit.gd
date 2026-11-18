@@ -607,6 +607,7 @@ func test_time_speeds_up_when_the_tent_is_empty_and_slows_when_busy() -> void:
 # --- The cat ----------------------------------------------------------------------------------
 
 func test_a_new_bar_gets_a_cat() -> void:
+	Hooks.cat_wanders = false  # (asleep by the stove: one that's wandered out into the street isn't drawn)
 	var runner := await _open_bar()
 	var cat: Dictionary = Game.bar["cat"]
 	assert_str(str(cat["name"])).is_not_empty()
@@ -1338,7 +1339,8 @@ func test_the_city_behind_the_tent_and_tonights_date() -> void:
 
 
 func test_the_cat_wanders_by_itself() -> void:
-	Hooks.run_clock = true
+	# (The clock held: the cat's time runs on anyway, and with it running a customer can turn up
+	# before the bar's seen to be open, and the whole night be over before the cat's watched.)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._cat_next = 2.0  # (soon: on a slow machine, half an hour of game time can take a while)
@@ -1603,9 +1605,9 @@ func test_stripes_are_cut_to_the_shape() -> void:
 
 
 func test_people_walk_past_without_coming_in() -> void:
-	Hooks.run_clock = true
 	var runner := await _open_bar()
 	var scene = runner.scene()
+	Hooks.run_clock = true  # (once open: running before, a customer could keep the bar from being seen open)
 	assert_bool(await _wait_until(func(): return scene._street.strollers >= 3)).override_failure_message("nobody walked past").is_true()
 	var walker := runner.find_child("Stroller1", true, false) as Control
 	if walker != null:
