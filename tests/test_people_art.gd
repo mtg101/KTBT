@@ -90,6 +90,22 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	front._process(0.0)
 	assert_float(upper.position.y).is_equal(-PixelPerson.GRID)
 	assert_float(lower.position.y).is_equal((PeopleArt.BREATHE_FROM - 1) * PixelPerson.GRID)
+	# Walking whenever they move (facing us): a step's frame for every so far, standing again once they stop.
+	front._process(0.0)
+	assert_int(front.walk_frame).is_equal(-1)
+	for k in 5:
+		person.position.x += PixelPerson.STEP / 2
+		front._process(0.016)
+	assert_int(front.walk_frame).is_between(1, 3)
+	for k in 20:
+		front._process(0.016)
+	assert_int(front.walk_frame).is_equal(-1)
+	var frames: Array = PeopleArt.walk_frames(PeopleArt.texture(OWNER, "front"))
+	assert_int(frames.size()).is_equal(4)
+	var lifted: Image = frames[0].get_image()
+	var standing := PeopleArt.texture(OWNER, "front").get_image()
+	assert_float(lifted.get_pixel(11, PeopleArt.SIZE.y - 1).a).is_equal(0.0)  # (the left foot up off the ground)
+	assert_float(standing.get_pixel(11, PeopleArt.SIZE.y - 1).a).is_equal(1.0)
 	view.turn(person, false)  # seated: their name comes down with their head
 	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y + PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
 	view.turn(person, true)
