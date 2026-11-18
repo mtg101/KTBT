@@ -1,1 +1,32 @@
-{}
+{
+	"street/apartments": {
+		"file": "streets/apartments.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1260201645, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a tall plain Korean apartment block at night, many small windows in a grid, some lit warm yellow, some dark, balconies with laundry, no text, no letters, no numbers, no people, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"street/apartments_2": {
+		"file": "streets/apartments_2.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1260201644, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a tall plain Korean apartment block at night, many small windows in a grid, some lit warm yellow, some dark, balconies with laundry, no text, no letters, no numbers, no people, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"street/corner_shop": {
+		"file": "streets/corner_shop.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1977496701, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a small convenience store front at night, a wide glass front lit bright white with shelves inside, a blank white signboard with no writing, a drinks vending machine beside the door, no text, no letters, no logos, no people, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"street/karaoke": {
+		"file": "streets/karaoke.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 934853237, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, the front of a narrow two-storey karaoke bar building at night, glowing neon tubes in pink and blue shaped like stars and music notes, no words, a door with steps, blank dark windows, no signs with writing, no text, no letters, no logos, no people, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"street/overpass": {
+		"file": "streets/overpass.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1798563700, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a long horizontal concrete road overpass at night, thick level concrete deck on square pillars, stains on the concrete, no lamps, no cars, no people, no text, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"street/shops": {
+		"file": "streets/shops.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1431566460, then pixelate.py: \"pixel art, a row of small old shops and a narrow apartment block on a Seoul back street at night, side view, flat front facades, lit shop windows, blank signboards with no writing, roll-down shutters, air-conditioning units, power lines, no people, no text, no letters, on a flat green background\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	}
+}

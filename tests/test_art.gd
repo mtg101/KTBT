@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 
 const Art = preload("res://scripts/ui/art.gd")
 const TentView = preload("res://scripts/bar/tent_view.gd")
+const StreetArt = preload("res://scripts/bar/street_art.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 
 const FIXTURES := "res://tests/support/art/"  # a lucky cat, and an entry whose file's missing
@@ -63,16 +64,38 @@ func test_the_tent_uses_a_touchs_image_and_draws_the_rest() -> void:
 		assert_array(tent.touch_spots(id)).override_failure_message(id).is_not_empty()
 
 
+func test_the_street_draws_its_pieces_on_its_own_pixel_grid_or_is_just_the_sky() -> void:
+	Art.folder = FIXTURES
+	Art.reset()
+	var street: StreetArt = auto_free(StreetArt.new())
+	assert_vector(street.size).is_equal(Vector2(StreetArt.PIXELS * StreetArt.SCALE))
+	assert_int(street.stretch_shrink).is_equal(StreetArt.SCALE)  # (each street pixel SCALE screen pixels)
+	assert_bool(street.has_art()).is_true()
+	var shops: TextureRect = street.pieces[0]
+	assert_vector(shops.size).is_equal(shops.texture.get_size())  # (one image pixel to a grid pixel)
+	assert_vector(shops.position + Vector2(shops.size.x / 2, shops.size.y)).is_equal(Vector2(300, StreetArt.GROUND))
+	assert_that(shops.modulate).is_equal(StreetArt.NIGHT)
+	street.set_sky(Color.RED)
+	assert_that(street.sky.color).is_equal(Color.RED)
+	assert_array(Art.summary()["drawn"]).contains(["street/overpass", "street/apartments"])  # (the rest, still the stage's own city)
+	Art.folder = "res://tests/support/no_art_here/"
+	Art.reset()
+	var bare: StreetArt = auto_free(StreetArt.new())
+	assert_bool(bare.has_art()).is_false()
+
+
 func test_a_manifest_only_has_what_the_game_draws_with_its_sources_and_licences() -> void:
 	Art.folder = FIXTURES
 	var problems := Art.check_manifest({
 		"touch/lucky_cat": {"file": "touches/lucky_cat.png", "source": "drawn for the tests", "licence": "CC BY-SA 4.0"},
 		"touch/disco_ball": {"file": "touches/lucky_cat.png", "source": "x", "licence": "x"},
+		"street/moon": {"file": "touches/lucky_cat.png", "source": "x", "licence": "x"},
 		"hat/fedora": {"file": "x.png", "source": "x", "licence": "x"},
 		"touch/radio": {"file": "touches/radio.png", "source": "", "licence": "CC0"},
 	}, "art/touches/lucky_cat.png: drawn for the tests")
 	assert_array(problems).contains_exactly_in_any_order([
 		"touch/disco_ball: no touch called \"disco_ball\"",
+		"street/moon: no street called \"moon\"",
 		"hat/fedora: no such kind of art (\"kind/id\", the kinds in art.gd's ids())",
 		"touch/radio: its file \"touches/radio.png\" isn't in %s" % FIXTURES,
 		"touch/radio: no source",

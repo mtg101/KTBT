@@ -56,6 +56,7 @@ const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Skyline = preload("res://scripts/rules/skyline.gd")
 const SkylineView = preload("res://scripts/ui/skyline_view.gd")
+const StreetArt = preload("res://scripts/bar/street_art.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Signatures = preload("res://scripts/rules/signatures.gd")
@@ -94,7 +95,8 @@ const OWNER_TEXT := Ktv.YELLOW
 
 # Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
 const SCREEN := Vector2(1920, 1080)
-const PANELS_TOP := 452.0  # The transcript, the PD's desk and the side panel fill the screen below the tent.
+const STAGE_ROOM := 160.0  # the street above the tent's stage (the overpass, the tops of the blocks: street_art.gd)
+const PANELS_TOP := 612.0  # The transcript, the PD's desk and the side panel fill the screen below the tent (60 + STAGE_ROOM + 380 + 12).
 const SIDE_WIDTH := 520.0  # the side panel on the right: who's here now, and the debug stats
 const DESK_WIDTH := 460.0  # the PD's desk, between the transcript and the side panel
 
@@ -423,6 +425,7 @@ var _busier := 1.0
 var _night_ratings := {}
 var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
 var _skyline: SkylineView  # the city behind the tent
+var _street_art: StreetArt  # the street behind the tent, in pixel art (street_art.gd)
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
 ## Tonight's weather, as NightRules.weather_kind says it (kept by the night).
 var _weather_kind: String:
@@ -4289,10 +4292,15 @@ func _build_ui() -> void:
 	_options_button.toggled.connect(func(on): _options_panel.visible = on)
 	bar.add_child(_options_button)
 
+	# The street behind it all, in pixel art, reaching above the tent (street_art.gd).
+	_street_art = StreetArt.new()
+	_street_art.position = Vector2((SCREEN.x - STAGE_SIZE.x) / 2, 60)
+	add_child(_street_art)
+
 	# The tent: nearly the full width, with five stools.
 	_stage = Control.new()
 	_stage.name = "Tent"
-	_stage.position = Vector2((SCREEN.x - STAGE_SIZE.x) / 2, 60)
+	_stage.position = Vector2((SCREEN.x - STAGE_SIZE.x) / 2, 60 + STAGE_ROOM)
 	_stage.size = STAGE_SIZE
 	_stage.clip_contents = true
 	add_child(_stage)
@@ -4462,9 +4470,13 @@ func _build_stage(stage: Control) -> void:
 	_skyline.size = STAGE_SIZE
 	stage.add_child(_skyline)
 	_tent_view.weather_back = _layer(stage, "WeatherBack")
-	_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a"))  # the overpass
-	_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36"))  # pillars
-	_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36"))
+	var city: Array = [_tent_view.sky, _skyline]  # (the stage's own city: left out when the street's art shows through)
+	city.append(_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a")))  # the overpass
+	city.append(_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36")))  # pillars
+	city.append(_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36")))
+	if _street_art.has_art():
+		for piece in city:
+			piece.visible = false
 	_scenery.build_neon(stage)
 	_tent_view.glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
 	_tent_view.glow.name = "Glow"
@@ -4594,6 +4606,7 @@ func _show_look() -> void:
 ## off, while closing up early (see _show_closing_up).
 func _update_light(closing_dim: bool = false) -> void:
 	_tent_view.update_light(_clock, _weather_kind, closing_dim or (_closing_early and _night_open))
+	_street_art.set_sky(_tent_view.sky.color)
 
 
 ## Tonight's weather, as you'd see it (see TentView).

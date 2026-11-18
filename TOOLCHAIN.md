@@ -212,7 +212,7 @@ That highlights `.gd`, `.tscn` and `project.godot` files straight away.
 
 ## 6a. Autoplay from your phone (optional)
 
-A batch of autoplay nights (README, "Autoplay") can be started by double-clicking `tools\autoplay.bat`. To let Claude start one when you're not at the PC (from the Claude app on your phone, in a chat linked to this PC), add the project's small helper, `tools\autoplay_mcp.ps1`, as a local MCP server in the Claude desktop app. It can do three things only: start a batch, say how one's going (and whether Ollama's answering), and stop one. No other programs, no general shell, and Ollama stays on `localhost`.
+A batch of autoplay nights (README, "Autoplay") can be started by double-clicking `tools\autoplay.bat`. To let Claude start one when you're not at the PC (from the Claude app on your phone, in a chat linked to this PC), add the project's small helper, `tools\autoplay_mcp.ps1`, as a local MCP server in the Claude desktop app. It can do these things only: start a batch, say how one's going (and whether Ollama's answering), and stop one; and ask ComfyUI for pictures for the art (section 6b). No other programs, no general shell, and Ollama stays on `localhost`.
 
 1. Put Godot's path in `tools\godot_path.txt` (one line, the full path of its `.exe`), if it isn't there already.
 2. **Quit the Claude desktop app completely** (right-click its tray icon, **Quit**: closing the window isn't enough). It rewrites its config file while it runs, so an edit made with it open can be lost.
@@ -246,6 +246,20 @@ Set up on 17 November 2026, after a long evening. What got in the way, for next 
 - **An extension isn't the same thing.** A `.mcpb` "extension" installed through the app is a different route; it needs its settings filled in before it's switched on. The helper doesn't use one.
 
 ---
+
+## 6b. Making art: ComfyUI and FLUX.2 Klein 4B (optional)
+
+The art's parts that need variety come from a local image model, through the pixelate tool (ART.md). The model is **FLUX.2 Klein 4B** (Apache 2.0, so what it makes is ours to use), run in **ComfyUI** (free; Ollama can't make images on Windows). Never at the same time as Ollama: both want the GPU.
+
+1. **ComfyUI:** from ComfyUI's GitHub **Releases**, `ComfyUI_windows_portable_nvidia.7z`, extracted to a short path outside the project (e.g. `C:\ComfyUI`). No installer.
+2. **The model's three files**, into its `ComfyUI\models\` folders:
+   - `diffusion_models\flux-2-klein-4b-fp8.safetensors` (Hugging Face, `black-forest-labs/FLUX.2-klein-4b-fp8`)
+   - `text_encoders\qwen_3_4b.safetensors` (`Comfy-Org/flux2-klein-4B`, `split_files/text_encoders`)
+   - `vae\flux2-vae.safetensors` (`Comfy-Org/flux2-dev`, `split_files/vae`)
+3. **Run it:** `run_nvidia_gpu.bat`; it opens at `127.0.0.1:8188`. **Templates**, search "Klein", the 4B text-to-image one; check its loaders show the three files, and try a prompt.
+4. **Save the workflow for the helper:** **Workflow → Export (API)**, as `tools\art\klein_api.json` (in git: it says how the art was made).
+5. **Tell the helper where ComfyUI is:** its folder (the one with `run_nvidia_gpu.bat`) on one line in `tools\comfyui_path.txt` (this PC's own, so not in git). Then **restart the Claude desktop app** (Quit from the tray), so the helper (`tools\autoplay_mcp.ps1`, section 6a) picks up its art tools: `generate_art` (a prompt, a name, how many, a seed and size; into `art\raw\`, not in git, each picture with a `.json` note of its model, prompt and seed), `collect_art` (any still being made) and `stop_art`. You don't need to start ComfyUI yourself: `generate_art` starts it in the background (no window, no browser; its output in `logs\comfyui.log`), and `stop_art` stops it to give the GPU back. `start_autoplay` stops it first, and `generate_art` won't run while a batch is playing. Started by hand (`run_nvidia_gpu.bat`), it's used as it is.
+6. **Into the game:** `python3 tools/art/pixelate.py art/raw/<picture>.png --height 16 --key touch/lucky_cat` (the note becomes its source; licence CC BY-SA 4.0, this project's). Prompts: one thing, on a flat green background (magenta for something green), no text.
 
 ## 7. Testing: GdUnit4
 

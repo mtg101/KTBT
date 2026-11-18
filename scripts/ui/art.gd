@@ -19,6 +19,8 @@ static func ids(kind: String) -> Array:
 	match kind:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
+		"street":  # the pieces of the street behind the tent (street_art.gd's LAYOUT)
+			return ["overpass", "apartments", "apartments_2", "shops", "karaoke", "corner_shop"]
 	return []
 
 ## Where the art is (tests point it at their own).
@@ -71,10 +73,11 @@ static func texture(key: String) -> Texture2D:
 	return found
 
 
-## Puts a key's image on the stage, its pixels SCALE times over: its bottom-centre at spot
+## Puts a key's image on the stage, its pixels SCALE times over (or scale: 1 on a pixel grid
+## of its own, like the street's): its bottom-centre at spot
 ## (anchor "bottom": things standing) or its top-centre (anchor "top": things hanging). The
 ## image, or null if there's none (then draw it in code, and say so: drawn()).
-static func place(parent: Control, key: String, spot: Vector2, anchor: String = "bottom") -> TextureRect:
+static func place(parent: Control, key: String, spot: Vector2, anchor: String = "bottom", scale: int = SCALE) -> TextureRect:
 	var image := texture(key)
 	if image == null:
 		return null
@@ -85,7 +88,7 @@ static func place(parent: Control, key: String, spot: Vector2, anchor: String = 
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rect.size = image.get_size() * SCALE
+	rect.size = image.get_size() * scale
 	rect.position = (spot - Vector2(rect.size.x / 2, rect.size.y if anchor == "bottom" else 0.0)).round()
 	parent.add_child(rect)
 	used[key] = "image"

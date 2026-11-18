@@ -732,6 +732,19 @@ func test_the_loading_screens_tent_is_the_bars_own_with_a_stool_for_every_seat()
 	assert_str((title.find_child("Sign", true, false) as Control).tooltip_text).contains("pojangmacha")
 
 
+func test_the_street_behind_the_tent_is_pixel_art_and_reaches_above_it() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var street = scene._street_art
+	assert_bool(street.has_art()).is_true()  # (the game's own art folder has the street)
+	assert_float(street.position.y + street.size.y).is_equal(scene._stage.position.y + scene.STAGE_SIZE.y)  # (behind the stage, and above it)
+	assert_float(scene._stage.position.y - street.position.y).is_equal(scene.STAGE_ROOM)
+	assert_bool(scene._tent_view.sky.visible).is_false()  # (the stage's own sky and city left out, so the street shows through)
+	assert_bool(scene._skyline.visible).is_false()
+	assert_that(street.sky.color).is_equal(scene._tent_view.sky.color)  # (the night by the hour)
+	assert_float(scene._log_panel.position.y).is_greater(scene._stage.position.y + scene.STAGE_SIZE.y)  # (the panels below it all)
+
+
 func test_a_slow_ai_on_the_loading_screen_shows_its_alive() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()

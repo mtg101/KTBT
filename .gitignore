@@ -20,3 +20,11 @@ Thumbs.db
 
 # This PC's own path to Godot, for tools/autoplay.bat
 /tools/godot_path.txt
+
+# The image model's raw pictures, before the pixelate tool (each kept art's source is in art/manifest.json)
+/art/raw/
+# This PC's own path to ComfyUI, for the helper's art tools
+/tools/comfyui_path.txt
+
+# Python caches (tools/art)
+__pycache__/
