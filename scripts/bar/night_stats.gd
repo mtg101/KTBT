@@ -35,6 +35,9 @@ var tipsy := 0  # customers who had enough to sway
 ## The night as a story: how it opened (how long the loading screen took, the recap's style
 ## and who wrote it: "ai" or "game") and the diary (its stamp, and who wrote it).
 var story := {}
+## The art: which of the game's pieces were drawn from images, which in code, and which images
+## wouldn't load (Art.summary(): {"images", "drawn", "broken"}, each a list of keys).
+var art := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
@@ -730,6 +733,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]THE STORY[/b]")
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
+	if not art.is_empty():
+		lines.append("Art: images %d · drawn in code %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(),
+			(" · BROKEN %s" % ", ".join(PackedStringArray(art["broken"]))) if not art.get("broken", []).is_empty() else ""])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
@@ -791,6 +797,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"event_counts": event_counts.duplicate(),
 		"street": street.duplicate(),
 		"story": story.duplicate(),
+		"art": art.duplicate(true),
 		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],

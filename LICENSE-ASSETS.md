@@ -17,5 +17,14 @@ The placeholder sounds and the Arirang arrangement are made in code (`scripts/so
 `scripts/sound/music.gd`) and are original to this project. Arirang itself is a traditional Korean
 folk song in the public domain.
 
+## Art (`art/`)
+
+Every image in `art/` is listed here, with where it came from and its licence (and in
+`art/manifest.json`, which the tests check against this list: see ART.md, "The art folder").
+None yet: everything on screen is still drawn in code.
+
+| File | What | Source | Licence |
+| --- | --- | --- | --- |
+
 Source code is licensed separately under the GNU GPL v3. See [LICENSE](LICENSE).
 Third-party assets keep their own licences, as listed in `CREDITS.md`.

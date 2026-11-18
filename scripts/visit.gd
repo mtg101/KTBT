@@ -69,6 +69,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Art = preload("res://scripts/ui/art.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
@@ -1096,6 +1097,7 @@ func _start_night() -> void:
 	_stats.specials = _specials.duplicate()
 	_stats.sold_out = Menu.sold_out.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
+	_stats.art = Art.summary()  # (what's drawn from images so far, and what in code)
 	_menu_change = {}
 	if _before_night.has("menu_change"):
 		_menu_change = _before_night["menu_change"].duplicate()

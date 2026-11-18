@@ -304,7 +304,7 @@ const REACTIONS := {
 
 ## The PD's edit: when a moment gets a caption, the PD has EDIT_SECONDS to pick its spin: the
 ## AI's own, the flip (the opposite spin: FLIPS) or a roast; none picked, the AI's goes out.
-const EDIT_SECONDS := 2.0
+const EDIT_SECONDS := 5.0  # (2 was too quick to read three spins and pick one)
 const FLIPS := {"sad": "funny", "shock": "funny", "awkward": "sweet", "sweet": "awkward", "warm": "funny", "funny": "warm"}
 
 

@@ -1,0 +1,4 @@
+{
+	"touch/lucky_cat": {"file": "touches/lucky_cat.png", "source": "drawn in code for the tests (tools: PIL)", "licence": "CC BY-SA 4.0 (this project)"},
+	"touch/radio": {"file": "touches/radio.png", "source": "a file that isn't there, for the tests", "licence": "CC BY-SA 4.0 (this project)"}
+}

@@ -10,6 +10,7 @@ const Glossary = preload("res://scripts/rules/glossary.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
 const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
 const CLOSING_GLOW := 0.6  # the tent's glow with one bulb off
@@ -148,8 +149,15 @@ func tent_shape(shape: String) -> PackedVector2Array:
 	return PackedVector2Array([Vector2(100, 40), Vector2(w - 100, 40), Vector2(w - 22, 112), Vector2(22, 112)])
 
 
-## One of the bar's little touches, as simple shapes.
+## One of the bar's little touches: its image if it has one (art/manifest.json, "touch/<id>"),
+## at each of its spots; otherwise as simple shapes.
 func add_touch(id: String) -> void:
+	var key := "touch/" + id
+	if Art.has(key):
+		for spot in touch_spots(id):
+			Art.place(spot[0], key, spot[1], spot[2])
+		return
+	Art.drawn(key)
 	var w := stage_size.x
 	match id:
 		"string_lights":
@@ -193,6 +201,32 @@ func add_touch(id: String) -> void:
 			Draw.rect(decor_back, Vector2(200, 172), Vector2(76, 12), Color("3a2a1e"))
 			for k in 5:
 				Draw.rect(decor_back, Vector2(208 + k * 14, 184), Vector2(3, 18), Color("c8c8d8"))
+
+
+## Where a touch's image goes: [layer, spot, "bottom" (standing on it) or "top" (hanging from
+## it)], once for each (each lantern, each photo...), where the shapes are drawn.
+func touch_spots(id: String) -> Array:
+	var w := stage_size.x
+	match id:
+		"string_lights":
+			return range(40, int(w) - 40, 56).map(func(x): return [decor_roof, Vector2(x + 3, 120), "top"])
+		"lanterns":
+			return [330.0, w / 2, w - 330.0].map(func(x): return [decor_roof, Vector2(x, 122), "top"])
+		"radio":
+			return [[decor_counter, Vector2(w - 249, 250), "bottom"]]
+		"plants":
+			return [92.0, w - 128.0].map(func(x): return [decor_back, Vector2(x + 18, 372), "bottom"])
+		"calendar":
+			return [[decor_back, Vector2(62, 160), "top"]]
+		"lucky_cat":
+			return [[decor_counter, Vector2(w - 196, 250), "bottom"]]
+		"photos":
+			return range(3).map(func(k): return [decor_back, Vector2(w - 70, 150 + k * 30), "top"])
+		"fishing_net":
+			return [[decor_back, Vector2(w - 222, 128), "top"]]
+		"knife_rack":
+			return [[decor_back, Vector2(238, 172), "top"]]
+	return []
 
 
 ## The sky, the tent's glow and the bulbs, by the hour. Cold nights look bluer, fog greys

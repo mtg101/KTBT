@@ -59,6 +59,13 @@ Bigger figures at the counter, built from layers the game's facts choose (age ra
 - **Made by a local image model, through the pixelate tool:** what needs variety and detail: the street and buildings behind, the skyline, props, dishes. The tool shrinks a picture onto the grid, repaints it in the palette, cuts out its background and paints out any text. The model runs on the desktop's GPU in a session of its own, never while Ollama's playing, with a licence that allows it (checked first).
 - **Every asset logged in LICENSE-ASSETS.md**, with where it came from and its licence.
 
+## The art folder
+
+- **`art/manifest.json` maps the game's facts to images:** `"touch/lucky_cat": {"file": "touches/lucky_cat.png", "source": ..., "licence": ...}`. A key is a kind of thing the game draws and the id the game has for it (`scripts/ui/art.gd`, `ids()`: the bar's touches for now; the street, people and food come with their stages).
+- **A piece at a time:** whatever has an image is drawn from it, in pixels (4×, never smoothed), standing on or hanging from the spot the game draws it at; whatever hasn't is drawn in code as before. An image that won't load is an error (in the log, and an autoplay batch's summary) and is drawn in code. Which was which is in the night's stats ("Art: images 1 · drawn in code 3").
+- **Kept honest by the tests** (`test_art.gd`): every key one the game has, every file there, its source and licence given, and listed in LICENSE-ASSETS.md.
+- **Export:** the manifest is JSON, not an imported resource, so the export presets will need `art/*.json` in their extra files (when there's an export).
+
 ## How it'll work in Godot
 
 - **The stage in its own 480×270 viewport**, shown scaled with nearest filtering.
