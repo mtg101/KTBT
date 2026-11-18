@@ -509,6 +509,31 @@ def side_briefcase(frame):
     return s.image()
 
 
+## Holding a phone: the arm it's in, bent up to hold it (facing us, at the chest; from the
+## side, up in front of the face), in place of the arm hanging or swinging. people_art.gd takes
+## the hanging arm away first (facing us: the columns outside the torso, ARM_CLEAR).
+PHONE_HAND_FRONT = (21, 31)  # the phone's held here (the hand's middle), facing us
+PHONE_HAND_SIDE = (23, 25)  # ...and from the side, in front of the face
+
+
+def phone_arm(view, bare=False):
+    s = Layer()
+    if view == "front":
+        shoulder, elbow, hand = (W - SHOULDER, TOP + 2), (W - SHOULDER + 1, TOP + 15), PHONE_HAND_FRONT
+        light = 0.75
+    else:
+        shoulder, elbow, hand = SHOULDER_AT, (SHOULDER_AT[0] + 2, TOP + 13), PHONE_HAND_SIDE
+        light = 0.9
+    _strip(s, shoulder, elbow, 4, CLOTH, light)
+    for k in range(9):  # the forearm, up from the elbow to the hand
+        t = k / 8
+        x = elbow[0] + (hand[0] - elbow[0]) * t
+        y = elbow[1] + (hand[1] - elbow[1]) * t
+        s.rect(int(round(x - 2)), int(round(y - 1)), int(round(x + 2)), int(round(y + 2)), SKIN if bare else CLOTH, light - 0.05)
+    s.rect(hand[0] - 2, hand[1] - 1, hand[0] + 2, hand[1] + 2, SKIN, light + 0.15)  # the hand
+    return s.image()
+
+
 def side_layers():
     out = {}
     clothes = ["suit", "blazer", "trench", "padded", "hoodie", "cardigan", "scrubs", "work_jacket", "tshirt", "knit"]
@@ -521,6 +546,9 @@ def side_layers():
         for near in (True, False):
             out["side_arm%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near)
             out["side_arm_bare%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near, bare=True)
+    for bare in (False, True):
+        out["front_arm_phone%s" % ("_bare" if bare else "")] = phone_arm("front", bare)
+        out["side_arm_phone%s" % ("_bare" if bare else "")] = phone_arm("side", bare)
     out["side_head"] = side_head()
     out["side_head_old"] = side_head(old=True)
     for style in styles:

@@ -38,11 +38,11 @@ static var _ramps := {}  # colour -> its 7 steps
 
 
 ## The layer ids a person is built from, back to front.
-static func layers_for(look: Dictionary, view: String, frame: int = 0) -> Array:
+static func layers_for(look: Dictionary, view: String, frame: int = 0, holding: String = "") -> Array:
 	var hair := str(look.get("hair", "short"))
 	var ids: Array = []
 	if view == "side":
-		return side_layers(look, frame)
+		return side_layers(look, frame, holding)
 	if hair == "long":
 		ids.append("%s_hairback_long" % view)
 	ids.append("%s_body_%s" % [view, str(look.get("clothes", "knit"))])
@@ -58,6 +58,8 @@ static func layers_for(look: Dictionary, view: String, frame: int = 0) -> Array:
 		ids.append("front_glasses")
 	if bag == "backpack":
 		ids.append("%s_backpack" % view)
+	if view == "front" and holding == "phone":
+		ids.append("front_arm_phone_bare" if str(look.get("clothes", "")) in ["tshirt", "scrubs"] else "front_arm_phone")
 	return ids
 
 
@@ -65,7 +67,7 @@ static func layers_for(look: Dictionary, view: String, frame: int = 0) -> Array:
 ## arm, the legs, the body, what's carried, the head and hair, glasses, the near arm.
 const WALK_FRAMES := 4
 
-static func side_layers(look: Dictionary, frame: int) -> Array:
+static func side_layers(look: Dictionary, frame: int, holding: String = "") -> Array:
 	var clothes := str(look.get("clothes", "knit"))
 	var arm := "side_arm_bare" if clothes in ["tshirt", "scrubs"] else "side_arm"  # (short sleeves)
 	var ids: Array = ["%s_far_%d" % [arm, frame], "side_legs_%d" % frame, "side_body_" + clothes]
@@ -78,7 +80,10 @@ static func side_layers(look: Dictionary, frame: int) -> Array:
 	ids.append("side_hair_" + str(look.get("hair", "short")))
 	if bool(look.get("glasses", false)):
 		ids.append("side_glasses")
-	ids.append("%s_%d" % [arm, frame])
+	if holding == "phone":  # (the near arm up, holding the phone in front of their face)
+		ids.append("side_arm_phone_bare" if arm == "side_arm_bare" else "side_arm_phone")
+	else:
+		ids.append("%s_%d" % [arm, frame])
 	if bag == "briefcase":
 		ids.append("side_briefcase_%d" % frame)  # (in the near hand, swinging with it)
 	return ids
@@ -86,8 +91,9 @@ static func side_layers(look: Dictionary, frame: int) -> Array:
 
 ## The person's picture (SIZE, its pixels a grid's), or null if a layer it needs isn't there.
 ## view: "front", "back" or "side" (with frame, of the stride).
-static func texture(look: Dictionary, view: String, frame: int = 0) -> ImageTexture:
-	var key := "%s%d|%s" % [view, frame, JSON.stringify(look, "", true)]
+## holding: "phone" for someone on their phone (the arm it's in bent up to hold it).
+static func texture(look: Dictionary, view: String, frame: int = 0, holding: String = "") -> ImageTexture:
+	var key := "%s%d%s|%s" % [view, frame, holding, JSON.stringify(look, "", true)]
 	if _cache.has(key):
 		return _cache[key]
 	var picture := Image.create(SIZE.x, SIZE.y, false, Image.FORMAT_RGBA8)
@@ -98,13 +104,15 @@ static func texture(look: Dictionary, view: String, frame: int = 0) -> ImageText
 	}
 	var made: ImageTexture = null
 	var complete := true
-	for id in layers_for(look, view, frame):
+	for id in layers_for(look, view, frame, holding):
 		var layer := Art.texture("person/" + str(id))
+		if str(id).begins_with("front_arm_phone"):
+			_clear(picture, ARM_CLEAR)  # (the arm hanging at their side goes: it's up holding the phone)
 		if layer == null:
 			if str(id).contains("_body_") or str(id).ends_with("_head") or str(id).ends_with("_head_old") or str(id).contains("_legs_"):
 				complete = false  # (a body and a head it can't do without; a missing extra it can)
 			continue
-		_paint(picture, layer.get_image(), colours)
+		_paint(picture, _pixels_of(str(id), layer), colours)
 	if complete:
 		if str(look.get("age_range", "")) == "70s":
 			_stoop(picture, NECK_ROWS + (SEATED_DOWN if view == "back" else 0))
@@ -120,10 +128,10 @@ static var _walks := {}
 
 
 ## Walking from the side: the stride's frames for this look, or [] if its layers aren't there.
-static func side_frames(look: Dictionary) -> Array:
+static func side_frames(look: Dictionary, holding: String = "") -> Array:
 	var frames: Array = []
 	for frame in WALK_FRAMES:
-		var picture := texture(look, "side", frame)
+		var picture := texture(look, "side", frame, holding)
 		if picture == null:
 			return []
 		frames.append(picture)
@@ -144,7 +152,21 @@ static func walk_frames(picture: Texture2D) -> Array:
 ## Forget the pictures made (after the art changes).
 static func reset() -> void:
 	_cache = {}
+	_layers = {}
 	_walks = {}
+
+
+## Facing us, the arm that holds a phone, hanging (tools/art/people.py: its columns outside the
+## torso, from the shoulder down; its hand, which reaches over the torso's edge, ARM_HAND).
+const ARM_CLEAR := Rect2i(27, 21, 2, 26)
+const ARM_HAND := Rect2i(25, 42, 2, 5)
+
+
+static func _clear(picture: Image, area: Rect2i) -> void:
+	picture.fill_rect(area, Color(0, 0, 0, 0))
+	for y in range(ARM_HAND.position.y, ARM_HAND.end.y):  # (where the hand was over the torso: the torso again, from beside it)
+		for x in range(ARM_HAND.position.x, ARM_HAND.end.x):
+			picture.set_pixel(x, y, picture.get_pixel(ARM_HAND.position.x - 1, y))
 
 
 ## The oldest stoop: their head and neck come down a little into their shoulders.
@@ -159,19 +181,32 @@ static func _stoop(picture: Image, to_row: int) -> void:
 
 
 ## A layer onto the picture: each pixel on its colour's ramp, at its step.
-static func _paint(picture: Image, layer: Image, colours: Dictionary) -> void:
-	if layer.is_compressed():
-		layer.decompress()
-	layer.convert(Image.FORMAT_RGBA8)
-	for y in mini(layer.get_height(), SIZE.y):
-		for x in mini(layer.get_width(), SIZE.x):
-			var pixel := layer.get_pixel(x, y)
+static func _paint(picture: Image, pixels: PackedInt32Array, colours: Dictionary) -> void:
+	for k in range(0, pixels.size(), 5):
+		var colour: Color = colours.get(pixels[k + 3], Color(FIXED[pixels[k + 4]]))
+		picture.set_pixel(pixels[k], pixels[k + 1], ramp(colour)[pixels[k + 2]])
+
+
+static var _layers := {}  # a layer's drawn pixels, read once: [x, y, step, slot, fixed colour] each
+
+
+static func _pixels_of(id: String, layer: Texture2D) -> PackedInt32Array:
+	if _layers.has(id):
+		return _layers[id]
+	var image := layer.get_image()
+	if image.is_compressed():
+		image.decompress()
+	image.convert(Image.FORMAT_RGBA8)
+	var pixels := PackedInt32Array()
+	for y in mini(image.get_height(), SIZE.y):
+		for x in mini(image.get_width(), SIZE.x):
+			var pixel := image.get_pixel(x, y)
 			if pixel.a8 < 128:
 				continue
-			var step := clampi(roundi(pixel.r8 / 36.0), 0, 6)
-			var slot := roundi(pixel.g8 / 36.0)
-			var colour: Color = colours.get(slot, Color(FIXED[clampi(roundi(pixel.b8 / 8.0), 0, FIXED.size() - 1)]))
-			picture.set_pixel(x, y, ramp(colour)[step])
+			pixels.append_array([x, y, clampi(roundi(pixel.r8 / 36.0), 0, 6), roundi(pixel.g8 / 36.0),
+				clampi(roundi(pixel.b8 / 8.0), 0, FIXED.size() - 1)])
+	_layers[id] = pixels
+	return pixels
 
 
 ## A colour's light ramp: 7 steps, shadows cooler (bluer, a little more saturated), light warmer

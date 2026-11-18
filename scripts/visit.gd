@@ -3610,8 +3610,8 @@ func _update_hover(guest: Guest) -> void:
 	if area == null:
 		area = Control.new()
 		area.name = "Hover"
-		area.position = Vector2(6, 0)
-		area.size = Layout.PERSON_SIZE - Vector2(12, 0)
+		area.position = Vector2(15, 0)  # (their body: the shoulders' width, so the dishes beside them keep their own hovers)
+		area.size = Vector2(Layout.PERSON_SIZE.x - 30, Layout.PERSON_SIZE.y)
 		area.mouse_filter = Control.MOUSE_FILTER_STOP
 		area.gui_input.connect(_on_guest_clicked.bind(guest))
 		guest.node.add_child(area)

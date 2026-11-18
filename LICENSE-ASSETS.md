@@ -41,6 +41,10 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 | `art/people/side_hair_long.png` | person/side_hair_long | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_head_old.png` | person/side_head_old | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_head.png` | person/side_head | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
+| `art/people/side_arm_phone_bare.png` | person/side_arm_phone_bare | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
+| `art/people/front_arm_phone_bare.png` | person/front_arm_phone_bare | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
+| `art/people/side_arm_phone.png` | person/side_arm_phone | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
+| `art/people/front_arm_phone.png` | person/front_arm_phone | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_arm_bare_far_3.png` | person/side_arm_bare_far_3 | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_arm_far_3.png` | person/side_arm_far_3 | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |
 | `art/people/side_arm_bare_3.png` | person/side_arm_bare_3 | drawn in code by tools/art/people.py | CC BY-SA 4.0 (this project) |

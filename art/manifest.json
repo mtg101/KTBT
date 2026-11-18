@@ -149,6 +149,16 @@
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/front_arm_phone": {
+		"file": "people/front_arm_phone.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_phone_bare": {
+		"file": "people/front_arm_phone_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"person/front_backpack": {
 		"file": "people/front_backpack.png",
 		"source": "drawn in code by tools/art/people.py",
@@ -371,6 +381,16 @@
 	},
 	"person/side_arm_far_3": {
 		"file": "people/side_arm_far_3.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_arm_phone": {
+		"file": "people/side_arm_phone.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_arm_phone_bare": {
+		"file": "people/side_arm_phone_bare.png",
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},

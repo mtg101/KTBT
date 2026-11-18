@@ -138,8 +138,8 @@ func _walk(delta: float) -> void:
 
 ## A phone in their hand: held up at the chest facing us, and in front of their face from the
 ## side, on whichever side they're walking towards (its screen's light with it).
-const PHONE_SIDE_X := 66.0  # walking right: the phone's left edge (the person's 96 wide)
-const PHONE_SIDE_Y := 36.0
+const PHONE_SIDE_X := 66.0  # walking right: the phone's left edge (the person's 96 wide), in the hand (people.py PHONE_HAND_SIDE)
+const PHONE_SIDE_Y := 57.0
 const GLOW_SIDE_X := 54.0
 
 

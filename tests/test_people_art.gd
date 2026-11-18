@@ -123,6 +123,9 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	assert_bool(front.facing_left).is_true()
 	assert_bool(walker.flip_h).is_true()  # (walking left: the side view mirrored)
 	view.add_phone(person)
+	front = person.get_node("Look/Front")  # (redressed holding it: a new picture)
+	walker = front.get_child(2)
+	upper = front.get_child(1)
 	front._process(0.016)
 	person.position.x -= PixelPerson.STEP
 	front._process(0.016)
@@ -137,6 +140,15 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	assert_int(front.walk_frame).is_equal(-1)
 	assert_bool(walker.visible).is_false()
 	assert_vector(phone.position).is_equal(phone.get_meta("front_at"))  # (stopped, facing us: held up at the chest)
+	# On a phone, it's in their hand: the arm bent up to hold it (facing us and walking), not hanging.
+	assert_array(PeopleArt.layers_for(OWNER, "front", 0, "phone")).contains(["front_arm_phone"])
+	assert_array(PeopleArt.layers_for(OWNER, "side", 1, "phone")).contains(["side_arm_phone"])
+	assert_array(PeopleArt.layers_for(OWNER, "side", 1, "phone")).not_contains(["side_arm_1"])
+	var hands_down := PeopleArt.texture(OWNER, "front").get_image()
+	var on_phone := PeopleArt.texture(OWNER, "front", 0, "phone").get_image()
+	assert_float(hands_down.get_pixel(28, 40).a).is_equal(1.0)  # (the arm down at their side...)
+	assert_float(on_phone.get_pixel(28, 40).a).is_equal(0.0)  # (...up holding the phone)
+	assert_bool(person.get_node("Look/Front") is PixelPerson).is_true()  # (redressed holding it)
 	var suited := OWNER.duplicate()
 	suited["bag"] = "briefcase"
 	assert_array(PeopleArt.layers_for(suited, "side", 2)).contains(["side_briefcase_2"])  # (in the near hand from the side)

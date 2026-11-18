@@ -275,15 +275,16 @@ func dress(person: Control, look: Dictionary) -> void:
 
 ## The person in pixel art, both ways round, if there's art for their look (people_art.gd):
 ## whether they were.
-func _dress_in_pixels(person: Control, look: Dictionary) -> bool:
-	var front_art := PeopleArt.texture(look, "front")
+func _dress_in_pixels(person: Control, look: Dictionary, holding: String = "") -> bool:
+	person.set_meta("look", look)
+	var front_art := PeopleArt.texture(look, "front", 0, holding)
 	var back_art := PeopleArt.texture(look, "back")
 	if front_art == null or back_art == null:
 		Art.drawn("person/front_body_%s" % str(look.get("clothes", "knit")))
 		return false
 	var outfit := _layer_in(person, "Look")
 	for view in [["Front", front_art, PeopleArt.BREATHE_FROM], ["Back", back_art, PeopleArt.BREATHE_FROM + PeopleArt.SEATED_DOWN]]:
-		var picture := PixelPerson.new(view[1], view[2], view[0] == "Front", PeopleArt.side_frames(look) if view[0] == "Front" else [])  # (on the grid's lines, breathing, walking from the side)
+		var picture := PixelPerson.new(view[1], view[2], view[0] == "Front", PeopleArt.side_frames(look, holding) if view[0] == "Front" else [])  # (on the grid's lines, breathing, walking from the side)
 		picture.name = view[0]
 		outfit.add_child(picture)
 	outfit.get_node("Back").visible = false
@@ -346,9 +347,17 @@ func _frame(parent: Control, pos: Vector2, rect_size: Vector2, colour: Color) ->
 ## A phone held up in front of them, its screen lighting their face, glancing up now and then.
 func add_phone(person: Control) -> void:
 	person.set_meta("on_phone", true)
-	var glow := Draw.rect(person, Vector2(36, 15), Vector2(27, 30), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
+	if person.has_meta("look") and person.get_node_or_null("Look/Front") is PixelPerson:  # (in pixels: redressed holding it)
+		var old := person.get_node("Look")
+		person.remove_child(old)
+		old.queue_free()
+		_dress_in_pixels(person, person.get_meta("look"), "phone")
+		var tag := person.get_node_or_null("Tag")
+		if tag != null:
+			person.move_child(tag, -1)
+	var glow := Draw.rect(person, Vector2(33, 18), Vector2(30, 30), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
 	glow.name = "PhoneGlow"
-	var phone := Draw.rect(person, Vector2(42, 45), Vector2(12, 21), Color("1c1c24"))  # (in whole pixels of the grid's size, held up at the chest)
+	var phone := Draw.rect(person, Vector2(57, 78), Vector2(12, 21), Color("1c1c24"))  # (in whole pixels of the grid's size, in the hand at the chest: people.py PHONE_HAND_FRONT)
 	phone.name = "Phone"
 	var screen := Draw.rect(phone, Vector2(3, 3), Vector2(6, 15), Color(0.7, 0.85, 1.0))
 	screen.name = "Screen"

@@ -34,7 +34,8 @@ static func ids(kind: String) -> Array:
 				layers.append("side_body_" + clothes)
 			for hair in Looks.HAIR_STYLES:
 				layers.append("side_hair_" + hair)
-			layers.append_array(["side_head", "side_head_old", "side_glasses", "side_apron", "side_tote", "side_backpack"])
+			layers.append_array(["side_head", "side_head_old", "side_glasses", "side_apron", "side_tote", "side_backpack",
+				"front_arm_phone", "front_arm_phone_bare", "side_arm_phone", "side_arm_phone_bare"])
 			for frame in 4:
 				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)
@@ -101,7 +102,10 @@ static func texture(key: String) -> Texture2D:
 		if ResourceLoader.exists(path):
 			found = load(path) as Texture2D
 		if found == null:
-			push_error("Art: %s's image %s couldn't be loaded: drawn in code instead" % [key, path])
+			if FileAccess.file_exists(path) and not ResourceLoader.exists(path):  # (new art the editor hasn't seen yet)
+				push_error("Art: %s's image %s isn't imported yet (open the project in the Godot editor once): drawn in code instead" % [key, path])
+			else:
+				push_error("Art: %s's image %s couldn't be loaded: drawn in code instead" % [key, path])
 			used[key] = "broken"
 	_textures[key] = found
 	return found
