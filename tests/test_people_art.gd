@@ -122,10 +122,24 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	front._process(0.016)
 	assert_bool(front.facing_left).is_true()
 	assert_bool(walker.flip_h).is_true()  # (walking left: the side view mirrored)
+	view.add_phone(person)
+	front._process(0.016)
+	person.position.x -= PixelPerson.STEP
+	front._process(0.016)
+	var phone := person.get_node("Phone") as Control
+	assert_float(phone.position.x).is_less(48.0)  # (held in front of their face: walking left, on the left)
+	person.position.x += PixelPerson.STEP * 2
+	front._process(0.016)
+	front._process(0.016)
+	assert_float(phone.position.x).is_greater(48.0)  # (walking right, on the right)
 	for k in 20:
 		front._process(0.016)
 	assert_int(front.walk_frame).is_equal(-1)
 	assert_bool(walker.visible).is_false()
+	assert_vector(phone.position).is_equal(phone.get_meta("front_at"))  # (stopped, facing us: held up at the chest)
+	var suited := OWNER.duplicate()
+	suited["bag"] = "briefcase"
+	assert_array(PeopleArt.layers_for(suited, "side", 2)).contains(["side_briefcase_2"])  # (in the near hand from the side)
 	var stride: Array = PeopleArt.side_frames(OWNER)
 	assert_int(stride.size()).is_equal(PeopleArt.WALK_FRAMES)
 	assert_object(stride[0]).is_not_same(stride[1])  # (the legs and arms move)

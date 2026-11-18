@@ -499,6 +499,16 @@ def side_extra(name):
     return s.image()
 
 
+def side_briefcase(frame):
+    """A briefcase in the near hand, swinging with it."""
+    s = Layer()
+    hx, hy = HANDS[frame][0]
+    s.rect(hx - 1, hy - 1, hx + 1, hy + 1, "ink", 0.9)  # its handle
+    s.rect(hx - 4, hy + 1, hx + 4, hy + 9, "briefcase", 0.95)
+    s.rect(hx - 4, hy + 1, hx + 4, hy + 2, "briefcase", 1.15)
+    return s.image()
+
+
 def side_layers():
     out = {}
     clothes = ["suit", "blazer", "trench", "padded", "hoodie", "cardigan", "scrubs", "work_jacket", "tshirt", "knit"]
@@ -507,6 +517,7 @@ def side_layers():
         out["side_body_%s" % kind] = side_body(kind)
     for frame in range(4):
         out["side_legs_%d" % frame] = side_legs(frame)
+        out["side_briefcase_%d" % frame] = side_briefcase(frame)
         for near in (True, False):
             out["side_arm%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near)
             out["side_arm_bare%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near, bare=True)

@@ -79,6 +79,8 @@ static func side_layers(look: Dictionary, frame: int) -> Array:
 	if bool(look.get("glasses", false)):
 		ids.append("side_glasses")
 	ids.append("%s_%d" % [arm, frame])
+	if bag == "briefcase":
+		ids.append("side_briefcase_%d" % frame)  # (in the near hand, swinging with it)
 	return ids
 
 

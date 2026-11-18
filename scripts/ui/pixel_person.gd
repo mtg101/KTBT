@@ -132,7 +132,35 @@ func _walk(delta: float) -> void:
 	if walking:
 		_walker.texture = _frames[walk_frame]
 		_walker.flip_h = _strides and facing_left
+	_hold_phone(holder, walking and _strides)
 	_prev_x = at.x
+
+
+## A phone in their hand: held up at the chest facing us, and in front of their face from the
+## side, on whichever side they're walking towards (its screen's light with it).
+const PHONE_SIDE_X := 66.0  # walking right: the phone's left edge (the person's 96 wide)
+const PHONE_SIDE_Y := 36.0
+const GLOW_SIDE_X := 54.0
+
+
+func _hold_phone(holder: Control, side: bool) -> void:
+	var phone := holder.get_node_or_null("Phone") as Control
+	if phone == null:
+		return
+	var glow := holder.get_node_or_null("PhoneGlow") as Control
+	if not phone.has_meta("front_at"):
+		phone.set_meta("front_at", phone.position)
+		if glow != null:
+			glow.set_meta("front_at", glow.position)
+	if not side:
+		phone.position = phone.get_meta("front_at")
+		if glow != null:
+			glow.position = glow.get_meta("front_at")
+		return
+	var width := holder.size.x if holder.size.x > 0.0 else 96.0
+	phone.position = Vector2(width - PHONE_SIDE_X - phone.size.x if facing_left else PHONE_SIDE_X, PHONE_SIDE_Y)
+	if glow != null:
+		glow.position = Vector2(width - GLOW_SIDE_X - glow.size.x if facing_left else GLOW_SIDE_X, glow.get_meta("front_at").y)
 
 
 var _prev_x := INF

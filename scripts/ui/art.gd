@@ -36,7 +36,7 @@ static func ids(kind: String) -> Array:
 				layers.append("side_hair_" + hair)
 			layers.append_array(["side_head", "side_head_old", "side_glasses", "side_apron", "side_tote", "side_backpack"])
 			for frame in 4:
-				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d"]:
+				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)
 			return layers
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)

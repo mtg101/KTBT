@@ -429,6 +429,26 @@
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/side_briefcase_0": {
+		"file": "people/side_briefcase_0.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_briefcase_1": {
+		"file": "people/side_briefcase_1.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_briefcase_2": {
+		"file": "people/side_briefcase_2.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_briefcase_3": {
+		"file": "people/side_briefcase_3.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"person/side_glasses": {
 		"file": "people/side_glasses.png",
 		"source": "drawn in code by tools/art/people.py",
