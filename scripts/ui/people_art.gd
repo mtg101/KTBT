@@ -83,13 +83,9 @@ static func texture(look: Dictionary, view: String) -> ImageTexture:
 	return made
 
 
-## Walking, facing us: four frames from their standing picture. A foot lifts (the left, then
-## the right: the leg's foot rows up a pixel or two), and between, as the legs pass, the whole
-## of them rises a pixel. So any look walks, with no layers of its own for it.
-const WALK_FEET_FROM := 58  # the rows a lifted foot comes up from (below the longest coat's hem, near enough)
-const LEGS := [Vector2i(9, 16), Vector2i(17, 24)]  # the legs' columns (tools/art/people.py), left and right
-const WALK_LIFT := 2
-
+## Moving, facing us: they glide with a gentle bob (two frames: standing, and all of them a
+## pixel up), not stepping on the spot (which looked like marching sideways). A side view to
+## walk in, with a real stride, is to come (PLAN.md).
 static var _walks := {}
 
 
@@ -97,20 +93,9 @@ static func walk_frames(picture: Texture2D) -> Array:
 	if _walks.has(picture):
 		return _walks[picture]
 	var still := picture.get_image()
-	var frames: Array = []
-	for frame in 4:
-		var image := still.duplicate() as Image
-		if frame % 2 == 0:  # a foot lifted: its leg's rows from WALK_FEET_FROM down come up
-			var leg: Vector2i = LEGS[frame / 2]
-			for y in range(WALK_FEET_FROM, SIZE.y):
-				for x in range(leg.x, leg.y):
-					var from := y + WALK_LIFT
-					image.set_pixel(x, y, still.get_pixel(x, from) if from < SIZE.y else Color(0, 0, 0, 0))
-		else:  # the legs passing: all of them up a pixel
-			image.fill(Color(0, 0, 0, 0))
-			image.blit_rect(still, Rect2i(0, 1, SIZE.x, SIZE.y - 1), Vector2i(0, 0))
-			image.blit_rect(still, Rect2i(0, SIZE.y - 1, SIZE.x, 1), Vector2i(0, SIZE.y - 1))  # (the feet stay on the ground)
-		frames.append(ImageTexture.create_from_image(image))
+	var up := Image.create(SIZE.x, SIZE.y, false, Image.FORMAT_RGBA8)
+	up.blit_rect(still, Rect2i(0, 1, SIZE.x, SIZE.y - 1), Vector2i(0, 0))
+	var frames: Array = [picture, ImageTexture.create_from_image(up)]
 	_walks[picture] = frames
 	return frames
 

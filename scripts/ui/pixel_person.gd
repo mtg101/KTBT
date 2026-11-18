@@ -2,20 +2,20 @@ extends Control
 ## A person in pixel art, one way round (people_art.gd's picture): kept on the grid's lines as
 ## they move (each pixel 3 on screen, as the tent's and the street's, so they never shimmer
 ## between them), breathing (now and then their head and shoulders rise a pixel and settle,
-## their legs or the seat staying put, so nobody's frozen), and walking whenever they're moving
-## (facing us: four frames, a step every so far they go, whatever moves them: the street, coming
-## in, leaving, the owner going along the counter).
+## their legs or the seat staying put, so nobody's frozen), and bobbing gently whenever they're
+## moving (facing us: up a pixel and down again every so far they go, whatever moves them: the
+## street, coming in, leaving, the owner going along the counter).
 
 const GRID := 3.0
 const BREATH_SECONDS := Vector2(2.6, 4.2)  # a breath every so often (each person their own)
 const BREATH_IN := 0.9  # ...held up this long
 
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
-const STEP := 16.0  # on the stage: a frame of the walk every this far they go
+const STEP := 20.0  # on the stage: up or down a pixel every this far they go
 const STILL_AFTER := 0.12  # seconds without moving: standing again
 
 var split := 20  # the rows above this rise (head and shoulders); the rest stay
-var walk_frame := -1  # the walk's frame showing, or -1 standing (for the tests)
+var walk_frame := -1  # the bob's frame showing (0 down, 1 up), or -1 standing still (for the tests)
 var _walker: TextureRect  # walking, facing us: the frames (none from behind: seated)
 var _frames: Array = []
 var _last_at := Vector2.INF
@@ -69,7 +69,7 @@ func _process(delta: float) -> void:
 	snap()
 
 
-## A step's frame for however far they've gone; standing again once they stop.
+## The bob's frame for however far they've gone; standing again once they stop.
 func _walk(delta: float) -> void:
 	if _walker == null:
 		return
