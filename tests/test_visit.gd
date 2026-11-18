@@ -8,6 +8,7 @@ const Visit = preload("res://scripts/visit.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
+const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Ai = preload("res://scripts/ai/ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -1176,6 +1177,19 @@ func test_more_of_the_pds_plant_cards() -> void:
 		if other != buyer:
 			assert_str(other.plant_moment).contains(Names.given_name(str(buyer.customer["name"])))
 	assert_int(int(scene._stats.captions.get("plant_round_on", 0))).is_equal(1)
+	# It lingers a line (a round's a smaller thing than the ex walking past), in their chat if they're in one.
+	var lingering = scene._chat_of(buyer) if scene._chat_of(buyer) != null else buyer
+	assert_int(lingering.pd_topic_lines).is_equal(Plants.lingers("round_on"))
+	assert_str(lingering.pd_topic).contains("still on their minds")
+	# Someone with it on their mind who starts a chat brings it with them (and it's the chat's now).
+	var fresh = CounterChats.Chat.new()
+	var mindful = scene._guests.filter(func(g): return g != buyer)[0]
+	mindful.pd_topic = "the ex"
+	mindful.pd_topic_lines = 2
+	scene._bring_into_chat(fresh, [mindful])
+	assert_str(fresh.pd_topic).is_equal("the ex")
+	assert_int(fresh.pd_topic_lines).is_equal(2)
+	assert_int(mindful.pd_topic_lines).is_equal(0)
 	# Something's just happened to them: the owner turns to them sooner, and a chat of theirs carries on.
 	var waiting = scene._guests.filter(func(g): return g != buyer)[0]
 	assert_int(scene._neediness(waiting)).is_equal(waiting.attended - PdCamera.PULL - (3 if waiting.company == "owner" else 0))

@@ -39,6 +39,22 @@ const SPONSORS := {
 		"what": "a Dalbit Taxi keyring and a voucher for a ride home"},
 }
 
+
+## How many lines after a card's moment it stays on their minds ("lingers": the ex walking
+## past is still there a few lines on, 17 Nov), so the talk can come back to it; 0 for most.
+static func lingers(card: String) -> int:
+	return int(CARDS.get(card, {}).get("lingers", 0))
+
+
+## The sponsor's name for what was put on the table ("a little brown bottle of Haejang Hero…"
+## is "Haejang Hero"), or "" if it isn't a sponsor's.
+static func sponsor_name(what: String) -> String:
+	for id in SPONSORS:
+		if str(SPONSORS[id]["what"]) == what:
+			return str(SPONSORS[id]["name"])
+	return ""
+
+
 ## Write-in cards ("write"): the PD types what happens. label: what the box asks; hint: an
 ## example in the empty box; max: how long; steers: lines it stays the conversation's topic
 ## after the first (a cue card); from: what the PD's told before typing, for a card with
@@ -70,24 +86,24 @@ const CARDS := {
 		"about": "The first snow of winter starts to fall: they say if you're with someone when it does, it's meant to be.",
 		"moment": "It's just started to snow outside: the first snow of winter.",
 		"happened": "It's started to snow outside: the first snow of winter."},
-	"phone": {"title": "A phone rings", "for": "someone",
+	"phone": {"title": "A phone rings", "for": "someone", "lingers": 2,
 		"about": "Someone's phone rings at the counter: their mum, an unknown number, the boss at this hour…",
 		"variants": ["their mum", "an unknown number", "a number they deleted months ago", "their boss, at this hour",
 			"an old friend they haven't heard from in years", "their ex", "their little brother, who only calls when he needs money"],
 		"moment": "{who}'s phone has just started ringing: it's {what}.",
 		"happened": "{who}'s phone starts ringing: it's {what}."},
-	"text": {"title": "A text that changes everything", "for": "someone",
+	"text": {"title": "A text that changes everything", "for": "someone", "lingers": 3,
 		"about": "Someone gets a text: just a few words, and their face changes. What it said is theirs to tell.",
 		"variants": ["their ex", "their sister", "the bank", "their landlord", "a group chat that's suddenly going wild", "their mum", "a number they don't know"],
 		"moment": "{who} has just read a text from {what}: only a few words, and their face has changed.",
 		"happened": "{who}'s phone buzzes: a text from {what}. Only a few words, and their face changes."},
-	"ex_walks_past": {"title": "The ex walks past", "for": "someone",
+	"ex_walks_past": {"title": "The ex walks past", "for": "someone", "lingers": 3,
 		"about": "Someone sees their ex walk past outside the tarp.",
 		"variants": ["arm in arm with someone new", "alone, and looking thinner", "carrying a bunch of flowers", "laughing into their phone",
 			"dressed for a wedding", "walking a dog they always said they'd never get"],
 		"moment": "{who} has just seen their ex walk past outside the tarp, {what}.",
 		"happened": "Someone walks past outside the tarp, and {who} freezes: it's their ex, {what}."},
-	"round_on": {"title": "A round on them", "for": "someone", "fact": "round",
+	"round_on": {"title": "A round on them", "for": "someone", "lingers": 1, "fact": "round",
 		"about": "Someone buys a bottle of soju for the whole counter (it goes on their bill).",
 		"variants": ["they've just been promoted", "it's their birthday", "they've just quit their job", "they've won on a scratch card", "the night just feels right"],
 		"moment": "{who} has just bought a bottle of soju for the whole counter, because {what}.",
@@ -120,7 +136,7 @@ const CARDS := {
 		"about": "Ask someone a question from behind the camera: they answer it straight to camera, like a variety show's interview cut.",
 		"moment": "The show's PD has just asked {who} a question, off camera: «{text}». {who} answers it straight to the camera, the way people do in a variety show's interview cut, knowing everyone at the counter can hear.",
 		"happened": "Off camera, the PD asks {who}: «{text}»."},
-	"text_from": {"title": "A text from…", "for": "someone",
+	"text_from": {"title": "A text from…", "for": "someone", "lingers": 2,
 		"write": {"label": "The text says…", "hint": "we need to talk", "max": 80, "steers": 0, "from": "a text from {what}"},
 		"variants": ["their ex", "their sister", "the bank", "their landlord", "their mum", "a number they don't know", "their boss"],
 		"about": "Someone gets a text, and you write what it says (who it's from is the card's).",

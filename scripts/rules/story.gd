@@ -127,7 +127,7 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 	var names: Array = here.duplicate()
 	names.append(str(facts.get("cat", "")))
 	if not Talk.romanised_korean(entry, names).is_empty():
-		return "the diary has made-up Korean words in it: write it in English, with at most the odd Korean word"
+		return "the diary has Korean phrases in it, real or made up: write it in English, with at most the odd Korean word"
 	data["entry"] = entry
 	return ""
 
@@ -227,7 +227,9 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 	var all := " ".join(PackedStringArray(beats)) + " " + teaser
 	if Talk.real_brand(all) != "":
 		return "the recap names a real brand (%s): describe it instead" % Talk.real_brand(all)
-	var known: Array = facts.get("names", []) + [str(facts.get("cat", ""))]  # (the cat's name too: night 34's recap was sent back twice for "Nyang-i")
+	# (The cat's and the bar's names too: night 34's recap was sent back twice for "Nyang-i", and
+	# 18 Nov's gave up on "Bae-da", from Bae-da-pocha.)
+	var known: Array = facts.get("names", []) + [str(facts.get("cat", "")), str(facts.get("bar", ""))]
 	var invented := unknown_name(all, known)
 	if invented != "":
 		return "the recap mentions %s, who isn't in the story: only the people in the facts" % invented
@@ -238,7 +240,7 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 		if not allowed.has(number):
 			return "the recap has a number (%s) that isn't in the facts" % number
 	if not Talk.romanised_korean(all, known + [str(facts.get("bar", "")), str(facts.get("cat", ""))]).is_empty():
-		return "the recap has made-up Korean words in it: write it in English"
+		return "the recap has Korean phrases in it, real or made up: write it in English"
 	data["beats"] = beats
 	data["teaser"] = teaser
 	data["cliffhanger"] = tidy_cliffhanger(data.get("cliffhanger", {}), known)
@@ -326,6 +328,10 @@ static func unknown_name(text: String, names: Array) -> String:
 	for person in names:
 		for part in str(person).to_lower().split(" ", false):
 			parts[part] = true
+			var pieces := part.split("-", false)  # (and the runs within it: "Bae-da" in "Bae-da-pocha")
+			for first in pieces.size():
+				for last in range(first + 2, pieces.size() + 1):
+					parts["-".join(pieces.slice(first, last))] = true
 	var regex := RegEx.new()
 	regex.compile("\\b[A-Z][a-z]{1,4}-[A-Za-z]{1,4}\\b")  # (short, like romanised syllables: "Ji-ho", not "Late-night")
 	for found in regex.search_all(text):
@@ -665,7 +671,7 @@ static func validate_titles(data: Variant, facts: Dictionary) -> String:
 		if problem != "":
 			return "a title %s (\"%s\")" % [problem, english]
 		if not Talk.romanised_korean(english, names).is_empty():
-			return "a title has made-up Korean in its English (\"%s\"): put Korean in \"hangul\", in Hangul" % english
+			return "a title has romanised Korean in its English (\"%s\"): put Korean in \"hangul\", in Hangul" % english
 		var stranger := unknown_name(english, names)
 		if stranger != "":
 			return "a title names %s, who wasn't there" % stranger

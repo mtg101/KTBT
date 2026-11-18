@@ -62,17 +62,24 @@ func test_panel_shows_every_section() -> void:
 		assert_str(text).contains(part)
 
 
-func test_the_ratings_are_in_the_story() -> void:
+func test_the_ratings_have_their_own_section() -> void:
 	var stats := NightStats.new()
-	assert_str(stats.panel_text(0, 0)).contains("Ratings: at 3am · tonight as busy as usual")
+	assert_str(stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: at 3am\nTonight as busy as usual")
+	assert_bool(stats.sections(0, 0).any(func(s): return s["tab"] == "Ratings")).is_true()  # (its own tab)
+	# So far tonight: the score as it stands, part by part, and the last nights'.
+	stats.ratings_so_far = {"rating": 4.9, "band": "a good episode", "parts": [["2 big moments", 2.2], ["1 regular back", 0.3], ["the cat's theft", 0.0]]}
+	stats.ratings_before = [6.4, 8.9, 7.0]
+	var live := stats.panel_text(0, 0)
+	assert_str(live).contains("So far: 4.9% (a good episode), before luck").contains("  +2.2 2 big moments").contains("  +0.3 1 regular back").not_contains("cat's theft")
+	assert_str(live).contains("Last nights: 6.4%, 8.9%, 7.0% · best 8.9%")
 	stats.story["ratings"] = 6.4
 	stats.story["ratings_text"] = "6.4% (a good episode): +2.2 2 big moments, +0.3 luck (what else was on)"
 	stats.story["ratings_banner"] = "jache choego sicheongnyul!: the show's highest ratings ever"
 	stats.story["busier"] = 1.1
 	var text := stats.panel_text(0, 0)
-	assert_str(text).contains("Ratings: 6.4% (a good episode): +2.2 2 big moments").contains("· jache choego sicheongnyul!").contains("tonight 10% busier")
+	assert_str(text).contains("Tonight: 6.4% (a good episode): +2.2 2 big moments").contains("· jache choego sicheongnyul!").contains("Tonight 10% busier")
 	stats.story["busier"] = 0.95
-	assert_str(stats.panel_text(0, 0)).contains("tonight 5% quieter")
+	assert_str(stats.panel_text(0, 0)).contains("Tonight 5% quieter")
 	var data = JSON.parse_string(FileAccess.get_file_as_string(stats.save({"bar": "Golmok Pocha", "night": 3}, "golmok-pocha", 3)))
 	assert_float(float(data["story"]["ratings"])).is_equal_approx(6.4, 0.001)
 

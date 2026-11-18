@@ -11,7 +11,7 @@ if not "%~2"=="" set BAR=--autoplay-bar=%~2
 if "%GODOT%"=="" if exist "%~dp0godot_path.txt" set /p GODOT=<"%~dp0godot_path.txt"
 if "%GODOT%"=="" goto no_godot
 echo Autoplay: %NIGHTS% nights. Each night's stats and transcript go in logs, and the batch's summary in logs\autoplay.
-"%GODOT%" --path "%~dp0.." -- --autoplay=%NIGHTS% %BAR%
+"%GODOT%" --path "%~dp0.." --audio-driver Dummy -- --autoplay=%NIGHTS% %BAR%
 echo Autoplay finished: the summary's in logs\autoplay.
 pause
 exit /b 0

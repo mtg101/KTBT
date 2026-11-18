@@ -103,8 +103,14 @@ static func sibling_term(speaker: Dictionary, listener: Dictionary) -> String:
 	return ""
 
 
-## The terms of address in a line (ids from TERMS), first to last. names: people in the
-## conversation, removed first (so Lee Hyung-jun isn't "hyung").
+## Words before a term that make it a mention, not an address: "the Ajumma's way", "my imo",
+## "calling me Imo" (17 Nov: both turned down as calling the listener that).
+const MENTIONED_AFTER := ["the", "a", "an", "my", "your", "our", "his", "her", "their", "me", "call", "calling", "called"]
+
+
+## The terms of address a line uses to its listener (ids from TERMS), first to last: not the
+## ones it only mentions ("the Ajumma's way", "Ajumma's tired", "don't call me Imo or
+## Eomeoni"). names: people in the conversation, removed first (so Lee Hyung-jun isn't "hyung").
 static func terms_in(line: String, names: Array = []) -> Array:
 	var text := line
 	for person in names:
@@ -115,10 +121,21 @@ static func terms_in(line: String, names: Array = []) -> Array:
 				text = text.replacen(part, " ")
 	var said := Text.words(text)
 	var found: Array = []
-	for word in said:
+	var mentioned := false  # (the term before was a mention: "me Imo or Eomeoni" mentions both)
+	for k in said.size():
+		var term := ""
 		for id in TERMS:
-			if TERMS[id]["spellings"].has(word) and not found.has(id):
-				found.append(id)
+			if TERMS[id]["spellings"].has(said[k]):
+				term = id
+		if term == "":
+			if not ["or", "and"].has(said[k]):
+				mentioned = false
+			continue
+		var before := said[k - 1] if k > 0 else ""
+		var after := said[k + 1] if k + 1 < said.size() else ""
+		mentioned = MENTIONED_AFTER.has(before) or after == "s" or (mentioned and ["or", "and"].has(before))
+		if not mentioned and not found.has(term):
+			found.append(term)
 	return found
 
 

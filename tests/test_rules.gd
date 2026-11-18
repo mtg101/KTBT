@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 
 const Address = preload("res://scripts/rules/address.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
@@ -1000,6 +1001,10 @@ func test_the_recap_may_name_the_cat() -> void:
 	var facts := {"names": ["Kim Ji-ho"], "cat": "Nyang-i"}
 	assert_str(Story.validate_recap({"beats": ["Nyang-i curls up by the stove.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, facts)).is_empty()
 	assert_str(Story.validate_recap({"beats": ["Min-jun walks in.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, facts)).contains("Min-jun")
+	# 18 Nov: and the bar's (it gave up on "Bae-da", from Bae-da-pocha).
+	var at_the_bar := {"names": ["Kim Ji-ho"], "cat": "Mandu", "bar": "Bae-da-pocha"}
+	assert_str(Story.validate_recap({"beats": ["Another night at Bae-da.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, at_the_bar)).is_empty()
+	assert_str(Story.validate_recap({"beats": ["Bae-da-pocha fills up.", "Ji-ho finally laughs."], "teaser": "Will Ji-ho be back?"}, at_the_bar)).is_empty()
 
 
 func test_the_pds_pins_go_with_the_night() -> void:
@@ -1510,8 +1515,8 @@ func test_long_lines_are_paged_for_speech_bubbles() -> void:
 
 func test_regression_made_up_korean_is_rejected() -> void:
 	var line := {"line": "Eotteoke haeyo, yukhae? Chamcha-eun naneun joa?"}
-	assert_str(Talk.validate_line(line, "Kim Hye-ok", "Ajumma")).contains("made-up Korean")
-	assert_str(Text.problem_kind("the line has made-up Korean words in it (x)")).is_equal("made-up Korean")
+	assert_str(Talk.validate_line(line, "Kim Hye-ok", "Ajumma")).contains("Korean phrases")
+	assert_str(Text.problem_kind("the line has Korean phrases in it (x), real or made up")).is_equal("Korean phrases")
 	# The odd known word, names, food and everyday English are all fine.
 	assert_str(Talk.validate_line({"line": "Jeogiyo, is this seat taken? Geonbae, everyone!"}, "Kim Ji-ho", "")).is_empty()
 	assert_str(Talk.validate_line({"line": "Seo Yeon-woo and Jeong Eun-ji said the tteokbokki here is the best in Seoul."}, "Kim Ji-ho", "", [], ["Seo Yeon-woo", "Jeong Eun-ji"])).is_empty()
@@ -1631,6 +1636,14 @@ func test_lines_that_break_the_address_rules_are_rejected() -> void:
 	# A name isn't a term.
 	var to_him := {"speaker": _p("woman", 25), "listener": _p("man", 22), "close": false, "listener_name": "Lee Hyung-jun"}
 	assert_str(Talk.validate_line({"line": "Nice to meet you, Hyung-jun."}, "Kim Ji-ho", "", [], ["Lee Hyung-jun"], {}, to_him)).is_empty()
+	# Mentioning a term isn't calling them it (17 Nov: both turned down).
+	var to_man := {"speaker": _p("man", 30), "listener": _p("man", 32), "close": false, "listener_name": "Lee Sang-ho"}
+	assert_str(Talk.validate_line({"line": "I'll stick with the Ajumma's way, sauce and all."}, "Park Ho-jin", "", [], [], {}, to_man)).is_empty()
+	assert_str(Talk.validate_line({"line": "Ajumma's tired tonight, go easy on her."}, "Park Ho-jin", "", [], [], {}, to_man)).is_empty()
+	var owner_to_her := {"speaker": _p("woman", 55, true), "listener": _p("woman", 28), "close": false, "listener_name": "Yun Hae-soo"}
+	assert_str(Talk.validate_line({"line": "Don't worry about calling me Imo or Eomeoni, just eat."}, "Kim Ji-young", "", [], [], {}, owner_to_her)).is_empty()
+	assert_str(Talk.validate_line({"line": "Thanks, Ajumma, you're a lifesaver."}, "Park Ho-jin", "", [], [], {}, to_man)).contains("ajumma")  # (still said to him)
+	assert_array(Address.terms_in("Me and my imo, Ajumma!")).is_equal(["ajumma"])
 
 
 func test_sibling_terms_and_colours() -> void:
@@ -1837,9 +1850,11 @@ func test_specials_follow_the_weather_and_the_season() -> void:
 
 func test_orders_are_checked_for_made_up_korean_too() -> void:
 	# (From a real night: an order line in made-up Korean got through, since only lines were checked.)
-	assert_str(Talk.made_up_korean("Ajusshi, makkeureo eomneunjuseyo. Beer ije gonggibap joa!")).contains("made-up Korean")
+	assert_str(Talk.made_up_korean("Ajusshi, makkeureo eomneunjuseyo. Beer ije gonggibap joa!")).contains("Korean phrases")
 	assert_str(Talk.made_up_korean("Ajusshi, a makgeolli and the dakgalbi, please.")).is_empty()
-	assert_str(Text.problem_kind(Talk.made_up_korean("Makkeureo eomneunjuseyo jigeum."))).is_equal("made-up Korean")
+	assert_str(Text.problem_kind(Talk.made_up_korean("Makkeureo eomneunjuseyo jigeum."))).is_equal("Korean phrases")
+	# Real Korean is turned away too, but not called made up (17 Nov: "Eotteoke haesseoyo?").
+	assert_str(Talk.made_up_korean("Eotteoke haesseoyo? Want to stay a bit longer?")).contains("real or made up")
 
 
 func test_sold_out_cant_be_ordered() -> void:
@@ -2634,3 +2649,18 @@ func test_the_diary_and_recap_know_everyones_pronouns() -> void:
 		person.erase("pronoun")
 	assert_str(Prompts.diary_facts_text(old)).contains("Kim Jin-sook, a regular, didn't come in tonight.")
 	assert_str(People.pronoun("")).is_equal("they")
+
+
+func test_the_sponsors_caption_names_the_product() -> void:
+	# 17 Nov: "SPONSORED BY JAE-SEOK'S TABLE" (the table isn't the sponsor).
+	var what: String = Plants.SPONSORS["haejang_hero"]["what"]
+	assert_str(Plants.sponsor_name(what)).is_equal("Haejang Hero")
+	assert_str(Plants.sponsor_name("a mystery box")).is_empty()
+	var event := Captions.for_event("plant_played", {"card": "ppl", "name": "Moon Jae-seok", "what": what})
+	for k in 10:
+		var english := str(Captions.caption_words(str(event["kind"]), event["fill"], k / 10.0)["english"])
+		assert_bool(english.begins_with("SPONSORED BY JAE") or english.begins_with("BROUGHT TO YOU BY JAE")).override_failure_message(english).is_false()
+		if english.contains("SPONSORED") or english.contains("BROUGHT"):
+			assert_str(english).contains("HAEJANG HERO")
+		if english.contains("TABLE"):
+			assert_str(english).is_equal("HAEJANG HERO, ON JAE-SEOK'S TABLE")

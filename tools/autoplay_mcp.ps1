@@ -85,7 +85,7 @@ function StartBatch($arguments) {
 	$godot = GodotPath
 	if ($null -eq $godot) { return ToolText "Can't find Godot: put the full path of its .exe on one line in tools\godot_path.txt." $true }
 	if (-not (OllamaAnswers)) { return ToolText "Ollama isn't answering at localhost:11434: start it on the PC first (the nights would only be offline ones)." $true }
-	$godotArgs = @('--path', "`"$Root`"", '--', "--autoplay=$nights")
+	$godotArgs = @('--path', "`"$Root`"", '--audio-driver', 'Dummy', '--', "--autoplay=$nights")  # (no sound: Windows' audio driver only adds errors)
 	if ($bar -ne '') { $godotArgs += "--autoplay-bar=$bar" }
 	Start-Process -FilePath $godot -ArgumentList $godotArgs -WorkingDirectory $Root | Out-Null
 	Note "started $nights nights"

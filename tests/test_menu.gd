@@ -23,6 +23,9 @@ func test_resolve_ignores_hyphens_spaces_and_case() -> void:
 	assert_str(Menu.resolve("Gyeran-mari")).is_not_empty()
 	assert_str(Menu.compact(" Dak-bokkeum tang ")).is_equal("dakbokkeumtang")
 	assert_str(Menu.resolve("sundae pie")).is_empty()  # (not on the menu: still nothing)
+	# A letter typed once too often (17 Nov: "ttteokbokki", turned away twice).
+	assert_str(Menu.resolve("ttteokbokki")).is_equal(Menu.resolve("tteokbokki"))
+	assert_str(Menu.compact("Ttteokbokkki")).is_equal("tteokbokki")
 
 
 func test_resolve_accepts_display_name_with_hyphen() -> void:
@@ -329,7 +332,6 @@ func test_a_signature_dish_is_the_ais_words_and_the_games_facts() -> void:
 func test_a_signature_dish_is_checked() -> void:
 	for wrong in [
 			{"hangul": "할머니 냉면"},  # (the Hangul isn't the name)
-			{"hangul": "할머니칼국수"},  # (word for word)
 			{"hangul": "halmeoni"},
 			{"name": "할머니 칼국수"},  # (the name in English letters)
 			{"name": "Tteokbokki", "hangul": "떡볶이"},  # (already a dish)
@@ -415,3 +417,21 @@ func test_a_dish_nobody_orders_makes_way_for_something_new() -> void:
 	assert_int(swapped.size()).is_equal(menu.size())
 	assert_str(str(swapped[menu.map(func(item): return item["id"]).find("naengmyeon")]["id"])).is_equal(str(summer[0]))
 	assert_int(int(swapped[menu.map(func(item): return item["id"]).find("naengmyeon")]["price"])).is_equal(int(Catalogue.find(str(summer[0]))["price"]))
+
+
+func test_a_signature_dishs_hangul_may_run_its_words_together() -> void:
+	# 18 Nov: "Appa Jjamppong" written 아빠짬뽕 was turned down for having one word, not two.
+	assert_str(Signatures.hangul_problem("Appa Jjamppong", "아빠짬뽕")).is_empty()
+	assert_str(Signatures.hangul_problem("Appa Jjamppong", "아빠 짬뽕")).is_empty()
+	assert_str(Signatures.hangul_problem("Appa Jjamppong", "김치짬뽕")).contains("doesn't match")  # (it still has to start right)
+	assert_str(Signatures.hangul_problem("Halmeoni Kalguksu", "할머니칼국수")).is_empty()  # (was turned down before 18 Nov, for having no space)
+
+
+func test_a_dish_asked_for_as_the_menu_describes_it_is_that_dish() -> void:
+	# 18 Nov: "those sausage and rice cakes on a stick" (sotteok) read as tteokbokki's "rice cakes".
+	Menu.use([Menu.find("tteokbokki"), Catalogue.find("sotteok"), Menu.find("soju")])
+	var said: Array = Orders.mentions("Can I get some of those sausage and rice cakes on a stick too?", true).map(func(m): return str(m["id"]))
+	assert_array(said).contains(["sotteok"])
+	assert_array(said).not_contains(["tteokbokki"])
+	assert_array(Orders.mentions("Spicy rice cakes, please.", true).map(func(m): return str(m["id"]))).contains(["tteokbokki"])  # (still tteokbokki)
+	Menu.use([])

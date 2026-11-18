@@ -37,8 +37,8 @@ static func problem_kind(problem: String) -> String:
 		return "sold out"
 	if p.contains("the caption"):
 		return "TV reactions"
-	if p.contains("made-up korean"):
-		return "made-up Korean"
+	if p.contains("korean phrases") or p.contains("made-up korean"):
+		return "Korean phrases"  # (romanised Korean beyond the odd known word: the check can't tell real from made up; "made-up Korean" before 18 Nov)
 	if p.contains("the line calls"):
 		return "address rules"
 	if p.contains("already at the counter") or p.contains("already called"):

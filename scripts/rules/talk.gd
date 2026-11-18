@@ -167,6 +167,12 @@ static func cue_hint(text: String) -> String:
 	return "The PD's cue card is still up behind the camera: «%s». Let the conversation turn to it, if it does (naturally, following on from what was just said)." % text
 
 
+## A big moment a few lines on (a PD's card that lingers): still on their minds, for the talk to
+## come back to, but not every line, and not as if it had only just happened.
+static func aftermath_hint(happened: String) -> String:
+	return "A little while ago: %s It's still on their minds: if the talk comes back round to it (naturally, following on from what was just said), let it, but it needn't be every line." % happened.strip_edges()
+
+
 ## The game's steer for a line: "Let the conversation turn to: how their day has gone."
 static func topic_hint(topic: String, chat: bool = false) -> String:
 	var text: String = (CHAT_TOPICS if chat else OWNER_TOPICS).get(topic, "")
@@ -427,7 +433,7 @@ static func made_up_korean(line: String, names: Array = []) -> String:
 	var invented := romanised_korean(line, names)
 	if invented.is_empty():
 		return ""
-	return "the line has made-up Korean words in it (%s): everyone speaks fluent English here, with at most the odd Korean word a K-drama fan would know" % ", ".join(PackedStringArray(invented))
+	return "the line has Korean phrases in it (%s), real or made up: everyone speaks fluent English here, with at most the odd Korean word a K-drama fan would know" % ", ".join(PackedStringArray(invented))
 
 
 static func romanised_korean(line: String, names: Array = []) -> Array:

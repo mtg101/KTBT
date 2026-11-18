@@ -332,8 +332,9 @@ static func with_somaek_parts(items: Array) -> Array:
 
 
 ## Every menu item a line mentions, in order: [{"id", "start"}], where start is the word
-## position. Looks for the first word of each name (and, with_aliases, every alias),
-## longest phrases first, so "fried rice" counts as fried rice and not also as rice.
+## position. Looks for the first word of each name (and, with_aliases, every alias and the
+## menu's description), longest phrases first, so "fried rice" counts as fried rice and not
+## also as rice.
 static func mentions(line: String, with_aliases: bool) -> Array:
 	var said := Text.words(line)
 	var phrases: Array = []
@@ -344,6 +345,11 @@ static func mentions(line: String, with_aliases: bool) -> Array:
 		if with_aliases:
 			for alias in item.get("aliases", []):
 				phrases.append({"id": item["id"], "words": Array(Text.words(str(alias)))})
+			# And how the menu describes it, up to the first comma: "sausage and rice cakes on a stick"
+			# is sotteok, not tteokbokki's "rice cakes" (18 Nov). (Long, so it's matched first.)
+			var described := Array(Text.words(str(item.get("desc", "")).get_slice(",", 0)))
+			if described.size() >= 3:
+				phrases.append({"id": item["id"], "words": described})
 	phrases.sort_custom(func(a, b): return a["words"].size() > b["words"].size())
 	var used := []
 	used.resize(said.size())

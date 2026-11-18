@@ -101,12 +101,16 @@ static func resolve(text: String) -> String:
 	return ""
 
 
-## A name without its case, hyphens, spaces, underscores or apostrophes: "dakbokkeumtang".
+## A name without its case, hyphens, spaces, underscores or apostrophes: "dakbokkeumtang". A
+## letter typed three times or more counts as two ("ttteokbokki", 17 Nov): no name has three.
 static func compact(text: String) -> String:
 	var out := ""
 	for c in text.strip_edges().to_lower():
-		if not "-_ '’.".contains(c):
-			out += c
+		if "-_ '’.".contains(c):
+			continue
+		if out.length() >= 2 and out[-1] == c and out[-2] == c:
+			continue
+		out += c
 	return out
 
 

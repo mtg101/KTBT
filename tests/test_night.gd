@@ -68,6 +68,8 @@ func test_customers_arrive_without_clicking() -> void:
 	var served: bool = await _wait_until(func(): return scene._night_visits >= 1, NIGHT_TIMEOUT_MS)
 	assert_bool(served).override_failure_message("nobody turned up on their own").is_true()
 	assert_int(int(Game.bar["visits"])).is_greater_equal(1)
+	# The ratings so far, beside the takings, as things happen (the final one's at 3am).
+	assert_str((runner.find_child("RatingsLabel") as Label).text).starts_with("시청률 ").ends_with(" so far")
 
 
 func test_someone_turning_up_mid_night_is_served() -> void:
@@ -112,6 +114,11 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_float(float(entry["ratings"]["rating"])).is_greater(0.0)
 	assert_str(page.ratings_text()).starts_with("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
 	assert_str((page.find_child("Ratings", true, false) as Label).tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")  # (Text.tip wraps it)
+	# And beside the takings, all night: so far, then tonight's (its own section in the stats too).
+	var beside := runner.find_child("RatingsLabel") as Label
+	assert_str(beside.text).is_equal("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
+	assert_str(beside.tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")
+	assert_str(scene._stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: %.1f%%" % float(entry["ratings"]["rating"]))
 	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
 	# The numbers are behind the Stats button.
 	var numbers := runner.find_child("SummaryText") as Control
@@ -236,12 +243,15 @@ func test_autoplay_plays_its_nights_then_stops() -> void:
 	var batch := Autoplay.new(2)
 	batch.pause_seconds = 0.0
 	Game.autoplay = batch
-	var runner := await _open_bar()
-	var scene = runner.scene()
-	var second: bool = await _wait_until(func(): return scene._night_number == 2 and scene._night_open, NIGHT_TIMEOUT_MS)
-	assert_bool(second).override_failure_message("the second night never opened by itself").is_true()
-	assert_bool(bool(Game.bar.get("autoplay", false))).is_true()  # (its own bar, marked as such)
+	await _open_bar()
+	# After the first night, it opens the saved bar again, as the next day does ("Previously on…").
+	var reopened: bool = await _wait_until(func(): return Game.requested_scene == Game.VISIT_SCENE, NIGHT_TIMEOUT_MS)
+	assert_bool(reopened).override_failure_message("the bar was never opened again for night 2").is_true()
+	assert_bool(bool(Game.bar.get("autoplay", false))).is_true()  # (its own bar, marked as such, and saved so)
 	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_true()  # (it says it's running...)
+	var runner := await _open_bar()  # (the scene the game asked for: tests don't switch scenes themselves)
+	var scene = runner.scene()
+	assert_int(scene._night_number).is_equal(2)
 	var quit: bool = await _wait_until(func(): return Game.requested_scene == "quit", NIGHT_TIMEOUT_MS)
 	assert_bool(quit).override_failure_message("it didn't stop after its two nights").is_true()
 	assert_int(batch.played.size()).is_equal(2)

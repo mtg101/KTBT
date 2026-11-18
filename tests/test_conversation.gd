@@ -145,13 +145,13 @@ func test_the_pds_cue_card_is_the_topic_for_a_few_lines() -> void:
 	var night := Night.new()
 	var guest := Someone.new()
 	guest.topic = "work"
-	guest.pd_topic = "her first love"
+	guest.pd_topic = Talk.cue_hint("her first love")
 	guest.pd_topic_lines = 2
 	for i in 2:
 		assert_str(str(Conversation.owner_line(night, guest, 2 + i, false, false)["direction"])).contains("«her first love»")
 	assert_str(str(Conversation.owner_line(night, guest, 4, false, false)["direction"])).not_contains("cue card")
 	var chat := CounterChats.Chat.new()
-	chat.pd_topic = "the worst date they've been on"
+	chat.pd_topic = Talk.cue_hint("the worst date they've been on")
 	chat.pd_topic_lines = 1
 	var dice := RandomNumberGenerator.new()
 	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).contains("«the worst date")
@@ -168,3 +168,20 @@ func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:
 	assert_str(Conversation.known_as(guest, chat)).is_equal("Kim Ji-ho")
 	assert_str(Conversation.last_speaker(chat.transcript)).is_equal("Kim Ji-ho")
 	assert_str(Conversation.last_speaker([{"action": "Someone comes in."}])).is_empty()
+
+
+func test_a_big_moment_stays_on_their_minds_for_a_few_lines() -> void:
+	# 17 Nov: the ex walked past, and two lines on they were arguing about ramyeon.
+	assert_int(Plants.lingers("ex_walks_past")).is_equal(3)
+	assert_int(Plants.lingers("rain")).is_equal(0)
+	var steer := Talk.aftermath_hint(Plants.happened("ex_walks_past", "Jang Yeon-mi", "", "arm in arm with someone new", "female"))
+	assert_str(steer).contains("A little while ago").contains("arm in arm with someone new").contains("needn't be every line")
+	var night := Night.new()
+	var chat := CounterChats.Chat.new()
+	chat.pd_topic = steer
+	chat.pd_topic_lines = 3
+	var guest := Someone.new()
+	var dice := RandomNumberGenerator.new()
+	for i in 3:
+		assert_str(str(Conversation.chat_line(night, chat, "Jang Yeon-mi", "Park Joon-hyung", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).contains("arm in arm")
+	assert_str(str(Conversation.chat_line(night, chat, "Jang Yeon-mi", "Park Joon-hyung", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).not_contains("arm in arm")

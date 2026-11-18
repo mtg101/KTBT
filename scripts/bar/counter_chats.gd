@@ -25,7 +25,7 @@ class Chat:
 	var game_on := false  # ... and took up
 	var game_lines := 0  # lines it's still in the air for (see Talk.TABLE_GAME_LINES)
 	var cat_talk_done := false  # the cat's taken over this chat's topic once (only once)
-	var pd_topic := ""  # the PD's cue card: the chat's topic...
+	var pd_topic := ""  # the PD's cue card, or a card's moment lingering: the direction for the chat's lines...
 	var pd_topic_lines := 0  # ... for this many more lines
 
 

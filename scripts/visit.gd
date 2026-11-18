@@ -158,7 +158,7 @@ class Guest:
 	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
 	var plant_card := ""  # ... which card
 	var plant_happened := ""  # ... and what happened, for whichever conversation they speak in next
-	var pd_topic := ""  # the PD's cue card, the topic of their talk with the owner...
+	var pd_topic := ""  # the PD's cue card, or a card's moment lingering: the direction for their talk...
 	var pd_topic_lines := 0  # ... for this many more lines
 	var to_camera := false  # their next line's an interview cut: answered straight to camera
 	var cat_talk_done := false  # the cat's taken over their talk with the owner once tonight (only once: it's a tent bar, not a cat cafe)
@@ -396,6 +396,7 @@ var _log_panel: PanelContainer
 var _moment_label: Label
 var _mode_label: Label
 var _takings_label: Label
+var _ratings_label: Label  # 시청률: tonight's so far, the final at 3am, or last time's (see _update_ratings)
 var _title_label: Label
 var _log: RichTextLabel
 var _typing_label: Label
@@ -1093,6 +1094,9 @@ func _start_night() -> void:
 	_busier = Ratings.busier(Ratings.from_log(Game.bar.get("night_log", [])))
 	_night_ratings = {}
 	_stats.story["busier"] = _busier
+	_stats.ratings_before = Ratings.from_log(Game.bar.get("night_log", []))
+	_events.happened.connect(func(_kind, _facts, _about, _spot): _update_ratings())
+	_update_ratings()
 	if not is_equal_approx(_busier, 1.0):
 		print("Ratings: night %d is %d%% %s, from the last few nights' ratings" % [_night_number, roundi(absf(_busier - 1.0) * 100.0), "busier" if _busier > 1.0 else "quieter"])
 	if not _cliffhanger.is_empty():
@@ -1305,6 +1309,34 @@ func _last_ratings_text() -> String:
 	return "RATINGS %s" % Ratings.percent_text(float(diary[-1]["ratings"]["rating"]))
 
 
+## The 시청률 beside the takings: tonight's so far (worked out as at 3am, before the luck, as
+## things happen), tonight's once it's rated, or, before a night, last time's. Its hover says what
+## ratings are and where the number comes from; the stats panel's RATINGS section has the rest.
+func _update_ratings() -> void:
+	if _ratings_label == null:
+		return
+	var result := {}
+	var when := ""
+	if not _night_ratings.is_empty():
+		result = _night_ratings
+	elif _events != null:
+		var cards: int = _stats.plants().values().filter(func(p): return int(p[2]) > 0).size()
+		result = Ratings.score(_events.timeline, {"cards_taken_up": cards}, 0.5)
+		result["parts"] = result["parts"].filter(func(p): return not is_zero_approx(float(p[1])))
+		_stats.ratings_so_far = result
+		when = " so far"
+	else:
+		var before := Ratings.from_log(Game.bar.get("night_log", []))
+		if before.is_empty():
+			_ratings_label.visible = false
+			return
+		result = {"rating": float(before[-1]), "band": Ratings.band(float(before[-1])), "parts": []}
+		when = " last time"
+	_ratings_label.visible = true
+	_ratings_label.text = "%s %s%s" % [Ratings.WORD, Ratings.percent_text(float(result["rating"])), when]
+	_ratings_label.tooltip_text = Text.tip(Ratings.hover(result) + ("\nSo far tonight, before luck (what else is on): the final rating is at 3am." if when == " so far" else ""))
+
+
 ## 3am: tonight's episode gets its ratings (Ratings.score), from what happened, the PD's cards
 ## taken up and a little luck from its own dice; a new best or a hit gets a banner on the diary
 ## page. Counted in the stats and logged.
@@ -1320,6 +1352,7 @@ func _rate_night() -> void:
 	if str(_night_ratings["banner"]) != "":
 		_stats.story["ratings_banner"] = Glossary.hangul_tip(str(_night_ratings["banner"]))  # (in words: the panel has no hovers)
 	print("Ratings: night %d, %s%s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else ""])
+	_update_ratings()
 
 
 ## 3am: the owner writes tonight up in their diary (the AI, from the facts the game picks, or
@@ -1651,8 +1684,10 @@ func _on_next_night_pressed() -> void:
 
 
 ## Autoplay (see autoplay.gd): tonight's logged and written up, so note it in the batch's
-## summary, then, after a pause on the summary page, open for another night; or, when the
-## batch is done (or the AI stopped answering), quit.
+## summary, then, after a pause on the summary page, open the bar again for the next night, as
+## coming back the next day does (so "Previously on…", the episode's titles and the chance to
+## step in as the PD all happen, as they don't going straight on); or, when the batch is done
+## (or the AI stopped answering), quit.
 func _autoplay_next() -> void:
 	var auto = Game.autoplay
 	if auto.bar_id == "" and not bool(Game.bar.get("autoplay", false)):
@@ -1669,7 +1704,8 @@ func _autoplay_next() -> void:
 		await get_tree().create_timer(auto.pause_seconds).timeout
 	if _closed() or Game.autoplay != auto:
 		return
-	_on_next_night_pressed()
+	if not Game.open_bar(str(Game.bar.get("id", ""))):
+		_on_next_night_pressed()  # (the save won't load: carry straight on instead)
 
 
 func _update_clock_label() -> void:
@@ -2515,6 +2551,17 @@ func _chat_voices(chat: Chat) -> Array:
 	return _counter_chats.voices(chat)
 
 
+## Someone with something still on their mind (a PD's card that lingers, or a cue card) starts
+## or joins a chat: it comes with them (17 Nov: the ex walked past, Yeon-mi got talking to
+## Joon-hyung, and two lines on they were arguing about ramyeon).
+func _bring_into_chat(chat: Chat, people: Array) -> void:
+	for person in people:
+		if person.pd_topic_lines > 0 and chat.pd_topic_lines == 0:
+			chat.pd_topic = person.pd_topic
+			chat.pd_topic_lines = person.pd_topic_lines
+		person.pd_topic_lines = 0
+
+
 func _chat_possible() -> bool:
 	return _counter_chats.possible(_guests, _last_orders)
 
@@ -2535,6 +2582,7 @@ func _counter_chat() -> void:
 		var a: Guest = chat.people[0]
 		var b: Guest = chat.people[1]
 		_narrate("%s gets talking to %s." % [a.customer["name"], b.customer["name"]])
+		_bring_into_chat(chat, [a, b])
 		var quiet := bool(spell.get("drawn_in", false))  # (b keeps to themselves: a turns to them anyway)
 		_event("chat_started", {"name": str(a.customer["name"]), "friend": str(b.customer["name"]), "drawn_in": quiet}, a.node)
 		chat.transcript.append({"action": ("%s turns to %s, a stranger a few stools along who's been keeping to themselves, and starts a conversation." if quiet else "%s turns to %s, a stranger a few stools along, and starts a conversation.") % [a.customer["name"], b.customer["name"]]})
@@ -2542,6 +2590,7 @@ func _counter_chat() -> void:
 		_event("chat_continued", {"people": chat.people.filter(func(g): return g != joiner).map(func(g): return str(g.customer["name"]))})
 		if joiner != null:
 			_narrate("%s joins in." % joiner.customer["name"])
+			_bring_into_chat(chat, [joiner])
 			_event("joined_chat", {"gender": str(joiner.customer.get("gender", "")), "name": str(joiner.customer["name"])}, joiner.node)
 			chat.transcript.append({"action": "%s, from further along the counter, joins the conversation." % joiner.customer["name"]})
 	if chat == null:
@@ -3677,14 +3726,21 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 				_show("[color=#%s][b]%s[/b][/color] [i]%s[/i]\n\n" % [CAMERA_RED.to_html(false), _esc("[PD]"), Glossary.explain(_esc(Plants.shown(card, who, what, gender, text)), _names_here())])
 			else:
 				_narrate(Plants.shown(card, who, what, gender))
-			if int(data.get("write", {}).get("steers", 0)) > 0:  # (a cue card: their conversation's topic for a while)
+			# A cue card is their conversation's topic for a while; a big moment (the ex walking past)
+			# stays on their minds for a few lines, for the talk to come back to.
+			var steers := int(data.get("write", {}).get("steers", 0))
+			var steer := Talk.cue_hint(for_ai) if steers > 0 else ""
+			if steers == 0 and Plants.lingers(card) > 0:
+				steers = Plants.lingers(card)
+				steer = Talk.aftermath_hint(Plants.happened(card, who, "", what, gender, for_ai))
+			if steers > 0:
 				var chat := _chat_of(target)
 				if chat != null:
-					chat.pd_topic = for_ai
-					chat.pd_topic_lines = int(data["write"]["steers"])
+					chat.pd_topic = steer
+					chat.pd_topic_lines = steers
 				else:
-					target.pd_topic = for_ai
-					target.pd_topic_lines = int(data["write"]["steers"])
+					target.pd_topic = steer
+					target.pd_topic_lines = steers
 			if card == "interview":
 				target.to_camera = true
 			if text != "":
@@ -4004,6 +4060,13 @@ func _build_ui() -> void:
 	_takings_label.text = "Takings: %s" % Menu.format_won(0)
 	_takings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(_takings_label)
+
+	_ratings_label = Label.new()
+	_ratings_label.name = "RatingsLabel"
+	_ratings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_ratings_label.mouse_filter = Control.MOUSE_FILTER_STOP  # (for its hover)
+	_ratings_label.visible = false
+	bar.add_child(_ratings_label)
 
 	# The settings live in an Options panel that drops down from the top bar, so they don't
 	# crowd it (see _build_options_panel; more settings will go there).

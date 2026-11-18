@@ -113,8 +113,9 @@ static func check_dish(dish: Dictionary) -> String:
 	return ""
 
 
-## Whether the Hangul fits the romanised name: Hangul only (spaces between words), a sensible
-## length, and each word starting with the right sound (each syllable, when they line up).
+## Whether the Hangul fits the romanised name: Hangul only, a sensible length, and each word
+## starting with the right sound (each syllable, when they line up). The Hangul may run the
+## words together, as Korean often does (아빠짬뽕 for "Appa Jjamppong"): then it just has to start right.
 static func hangul_problem(roman: String, hangul: String) -> String:
 	var syllables := hangul.replace(" ", "")
 	if syllables.length() < 2 or syllables.length() > MAX_HANGUL:
@@ -124,6 +125,8 @@ static func hangul_problem(roman: String, hangul: String) -> String:
 			return "\"hangul\" must be Hangul syllables only"
 	var roman_words := roman.to_lower().replace("'", "").split(" ", false)
 	var hangul_words := hangul.split(" ", false)
+	if hangul_words.size() < roman_words.size() and Names._starts_alike(roman_words[0].split("-", false)[0] if not roman_words[0].split("-", false).is_empty() else roman_words[0], syllables[0]):
+		return ""  # (Korean runs a name together: "Appa Jjamppong" is 아빠짬뽕, 18 Nov)
 	if roman_words.size() != hangul_words.size():
 		return "\"hangul\" doesn't match the name (%d words, and the name has %d)" % [hangul_words.size(), roman_words.size()]
 	for i in roman_words.size():

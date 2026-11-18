@@ -7,6 +7,7 @@ extends RefCounted
 const Address = preload("res://scripts/rules/address.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const Orders = preload("res://scripts/rules/orders.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
@@ -112,7 +113,8 @@ const CAPTIONS := {
 		"icon": "☔", "colour": "7fd8ff", "sound": "whoosh", "emergency": false, "always": true},
 	"plant_phone": {"words": [["따르릉!", "RING RING!"], ["전화 왔다!", "<A CALL|THE PHONE>! FOR {name}?!"]],
 		"icon": "📱", "colour": "7fd8ff", "sound": "ding", "emergency": false, "always": true},
-	"plant_ppl": {"words": [["PPL 타임!", "A WORD FROM OUR SPONSOR<!|…>"], ["PPL 타임!", "<SPONSORED BY|BROUGHT TO YOU BY> {name}'S TABLE"]],
+	"plant_ppl": {"words": [["PPL 타임!", "A WORD FROM OUR SPONSOR<!|…>"], ["PPL 타임!", "<SPONSORED BY|BROUGHT TO YOU BY> {sponsor}"],
+		["PPL 타임!", "{sponsor}, ON {name}'S TABLE"]],  # (17 Nov: "SPONSORED BY JAE-SEOK'S TABLE" said the table was the sponsor)
 		"icon": "💰", "colour": "ffd23f", "sound": "ding", "emergency": false, "always": true},
 	"plant_cue_card": {"words": [["큐카드!", "CUE CARD<!| FOR {name}>"], ["큐카드!", "THE PD'S <CUE CARD|LITTLE NOTE>"]],
 		"icon": "📋", "colour": "ff7eb6", "sound": "pop", "emergency": false, "always": true},
@@ -398,7 +400,7 @@ static func check_caption(raw: Variant, names: Array, items: Array = []) -> Arra
 	if mention != "":
 		return ["", "the caption mentions %s, which nobody ordered" % mention]
 	if not Talk.romanised_korean(caption, names).is_empty():
-		return ["", "the caption has made-up Korean words in it"]
+		return ["", "the caption has Korean phrases in it, real or made up"]
 	return [caption.to_upper(), ""]
 
 
@@ -476,7 +478,7 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			return {"kind": "game_" + str(facts.get("game", "")), "fill": {}}
 		"plant_played":
 			if CAPTIONS.has("plant_" + str(facts.get("card", ""))):  # (the first snow has its own caption, as it falls)
-				return {"kind": "plant_" + str(facts.get("card", "")), "fill": {"name": facts.get("name", "")}}
+				return {"kind": "plant_" + str(facts.get("card", "")), "fill": {"name": facts.get("name", ""), "sponsor": Plants.sponsor_name(str(facts.get("what", "")))}}
 		"closed_early":
 			if str(facts.get("reason", "")) != "":
 				return {"kind": "closing_reason", "fill": {"reason": facts["reason"]}}

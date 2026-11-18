@@ -35,6 +35,10 @@ var tipsy := 0  # customers who had enough to sway
 ## The night as a story: how it opened (how long the loading screen took, the recap's style
 ## and who wrote it: "ai" or "game") and the diary (its stamp, and who wrote it).
 var story := {}
+## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
+## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
+var ratings_so_far := {}
+var ratings_before: Array = []
 var arrived := 0
 var served := 0  # paid and left
 var walked_past := 0  # gave up waiting for a stool
@@ -584,7 +588,7 @@ func signature_orders() -> Dictionary:
 
 ## The panel's tabs: each section's short name (the panel shows one section at a time).
 const TAB_NAMES := {"HIGHLIGHTS": "Highlights", "TONIGHT": "Tonight", "PEOPLE": "People", "TALK": "Talk",
-	"POCHA LIFE": "Pocha life", "THE PD": "PD", "REGULARS": "Regulars", "THE STORY": "Story", "TV CAPTIONS": "TV",
+	"POCHA LIFE": "Pocha life", "THE PD": "PD", "REGULARS": "Regulars", "THE STORY": "Story", "RATINGS": "Ratings", "TV CAPTIONS": "TV",
 	"FOOD AND THE MENU": "Menu", "AI": "AI", "EVERYTHING THAT HAPPENED": "Everything"}
 
 
@@ -604,6 +608,29 @@ func sections(seated: int, cooking: int) -> Array:
 			var count := highlights().size()
 			section["tab"] = "Highlights %d" % count if count > 0 else "Highlights"
 	return found
+
+
+## The RATINGS section (시청률): tonight's (final at 3am, or so far), where it comes from, the
+## last nights', and how much busier that makes tonight.
+func ratings_lines() -> PackedStringArray:
+	var lines := PackedStringArray(["[b]RATINGS[/b]"])
+	if story.has("ratings_text"):
+		lines.append("Tonight: %s%s" % [str(story["ratings_text"]), (" · " + str(story["ratings_banner"])) if story.has("ratings_banner") else ""])
+	elif not ratings_so_far.is_empty():
+		lines.append("So far: %.1f%% (%s), before luck: the final rating's at 3am" % [float(ratings_so_far["rating"]), ratings_so_far.get("band", "")])
+		for part in ratings_so_far.get("parts", []):
+			if not is_zero_approx(float(part[1])):
+				lines.append("  %s%.1f %s" % ["+" if float(part[1]) >= 0.0 else "", float(part[1]), part[0]])
+	else:
+		lines.append("Tonight: at 3am")
+	if not ratings_before.is_empty():
+		var best := 0.0
+		for each in ratings_before:
+			best = maxf(best, float(each))
+		lines.append("Last nights: %s · best %.1f%%" % [", ".join(PackedStringArray(ratings_before.slice(-5).map(func(r): return "%.1f%%" % float(r)))), best])
+	var busier := float(story.get("busier", 1.0))
+	lines.append("Tonight %s from the last nights' ratings" % ("as busy as usual" if is_equal_approx(busier, 1.0) else "%d%% %s" % [roundi(absf(busier - 1.0) * 100.0), "busier" if busier > 1.0 else "quieter"]))
+	return lines
 
 
 func panel_text(seated: int, cooking: int) -> String:
@@ -701,9 +728,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
-	lines.append("Ratings: %s%s · tonight %s from the last nights' ratings" % [str(story.get("ratings_text", "at 3am")), (" · " + str(story["ratings_banner"])) if story.has("ratings_banner") else "",
-		"as busy as usual" if is_equal_approx(float(story.get("busier", 1.0)), 1.0) else "%d%% %s" % [roundi(absf(float(story.get("busier", 1.0)) - 1.0) * 100.0),
-			"busier" if float(story.get("busier", 1.0)) > 1.0 else "quieter"]])
+	lines.append("")
+	lines.append_array(ratings_lines())
 	lines.append("")
 	lines.append("[b]TV CAPTIONS[/b]")
 	lines.append("Shown %d%s%s" % [captions_total(), (" · " + caption_counts()) if not captions.is_empty() else "", (" · held back %d" % captions_held_back) if captions_held_back > 0 else ""])
