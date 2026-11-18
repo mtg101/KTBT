@@ -151,24 +151,25 @@ def counter():
 
 
 def stool(colour):
-    """A plastic stool, as the stage's (72 wide by 33): its round seat, lit on top, and its
-    flared body, in shadow under the seat, with the holes you carry it by."""
-    w, h = 24, 11
+    """A plastic stool (78 wide by 60, its seat a person's knee high): its round seat, lit on
+    top, and its flared body in shadow under the seat, with the holes you carry it by."""
+    w, h = 26, 20
     mask = np.zeros((h, w), bool)
-    mask[0, 1:23] = True  # the seat, round at its ends
-    mask[1:3, 0:24] = True
+    mask[0, 1:25] = True  # the seat, round at its ends
+    mask[1:3, 0:26] = True
     for row in range(3, h):
-        inset = 5 - (row - 3) * 4 // 7  # the body flares out towards the floor
+        inset = 6 - (row - 3) * 5 // 16  # the body flares out towards the floor
         mask[row, inset:w - inset] = True
     base = np.zeros((h, w, 3), int)
     base[:] = palette.hexc(colour)
     yy, xx = np.mgrid[0:h, 0:w]
-    light = np.where(yy < 3, 1.05, 0.62 + 0.04 * (yy - 3))
+    light = np.where(yy < 3, 1.05, 0.6 + 0.02 * (yy - 3))
     step = steps(light, yy, xx)
     step[0] = 5  # the seat's top, lit
     step[3] = 1  # the shadow under the seat
-    for hole in (6, 15):  # the carrying holes, either side
-        mask[5:8, hole:hole + 3] = False
+    for hole in (7, 16):  # the carrying holes, either side
+        mask[7:12, hole:hole + 3] = False
+    mask[h - 1, 8:18] = False  # (its feet: the body's open at the bottom between them)
     return ramped(base, step, mask)
 
 

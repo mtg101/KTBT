@@ -1,5 +1,5 @@
 """The people's layers, drawn in code (ART.md, "People"): body (by clothes), head, hair (by
-style), and extras, facing us ("front") and from behind seated ("back"), 27 x 50 pixels on the
+style), and extras, facing us ("front") and from behind seated ("back"), 32 x 72 pixels on the
 grid. Each layer is drawn in shades only: every pixel says how lit it is (a step of 0 to 6) and
 what it's made of (a slot: skin, hair, cloth, or one of the FIXED colours). The game paints
 the layers onto each person's colours' ramps (scripts/ui/people_art.gd), so one bob serves
@@ -18,7 +18,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import palette
 
-W, H = 27, 50
+W, H = 32, 72
 SKIN, HAIR, CLOTH, FIXED_SLOT = 1, 2, 3, 0
 SOURCE = "drawn in code by tools/art/people.py"
 LICENCE = "CC BY-SA 4.0 (this project)"
@@ -92,122 +92,146 @@ class Layer:
         return Image.fromarray(out, "RGBA")
 
 
-CX = 13.5
-## Seated, someone's no taller than standing (they're the same size of person): from behind
-## they're drawn this many rows lower, so they sit on the stool at the picture's foot with
-## the standing figure's proportions (head, the torso to row 34, the seat and legs below).
-SEATED_DOWN = 8
-TOP = 14  # the shoulders' line
+CX = 16.0
+## A person's height, against the tent (a pocha's counter's about a metre: 123 on the stage):
+## standing, 72 rows (216 on the stage, from the root's top at the ground's 372 less that).
+## Seated on a stool (its seat at 312 on the stage: 52 rows down), from behind, the same person:
+## drawn SEATED_DOWN rows lower with the standing figure's proportions (the head, the torso to
+## the waist, the seat on the stool), their lower legs down either side of it. So nobody's
+## smaller sitting or standing, and coming in, sitting down and leaving they stay on the ground.
+SEATED_DOWN = 2
+TOP = 20  # the shoulders' line
 HEAD_Y = 1
+WAIST = 44  # the torso's foot (a short top's hem; long coats go on down)
+COAT_HEM = 60
+SHOULDER = 5  # the shoulders' inset from the picture's sides
 
 
 def body(clothes, view):
-    """The body in its clothes: legs (standing) or the seat (seated from behind), the torso and
-    arms in the cloth, hands, and what's at the front (or back) of the clothes."""
+    """The body in its clothes: legs (standing) or the seat and lower legs (seated from behind),
+    the torso and arms in the cloth, hands, and what's at the front (or back) of the clothes."""
     s = Layer()
     front = view == "front"
-    if clothes == "hoodie" and not front:
-        s.ellipse(CX, TOP - 1, 6.5, 3.5, CLOTH, 0.75)  # the hood, down behind the neck
+    c = int(CX)
     long_coat = clothes in ("trench", "padded")
+    if clothes == "hoodie" and not front:
+        s.ellipse(CX, TOP - 1, 7.5, 4, CLOTH, 0.75)  # the hood, down behind the neck
     if front:
-        hem = 42 if long_coat else 33
-        s.side_lit(8, hem, 13, 48, "trousers", 0.85)
-        s.side_lit(14, hem, 19, 48, "trousers", 0.8)
-        s.rect(7, 48, 13, 50, "ink", 0.8)
-        s.rect(14, 48, 20, 50, "ink", 0.75)
-    else:  # sitting on the stool: the seat of the trousers, and the legs either side of it
-        s.side_lit(4, 34, 23, 40, "trousers", 0.8)
-        s.side_lit(3, 40, 7, 42, "trousers", 0.7)
-        s.side_lit(20, 40, 24, 42, "trousers", 0.65)
-    bottom = (42 if long_coat else 34) if front else 35
-    shoulder = 3 if clothes == "padded" else 4
+        hem = COAT_HEM if long_coat else WAIST
+        s.side_lit(10, hem, 15, 68, "trousers", 0.85)
+        s.side_lit(17, hem, 22, 68, "trousers", 0.8)
+        s.rect(9, 68, 15, 72, "ink", 0.8)  # shoes
+        s.rect(17, 68, 23, 72, "ink", 0.75)
+    else:  # seated: the seat of the trousers on the stool, the lower legs down either side
+        s.side_lit(5, WAIST, 27, WAIST + 6, "trousers", 0.8)
+        s.side_lit(5, WAIST + 6, 10, 66, "trousers", 0.65)
+        s.side_lit(22, WAIST + 6, 27, 66, "trousers", 0.6)
+        s.rect(4, 66, 10, 70, "ink", 0.7)
+        s.rect(22, 66, 28, 70, "ink", 0.65)
+    bottom = (COAT_HEM if long_coat else WAIST) if front else WAIST + 1
+    shoulder = SHOULDER - 1 if clothes == "padded" else SHOULDER
     s.side_lit(shoulder, TOP + 1, W - shoulder, bottom, CLOTH, 1.05)
     s.rect(shoulder + 1, TOP, W - shoulder - 1, TOP + 1, CLOTH, 1.1)
-    c = int(CX)
+    arm_end = WAIST + 2
     if front:
-        s.side_lit(shoulder - 1, TOP + 2, shoulder + 2, bottom - 4, CLOTH, 0.8)  # arms
-        s.side_lit(W - shoulder - 2, TOP + 2, W - shoulder + 1, bottom - 4, CLOTH, 0.7)
+        s.side_lit(shoulder - 2, TOP + 2, shoulder + 2, arm_end - 4, CLOTH, 0.8)  # arms
+        s.side_lit(W - shoulder - 2, TOP + 2, W - shoulder + 2, arm_end - 4, CLOTH, 0.7)
         if clothes == "tshirt":  # short sleeves
-            s.rect(shoulder - 1, TOP + 8, shoulder + 2, bottom - 4, SKIN, 0.95)
-            s.rect(W - shoulder - 2, TOP + 8, W - shoulder + 1, bottom - 4, SKIN, 0.8)
-        s.rect(shoulder - 1, bottom - 4, shoulder + 2, bottom - 2, SKIN, 0.95)  # hands
-        s.rect(W - shoulder - 2, bottom - 4, W - shoulder + 1, bottom - 2, SKIN, 0.8)
+            s.rect(shoulder - 2, TOP + 10, shoulder + 2, arm_end - 4, SKIN, 0.95)
+            s.rect(W - shoulder - 2, TOP + 10, W - shoulder + 2, arm_end - 4, SKIN, 0.8)
+        s.rect(shoulder - 2, arm_end - 4, shoulder + 2, arm_end, SKIN, 0.95)  # hands
+        s.rect(W - shoulder - 2, arm_end - 4, W - shoulder + 2, arm_end, SKIN, 0.8)
         if clothes in ("suit", "blazer"):
-            for k in range(6):  # the shirt's V between the lapels
-                s.rect(c - 3 + k // 2, TOP + 1 + k, c + 4 - k // 2, TOP + 2 + k, "white_shirt" if clothes == "suit" else "blue_shirt", 1.15)
+            for k in range(9):  # the shirt's V between the lapels
+                s.rect(c - 4 + k // 2, TOP + 1 + k, c + 4 - k // 2, TOP + 2 + k, "white_shirt" if clothes == "suit" else "blue_shirt", 1.15)
+            for k in range(10):  # the lapels
+                s.dot(c - 5 + k // 2, TOP + 1 + k, CLOTH, 0.7)
+                s.dot(c + 4 - k // 2, TOP + 1 + k, CLOTH, 0.65)
             if clothes == "suit":
-                s.rect(c, TOP + 2, c + 1, TOP + 10, "tie", 1.0)
-            for y in (TOP + 12, TOP + 15):
+                s.rect(c - 1, TOP + 2, c + 1, TOP + 14, "tie", 1.0)
+            for y in (TOP + 15, TOP + 19):
                 s.dot(c, y, "ink", 1.0)
         elif clothes == "cardigan":
-            s.rect(c - 2, TOP + 1, c + 3, bottom, "cream", 1.1)
-            for y in range(TOP + 4, bottom - 2, 4):
+            s.rect(c - 3, TOP + 1, c + 3, bottom, "cream", 1.1)
+            for y in range(TOP + 5, bottom - 2, 5):
                 s.dot(c + 3, y, "gold", 1.2)
         elif clothes == "trench":
-            s.rect(c - 4, TOP, c - 1, TOP + 4, CLOTH, 1.25)
-            s.rect(c + 2, TOP, c + 5, TOP + 4, CLOTH, 1.2)
-            s.rect(shoulder, TOP + 16, W - shoulder, TOP + 18, CLOTH, 0.6)  # the belt
-            s.rect(c, TOP + 4, c + 1, bottom, CLOTH, 0.7)
+            s.rect(c - 6, TOP, c - 1, TOP + 6, CLOTH, 1.25)  # the collar
+            s.rect(c + 1, TOP, c + 6, TOP + 6, CLOTH, 1.2)
+            s.rect(shoulder, TOP + 21, W - shoulder, TOP + 24, CLOTH, 0.6)  # the belt
+            s.dot(c, TOP + 22, "gold", 1.1)  # its buckle
+            s.rect(c, TOP + 6, c + 1, bottom, CLOTH, 0.7)
         elif clothes == "padded":
-            for y in range(TOP + 4, bottom, 5):
+            for y in range(TOP + 5, bottom, 6):
                 s.rect(shoulder, y, W - shoulder, y + 1, CLOTH, 0.6)  # the quilting
-            s.rect(c - 4, TOP - 1, c + 5, TOP + 2, CLOTH, 1.15)  # the high collar
+            s.rect(c - 5, TOP - 2, c + 5, TOP + 3, CLOTH, 1.15)  # the high collar
+            s.rect(c, TOP + 3, c + 1, bottom, CLOTH, 0.7)  # the zip
         elif clothes == "hoodie":
-            s.rect(c - 5, TOP, c + 6, TOP + 3, CLOTH, 1.2)
-            s.rect(c - 1, TOP + 3, c, TOP + 8, "white_shirt", 1.0)  # the strings
-            s.rect(c + 1, TOP + 3, c + 2, TOP + 7, "white_shirt", 1.0)
-            s.rect(c - 4, bottom - 8, c + 5, bottom - 4, CLOTH, 0.7)  # the pocket
+            s.rect(c - 7, TOP, c + 7, TOP + 4, CLOTH, 1.2)
+            s.rect(c - 2, TOP + 4, c - 1, TOP + 11, "white_shirt", 1.0)  # the strings
+            s.rect(c + 1, TOP + 4, c + 2, TOP + 10, "white_shirt", 1.0)
+            s.rect(c - 6, bottom - 11, c + 6, bottom - 5, CLOTH, 0.7)  # the pocket
         elif clothes == "knit":
-            s.rect(shoulder, bottom - 2, W - shoulder, bottom, CLOTH, 0.7)
-            s.rect(c - 3, TOP, c + 4, TOP + 1, CLOTH, 0.7)
+            s.rect(shoulder, bottom - 3, W - shoulder, bottom, CLOTH, 0.7)
+            s.rect(c - 4, TOP, c + 4, TOP + 2, CLOTH, 0.7)
+            for x in range(shoulder + 2, W - shoulder - 1, 4):
+                s.rect(x, TOP + 4, x + 1, bottom - 3, CLOTH, 0.9)  # the cable's lines
         elif clothes == "scrubs":
-            for k in range(4):  # the V-neck
-                s.rect(c - 2 + k // 2, TOP + k, c + 3 - k // 2, TOP + 1 + k, SKIN, 0.85)
-            s.rect(shoulder + 2, TOP + 6, shoulder + 6, TOP + 9, CLOTH, 0.75)  # the chest pocket
+            for k in range(6):  # the V-neck
+                s.rect(c - 3 + k // 2, TOP + k, c + 3 - k // 2, TOP + 1 + k, SKIN, 0.85)
+            s.rect(shoulder + 2, TOP + 8, shoulder + 7, TOP + 12, CLOTH, 0.75)  # the chest pocket
         elif clothes == "work_jacket":
-            s.rect(c - 4, TOP, c + 5, TOP + 2, CLOTH, 1.2)  # the collar
-            s.rect(c, TOP + 2, c + 1, bottom, "ink", 0.9)  # the zip
-            s.rect(shoulder + 2, TOP + 9, shoulder + 7, TOP + 12, CLOTH, 0.7)  # pockets
-            s.rect(W - shoulder - 7, TOP + 9, W - shoulder - 2, TOP + 12, CLOTH, 0.65)
-            s.rect(shoulder, TOP + 14, W - shoulder, TOP + 15, "white_shirt", 1.0)  # its reflective band
+            s.rect(c - 5, TOP, c + 5, TOP + 3, CLOTH, 1.2)  # the collar
+            s.rect(c, TOP + 3, c + 1, bottom, "ink", 0.9)  # the zip
+            s.rect(shoulder + 2, TOP + 12, shoulder + 8, TOP + 16, CLOTH, 0.7)  # pockets
+            s.rect(W - shoulder - 8, TOP + 12, W - shoulder - 2, TOP + 16, CLOTH, 0.65)
+            s.rect(shoulder, TOP + 19, W - shoulder, TOP + 20, "white_shirt", 1.0)  # its reflective band
         elif clothes == "tshirt":
-            s.rect(c - 2, TOP, c + 3, TOP + 1, SKIN, 0.85)  # the round neck
+            s.rect(c - 3, TOP, c + 3, TOP + 2, SKIN, 0.85)  # the round neck
     else:  # from behind
         if clothes in ("suit", "blazer", "trench"):
-            s.rect(c, TOP + 6, c + 1, bottom, CLOTH, 0.75)  # the back seam
-            s.rect(c - 3, TOP, c + 4, TOP + 1, CLOTH, 1.2)
+            s.rect(c, TOP + 8, c + 1, bottom, CLOTH, 0.75)  # the back seam
+            s.rect(c - 4, TOP, c + 4, TOP + 2, CLOTH, 1.2)
             if clothes == "suit":
-                s.rect(c - 3, TOP - 1, c + 4, TOP, "white_shirt", 1.1)  # the shirt collar
+                s.rect(c - 4, TOP - 1, c + 4, TOP, "white_shirt", 1.1)  # the shirt collar
+            if clothes == "trench":
+                s.rect(shoulder, TOP + 21, W - shoulder, TOP + 24, CLOTH, 0.6)
         elif clothes == "padded":
-            for y in range(TOP + 4, bottom, 5):
+            for y in range(TOP + 5, bottom, 6):
                 s.rect(shoulder, y, W - shoulder, y + 1, CLOTH, 0.6)
+            s.rect(c - 5, TOP - 2, c + 5, TOP + 2, CLOTH, 1.1)
         elif clothes == "hoodie":
-            s.ellipse(CX, TOP + 1, 6, 3, CLOTH, 0.95)
+            s.ellipse(CX, TOP + 2, 7, 4, CLOTH, 0.95)
         elif clothes == "work_jacket":
-            s.rect(shoulder, TOP + 14, W - shoulder, TOP + 15, "white_shirt", 1.0)
-            s.rect(shoulder, TOP + 19, W - shoulder, TOP + 20, "white_shirt", 0.95)
+            s.rect(shoulder, TOP + 19, W - shoulder, TOP + 20, "white_shirt", 1.0)
+            s.rect(shoulder, TOP + 13, W - shoulder, TOP + 14, "white_shirt", 0.95)
         elif clothes == "knit":
-            s.rect(shoulder, bottom - 2, W - shoulder, bottom, CLOTH, 0.7)
-        s.side_lit(shoulder - 1, TOP + 2, shoulder + 2, bottom - 3, CLOTH, 0.8)  # arms, forward
-        s.side_lit(W - shoulder - 2, TOP + 2, W - shoulder + 1, bottom - 3, CLOTH, 0.7)
+            s.rect(shoulder, bottom - 3, W - shoulder, bottom, CLOTH, 0.7)
+        s.side_lit(shoulder - 2, TOP + 2, shoulder + 2, bottom - 4, CLOTH, 0.8)  # arms, forward to the counter
+        s.side_lit(W - shoulder - 2, TOP + 2, W - shoulder + 2, bottom - 4, CLOTH, 0.7)
     return s.image(SEATED_DOWN if view == "back" else 0)
 
 
 def head(view, old=False):
-    """The neck and head: facing us, the ears, eyes and a shadow of a mouth (and lines by the
-    eyes, older); from behind, the ears and the back of the neck (the hair covers the rest)."""
+    """The neck and head: facing us, the ears, eyes, brows and a mouth (and lines by the eyes,
+    older); from behind, the ears and the back of the neck (the hair covers the rest)."""
     s = Layer()
-    s.rect(11, HEAD_Y + 11, 16, TOP + 1, SKIN, 0.75)
-    s.ellipse(CX, HEAD_Y + 6, 5.5, 6.5, SKIN)
-    s.dot(8, HEAD_Y + 6, SKIN, 0.8)
-    s.dot(19, HEAD_Y + 6, SKIN, 0.7)
+    y = HEAD_Y
+    s.rect(13, y + 14, 19, TOP + 1, SKIN, 0.75)  # the neck
+    s.ellipse(CX, y + 8, 6.5, 8, SKIN)
+    s.rect(9, y + 7, 10, y + 11, SKIN, 0.8)  # ears
+    s.rect(22, y + 7, 23, y + 11, SKIN, 0.7)
     if view == "front":
-        s.dot(11, HEAD_Y + 6, "ink", 1.0)
-        s.dot(16, HEAD_Y + 6, "ink", 1.0)
-        s.rect(12, HEAD_Y + 9, 16, HEAD_Y + 10, SKIN, 0.7)
+        for ex in (12, 19):
+            s.dot(ex, y + 9, "ink", 1.0)  # eyes
+            s.dot(ex + 1, y + 9, "ink", 1.0)
+            s.rect(ex, y + 7, ex + 2, y + 8, SKIN, 0.75)  # brows' shadow
+        s.dot(16, y + 11, SKIN, 0.75)  # the nose's shadow
+        s.rect(14, y + 13, 18, y + 14, SKIN, 0.68)  # the mouth
         if old:
-            s.dot(10, HEAD_Y + 8, SKIN, 0.8)
-            s.dot(17, HEAD_Y + 8, SKIN, 0.8)
+            s.dot(11, y + 11, SKIN, 0.8)  # lines by the eyes
+            s.dot(21, y + 11, SKIN, 0.8)
+            s.rect(13, y + 15, 19, y + 16, SKIN, 0.82)  # and under the chin
     return s.image(SEATED_DOWN if view == "back" else 0)
 
 
@@ -217,55 +241,59 @@ def hair(style, view, behind=False):
     y = HEAD_Y
     if behind:
         if style == "long":
-            s.rect(7, 4, 20, 24 if view == "back" else 22, HAIR, 0.85)
+            s.rect(8, y + 5, 24, y + (34 if view == "back" else 30), HAIR, 0.85)
         return s.image(SEATED_DOWN if view == "back" else 0)
     if view == "front":
-        rows = {"long": 5, "bob": 5, "ponytail": 4, "bun": 4, "pixie": 4, "perm": 5, "short": 4, "side_part": 4,
-                "buzz": 3, "two_block": 6, "balding": 0}[style]
+        crown = {"long": 7, "bob": 7, "ponytail": 6, "bun": 6, "pixie": 6, "perm": 7, "short": 6, "side_part": 6,
+                 "buzz": 4, "two_block": 8, "balding": 0}[style]
         if style == "perm":
-            for k, x in enumerate(range(7, 21, 2)):  # tight curls, a bumpy crown
-                s.ellipse(x + 1, y + 2 + (k % 2), 1.8, 2.2, HAIR)
-            s.ellipse(8, y + 6, 1.5, 2.5, HAIR)
-            s.ellipse(19, y + 6, 1.5, 2.5, HAIR)
+            for k, x in enumerate(range(8, 25, 2)):  # tight curls, a bumpy crown
+                s.ellipse(x + 1, y + 3 + (k % 2), 2, 2.5, HAIR)
+            s.ellipse(9, y + 8, 1.8, 3, HAIR)
+            s.ellipse(23, y + 8, 1.8, 3, HAIR)
         elif style == "balding":
-            s.rect(7, y + 4, 9, y + 8, HAIR, 0.9)
-            s.rect(18, y + 4, 20, y + 8, HAIR, 0.8)
+            s.rect(8, y + 5, 10, y + 11, HAIR, 0.9)
+            s.rect(22, y + 5, 24, y + 11, HAIR, 0.8)
         else:
-            s.ellipse(CX, y + 4, 6, 4.5 if style != "buzz" else 4, HAIR, rows=(0, y + rows + 1))
+            s.ellipse(CX, y + 5, 7, 5.5 if style != "buzz" else 5, HAIR, rows=(0, y + crown + 1))
             if style in ("long", "bob"):
-                s.rect(7, y + 3, 9, y + (14 if style == "long" else 10), HAIR, 0.9)
-                s.rect(18, y + 3, 20, y + (14 if style == "long" else 10), HAIR, 0.8)
+                s.rect(8, y + 4, 10, y + (22 if style == "long" else 14), HAIR, 0.9)  # down the sides
+                s.rect(22, y + 4, 24, y + (22 if style == "long" else 14), HAIR, 0.8)
             if style == "side_part":
-                s.rect(10, y + 1, 11, y + 3, HAIR, 1.25)
+                s.rect(12, y + 1, 13, y + 4, HAIR, 1.25)  # the parting's shine
+                s.rect(9, y + 5, 15, y + 7, HAIR, 0.95)
             if style == "two_block":
-                s.rect(9, y + 4, 17, y + 6, HAIR, 0.95)
+                s.rect(10, y + 5, 21, y + 8, HAIR, 0.95)  # the long fringe
             if style == "bun":
-                s.ellipse(CX, y - 1.5, 2.5, 2, HAIR)
+                s.ellipse(CX, y - 1, 3, 2.5, HAIR)
             if style == "ponytail":
-                s.rect(20, y + 4, 22, y + 11, HAIR, 0.8)
+                s.rect(23, y + 5, 26, y + 15, HAIR, 0.8)
             if style == "pixie":
-                s.rect(8, y + 4, 10, y + 7, HAIR, 0.9)  # a wisp by the ear
+                s.rect(9, y + 5, 11, y + 9, HAIR, 0.9)  # a wisp by the ear
+            if style == "short":
+                s.rect(9, y + 5, 10, y + 8, HAIR, 0.85)
+                s.rect(22, y + 5, 23, y + 8, HAIR, 0.8)
     else:
         if style == "balding":
-            s.rect(8, y + 7, 20, y + 11, HAIR, 0.85)
-            s.rect(8, y + 5, 10, y + 7, HAIR, 0.8)
-            s.rect(18, y + 5, 20, y + 7, HAIR, 0.75)
+            s.rect(9, y + 9, 23, y + 14, HAIR, 0.85)  # what's left, low round the back
+            s.rect(9, y + 6, 11, y + 9, HAIR, 0.8)
+            s.rect(21, y + 6, 23, y + 9, HAIR, 0.75)
         elif style == "perm":
-            for k, x in enumerate(range(7, 21, 2)):
-                for yy in (y + 2, y + 5, y + 8):
-                    s.ellipse(x + 1, yy + (k % 2), 1.8, 2, HAIR)
+            for k, x in enumerate(range(8, 25, 2)):
+                for yy in (y + 3, y + 7, y + 11):
+                    s.ellipse(x + 1, yy + (k % 2), 2, 2.2, HAIR)
         else:
-            reach = {"long": 22, "bob": 11, "buzz": 9, "pixie": 10, "two_block": 9}.get(style, 10)
-            s.ellipse(CX, y + 6, 6, 6.5, HAIR, rows=(0, y + min(reach, 12)))
+            reach = {"long": 30, "bob": 15, "buzz": 12, "pixie": 13, "two_block": 12}.get(style, 13)
+            s.ellipse(CX, y + 8, 7, 8, HAIR, rows=(0, y + min(reach, 16)))
             if style == "long":
-                s.rect(8, y + 10, 20, y + reach, HAIR, 0.85)
+                s.rect(9, y + 13, 23, y + reach, HAIR, 0.85)
             if style == "ponytail":
-                s.rect(12, y + 9, 15, y + 17, HAIR, 0.85)
-                s.rect(12, y + 8, 15, y + 9, "hair_tie", 1.0)
+                s.rect(14, y + 12, 18, y + 24, HAIR, 0.85)
+                s.rect(14, y + 11, 18, y + 12, "hair_tie", 1.0)
             if style == "bun":
-                s.ellipse(CX, y + 2, 3, 2.5, HAIR, 1.1)
+                s.ellipse(CX, y + 3, 3.5, 3, HAIR, 1.1)
             if style == "two_block":
-                s.rect(9, y + 9, 18, y + 11, SKIN, 0.8)  # the shaved underneath
+                s.rect(10, y + 12, 22, y + 15, SKIN, 0.8)  # the shaved underneath
     return s.image(SEATED_DOWN if view == "back" else 0)
 
 
@@ -273,34 +301,37 @@ def extra(name, view):
     """glasses, the apron, a tote, a briefcase, a backpack (its straps facing us)."""
     s = Layer()
     c = int(CX)
+    y = HEAD_Y
     if name == "glasses" and view == "front":
-        for gx in (10, 15):
-            s.rect(gx, HEAD_Y + 5, gx + 3, HEAD_Y + 6, "ink", 0.9)
-            s.dot(gx, HEAD_Y + 6, "ink", 0.9)
-            s.dot(gx + 2, HEAD_Y + 6, "ink", 0.9)
-        s.dot(13, HEAD_Y + 5, "ink", 0.9)
+        for gx in (11, 18):
+            s.rect(gx, y + 8, gx + 4, y + 9, "ink", 0.9)
+            s.rect(gx, y + 9, gx + 1, y + 11, "ink", 0.9)
+            s.rect(gx + 3, y + 9, gx + 4, y + 11, "ink", 0.9)
+            s.rect(gx, y + 10, gx + 4, y + 11, "ink", 0.85)
+        s.rect(15, y + 8, 18, y + 9, "ink", 0.9)
     elif name == "apron":
         if view == "front":
-            s.rect(7, TOP + 4, 20, 38, "apron", 1.15)
-            s.rect(8, TOP, 9, TOP + 4, "apron", 1.1)
-            s.rect(18, TOP, 19, TOP + 4, "apron", 1.0)
-            s.rect(10, TOP + 12, 17, TOP + 15, "apron", 0.85)
+            s.rect(8, TOP + 5, 24, 56, "apron", 1.15)
+            s.rect(9, TOP, 10, TOP + 5, "apron", 1.1)  # its straps
+            s.rect(22, TOP, 23, TOP + 5, "apron", 1.0)
+            s.rect(11, TOP + 16, 21, TOP + 21, "apron", 0.85)  # its pocket
         else:
-            s.rect(4, TOP + 18, 23, TOP + 19, "apron", 1.0)  # its strings, tied behind
-            s.rect(c - 1, TOP + 18, c + 2, TOP + 22, "apron", 0.95)
+            s.rect(SHOULDER, WAIST - 4, W - SHOULDER, WAIST - 3, "apron", 1.0)  # its strings, tied behind
+            s.rect(c - 1, WAIST - 4, c + 2, WAIST + 1, "apron", 0.95)
     elif name == "tote" and view == "front":
-        s.rect(W - 5, TOP + 1, W - 4, TOP + 12, "strap", 0.9)
-        s.rect(W - 6, TOP + 12, W - 1, TOP + 20, "tote", 0.95)
+        s.rect(W - 6, TOP + 1, W - 5, TOP + 16, "strap", 0.9)
+        s.rect(W - 8, TOP + 16, W - 1, TOP + 27, "tote", 0.95)
     elif name == "briefcase" and view == "front":
-        s.rect(W - 4, 30, W - 3, 32, "ink", 0.9)  # its handle, in the hand
-        s.rect(W - 6, 32, W, 39, "briefcase", 0.9)
+        s.rect(W - 4, WAIST - 1, W - 3, WAIST + 2, "ink", 0.9)  # its handle, in the hand
+        s.rect(W - 7, WAIST + 2, W, WAIST + 11, "briefcase", 0.9)
     elif name == "backpack":
         if view == "back":
-            s.side_lit(8, TOP + 3, 19, TOP + 16, "backpack", 0.9)
-            s.rect(8, TOP + 3, 19, TOP + 4, "backpack", 1.1)
+            s.side_lit(9, TOP + 3, 23, TOP + 21, "backpack", 0.9)
+            s.rect(9, TOP + 3, 23, TOP + 4, "backpack", 1.1)
+            s.rect(11, TOP + 12, 21, TOP + 13, "backpack", 0.7)  # its pocket's seam
         else:
-            s.rect(6, TOP, 8, TOP + 14, "backpack", 0.8)  # the straps over the shoulders
-            s.rect(19, TOP, 21, TOP + 14, "backpack", 0.75)
+            s.rect(7, TOP, 9, TOP + 18, "backpack", 0.8)  # the straps over the shoulders
+            s.rect(23, TOP, 25, TOP + 18, "backpack", 0.75)
     return s.image(SEATED_DOWN if view == "back" else 0)
 
 

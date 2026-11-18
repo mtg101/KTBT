@@ -51,10 +51,10 @@ An orange tarp is the classic; ours vary (see above). Red and blue plastic stool
 
 ## People
 
-- **Today's size:** 27×50 pixels on the grid (80×150 on the stage): enough for a face, hair and clothes to read, and the layout (counter, stools, bubbles) stays.
+- **Their size, against the tent:** 32×72 pixels on the grid (96×216 on the stage): a pocha's counter is about a metre (123 on the stage), so a person's about 1.7 of them, and the stools are knee high (their seat 60 above the ground). The first size, 27×50, kept from the shapes before, made the people tiny against the bar.
 - **Built in layers, like a paper doll,** from the facts the game decides (`rules/looks.gd`: age range, hairstyle and colour, clothes and colour, skin, glasses, a bag, the owner's apron), so a regular looks the same every visit: body, clothes, head, hair, extras, in two views (facing us; from behind, seated at the counter).
 - **Drawn in code, in shades only** (decided 18 Nov; `tools/art/people.py`, 54 layers): each layer says how lit each pixel is (a step of 0 to 6) and what it's made of (skin, hair, cloth, or a fixed colour), and the game paints it onto that colour's light ramp when someone's dressed (`ui/people_art.gd`: on the CPU, once a look, which turned out simpler than a shader), so one bob serves every hair colour and one coat every cloth colour. The layers have to line up pixel for pixel (the same shoulders under every coat), which an image model can't keep; pixel-art games draw them by hand.
-- **The same size sitting as standing:** seated from behind, they're drawn lower in the picture, with the standing figure's proportions, so the stool takes their height (a first try drew them the picture's full height seated, and the people walking past looked smaller).
+- **The same size sitting as standing, on the same ground:** everyone's picture stands on the ground (its top at 156 on the stage), walking, coming in, sitting or leaving; seated from behind, they're drawn with the standing figure's proportions, the seat on the stool and the lower legs down either side of it. (A first try drew them the picture's full height seated, so anyone walking past looked smaller, and they rose off the ground to sit down and flew off again.)
 - **Moving:** on the grid's lines wherever they go, and breathing (the head and shoulders rise a pixel now and then; `ui/pixel_person.gd`); then walking, then moods in pose (slumped, laughing, a hand on the head, a glass raised).
 - **Later, an idea:** a portrait of each character from the image model, for the hover or the diary.
 

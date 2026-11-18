@@ -37,14 +37,14 @@ func test_their_picture_is_painted_in_their_own_colours() -> void:
 	assert_object(PeopleArt.texture(OWNER, "front")).is_same(made)  # (made once)
 	var picture := made.get_image()
 	var hair: Array = PeopleArt.ramp(Color(Looks.HAIR_COLOURS["grey"][0]))
-	var crown := picture.get_pixel(13, 2)  # the top of the head: the perm, on grey's ramp
+	var crown := picture.get_pixel(16, 3)  # the top of the head: the perm, on grey's ramp
 	assert_bool(_on(hair, crown)).override_failure_message(str(crown)).is_true()
-	var apron := picture.get_pixel(13, 30)  # the apron's a fixed colour, whatever they wear
+	var apron := picture.get_pixel(16, 45)  # the apron's a fixed colour, whatever they wear
 	assert_bool(_on(PeopleArt.ramp(Color(PeopleArt.FIXED[7])), apron)).is_true()
 	assert_float(picture.get_pixel(0, 0).a).is_equal(0.0)  # (round them, see-through)
 	var greyer := OWNER.duplicate()
 	greyer["hair_colour"] = "black"
-	assert_bool(PeopleArt.texture(greyer, "front").get_image().get_pixel(13, 2).is_equal_approx(crown)).is_false()  # (the same perm, black)
+	assert_bool(PeopleArt.texture(greyer, "front").get_image().get_pixel(16, 3).is_equal_approx(crown)).is_false()  # (the same perm, black)
 
 
 ## Whether a pixel (8 bits a channel) is one of a ramp's steps.
@@ -80,9 +80,9 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	assert_bool(front is PixelPerson).is_true()  # (pixels)
 	assert_vector(front.size).is_equal(Vector2(PeopleArt.SIZE * PeopleArt.SCALE))
 	# On the grid's lines wherever they are, and breathing: the head and shoulders rise, the rest stays.
-	person.position = Vector2(100.4, 191.0)
+	person.position = Vector2(100.4, 157.0)
 	front.snap()
-	assert_vector(person.position + front.position).is_equal(Vector2(99, 192))
+	assert_vector(person.position + front.position).is_equal(Vector2(99, 156))
 	var upper: TextureRect = front.get_child(1)
 	var lower: TextureRect = front.get_child(0)
 	front.breathing = 1.0

@@ -457,7 +457,7 @@ func run_for_it(person: Control, going_right: bool) -> void:
 	cover.polygon = PackedVector2Array([Vector2(8, -4), Vector2(72, -8), Vector2(70, 4), Vector2(10, 6)])
 	cover.color = CUSTOMER_COLORS.pick_random().darkened(0.4)
 	person.add_child(cover)
-	person.pivot_offset = Vector2(40, 150)  # leaning from the feet
+	person.pivot_offset = Vector2(48, 216)  # leaning from the feet (Layout.PERSON_SIZE)
 	person.rotation = 0.1 if going_right else -0.1
 	var bob := person.create_tween().set_loops()
 	bob.tween_property(person, "position:y", ground - 6, Draw.scaled(0.14)).set_trans(Tween.TRANS_SINE)

@@ -104,9 +104,9 @@ const DESK_WIDTH := 460.0  # the PD's desk, between the transcript and the side 
 # Where things stand in the tent (pixels, inside the stage area, which is nearly full width).
 const STAGE_SIZE := Vector2(1872, 380)
 const SEAT_X := Layout.SEAT_X
-const PERSON_WIDTH := 80.0
+const PERSON_WIDTH := Layout.PERSON_SIZE.x
 const CUSTOMER_Y := Layout.CUSTOMER_Y
-const OWNER_Y := 150.0
+const OWNER_Y := Layout.CUSTOMER_Y  # (behind the counter, on the same ground)
 const OWNER_HOME_X := 180.0  # by the stove
 const OWNER_BESIDE_X := -165.0  # where the owner stands to see to a stool (just to its left)
 # Off-stage spots either side (far enough out that the name tag is hidden too).
@@ -3030,7 +3030,7 @@ func _walk_out(guest: Guest) -> void:
 	# A few drinks in, they wobble home (slower, zigzagging), unless they're running for it.
 	var wobbly := _drinks_had(guest) >= TIPSY_DRINKS and not _people_view.is_running(guest.node)
 	if wobbly:
-		guest.node.pivot_offset = Vector2(40, 150)
+		guest.node.pivot_offset = Vector2(Layout.PERSON_SIZE.x / 2, Layout.PERSON_SIZE.y)
 		var wobble := guest.node.create_tween().set_loops()
 		wobble.tween_property(guest.node, "rotation", 0.1, _scaled(0.28)).set_trans(Tween.TRANS_SINE)
 		wobble.parallel().tween_property(guest.node, "position:y", CUSTOMER_Y + 5, _scaled(0.28))
@@ -3055,7 +3055,7 @@ func _tipsy(guest: Guest) -> void:
 	if not guest.node.has_meta("counted_tipsy"):
 		guest.node.set_meta("counted_tipsy", true)
 		_stats.tipsy += 1
-	guest.node.pivot_offset = Vector2(40, 150)  # swaying from where they sit
+	guest.node.pivot_offset = Vector2(Layout.PERSON_SIZE.x / 2, Layout.PERSON_SIZE.y)  # swaying from where they sit
 	_stop_swaying(guest.node)
 	var sway := guest.node.create_tween().set_loops()
 	sway.tween_property(guest.node, "rotation", lean, _scaled(1.6)).set_trans(Tween.TRANS_SINE)
@@ -3607,8 +3607,8 @@ func _update_hover(guest: Guest) -> void:
 	if area == null:
 		area = Control.new()
 		area.name = "Hover"
-		area.position = Vector2(4, 0)
-		area.size = Vector2(72, 150)
+		area.position = Vector2(6, 0)
+		area.size = Layout.PERSON_SIZE - Vector2(12, 0)
 		area.mouse_filter = Control.MOUSE_FILTER_STOP
 		area.gui_input.connect(_on_guest_clicked.bind(guest))
 		guest.node.add_child(area)
@@ -4543,9 +4543,9 @@ func _build_stage(stage: Control) -> void:
 		food.clip_contents = true
 		stage.add_child(food)
 		_food_rows.append(food)
-		var stool: Array = [_rect(stage, Vector2(x - 35, 340), Vector2(70, 12), Color("9a9ab0"))]  # stool
-		stool.append(_rect(stage, Vector2(x - 6, 352), Vector2(12, 20), Color("6e6e86")))
-		_pixel_piece(stage, "tent/stool_red" if seat % 2 == 0 else "tent/stool_blue", Vector2(snappedf(x - 36, 3), 339), stool)
+		var stool: Array = [_rect(stage, Vector2(x - 35, 312), Vector2(70, 12), Color("9a9ab0"))]  # stool (its seat a person's knee high)
+		stool.append(_rect(stage, Vector2(x - 6, 324), Vector2(12, 48), Color("6e6e86")))
+		_pixel_piece(stage, "tent/stool_red" if seat % 2 == 0 else "tent/stool_blue", Vector2(snappedf(x - 39, 3), 312), stool)
 
 	_tent_view.roof = Polygon2D.new()
 	_tent_view.roof.name = "Tarp"
