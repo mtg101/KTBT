@@ -44,6 +44,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | [TOOLCHAIN.md](TOOLCHAIN.md) | Setting up Godot, Ollama and the local model on Windows, with troubleshooting, and installing the test framework |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How the code is laid out: the layers, and which file does what |
 | [TESTS.md](TESTS.md) | How KTBT is tested: what's automated, what's playtested, conventions and coverage |
+| [ART.md](ART.md) | The art direction: pixel art with real lighting, the stage, the palette and its light ramps, and what never goes in |
 
 ## Tech
 
