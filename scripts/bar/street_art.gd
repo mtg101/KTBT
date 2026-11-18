@@ -10,8 +10,8 @@ extends SubViewportContainer
 const Art = preload("res://scripts/ui/art.gd")
 
 const SCALE := 3  # screen pixels to a street pixel
-const PIXELS := Vector2i(624, 180)  # the grid: 1872 x 540 on screen
-const GROUND := 178  # where the buildings stand (the tent's floor line on this grid)
+const PIXELS := Vector2i(624, 154)  # the grid: 1872 x 462 on screen
+const GROUND := 152  # where the buildings stand (the tent's floor line on this grid)
 ## The street's a little dimmer and bluer than the tent, so what happens under the tarp stands
 ## out (until the palette's light does this properly: ART.md, "How it'll work in Godot").
 const NIGHT := Color(0.72, 0.74, 0.88)

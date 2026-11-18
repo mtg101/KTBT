@@ -95,8 +95,8 @@ const OWNER_TEXT := Ktv.YELLOW
 
 # Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
 const SCREEN := Vector2(1920, 1080)
-const STAGE_ROOM := 160.0  # the street above the tent's stage (the overpass, the tops of the blocks: street_art.gd)
-const PANELS_TOP := 612.0  # The transcript, the PD's desk and the side panel fill the screen below the tent (60 + STAGE_ROOM + 380 + 12).
+const STAGE_ROOM := 82.0  # the street above the tent's stage (the overpass, the tops of the blocks: street_art.gd)
+const PANELS_TOP := 534.0  # The transcript, the PD's desk and the side panel fill the screen below the tent (60 + STAGE_ROOM + 380 + 12).
 const SIDE_WIDTH := 520.0  # the side panel on the right: who's here now, and the debug stats
 const DESK_WIDTH := 460.0  # the PD's desk, between the transcript and the side panel
 
