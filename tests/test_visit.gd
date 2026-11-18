@@ -695,6 +695,43 @@ func test_the_loading_screen_suits_a_new_bar_or_a_reopened_one() -> void:
 	assert_array(fresh.find_child("CaptionReel", true, false).lines).is_equal(LoadingScreen.LINES)
 
 
+func test_the_loading_screens_tent_is_the_bars_own_with_a_stool_for_every_seat() -> void:
+	# A new bar: a placeholder ("?" on the sign, nothing in Korean made up), with every seat.
+	var fresh: LoadingScreen = auto_free(LoadingScreen.new())
+	add_child(fresh)
+	assert_bool(fresh.is_placeholder()).is_true()
+	assert_str((fresh.find_child("SignHangul", true, false) as Label).text).is_equal("?")
+	assert_int(fresh.find_child("Stools", true, false).get_child_count()).is_equal(NightRules.SEATS * 2)  # (a seat and legs each)
+	assert_str((fresh.find_child("Sign", true, false) as Control).tooltip_text).is_empty()
+	# Its look's chosen: the tent's redrawn as the bar's, in the same place.
+	var at := fresh.get_node("Tent").get_index()
+	var bar := {"name": "Dalbit Pocha", "name_meaning": "moonlight tent", "look": {"hangul": "달빛포차", "tarp": "blue_stripes", "sign": "neon", "shape": "peaked", "touches": ["lanterns"]}}
+	fresh.show_bar(bar)
+	await get_tree().process_frame
+	assert_bool(fresh.is_placeholder()).is_false()
+	assert_int(fresh.get_node("Tent").get_index()).is_equal(at)
+	assert_str((fresh.find_child("SignHangul", true, false) as Label).text).is_equal("달빛포차")
+	assert_str((fresh.find_child("SignEnglish", true, false) as Label).text).is_equal("DALBIT POCHA")
+	assert_str((fresh.find_child("Sign", true, false) as Control).tooltip_text).contains("달빛포차").contains("moonlight tent")
+	assert_that((fresh.find_child("Tarp", true, false) as Polygon2D).color).is_equal(Color(BarLook.BAR_TARPS["blue_stripes"][0]))
+	assert_int(fresh.find_child("Stools", true, false).get_child_count()).is_equal(NightRules.SEATS * 2)
+	# Reopening a bar: its own tent from the start; one from before looks gets the plain one.
+	var reopened: LoadingScreen = auto_free(LoadingScreen.new())
+	reopened.bar = bar
+	add_child(reopened)
+	assert_str((reopened.find_child("SignHangul", true, false) as Label).text).is_equal("달빛포차")
+	var older: LoadingScreen = auto_free(LoadingScreen.new())
+	older.bar = {"name": "Imo-ne Pocha"}
+	add_child(older)
+	assert_bool(older.is_placeholder()).is_false()
+	assert_str((older.find_child("SignHangul", true, false) as Label).text).is_equal(BarLook.DEFAULT_HANGUL)
+	# The title screen's backdrop: the plain tent, its sign explained on hover.
+	var title: LoadingScreen = auto_free(LoadingScreen.new())
+	title.backdrop = true
+	add_child(title)
+	assert_str((title.find_child("Sign", true, false) as Control).tooltip_text).contains("pojangmacha")
+
+
 func test_a_slow_ai_on_the_loading_screen_shows_its_alive() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -1574,6 +1611,9 @@ func test_a_loading_screen_covers_a_new_bar_being_set_up() -> void:
 	assert_bool(loading.visible).is_true()
 	assert_bool(await _wait_until(func(): return not loading.visible)).override_failure_message("the loading screen never went").is_true()
 	assert_bool((runner.find_child("Tarp") as Polygon2D).visible).is_true()
+	assert_bool(loading.is_placeholder()).override_failure_message("the loading screen's tent became the bar's").is_false()
+	assert_str((loading.find_child("SignHangul", true, false) as Label).text).is_equal(str(Game.bar["look"]["hangul"]))
+	assert_str(str(runner.scene()._stats.story.get("loading_tent", runner.scene()._before_night.get("loading_tent", "")))).is_equal("placeholder, then the bar's")
 
 
 func test_passers_by_carry_umbrellas_in_the_rain() -> void:

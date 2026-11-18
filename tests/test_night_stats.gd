@@ -224,6 +224,8 @@ func test_everything_gets_counted() -> void:
 	# How the night opened and its diary.
 	stats.story = {"loading_seconds": 12.4, "recap_style": "stormy", "recap_by": "ai", "diary_stamp": "early", "diary_by": "game"}
 	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s · recap stormy (ai)")
+	stats.story["loading_tent"] = "placeholder, then the bar's"  # (the loading screen's tent: see loading_screen.gd)
+	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s (tent: placeholder, then the bar's) · recap stormy (ai)")
 	assert_str(stats.panel_text(0, 0)).contains("Diary: stamp early (game)")
 	assert_int(int(stats.summary({})["who"]["genders"]["non-binary"])).is_equal(1)
 	assert_str(str(stats.summary({})["story"]["recap_style"])).is_equal("stormy")

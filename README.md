@@ -29,7 +29,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in two seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 647 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 648 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -112,7 +112,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
 | `scripts/ui/dish_view.gd` | A dish or drink on the table, drawn from its shapes (see `rules/dish_art.gd`) |
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
-| `scripts/ui/loading_screen.gd` | The loading screen shown while a new bar is set up |
+| `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
 | `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
 | `scripts/ui/skyline_view.gd` | The city behind the tent, drawn in one go (its windows going dark through the night), with hovers for what each building is |

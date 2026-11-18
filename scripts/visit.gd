@@ -560,6 +560,8 @@ func _validate_hangul(data: Variant, person_name: String) -> String:
 func _build_loading() -> void:
 	_loading = LoadingScreen.new()
 	_loading.reopening = not Game.bar.is_empty()  # (its captions tease a new bar, or tonight's episode)
+	_loading.bar = Game.bar  # (the bar's own tent; a placeholder for a new bar, until its look's chosen)
+	_before_night["loading_tent"] = "placeholder" if _loading.is_placeholder() else "the bar's"
 	_loading_opened = Time.get_ticks_msec() / 1000.0
 	_loading.name = "Loading"
 	_loading.z_index = 10
@@ -710,6 +712,9 @@ func _choose_look() -> void:
 		look = BarLook.default_bar_look()
 	Game.bar["look"] = {"hangul": look["hangul"], "tarp": look["tarp"], "sign": look["sign"], "shape": look.get("shape", "classic"), "touches": look["touches"]}
 	Game.save()
+	if _loading != null and _loading.visible:  # the placeholder tent becomes the bar's, as the tarp goes up
+		_loading.show_bar(Game.bar)
+		_before_night["loading_tent"] = "placeholder, then the bar's"
 	var touches := PackedStringArray()
 	for id in look["touches"]:
 		touches.append(BarLook.BAR_TOUCHES.get(id, id))

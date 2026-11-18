@@ -728,7 +728,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Visits: loved %d · enjoyed %d · fine %d · didn't enjoy %d%s" % [int(verdicts.get("loved", 0)), int(verdicts.get("enjoyed", 0)), int(verdicts.get("fine", 0)), int(verdicts.get("didnt", 0)), (" · memories failed %d" % memories_failed) if memories_failed > 0 else ""])
 	lines.append("")
 	lines.append("[b]THE STORY[/b]")
-	lines.append("Opening: %s · recap %s" % [("loading %ds" % int(story["loading_seconds"])) if story.has("loading_seconds") else "no loading screen",
+	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.has("cliffhanger"):

@@ -1,7 +1,7 @@
 class_name LoadingScreen
 extends Control
-## The loading screen while a new bar is set up: the game's name, done up like a K-drama
-## or variety-show title card, over a little tent bar glowing in the night.
+## The loading screen while a bar is set up or reopened: the game's name, done up like a
+## K-drama or variety-show title card, over the bar's own tent glowing in the night.
 
 const SIZE := Vector2(1920, 1080)
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
@@ -13,6 +13,10 @@ const YELLOW := Ktv.YELLOW
 const NIGHT_TOP := Ktv.NIGHT_TOP
 const NIGHT_BOTTOM := Ktv.NIGHT_BOTTOM
 const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
+const BarLook = preload("res://scripts/rules/bar_look.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Hangul = preload("res://scripts/rules/hangul.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 ## Captions popping up while the AI works, as a variety show teases what's coming.
 const LINES := [
@@ -44,6 +48,10 @@ const REOPEN_LINES := [
 
 ## Reopening a saved bar, not setting up a new one: REOPEN_LINES.
 var reopening := false
+
+## The bar being set up or reopened (Game.bar): its tent's drawn with its own look. Empty for a
+## new bar: a placeholder tent until its look's chosen (show_bar).
+var bar: Dictionary = {}
 
 ## As the title screen's backdrop: no big title, caption or status (the title screen has
 ## its own), just the night, the tent, the rays and the sparkles, with captions at the sides.
@@ -185,21 +193,44 @@ func _build_burst() -> void:
 	spin.tween_property(burst, "rotation", TAU, 90.0).from(0.0)
 
 
-## A plain tent bar: orange tarp, warm light, bulbs, a counter, stools and a pot steaming.
+## The tent: the bar's own look when it's known (a bar reopening, or a new one once its look's
+## chosen), drawn from the same facts as the game's stage: its tarp, shape, sign and touches
+## (rules/bar_look.gd), and a stool for every seat (NightRules.SEATS). A new bar, before its look's
+## chosen, gets a placeholder: the plain tarp, and "?" on the sign.
 func _build_tent() -> void:
 	var tent := Node2D.new()
 	tent.name = "Tent"
 	tent.position = Vector2(SIZE.x / 2, 640)
 	add_child(tent)
-	_poly(tent, [Vector2(-380, 40), Vector2(380, 40), Vector2(380, 330), Vector2(-380, 330)], Color(1.0, 0.62, 0.3, 0.22))  # glow
+	var look := tent_look()
+	var tarp: Array = BarLook.BAR_TARPS.get(str(look["tarp"]), BarLook.BAR_TARPS["orange"])
+	var colour := Color(tarp[0])
+	var shape := str(look.get("shape", "classic"))
+	_poly(tent, [Vector2(-380, 40), Vector2(380, 40), Vector2(380, 330), Vector2(-380, 330)], Color(colour.lerp(Color(1.0, 0.62, 0.3), 0.6), 0.22))  # glow
 	_poly(tent, [Vector2(-372, 60), Vector2(-356, 60), Vector2(-356, 320), Vector2(-372, 320)], Color("2a2840"))  # poles
 	_poly(tent, [Vector2(356, 60), Vector2(372, 60), Vector2(372, 320), Vector2(356, 320)], Color("2a2840"))
-	_poly(tent, [Vector2(-330, -30), Vector2(330, -30), Vector2(410, 60), Vector2(-410, 60)], TARP)  # the tarp
-	for k in 9:  # cream stripes
-		var x0: float = -330 + k * 82.5 + 20
-		var x1: float = x0 + 30
-		_poly(tent, [Vector2(x0, -30), Vector2(x1, -30), Vector2(x1 * 410.0 / 330.0, 60), Vector2(x0 * 410.0 / 330.0, 60)], Color(CREAM, 0.85))
-	_poly(tent, [Vector2(-410, 60), Vector2(410, 60), Vector2(410, 72), Vector2(-410, 72)], TARP.darkened(0.25))
+	var roof := _poly(tent, Array(roof_shape(shape)), colour)  # the tarp
+	roof.name = "Tarp"
+	if str(tarp[1]) != "":  # stripes, cut to the shape of the cover
+		for k in 9:
+			var a: float = -410 + (k + 0.25) / 9.0 * 820
+			var band := PackedVector2Array([Vector2(a, -150), Vector2(a + 36, -150), Vector2(a + 36, 60), Vector2(a, 60)])
+			for piece in Geometry2D.intersect_polygons(band, roof.polygon):
+				_poly(tent, Array(piece), Color(tarp[1]))
+	if shape != "awning":
+		_poly(tent, [Vector2(-410, 60), Vector2(410, 60), Vector2(410, 72), Vector2(-410, 72)], colour.darkened(0.25))
+	match shape:
+		"scalloped":  # scallops hanging from the front edge
+			for x in range(-410, 410, 41):
+				var points: Array = []
+				for step in 9:
+					var t: float = step / 8.0
+					points.append(Vector2(x + t * 41, 70 + sin(t * PI) * 14))
+				_poly(tent, points, colour.darkened(0.2))
+		"awning":  # a zigzag valance under the flat awning
+			for x in range(-410, 410, 41):
+				_poly(tent, [Vector2(x, 60), Vector2(x + 41, 60), Vector2(x + 20.5, 78)], Color(tarp[1]) if str(tarp[1]) != "" else colour.darkened(0.25))
+	_build_sign(tent, look)
 	for x in [-170.0, 170.0]:  # bulbs, swinging gently
 		var bulb := Node2D.new()
 		bulb.position = Vector2(x, 72)
@@ -213,12 +244,19 @@ func _build_tent() -> void:
 	_poly(tent, [Vector2(-330, 200), Vector2(330, 200), Vector2(330, 214), Vector2(-330, 214)], Color("8a5a33"))  # counter
 	_poly(tent, [Vector2(-310, 214), Vector2(310, 214), Vector2(310, 320), Vector2(-310, 320)], Color("5c3820"))
 	_poly(tent, _circle(Vector2(-230, 186), 24, true), Color("3a3946"))  # a pot on the stove
-	for x in [-150.0, -40.0, 70.0, 180.0]:  # green soju bottles and a glass or two
+	for x in [-150.0, -40.0, 70.0]:  # green bottles (no labels)
 		_poly(tent, [Vector2(x, 160), Vector2(x + 14, 160), Vector2(x + 14, 200), Vector2(x, 200)], Color("3f9e5a", 0.9))
 		_poly(tent, [Vector2(x + 4, 148), Vector2(x + 10, 148), Vector2(x + 10, 160), Vector2(x + 4, 160)], Color("3f9e5a", 0.9))
-	for x in [-240.0, -80.0, 80.0, 240.0]:  # stools
-		_poly(tent, [Vector2(x - 30, 300), Vector2(x + 30, 300), Vector2(x + 30, 310), Vector2(x - 30, 310)], Color("9a9ab0"))
-		_poly(tent, [Vector2(x - 5, 310), Vector2(x + 5, 310), Vector2(x + 5, 320), Vector2(x - 5, 320)], Color("6e6e86"))
+	for touch in look.get("touches", []):
+		_add_touch(tent, str(touch))
+	var stools := Node2D.new()  # a stool for every seat, red and blue plastic
+	stools.name = "Stools"
+	tent.add_child(stools)
+	for k in NightRules.SEATS:
+		var x: float = -310 + (k + 0.5) * 620.0 / NightRules.SEATS
+		var plastic := Color("c8443a") if k % 2 == 0 else Color("3a6ec8")
+		_poly(stools, [Vector2(x - 28, 296), Vector2(x + 28, 296), Vector2(x + 28, 306), Vector2(x - 28, 306)], plastic)
+		_poly(stools, [Vector2(x - 22, 306), Vector2(x + 22, 306), Vector2(x + 16, 330), Vector2(x - 16, 330)], plastic.darkened(0.3))
 	for k in 3:  # steam off the pot
 		var puff := Polygon2D.new()
 		puff.polygon = _circle(Vector2.ZERO, 12)
@@ -229,6 +267,118 @@ func _build_tent() -> void:
 		rise.tween_interval(k * 0.8)
 		rise.tween_property(puff, "position", Vector2(-230 + (k - 1) * 14, 70), 2.4).from(Vector2(-230, 160))
 		rise.parallel().tween_property(puff, "color:a", 0.0, 2.4).from(0.35)
+
+
+## The look to draw: the bar's own; a plain one for a bar from before looks (as the stage does)
+## and for the title screen; a placeholder for a new bar before its look's chosen.
+func tent_look() -> Dictionary:
+	var look: Dictionary = bar.get("look", {})
+	if not look.is_empty():
+		return look
+	var plain := BarLook.default_bar_look()
+	if not bar.is_empty() or backdrop:
+		return plain
+	plain["hangul"] = ""  # (a "?" on the sign: nothing in Korean made up)
+	return plain
+
+
+## Whether the tent's a placeholder (a new bar, its look not chosen yet).
+func is_placeholder() -> bool:
+	return str(tent_look()["hangul"]) == ""
+
+
+## A new bar's look has been chosen (or a different bar's here): the tent redrawn as it is.
+func show_bar(the_bar: Dictionary) -> void:
+	bar = the_bar
+	var old := get_node_or_null("Tent")
+	if old == null:
+		return
+	var at := old.get_index()
+	remove_child(old)
+	old.queue_free()
+	_build_tent()
+	move_child(get_node("Tent"), at)
+
+
+## The cover's outline, by shape, its front edge at y 60 (as tent_view.gd's, at this size).
+func roof_shape(shape: String) -> PackedVector2Array:
+	match shape:
+		"peaked":
+			return PackedVector2Array([Vector2(-410, 60), Vector2(-300, 8), Vector2(0, -44), Vector2(300, 8), Vector2(410, 60)])
+		"awning":
+			return PackedVector2Array([Vector2(-410, 14), Vector2(410, 14), Vector2(410, 60), Vector2(-410, 60)])
+		"rounded":
+			var points := PackedVector2Array()
+			for step in 25:
+				var t: float = step / 24.0
+				points.append(Vector2(-410 + t * 820, 60 - sin(t * PI) * 88))
+			return points
+	return PackedVector2Array([Vector2(-330, -30), Vector2(330, -30), Vector2(410, 60), Vector2(-410, 60)])
+
+
+## The sign over the tarp, in the bar's style: its name in Hangul (explained on hover), the
+## romanised name under it; "?" for a new bar not yet named.
+func _build_sign(tent: Node2D, look: Dictionary) -> void:
+	var style: Array = BarLook.SIGN_STYLES.get(str(look["sign"]), BarLook.SIGN_STYLES["wood"])
+	var board := ColorRect.new()
+	board.name = "Sign"
+	board.position = Vector2(-160, -122)
+	board.size = Vector2(320, 62)
+	board.color = Color(style[0])
+	tent.add_child(board)
+	var hangul := str(look["hangul"])
+	var bar_name := str(bar.get("name", ""))
+	for line in [[hangul if hangul != "" else "?", 0, 36, 30, "SignHangul"], [bar_name.to_upper(), 38, 20, 14, "SignEnglish"]]:
+		var label := Label.new()
+		label.name = line[4]
+		label.text = line[0]
+		label.position = Vector2(0, line[1])
+		label.size = Vector2(320, line[2])
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", line[3])
+		label.add_theme_color_override("font_color", Color(style[1]))
+		if str(look["sign"]) == "neon":  # a glowing tube: a soft halo round the letters
+			label.add_theme_constant_override("outline_size", 8)
+			label.add_theme_color_override("font_outline_color", Color(style[1]).darkened(0.5))
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		board.add_child(label)
+	if hangul == "":
+		board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return
+	board.mouse_filter = Control.MOUSE_FILTER_STOP  # (the Hangul explains itself on hover)
+	var meaning := str(bar.get("name_meaning", ""))
+	if bar_name == "":
+		board.tooltip_text = Text.tip("%s: %s" % [hangul, Hangul.MEANINGS.get(hangul, "the bar's name")])
+	else:
+		board.tooltip_text = Text.tip("%s · %s%s: the bar's name" % [hangul, bar_name, (" (%s)" % meaning) if meaning != "" else ""])
+
+
+## One of the bar's touches, where it'd catch the eye at this size (the small ones on the back
+## wall, the calendar, photos, net and knives, are left to the stage).
+func _add_touch(tent: Node2D, id: String) -> void:
+	match id:
+		"string_lights":
+			var colours := ["ffd27f", "ff7aa8", "7ad3ff", "a8ff7a"]
+			for k in 17:
+				_poly(tent, _circle(Vector2(-400 + k * 50, 78), 5), Color(colours[k % colours.size()]))
+		"lanterns":
+			for x in [-260.0, 0.0, 260.0]:
+				_poly(tent, [Vector2(x - 1, 72), Vector2(x + 1, 72), Vector2(x + 1, 84), Vector2(x - 1, 84)], Color("55536b"))
+				_poly(tent, [Vector2(x - 14, 84), Vector2(x + 14, 84), Vector2(x + 14, 120), Vector2(x - 14, 120)], Color("d8352f"))
+				_poly(tent, [Vector2(x - 14, 99), Vector2(x + 14, 99), Vector2(x + 14, 103), Vector2(x - 14, 103)], Color("f2c14a"))
+		"radio":
+			_poly(tent, [Vector2(150, 172), Vector2(204, 172), Vector2(204, 200), Vector2(150, 200)], Color("6b4a2e"))
+			_poly(tent, _circle(Vector2(166, 186), 8), Color("2b2a33"))
+			_poly(tent, [Vector2(180, 182), Vector2(196, 182), Vector2(196, 188), Vector2(180, 188)], Color("e0c48a"))
+		"lucky_cat":
+			_poly(tent, [Vector2(240, 174), Vector2(264, 174), Vector2(264, 200), Vector2(240, 200)], Color("f5f2ea"))
+			_poly(tent, [Vector2(243, 160), Vector2(261, 160), Vector2(261, 174), Vector2(243, 174)], Color("f5f2ea"))
+			_poly(tent, [Vector2(264, 152), Vector2(271, 152), Vector2(271, 168), Vector2(264, 168)], Color("f5f2ea"))  # the waving paw
+			_poly(tent, [Vector2(240, 178), Vector2(264, 178), Vector2(264, 182), Vector2(240, 182)], Color("c8443a"))
+		"plants":
+			for x in [-400.0, 380.0]:
+				_poly(tent, [Vector2(x, 296), Vector2(x + 26, 296), Vector2(x + 26, 322), Vector2(x, 322)], Color("8a5a33"))
+				_poly(tent, _circle(Vector2(x + 13, 280), 22), Color("3f8f4a"))
 
 
 ## The name, big and bold with a thick outline and a hard shadow, and a caption bubble.
