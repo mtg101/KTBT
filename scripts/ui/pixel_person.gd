@@ -11,7 +11,7 @@ const BREATH_SECONDS := Vector2(2.6, 4.2)  # a breath every so often (each perso
 const BREATH_IN := 0.9  # ...held up this long
 
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
-const STEP := 20.0  # on the stage: up or down a pixel every this far they go
+const STEP := 20.0  # on the stage: a frame of the stride (or up or down a pixel, gliding) every this far they go
 const STILL_AFTER := 0.12  # seconds without moving: standing again
 
 ## Poses for a big moment's mood (people_view.gd pose): a laugh shakes their shoulders, a sad
@@ -22,7 +22,9 @@ var split := 20  # the rows above this rise (head and shoulders); the rest stay
 var pose_mood := ""  # the pose they're in now ("" for none: for the tests)
 var _pose_left := 0.0
 var walk_frame := -1  # the bob's frame showing (0 down, 1 up), or -1 standing still (for the tests)
-var _walker: TextureRect  # walking, facing us: the frames (none from behind: seated)
+var _walker: TextureRect  # walking: the frames (from the side, or facing us gliding; none from behind: seated)
+var _strides := false  # walking from the side (else gliding facing us)
+var facing_left := false  # walking leftwards (the side view mirrored: for the tests)
 var _frames: Array = []
 var _last_at := Vector2.INF
 var _walked := 0.0
@@ -36,7 +38,8 @@ var _clock := 0.0
 
 ## picture: the person (people_art.gd), split: the first row that stays put; walks: whether
 ## they walk this way round (facing us).
-func _init(picture: Texture2D, rows_up: int, walks: bool = false) -> void:
+## stride: the side view's frames to walk in (people_art.gd side_frames; [] glides with a bob).
+func _init(picture: Texture2D, rows_up: int, walks: bool = false, stride: Array = []) -> void:
 	split = rows_up
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	size = picture.get_size() * GRID
@@ -44,7 +47,8 @@ func _init(picture: Texture2D, rows_up: int, walks: bool = false) -> void:
 	_upper = _part(picture, Rect2(0, 0, picture.get_width(), split))
 	_next_breath = randf_range(0.0, BREATH_SECONDS.y)
 	if walks:
-		_frames = PeopleArt.walk_frames(picture)
+		_frames = stride if not stride.is_empty() else PeopleArt.walk_frames(picture)
+		_strides = not stride.is_empty()
 		_walker = _part(picture, Rect2(Vector2.ZERO, picture.get_size()))
 		_walker.visible = false
 
@@ -116,6 +120,8 @@ func _walk(delta: float) -> void:
 	if moved > 0.01:
 		_walked += moved
 		_still_for = 0.0
+		if absf(_dx(at)) > 0.01:
+			facing_left = _dx(at) < 0.0
 	else:
 		_still_for += delta
 	var walking := _still_for < STILL_AFTER and _walked > 0.0
@@ -125,6 +131,16 @@ func _walk(delta: float) -> void:
 	_lower.visible = not walking
 	if walking:
 		_walker.texture = _frames[walk_frame]
+		_walker.flip_h = _strides and facing_left
+	_prev_x = at.x
+
+
+var _prev_x := INF
+
+
+## Which way they went across, this frame.
+func _dx(at: Vector2) -> float:
+	return 0.0 if _prev_x == INF else at.x - _prev_x
 
 
 ## Onto the grid's lines: wherever the person is (moving or not), their pixels land on the grid.

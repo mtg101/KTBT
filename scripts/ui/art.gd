@@ -28,6 +28,16 @@ static func ids(kind: String) -> Array:
 				for hair in Looks.HAIR_STYLES:
 					layers.append("%s_hair_%s" % [view, hair])
 				layers.append_array(["%s_head" % view, "%s_hairback_long" % view, "%s_apron" % view, "%s_backpack" % view])
+			# From the side, walking: a body for each kind of clothes, every hairstyle, the head (and
+			# an older one), the extras, and the legs and arms by frame of the stride.
+			for clothes in Looks.CLOTHES:
+				layers.append("side_body_" + clothes)
+			for hair in Looks.HAIR_STYLES:
+				layers.append("side_hair_" + hair)
+			layers.append_array(["side_head", "side_head_old", "side_glasses", "side_apron", "side_tote", "side_backpack"])
+			for frame in 4:
+				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d"]:
+					layers.append(limb % frame)
 			return layers
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
 			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove", "bulb", "neon_board"]

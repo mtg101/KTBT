@@ -283,7 +283,7 @@ func _dress_in_pixels(person: Control, look: Dictionary) -> bool:
 		return false
 	var outfit := _layer_in(person, "Look")
 	for view in [["Front", front_art, PeopleArt.BREATHE_FROM], ["Back", back_art, PeopleArt.BREATHE_FROM + PeopleArt.SEATED_DOWN]]:
-		var picture := PixelPerson.new(view[1], view[2], view[0] == "Front")  # (on the grid's lines, breathing, and walking facing us)
+		var picture := PixelPerson.new(view[1], view[2], view[0] == "Front", PeopleArt.side_frames(look) if view[0] == "Front" else [])  # (on the grid's lines, breathing, walking from the side)
 		picture.name = view[0]
 		outfit.add_child(picture)
 	outfit.get_node("Back").visible = false

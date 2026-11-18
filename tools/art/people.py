@@ -335,6 +335,190 @@ def extra(name, view):
     return s.image(SEATED_DOWN if view == "back" else 0)
 
 
+# --- From the side, walking (facing right; the game mirrors them to walk left) -------------
+# Four frames of a stride: 0 the near leg forward, the far arm forward; 1 passing (the far foot
+# lifted); 2 the far leg forward; 3 passing (the near foot lifted). The legs and arms are layers
+# of their own, by frame; the body, head, hair and extras are the same in every frame.
+SIDE_X = 16  # the body's middle
+HIP = (16, WAIST)
+SHOULDER_AT = (16, TOP + 2)
+FEET = {0: ((22, 0), (9, 0)), 1: ((16, 0), (13, 3)), 2: ((10, 0), (21, 0)), 3: ((13, 3), (16, 0))}  # (near, far): x, lift
+HANDS = {0: ((11, WAIST), (21, WAIST - 1)), 1: ((15, WAIST + 1), (17, WAIST + 1)), 2: ((21, WAIST - 1), (11, WAIST)),
+         3: ((17, WAIST + 1), (15, WAIST + 1))}  # (near, far): where the hand swings to
+
+
+def _strip(s, top, bottom, width, what, light):
+    """A limb: from top (x, y) to bottom (x, y), width wide, row by row."""
+    (x0, y0), (x1, y1) = top, bottom
+    for y in range(y0, y1):
+        t = (y - y0) / max(y1 - y0, 1)
+        x = x0 + (x1 - x0) * t
+        s.rect(int(round(x - width / 2)), y, int(round(x + width / 2)), y + 1, what, light)
+
+
+def side_legs(frame):
+    s = Layer()
+    for (fx, lift), light in reversed(list(zip(FEET[frame], (0.85, 0.62)))):
+        foot_y = 68 - lift
+        _strip(s, HIP, (fx, foot_y), 5, "trousers", light)
+        s.rect(fx - 3, foot_y, fx + 4, foot_y + 3, "ink", light - 0.05)  # the shoe, its toe forward
+    return s.image()
+
+
+def side_arm(frame, near, bare=False):
+    """An arm swinging (near: in front of the body; far: behind it, in shadow), the sleeve in the
+    cloth (or bare, a T-shirt's) and the hand."""
+    s = Layer()
+    hand = HANDS[frame][0 if near else 1]
+    light = 0.9 if near else 0.6
+    elbow = ((SHOULDER_AT[0] + hand[0]) / 2, (SHOULDER_AT[1] + hand[1]) / 2)
+    _strip(s, SHOULDER_AT, (int(elbow[0]), int(elbow[1])), 4, CLOTH, light)
+    _strip(s, (int(elbow[0]), int(elbow[1])), (hand[0], hand[1] - 3), 4 if not bare else 3, SKIN if bare else CLOTH, light - 0.05)
+    s.rect(hand[0] - 2, hand[1] - 3, hand[0] + 2, hand[1], SKIN, light + 0.05)
+    return s.image()
+
+
+def side_body(clothes):
+    """The torso from the side, in its clothes: its back at the left, its front at the right."""
+    s = Layer()
+    long_coat = clothes in ("trench", "padded")
+    bottom = COAT_HEM if long_coat else WAIST + 1
+    back, front = (10, 23) if clothes == "padded" else (11, 22)
+    if clothes == "hoodie":
+        s.ellipse(12, TOP, 3.5, 3, CLOTH, 0.8)  # the hood, at the back of the neck
+    for x in range(back, front):
+        s.rect(x, TOP + 1, x + 1, bottom, CLOTH, 1.05 - 0.3 * (front - 1 - x) / (front - back))  # lit from the front (the tent's side)
+    s.rect(back + 1, TOP, front - 1, TOP + 1, CLOTH, 1.1)  # the shoulder
+    if clothes in ("suit", "blazer"):
+        s.rect(front - 3, TOP + 1, front, TOP + 8, "white_shirt" if clothes == "suit" else "blue_shirt", 1.15)
+        s.rect(front - 4, TOP + 1, front - 3, TOP + 10, CLOTH, 0.7)  # the lapel
+        if clothes == "suit":
+            s.rect(front - 1, TOP + 2, front, TOP + 13, "tie", 1.0)
+    elif clothes == "cardigan":
+        s.rect(front - 2, TOP + 1, front, bottom, "cream", 1.1)
+    elif clothes == "trench":
+        s.rect(front - 5, TOP, front, TOP + 4, CLOTH, 1.25)  # the collar
+        s.rect(back, TOP + 21, front, TOP + 24, CLOTH, 0.6)  # the belt
+    elif clothes == "padded":
+        for y in range(TOP + 5, bottom, 6):
+            s.rect(back, y, front, y + 1, CLOTH, 0.6)
+        s.rect(back + 2, TOP - 2, front - 1, TOP + 2, CLOTH, 1.1)  # the high collar
+    elif clothes == "hoodie":
+        s.rect(front - 6, WAIST - 10, front, WAIST - 5, CLOTH, 0.7)  # the pocket
+        s.rect(front - 2, TOP + 2, front - 1, TOP + 9, "white_shirt", 1.0)  # a string
+    elif clothes == "knit":
+        s.rect(back, bottom - 3, front, bottom, CLOTH, 0.7)
+    elif clothes == "scrubs":
+        s.rect(front - 5, TOP + 8, front - 1, TOP + 12, CLOTH, 0.75)
+    elif clothes == "work_jacket":
+        s.rect(back, TOP + 19, front, TOP + 20, "white_shirt", 1.0)
+        s.rect(front - 5, TOP, front, TOP + 3, CLOTH, 1.2)
+    elif clothes == "tshirt":
+        s.rect(front - 3, TOP, front, TOP + 1, SKIN, 0.85)
+    return s.image()
+
+
+def side_head(old=False):
+    """The head in profile, facing right: the neck, the ear, the eye, the nose and the mouth."""
+    s = Layer()
+    y = HEAD_Y
+    s.rect(13, y + 14, 19, TOP + 1, SKIN, 0.8)  # the neck
+    s.ellipse(16, y + 8, 6, 8, SKIN, None)
+    s.rect(22, y + 8, 23, y + 11, SKIN, 1.0)  # the nose
+    s.dot(23, y + 10, SKIN, 0.9)
+    s.dot(19, y + 8, "ink", 1.0)  # the eye
+    s.rect(19, y + 6, 22, y + 7, SKIN, 0.75)  # the brow
+    s.rect(19, y + 13, 22, y + 14, SKIN, 0.7)  # the mouth
+    s.rect(13, y + 8, 15, y + 12, SKIN, 0.75)  # the ear
+    if old:
+        s.dot(18, y + 11, SKIN, 0.8)
+        s.rect(17, y + 15, 21, y + 16, SKIN, 0.82)
+    return s.image()
+
+
+def side_hair(style):
+    s = Layer()
+    y = HEAD_Y
+    def cap(front_x, low_back, crown_rows):
+        s.ellipse(15.5, y + 6, 6.5, 6, HAIR, rows=(0, y + crown_rows))  # over the top
+        s.rect(10, y + 4, 14, y + low_back, HAIR, 0.85)  # down the back of the head
+        s.rect(14, y + 1, front_x, y + 4, HAIR, 1.0)
+    if style == "balding":
+        s.rect(10, y + 8, 14, y + 13, HAIR, 0.85)
+        s.rect(13, y + 6, 15, y + 8, HAIR, 0.8)
+    elif style == "perm":
+        for x in range(10, 22, 2):
+            for yy in (y + 2, y + 5):
+                s.ellipse(x + 1, yy + (x // 2) % 2, 2, 2.2, HAIR)
+        for yy in (y + 8, y + 11):
+            s.ellipse(11, yy, 2, 2.2, HAIR)
+    elif style == "buzz":
+        s.ellipse(15.5, y + 6, 6.5, 5.5, HAIR, 0.9, rows=(0, y + 4))
+        s.rect(10, y + 4, 13, y + 10, HAIR, 0.85)
+    else:
+        cap(21, {"long": 13, "bob": 15, "ponytail": 12, "bun": 12, "pixie": 11, "short": 11, "side_part": 11, "two_block": 9}[style], 7)
+        if style == "long":
+            s.rect(8, y + 8, 13, y + 32, HAIR, 0.85)  # down the back
+        if style == "bob":
+            s.rect(9, y + 8, 14, y + 16, HAIR, 0.85)
+            s.rect(18, y + 3, 22, y + 6, HAIR, 0.95)  # the fringe
+        if style == "ponytail":
+            s.rect(7, y + 6, 10, y + 18, HAIR, 0.85)
+            s.rect(9, y + 6, 11, y + 8, "hair_tie", 1.0)
+        if style == "bun":
+            s.ellipse(9.5, y + 5, 2.8, 2.8, HAIR, 1.0)
+        if style == "two_block":
+            s.rect(17, y + 3, 23, y + 7, HAIR, 0.95)  # the long fringe, forward
+            s.rect(10, y + 9, 14, y + 13, SKIN, 0.8)  # the shaved underneath
+        if style == "side_part":
+            s.rect(15, y + 1, 18, y + 2, HAIR, 1.25)
+        if style == "pixie":
+            s.rect(19, y + 3, 22, y + 5, HAIR, 0.95)
+    return s.image()
+
+
+def side_extra(name):
+    s = Layer()
+    y = HEAD_Y
+    if name == "glasses":
+        s.rect(18, y + 7, 22, y + 8, "ink", 0.9)
+        s.rect(18, y + 7, 19, y + 11, "ink", 0.9)
+        s.rect(21, y + 7, 22, y + 11, "ink", 0.9)
+        s.rect(18, y + 10, 22, y + 11, "ink", 0.85)
+        s.rect(14, y + 8, 18, y + 9, "ink", 0.8)  # the arm back to the ear
+    elif name == "apron":
+        s.rect(20, TOP + 5, 23, 56, "apron", 1.15)  # over the front
+        s.rect(11, WAIST - 4, 21, WAIST - 3, "apron", 1.0)  # its string round the waist
+        s.rect(9, WAIST - 4, 11, WAIST + 2, "apron", 0.95)  # tied at the back
+    elif name == "tote":
+        s.rect(13, TOP + 1, 15, TOP + 14, "strap", 0.9)
+        s.rect(11, TOP + 14, 18, TOP + 26, "tote", 0.95)  # at the hip
+    elif name == "backpack":
+        s.side_lit(5, TOP + 2, 12, TOP + 20, "backpack", 0.9)
+        s.rect(11, TOP + 1, 13, TOP + 4, "backpack", 0.8)  # its strap over the shoulder
+    return s.image()
+
+
+def side_layers():
+    out = {}
+    clothes = ["suit", "blazer", "trench", "padded", "hoodie", "cardigan", "scrubs", "work_jacket", "tshirt", "knit"]
+    styles = ["long", "bob", "ponytail", "bun", "pixie", "perm", "short", "side_part", "buzz", "two_block", "balding"]
+    for kind in clothes:
+        out["side_body_%s" % kind] = side_body(kind)
+    for frame in range(4):
+        out["side_legs_%d" % frame] = side_legs(frame)
+        for near in (True, False):
+            out["side_arm%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near)
+            out["side_arm_bare%s_%d" % ("" if near else "_far", frame)] = side_arm(frame, near, bare=True)
+    out["side_head"] = side_head()
+    out["side_head_old"] = side_head(old=True)
+    for style in styles:
+        out["side_hair_%s" % style] = side_hair(style)
+    for name in ("glasses", "apron", "tote", "backpack"):
+        out["side_%s" % name] = side_extra(name)
+    return out
+
+
 def layers():
     """Every layer: {id: image}, ids "<view>_<part>" (people_art.gd builds a person from them)."""
     out = {}
@@ -352,6 +536,7 @@ def layers():
     out["front_head_old"] = head("front", old=True)
     for name in ("glasses", "tote", "briefcase"):
         out["front_%s" % name] = extra(name, "front")
+    out.update(side_layers())
     return out
 
 

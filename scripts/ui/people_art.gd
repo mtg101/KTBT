@@ -38,9 +38,11 @@ static var _ramps := {}  # colour -> its 7 steps
 
 
 ## The layer ids a person is built from, back to front.
-static func layers_for(look: Dictionary, view: String) -> Array:
+static func layers_for(look: Dictionary, view: String, frame: int = 0) -> Array:
 	var hair := str(look.get("hair", "short"))
 	var ids: Array = []
+	if view == "side":
+		return side_layers(look, frame)
 	if hair == "long":
 		ids.append("%s_hairback_long" % view)
 	ids.append("%s_body_%s" % [view, str(look.get("clothes", "knit"))])
@@ -59,9 +61,31 @@ static func layers_for(look: Dictionary, view: String) -> Array:
 	return ids
 
 
+## From the side, walking (facing right; mirrored to walk left), frame 0 to 3 of a stride: the far
+## arm, the legs, the body, what's carried, the head and hair, glasses, the near arm.
+const WALK_FRAMES := 4
+
+static func side_layers(look: Dictionary, frame: int) -> Array:
+	var clothes := str(look.get("clothes", "knit"))
+	var arm := "side_arm_bare" if clothes in ["tshirt", "scrubs"] else "side_arm"  # (short sleeves)
+	var ids: Array = ["%s_far_%d" % [arm, frame], "side_legs_%d" % frame, "side_body_" + clothes]
+	if bool(look.get("apron", false)):
+		ids.append("side_apron")
+	var bag := str(look.get("bag", ""))
+	if bag in ["tote", "backpack"]:
+		ids.append("side_" + bag)
+	ids.append("side_head_old" if str(look.get("age_range", "")) in ["60s", "70s"] else "side_head")
+	ids.append("side_hair_" + str(look.get("hair", "short")))
+	if bool(look.get("glasses", false)):
+		ids.append("side_glasses")
+	ids.append("%s_%d" % [arm, frame])
+	return ids
+
+
 ## The person's picture (SIZE, its pixels a grid's), or null if a layer it needs isn't there.
-static func texture(look: Dictionary, view: String) -> ImageTexture:
-	var key := "%s|%s" % [view, JSON.stringify(look, "", true)]
+## view: "front", "back" or "side" (with frame, of the stride).
+static func texture(look: Dictionary, view: String, frame: int = 0) -> ImageTexture:
+	var key := "%s%d|%s" % [view, frame, JSON.stringify(look, "", true)]
 	if _cache.has(key):
 		return _cache[key]
 	var picture := Image.create(SIZE.x, SIZE.y, false, Image.FORMAT_RGBA8)
@@ -72,10 +96,10 @@ static func texture(look: Dictionary, view: String) -> ImageTexture:
 	}
 	var made: ImageTexture = null
 	var complete := true
-	for id in layers_for(look, view):
+	for id in layers_for(look, view, frame):
 		var layer := Art.texture("person/" + str(id))
 		if layer == null:
-			if str(id).contains("_body_") or str(id).ends_with("_head") or str(id).ends_with("_head_old"):
+			if str(id).contains("_body_") or str(id).ends_with("_head") or str(id).ends_with("_head_old") or str(id).contains("_legs_"):
 				complete = false  # (a body and a head it can't do without; a missing extra it can)
 			continue
 		_paint(picture, layer.get_image(), colours)
@@ -87,10 +111,21 @@ static func texture(look: Dictionary, view: String) -> ImageTexture:
 	return made
 
 
-## Moving, facing us: they glide with a gentle bob (two frames: standing, and all of them a
-## pixel up), not stepping on the spot (which looked like marching sideways). A side view to
-## walk in, with a real stride, is to come (PLAN.md).
+## Moving, facing us, without the side view's layers: they glide with a gentle bob (two
+## frames: standing, and all of them a pixel up), not stepping on the spot (which looked like
+## marching sideways).
 static var _walks := {}
+
+
+## Walking from the side: the stride's frames for this look, or [] if its layers aren't there.
+static func side_frames(look: Dictionary) -> Array:
+	var frames: Array = []
+	for frame in WALK_FRAMES:
+		var picture := texture(look, "side", frame)
+		if picture == null:
+			return []
+		frames.append(picture)
+	return frames
 
 
 static func walk_frames(picture: Texture2D) -> Array:

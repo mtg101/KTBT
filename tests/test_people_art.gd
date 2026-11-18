@@ -24,7 +24,7 @@ func test_a_person_is_stacked_from_their_looks_layers() -> void:
 	assert_array(PeopleArt.layers_for(OWNER, "front")).is_equal(["front_body_cardigan", "front_apron", "front_head_old", "front_hair_perm"])
 	assert_array(PeopleArt.layers_for(STUDENT, "front")).is_equal(["front_hairback_long", "front_body_hoodie", "front_head", "front_hair_long", "front_glasses", "front_backpack"])
 	assert_array(PeopleArt.layers_for(STUDENT, "back")).is_equal(["back_hairback_long", "back_body_hoodie", "back_head", "back_hair_long", "back_backpack"])  # (no glasses from behind)
-	for view in ["front", "back"]:  # every look the game can pick has its layers
+	for view in ["front", "back", "side"]:  # every look the game can pick has its layers
 		for k in 30:
 			var look := Looks.pick_look(["woman", "man", "non-binary"][k % 3], Looks.pick_age_range(k / 30.0), "")
 			for id in PeopleArt.layers_for(look, view):
@@ -106,24 +106,36 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	front._process(0.0)
 	assert_float(upper.position.y).is_equal(-PixelPerson.GRID)
 	assert_float(lower.position.y).is_equal((PeopleArt.BREATHE_FROM - 1) * PixelPerson.GRID)
-	# Bobbing whenever they move (facing us): up a pixel and down again every so far, standing again once they stop.
+	# Walking from the side whenever they move: a frame of the stride for every so far, mirrored going
+	# left, standing (facing us) again once they stop.
 	front._process(0.0)
 	assert_int(front.walk_frame).is_equal(-1)
 	for k in 5:
 		person.position.x += PixelPerson.STEP / 2
 		front._process(0.016)
-	assert_int(front.walk_frame).is_equal(0)  # (40 gone: two bobs, down again)
-	person.position.x += PixelPerson.STEP
+	assert_int(front.walk_frame).is_equal(2)  # (50 gone)
+	assert_bool(front.facing_left).is_false()
+	var walker: TextureRect = front.get_child(2)
+	assert_object(walker.texture).is_same(PeopleArt.side_frames(OWNER)[2])
+	assert_bool(walker.flip_h).is_false()
+	person.position.x -= PixelPerson.STEP
 	front._process(0.016)
-	assert_int(front.walk_frame).is_equal(1)
+	assert_bool(front.facing_left).is_true()
+	assert_bool(walker.flip_h).is_true()  # (walking left: the side view mirrored)
 	for k in 20:
 		front._process(0.016)
 	assert_int(front.walk_frame).is_equal(-1)
-	var frames: Array = PeopleArt.walk_frames(PeopleArt.texture(OWNER, "front"))
-	assert_int(frames.size()).is_equal(2)  # (a glide and a bob, not steps on the spot)
-	var up: Image = frames[1].get_image()
+	assert_bool(walker.visible).is_false()
+	var stride: Array = PeopleArt.side_frames(OWNER)
+	assert_int(stride.size()).is_equal(PeopleArt.WALK_FRAMES)
+	assert_object(stride[0]).is_not_same(stride[1])  # (the legs and arms move)
+	assert_array(PeopleArt.layers_for(STUDENT, "side", 1)).is_equal(["side_arm_far_1", "side_legs_1", "side_body_hoodie", "side_backpack", "side_head", "side_hair_long", "side_glasses", "side_arm_1"])
+	var tee := STUDENT.duplicate()
+	tee["clothes"] = "tshirt"
+	assert_array(PeopleArt.layers_for(tee, "side", 0)).contains(["side_arm_bare_0"])  # (short sleeves: bare arms)
+	# Without the side view's layers, they glide facing us with a bob.
+	var up: Image = PeopleArt.walk_frames(PeopleArt.texture(OWNER, "front"))[1].get_image()
 	assert_float(up.get_pixel(11, PeopleArt.SIZE.y - 1).a).is_equal(0.0)  # (up a pixel off the ground)
-	assert_float(up.get_pixel(11, PeopleArt.SIZE.y - 2).a).is_equal(1.0)
 	# A big moment's mood in their pose: a slump, then back to themselves.
 	view.pose(person, "sad")
 	assert_str(front.pose_mood).is_equal("sad")
