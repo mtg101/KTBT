@@ -54,7 +54,8 @@ An orange tarp is the classic; ours vary (see above). Red and blue plastic stool
 - **Today's size:** 27×50 pixels on the grid (80×150 on the stage): enough for a face, hair and clothes to read, and the layout (counter, stools, bubbles) stays.
 - **Built in layers, like a paper doll,** from the facts the game decides (`rules/looks.gd`: age range, hairstyle and colour, clothes and colour, skin, glasses, a bag, the owner's apron), so a regular looks the same every visit: body, clothes, head, hair, extras, in two views (facing us; from behind, seated at the counter).
 - **Drawn in code, in shades only** (decided 18 Nov; `tools/art/people.py`, 54 layers): each layer says how lit each pixel is (a step of 0 to 6) and what it's made of (skin, hair, cloth, or a fixed colour), and the game paints it onto that colour's light ramp when someone's dressed (`ui/people_art.gd`: on the CPU, once a look, which turned out simpler than a shader), so one bob serves every hair colour and one coat every cloth colour. The layers have to line up pixel for pixel (the same shoulders under every coat), which an image model can't keep; pixel-art games draw them by hand.
-- **Moving:** standing and seated with a breathing bob first, then walking, then moods in pose (slumped, laughing, a hand on the head, a glass raised).
+- **The same size sitting as standing:** seated from behind, they're drawn lower in the picture, with the standing figure's proportions, so the stool takes their height (a first try drew them the picture's full height seated, and the people walking past looked smaller).
+- **Moving:** on the grid's lines wherever they go, and breathing (the head and shoulders rise a pixel now and then; `ui/pixel_person.gd`); then walking, then moods in pose (slumped, laughing, a hand on the head, a glass raised).
 - **Later, an idea:** a portrait of each character from the image model, for the hover or the diary.
 
 ## Where the art comes from

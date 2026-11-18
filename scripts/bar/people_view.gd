@@ -9,6 +9,7 @@ extends RefCounted
 const Draw = preload("res://scripts/bar/draw.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const PixelPerson = preload("res://scripts/ui/pixel_person.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const Night = preload("res://scripts/bar/night.gd")
 
@@ -19,6 +20,7 @@ const CUSTOMER_COLORS := [Color("6fa8c7"), Color("8fc79a"), Color("c78fb5"), Col
 ## the shape, size and tilt Looks.rain_gear picked. It's held at the hand, so it tilts and
 ## scales from there.
 const UMBRELLA_COLOURS := [Color(0.85, 0.9, 1.0, 0.35), Color("26252e"), Color("2c3a5c"), Color("7a2a2a"), Color("8a7a2a")]
+const TAG_Y := -30.0  # a person's name, above their head
 const UMBRELLA_CLEAR := Color(0.85, 0.9, 1.0, 0.3)
 const UMBRELLA_HAND := Vector2(40, 10)
 ## Each shape's canopy: half-width, height, how far the rim hangs below its middle, how many ribs.
@@ -60,7 +62,7 @@ func new_person(parent: Control, pos: Vector2, colour: Color) -> Control:
 	body.name = "Body"
 	var tag := Label.new()
 	tag.name = "Tag"
-	tag.position = Vector2(-110, -30)
+	tag.position = Vector2(-110, TAG_Y)
 	tag.size = Vector2(300, 24)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.add_theme_font_size_override("font_size", 15)
@@ -279,15 +281,9 @@ func _dress_in_pixels(person: Control, look: Dictionary) -> bool:
 		Art.drawn("person/front_body_%s" % str(look.get("clothes", "knit")))
 		return false
 	var outfit := _layer_in(person, "Look")
-	for view in [["Front", front_art], ["Back", back_art]]:
-		var picture := TextureRect.new()
+	for view in [["Front", front_art, PeopleArt.BREATHE_FROM], ["Back", back_art, PeopleArt.BREATHE_FROM + PeopleArt.SEATED_DOWN]]:
+		var picture := PixelPerson.new(view[1], view[2])  # (on the grid's lines, and breathing)
 		picture.name = view[0]
-		picture.texture = view[1]
-		picture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		picture.stretch_mode = TextureRect.STRETCH_SCALE
-		picture.size = Vector2(PeopleArt.SIZE * PeopleArt.SCALE)
-		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		outfit.add_child(picture)
 	outfit.get_node("Back").visible = false
 	return true
@@ -301,6 +297,9 @@ func turn(person: Control, toward_us: bool) -> void:
 	if front != null and back != null:
 		front.visible = toward_us
 		back.visible = not toward_us
+		var tag := person.get_node_or_null("Tag") as Control
+		if tag != null and back is PixelPerson:  # (seated in pixels, their head's lower: their name with it)
+			tag.position.y = TAG_Y + (0.0 if toward_us else PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
 
 
 func _layer_in(parent: Control, layer_name: String) -> Control:

@@ -4,6 +4,7 @@ extends GdUnitTestSuite
 
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
+const PixelPerson = preload("res://scripts/ui/pixel_person.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 
@@ -70,12 +71,26 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	add_child(stage)
 	var person := view.new_person(stage, Vector2.ZERO, Color.WHITE)
 	view.dress(person, OWNER)
-	assert_object(person.get_node("Look/Front") as TextureRect).is_null()  # (shapes)
+	assert_bool(person.get_node("Look/Front") is PixelPerson).is_false()  # (shapes)
 	Art.folder = "res://art/"
 	Art.reset()
 	PeopleArt.reset()
 	view.dress(person, OWNER)
-	var front := person.get_node("Look/Front") as TextureRect
-	assert_object(front).is_not_null()  # (pixels)
-	assert_int(front.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+	var front = person.get_node("Look/Front")
+	assert_bool(front is PixelPerson).is_true()  # (pixels)
 	assert_vector(front.size).is_equal(Vector2(PeopleArt.SIZE * PeopleArt.SCALE))
+	# On the grid's lines wherever they are, and breathing: the head and shoulders rise, the rest stays.
+	person.position = Vector2(100.4, 191.0)
+	front.snap()
+	assert_vector(person.position + front.position).is_equal(Vector2(99, 192))
+	var upper: TextureRect = front.get_child(1)
+	var lower: TextureRect = front.get_child(0)
+	front.breathing = 1.0
+	front._next_breath = 999.0
+	front._process(0.0)
+	assert_float(upper.position.y).is_equal(-PixelPerson.GRID)
+	assert_float(lower.position.y).is_equal((PeopleArt.BREATHE_FROM - 1) * PixelPerson.GRID)
+	view.turn(person, false)  # seated: their name comes down with their head
+	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y + PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
+	view.turn(person, true)
+	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y)

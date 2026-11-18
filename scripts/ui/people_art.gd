@@ -12,6 +12,8 @@ const Art = preload("res://scripts/ui/art.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 
 const SIZE := Vector2i(27, 50)  # a person on the grid (80 x 150 on the stage, a pixel to 3)
+const SEATED_DOWN := 8  # seated, from behind, they're drawn this many rows lower (tools/art/people.py: no taller than standing)
+const BREATHE_FROM := 20  # standing: the rows above this (head and shoulders) rise as they breathe
 const SCALE := 3
 
 ## What a layer's pixel is made of (its green, over 36), and, for FIXED, which (its blue, over 8).

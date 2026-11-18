@@ -74,7 +74,14 @@ class Layer:
                 if ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1.0 and (rows is None or rows[0] <= y < rows[1]):
                     self.dot(x, y, what, light if light is not None else 1.05 - 0.2 * (x - (cx - rx)) / (2 * rx))
 
-    def image(self):
+    def image(self, down=0):
+        """down: how many rows lower it's drawn (from behind, seated: SEATED_DOWN)."""
+        if down:
+            for a in ("slot", "fix", "mask", "light"):
+                arr = getattr(self, a)
+                moved = np.zeros_like(arr)
+                moved[down:] = arr[:-down]
+                setattr(self, a, moved)
         step = np.clip(np.floor(np.interp(self.light, LEVELS, range(7)) + 0.5), 0, 6).astype(int)
         out = np.zeros((H, W, 4), np.uint8)
         out[..., 0] = step * 36
@@ -86,6 +93,10 @@ class Layer:
 
 
 CX = 13.5
+## Seated, someone's no taller than standing (they're the same size of person): from behind
+## they're drawn this many rows lower, so they sit on the stool at the picture's foot with
+## the standing figure's proportions (head, the torso to row 34, the seat and legs below).
+SEATED_DOWN = 8
 TOP = 14  # the shoulders' line
 HEAD_Y = 1
 
@@ -105,10 +116,10 @@ def body(clothes, view):
         s.rect(7, 48, 13, 50, "ink", 0.8)
         s.rect(14, 48, 20, 50, "ink", 0.75)
     else:  # sitting on the stool: the seat of the trousers, and the legs either side of it
-        s.side_lit(4, 40, 23, 46, "trousers", 0.8)
-        s.side_lit(3, 46, 7, 50, "trousers", 0.7)
-        s.side_lit(20, 46, 24, 50, "trousers", 0.65)
-    bottom = (42 if long_coat else 34) if front else 41
+        s.side_lit(4, 34, 23, 40, "trousers", 0.8)
+        s.side_lit(3, 40, 7, 42, "trousers", 0.7)
+        s.side_lit(20, 40, 24, 42, "trousers", 0.65)
+    bottom = (42 if long_coat else 34) if front else 35
     shoulder = 3 if clothes == "padded" else 4
     s.side_lit(shoulder, TOP + 1, W - shoulder, bottom, CLOTH, 1.05)
     s.rect(shoulder + 1, TOP, W - shoulder - 1, TOP + 1, CLOTH, 1.1)
@@ -179,7 +190,7 @@ def body(clothes, view):
             s.rect(shoulder, bottom - 2, W - shoulder, bottom, CLOTH, 0.7)
         s.side_lit(shoulder - 1, TOP + 2, shoulder + 2, bottom - 3, CLOTH, 0.8)  # arms, forward
         s.side_lit(W - shoulder - 2, TOP + 2, W - shoulder + 1, bottom - 3, CLOTH, 0.7)
-    return s.image()
+    return s.image(SEATED_DOWN if view == "back" else 0)
 
 
 def head(view, old=False):
@@ -197,7 +208,7 @@ def head(view, old=False):
         if old:
             s.dot(10, HEAD_Y + 8, SKIN, 0.8)
             s.dot(17, HEAD_Y + 8, SKIN, 0.8)
-    return s.image()
+    return s.image(SEATED_DOWN if view == "back" else 0)
 
 
 def hair(style, view, behind=False):
@@ -207,7 +218,7 @@ def hair(style, view, behind=False):
     if behind:
         if style == "long":
             s.rect(7, 4, 20, 24 if view == "back" else 22, HAIR, 0.85)
-        return s.image()
+        return s.image(SEATED_DOWN if view == "back" else 0)
     if view == "front":
         rows = {"long": 5, "bob": 5, "ponytail": 4, "bun": 4, "pixie": 4, "perm": 5, "short": 4, "side_part": 4,
                 "buzz": 3, "two_block": 6, "balding": 0}[style]
@@ -255,7 +266,7 @@ def hair(style, view, behind=False):
                 s.ellipse(CX, y + 2, 3, 2.5, HAIR, 1.1)
             if style == "two_block":
                 s.rect(9, y + 9, 18, y + 11, SKIN, 0.8)  # the shaved underneath
-    return s.image()
+    return s.image(SEATED_DOWN if view == "back" else 0)
 
 
 def extra(name, view):
@@ -290,7 +301,7 @@ def extra(name, view):
         else:
             s.rect(6, TOP, 8, TOP + 14, "backpack", 0.8)  # the straps over the shoulders
             s.rect(19, TOP, 21, TOP + 14, "backpack", 0.75)
-    return s.image()
+    return s.image(SEATED_DOWN if view == "back" else 0)
 
 
 def layers():
