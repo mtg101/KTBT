@@ -1,4 +1,24 @@
 {
+	"menu/floor": {
+		"file": "menus/floor.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"menu/lightbox": {
+		"file": "menus/lightbox.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"menu/paper": {
+		"file": "menus/paper.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"menu/wall": {
+		"file": "menus/wall.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"sign/banner": {
 		"file": "signs/banner.png",
 		"source": "drawn in code by tools/art/tent.py",
@@ -369,6 +389,11 @@
 		"source": "drawn in code by tools/art/tent.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"tent/bulb": {
+		"file": "tents/bulb.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"tent/counter": {
 		"file": "tents/counter.png",
 		"source": "drawn in code by tools/art/tent.py",
@@ -376,6 +401,11 @@
 	},
 	"tent/fridge": {
 		"file": "tents/fridge.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/neon_board": {
+		"file": "tents/neon_board.png",
 		"source": "drawn in code by tools/art/tent.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},

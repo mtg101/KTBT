@@ -35,6 +35,12 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 | `art/touches/radio.png` | touch/radio | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/touches/lanterns.png` | touch/lanterns | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/touches/string_lights.png` | touch/string_lights | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/neon_board.png` | tent/neon_board | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/bulb.png` | tent/bulb | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/menus/lightbox.png` | menu/lightbox | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/menus/paper.png` | menu/paper | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/menus/floor.png` | menu/floor | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/menus/wall.png` | menu/wall | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/signs/lightbox.png` | sign/lightbox | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/signs/banner.png` | sign/banner | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/signs/neon.png` | sign/neon | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |

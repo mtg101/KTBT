@@ -97,6 +97,8 @@ func build_odeng_pot(stage: Control) -> void:
 ## A neon sign on the pillar across from the tent: 노래방, karaoke (a kind of place, not a
 ## name: see CONCEPT.md, "Real people, brands and shows"), flickering now and then.
 func build_neon(stage: Control) -> void:
+	if Art.place(stage, "tent/neon_board", Vector2(stage_width - 39, 117), "topleft", 3) == null:  # its board, in pixel art (the word stays text over it, to hover)
+		Art.drawn("tent/neon_board")
 	neon = Ktv.label("노\n래\n방", 22, Color("ff5fa2"), 6, Color("ff5fa2", 0.35))
 	neon.name = "Neon"
 	neon.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)

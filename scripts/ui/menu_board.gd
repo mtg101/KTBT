@@ -10,13 +10,15 @@ const Text = preload("res://scripts/rules/text.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
-## The styles, where each stands in the tent (stage coordinates) and its size.
+## The styles, where each stands in the tent (stage coordinates, on the street's grid: a pixel
+## to 3) and its size.
 const STYLES := {
-	"wall": {"at": Vector2(296, 126), "size": Vector2(112, 72)},
-	"floor": {"at": Vector2(14, 284), "size": Vector2(76, 88)},
+	"wall": {"at": Vector2(297, 126), "size": Vector2(111, 72)},
+	"floor": {"at": Vector2(15, 285), "size": Vector2(75, 87)},
 	"paper": {"at": Vector2(30, 198), "size": Vector2(60, 78)},
-	"lightbox": {"at": Vector2(1540, 128), "size": Vector2(120, 46)},
+	"lightbox": {"at": Vector2(1539, 129), "size": Vector2(120, 45)},
 }
 const STYLE_ORDER := ["wall", "floor", "paper", "lightbox"]
 
@@ -132,6 +134,11 @@ func _build_panel() -> void:
 ## The board itself, in its style, with 메뉴 on it and a few lines of writing.
 func _draw_board() -> void:
 	var box: Vector2 = size
+	rotation_degrees = 0.0
+	if Art.place(self, "menu/" + style, Vector2.ZERO, "topleft", 3) != null:  # (in pixel art: art/menus, its writing and all)
+		_title(Vector2(0, 2 if style == "lightbox" else 6), box.x, PRICE_INK if style in ["paper", "lightbox"] else (CHALK if style == "floor" else INK))
+		return
+	Art.drawn("menu/" + style)
 	match style:
 		"wall":
 			_rect(Vector2(0, 0), box, Color("6a4628"))  # the board

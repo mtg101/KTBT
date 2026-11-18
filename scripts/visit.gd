@@ -997,7 +997,7 @@ func _show_closing_up() -> void:
 	pop.tween_property(_closed_sign, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# The far bulb flickers, and goes off.
 	if not _tent_view.bulb_lights.is_empty():
-		var bulb: ColorRect = _tent_view.bulb_lights[-1]
+		var bulb: CanvasItem = _tent_view.bulb_lights[-1]
 		var off := bulb.create_tween()
 		for k in 2:
 			off.tween_property(bulb, "modulate:a", 0.25, 0.06)
@@ -4479,13 +4479,17 @@ func _build_stage(stage: Control) -> void:
 	_rect(stage, Vector2(0, 372), Vector2(w, 8), Color("2a2840"))  # wet street
 	var tent_from := stage.get_child_count()  # from here on is the tent (the cat and sign aside)
 
-	for bulb_x in [620.0, 1250.0]:
+	for bulb_x in [621.0, 1251.0]:  # (on the street's grid: a pixel to 3)
 		var bulb := Control.new()  # hung from the top of its wire, so it swings from there
-		bulb.position = Vector2(bulb_x, 110)
+		bulb.position = Vector2(bulb_x, 111)
 		bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(bulb)
 		_rect(bulb, Vector2(-1, 0), Vector2(2, 36), Color("55536b"))  # bulb wire
-		_tent_view.bulb_lights.append(_rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT))  # the bulb
+		var glass: Control = Art.place(bulb, "tent/bulb", Vector2(-9, 36), "topleft", 3)  # the bulb, in pixel art (tinted by the hour: tent_view.gd)
+		if glass == null:
+			Art.drawn("tent/bulb")
+			glass = _rect(bulb, Vector2(-8, 36), Vector2(16, 16), OWNER_TEXT)
+		_tent_view.bulb_lights.append(glass)
 		_tent_view.bulbs.append(bulb)
 	_tent_view.decor_back = _layer(stage, "DecorBack")
 	_menu_board = MenuBoard.new()

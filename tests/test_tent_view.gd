@@ -55,7 +55,7 @@ func test_the_light_follows_the_hour_the_weather_and_closing_up() -> void:
 	var full := view.glow.color.a
 	view.update_light(23 * 60, "", true)
 	assert_float(view.glow.color.a).is_less(full)  # closing up: dimmer...
-	assert_bool(view.bulb_lights[-1].color.is_equal_approx(TentView.BULB_OFF)).is_true()  # ...and the far bulb's off
+	assert_bool(TentView.bulb_colour(view.bulb_lights[-1]).is_equal_approx(TentView.BULB_OFF)).is_true()  # ...and the far bulb's off
 
 
 func test_the_weather_falls_and_the_bulbs_swing() -> void:

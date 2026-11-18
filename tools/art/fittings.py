@@ -220,3 +220,62 @@ def touches():
         s.rect(x, 1, x + 2, 3, "1a1a20", 1.0)  # its handle in the rack
     out["knife_rack"] = s.image()
     return out
+
+
+MENU_SIZES = {"wall": (37, 24), "floor": (25, 29), "paper": (20, 26), "lightbox": (40, 15)}  # (menu_board.gd STYLES, a third)
+
+
+def menu_board(style):
+    """The menu board in its style (menu_board.gd: 메뉴 stays text over it, to hover), with a few
+    lines of writing too small to read and their prices in red: a wooden board with the menu
+    pinned to it, a chalk A-frame, a paper sheet taped up, or a lightbox."""
+    w, h = MENU_SIZES[style]
+    s = Sprite(w, h, light=1.0, fall=0.15)
+    def lines(x0, x1, y0, count, ink, price, light=1.0, gap=3):
+        for k in range(count):
+            long = int((x1 - x0 - 5) * (0.55 + 0.4 * ((k * 37) % 10) / 10.0))
+            s.rect(x0, y0 + k * gap, x0 + long, y0 + k * gap + 1, ink, light)
+            s.rect(x1 - 3, y0 + k * gap, x1, y0 + k * gap + 1, price, light)
+    if style == "wall":
+        s.rect(0, 0, w, h, "6a4628", 0.9)
+        s.rect(2, 2, w - 2, h - 2, "f3ead6", 1.05)
+        s.rect(w // 2 - 1, 0, w // 2 + 1, 2, "c8362a", 1.2)  # a pin
+        lines(5, w - 5, 11, 4, "6e6a78", "c8362a")
+    elif style == "floor":
+        s.rect(2, h - 6, 4, h, "4a3524", 0.8)  # the A-frame's legs
+        s.rect(w - 4, h - 6, w - 2, h, "4a3524", 0.8)
+        s.rect(0, 0, w, h - 5, "4a3524", 0.9)
+        s.rect(1, 1, w - 1, h - 7, "2f4a3a", 0.9)  # the chalkboard
+        lines(3, w - 3, 10, 4, "eef0e6", "f2c14a", 1.0)
+    elif style == "paper":
+        s.rect(0, 0, w, h, "f6efdc", 1.05)
+        s.rect(w // 2 - 3, 0, w // 2 + 3, 2, "e6dcc6", 1.25)  # tape
+        lines(3, w - 3, 10, 5, "6e6a78", "c8362a")
+    else:  # lightbox
+        s.rect(0, 0, w, h, "fff8e6", 1.3)
+        s.rect(0, 0, w, 1, "c8362a", 1.1)
+        lines(4, w - 4, 11, 1, "6e6a78", "c8362a", 1.2)
+    return s.image()
+
+
+def bulb():
+    """A bare bulb (18 by 18 on the stage), in greys: the game tints it to the hour's light (and
+    dark when it's switched off), so it's drawn pale, its glass lit, its cap grey."""
+    s = Sprite(6, 6, light=1.0, fall=0)
+    s.rect(2, 0, 4, 1, "9a9aa4", 0.9)  # the cap
+    s.rect(1, 1, 5, 5, "eef0f2", 1.3)
+    s.rect(2, 5, 4, 6, "eef0f2", 1.25)
+    s.rect(2, 2, 3, 3, "eef0f2", 1.5)  # the glint
+    return s.image()
+
+
+def neon_board():
+    """The board the 노래방 neon hangs on across the street (36 by 99 on the stage; the word stays
+    text over it, to hover): dark, a pink tube round its edge."""
+    w, h = 12, 33
+    s = Sprite(w, h, light=0.85, fall=0.1)
+    s.rect(0, 0, w, h, "141224", 0.85)
+    for edge in [(1, 1, w - 1, 2), (1, h - 2, w - 1, h - 1), (1, 1, 2, h - 1), (w - 2, 1, w - 1, h - 1)]:
+        s.rect(*edge, "ff5fa8", GLOW)
+    s.rect(w // 2 - 1, 0, w // 2 + 1, 1, "6e6a78", 0.8)  # its bracket
+    return s.image()

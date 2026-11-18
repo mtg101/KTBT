@@ -211,6 +211,10 @@ if __name__ == "__main__":
         add_to_game(image, key, SOURCE, LICENCE)
     for style, colours in sign_styles().items():
         add_to_game(fittings.sign(style, colours), "sign/" + style, SOURCE, LICENCE)
+    for style in fittings.MENU_SIZES:
+        add_to_game(fittings.menu_board(style), "menu/" + style, SOURCE, LICENCE)
+    add_to_game(fittings.bulb(), "tent/bulb", SOURCE, LICENCE)
+    add_to_game(fittings.neon_board(), "tent/neon_board", SOURCE, LICENCE)
     for touch, image in fittings.touches().items():
         add_to_game(image, "touch/" + touch, SOURCE, LICENCE)
     add_to_game(stool("c8443a"), "tent/stool_red", SOURCE, LICENCE)

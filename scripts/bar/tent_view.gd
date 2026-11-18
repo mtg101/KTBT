@@ -265,6 +265,19 @@ func touch_spots(id: String) -> Array:
 	return []
 
 
+## A bulb's colour: a plain one's own, or a pixel one's tint (its art is drawn pale).
+static func tint(bulb: CanvasItem, colour: Color) -> void:
+	if bulb is ColorRect:
+		bulb.color = colour
+	else:
+		bulb.self_modulate = colour
+
+
+## The colour a bulb is now (for the tests).
+static func bulb_colour(bulb: CanvasItem) -> Color:
+	return bulb.color if bulb is ColorRect else bulb.self_modulate
+
+
 ## The sky, the tent's glow and the bulbs, by the hour. Cold nights look bluer, fog greys
 ## everything, and a muggy night's a little warmer.
 func update_light(minutes: float, weather_kind: String, closing: bool) -> void:
@@ -277,9 +290,9 @@ func update_light(minutes: float, weather_kind: String, closing: bool) -> void:
 	sky.color = colour
 	glow.color = Color(0.91, 0.51, 0.23, float(light["glow"]) * (CLOSING_GLOW if closing else 1.0))
 	for bulb in bulb_lights:
-		bulb.color = light["bulb"]
+		tint(bulb, light["bulb"])
 	if closing and not bulb_lights.is_empty():
-		bulb_lights[-1].color = BULB_OFF
+		tint(bulb_lights[-1], BULB_OFF)
 
 
 ## The lights going out for a moment (a plant card), over what update_light set this frame:
@@ -289,7 +302,7 @@ func lights_out(off: bool) -> void:
 		return
 	glow.color.a = 0.02
 	for bulb in bulb_lights:
-		bulb.color = BULB_OFF
+		tint(bulb, BULB_OFF)
 
 
 ## Tonight's weather, as you'd see it: rain or snow falling, fog drifting, a warm haze, and

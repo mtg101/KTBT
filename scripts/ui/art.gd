@@ -20,7 +20,9 @@ static func ids(kind: String) -> Array:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
-			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove"]
+			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove", "bulb", "neon_board"]
+		"menu":  # the menu board, in each of its styles (menu_board.gd STYLE_ORDER; drawn in code by tools/art/fittings.py)
+			return ["wall", "floor", "paper", "lightbox"]
 		"sign":  # the sign's board, in each style (drawn in code by tools/art/fittings.py; its words stay text)
 			return BarLook.SIGN_STYLES.keys()
 		"tarp":  # the tent's cover, one for each colour and shape (drawn in code by tools/art/tent.py)
