@@ -19,6 +19,14 @@ static func ids(kind: String) -> Array:
 	match kind:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
+		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
+			return ["counter", "stool_red", "stool_blue"]
+		"tarp":  # the tent's cover, one for each colour and shape (drawn in code by tools/art/tent.py)
+			var tarps: Array = []
+			for tarp in BarLook.BAR_TARPS:
+				for shape in BarLook.TENT_SHAPES:
+					tarps.append("%s_%s" % [tarp, shape])
+			return tarps
 		"street":  # the pieces of the street behind the tent (street_art.gd's SLOTS: a few of each, so bars differ)
 			return ["overpass", "overpass_2", "apartments", "apartments_2", "apartments_3", "apartments_4", "apartments_5", "apartments_6",
 				"shops", "shops_2", "shops_3", "shops_4", "karaoke", "karaoke_2", "karaoke_3", "karaoke_4",
@@ -78,7 +86,7 @@ static func texture(key: String) -> Texture2D:
 ## Puts a key's image on the stage, its pixels SCALE times over (or scale: 1 on a pixel grid
 ## of its own, like the street's): its bottom-centre at spot
 ## (anchor "bottom": things standing) or its top-centre (anchor "top": things hanging). The
-## image, or null if there's none (then draw it in code, and say so: drawn()).
+## image ("topleft": spot is its top-left corner), or null if there's none (then draw it in code, and say so: drawn()).
 static func place(parent: Control, key: String, spot: Vector2, anchor: String = "bottom", scale: int = SCALE) -> TextureRect:
 	var image := texture(key)
 	if image == null:
@@ -92,7 +100,9 @@ static func place(parent: Control, key: String, spot: Vector2, anchor: String = 
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rect.size = image.get_size() * scale
 	rect.position = (spot - Vector2(rect.size.x / 2, rect.size.y if anchor == "bottom" else 0.0)).round()
-	parent.add_child(rect)
+	if anchor == "topleft":  # (spot is its top-left corner: on a grid's lines)
+		rect.position = spot
+	parent.add_child(rect, true)  # (readable names: a second lantern is Art_touch_lanterns2)
 	used[key] = "image"
 	return rect
 

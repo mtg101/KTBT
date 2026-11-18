@@ -98,5 +98,270 @@
 		"file": "streets/shops_4.png",
 		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 5202, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a row of small old shops on a Seoul back street at night, lit shop windows, blank signboards with no writing, roll-down shutters, awnings, air-conditioning units, no people, no text, no letters, no logos, on a flat green background\"",
 		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_awning": {
+		"file": "tarps/blue_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_classic": {
+		"file": "tarps/blue_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_peaked": {
+		"file": "tarps/blue_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_rounded": {
+		"file": "tarps/blue_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_scalloped": {
+		"file": "tarps/blue_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_stripes_awning": {
+		"file": "tarps/blue_stripes_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_stripes_classic": {
+		"file": "tarps/blue_stripes_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_stripes_peaked": {
+		"file": "tarps/blue_stripes_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_stripes_rounded": {
+		"file": "tarps/blue_stripes_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/blue_stripes_scalloped": {
+		"file": "tarps/blue_stripes_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/green_awning": {
+		"file": "tarps/green_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/green_classic": {
+		"file": "tarps/green_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/green_peaked": {
+		"file": "tarps/green_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/green_rounded": {
+		"file": "tarps/green_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/green_scalloped": {
+		"file": "tarps/green_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/maroon_awning": {
+		"file": "tarps/maroon_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/maroon_classic": {
+		"file": "tarps/maroon_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/maroon_peaked": {
+		"file": "tarps/maroon_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/maroon_rounded": {
+		"file": "tarps/maroon_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/maroon_scalloped": {
+		"file": "tarps/maroon_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/orange_awning": {
+		"file": "tarps/orange_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/orange_classic": {
+		"file": "tarps/orange_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/orange_peaked": {
+		"file": "tarps/orange_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/orange_rounded": {
+		"file": "tarps/orange_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/orange_scalloped": {
+		"file": "tarps/orange_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_awning": {
+		"file": "tarps/red_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_classic": {
+		"file": "tarps/red_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_peaked": {
+		"file": "tarps/red_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_rounded": {
+		"file": "tarps/red_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_scalloped": {
+		"file": "tarps/red_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_stripes_awning": {
+		"file": "tarps/red_stripes_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_stripes_classic": {
+		"file": "tarps/red_stripes_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_stripes_peaked": {
+		"file": "tarps/red_stripes_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_stripes_rounded": {
+		"file": "tarps/red_stripes_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/red_stripes_scalloped": {
+		"file": "tarps/red_stripes_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/striped_awning": {
+		"file": "tarps/striped_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/striped_classic": {
+		"file": "tarps/striped_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/striped_peaked": {
+		"file": "tarps/striped_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/striped_rounded": {
+		"file": "tarps/striped_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/striped_scalloped": {
+		"file": "tarps/striped_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/teal_awning": {
+		"file": "tarps/teal_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/teal_classic": {
+		"file": "tarps/teal_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/teal_peaked": {
+		"file": "tarps/teal_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/teal_rounded": {
+		"file": "tarps/teal_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/teal_scalloped": {
+		"file": "tarps/teal_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/yellow_awning": {
+		"file": "tarps/yellow_awning.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/yellow_classic": {
+		"file": "tarps/yellow_classic.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/yellow_peaked": {
+		"file": "tarps/yellow_peaked.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/yellow_rounded": {
+		"file": "tarps/yellow_rounded.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tarp/yellow_scalloped": {
+		"file": "tarps/yellow_scalloped.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/counter": {
+		"file": "tents/counter.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/stool_blue": {
+		"file": "tents/stool_blue.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/stool_red": {
+		"file": "tents/stool_red.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
 	}
 }

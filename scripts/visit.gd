@@ -95,8 +95,9 @@ const OWNER_TEXT := Ktv.YELLOW
 
 # Screen layout (pixels, at the project's 1920x1080; Godot scales it to the window).
 const SCREEN := Vector2(1920, 1080)
-const STAGE_ROOM := 82.0  # the street above the tent's stage (the overpass, the tops of the blocks: street_art.gd)
-const PANELS_TOP := 534.0  # The transcript, the PD's desk and the side panel fill the screen below the tent (60 + STAGE_ROOM + 380 + 12).
+const COUNTER_ART_AT := Vector2(99, 249)  # the counter's pixel art's corner on the stage (tools/art/tent.py COUNTER: on the grid's lines)
+const STAGE_ROOM := 81.0  # the street above the tent's stage (the overpass, the tops of the blocks: street_art.gd)
+const PANELS_TOP := 533.0  # The transcript, the PD's desk and the side panel fill the screen below the tent (60 + STAGE_ROOM + 380 + 12).
 const SIDE_WIDTH := 520.0  # the side panel on the right: who's here now, and the debug stats
 const DESK_WIDTH := 460.0  # the PD's desk, between the transcript and the side panel
 
@@ -4500,8 +4501,9 @@ func _build_stage(stage: Control) -> void:
 	_owner_tag.z_index = 3  # their head is just under the tarp: the name goes in front of it
 	_owner_node.visible = false
 
-	_rect(stage, Vector2(100, 250), Vector2(w - 182, 18), Color("8a5a33"))  # counter top
-	_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820"))  # counter front
+	var counter: Array = [_rect(stage, Vector2(100, 250), Vector2(w - 182, 18), Color("8a5a33"))]  # counter top
+	counter.append(_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820")))  # counter front
+	_pixel_piece(stage, "tent/counter", COUNTER_ART_AT, counter)
 	_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))  # the stove
 	_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a"))  # a flame
 	_scenery.build_odeng_pot(stage)
@@ -4536,8 +4538,9 @@ func _build_stage(stage: Control) -> void:
 		food.clip_contents = true
 		stage.add_child(food)
 		_food_rows.append(food)
-		_rect(stage, Vector2(x - 35, 340), Vector2(70, 12), Color("9a9ab0"))  # stool
-		_rect(stage, Vector2(x - 6, 352), Vector2(12, 20), Color("6e6e86"))
+		var stool: Array = [_rect(stage, Vector2(x - 35, 340), Vector2(70, 12), Color("9a9ab0"))]  # stool
+		stool.append(_rect(stage, Vector2(x - 6, 352), Vector2(12, 20), Color("6e6e86")))
+		_pixel_piece(stage, "tent/stool_red" if seat % 2 == 0 else "tent/stool_blue", Vector2(snappedf(x - 36, 3), 339), stool)
 
 	_tent_view.roof = Polygon2D.new()
 	_tent_view.roof.name = "Tarp"
@@ -4548,6 +4551,7 @@ func _build_stage(stage: Control) -> void:
 	stage.add_child(_tent_view.roof)
 	_tent_view.roof_stripes = _layer(stage, "TarpStripes")
 	_tent_view.roof_edge = _rect(stage, Vector2(22, 112), Vector2(w - 44, 10), Color("c8612a"))
+	_tent_view.roof_art = _layer(stage, "TarpArt")
 	_tent_view.decor_roof = _layer(stage, "DecorRoof")
 	for k in range(tent_from, stage.get_child_count()):
 		var piece := stage.get_child(k) as CanvasItem
@@ -4581,6 +4585,19 @@ func _build_stage(stage: Control) -> void:
 
 
 ## An empty full-stage layer for things added later (weather, the bar's touches).
+## One of the tent's pieces in pixel art, if there's art for it (art/tents: tools/art/tent.py):
+## drawn at at (its top-left corner, on the street's grid: each pixel 3 on screen), just in
+## front of the shapes it stands in for, which are left out. Without it, the shapes stay.
+func _pixel_piece(stage: Control, key: String, at: Vector2, shapes: Array) -> void:
+	var art := Art.place(stage, key, at, "topleft", 3)
+	if art == null:
+		Art.drawn(key)
+		return
+	stage.move_child(art, shapes[-1].get_index() + 1)
+	for shape in shapes:
+		shape.visible = false
+
+
 func _layer(stage: Control, layer_name: String) -> Control:
 	var layer := Control.new()
 	layer.name = layer_name

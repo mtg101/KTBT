@@ -26,6 +26,7 @@ var weather_front: Control  # fog, haze and drips, in front
 var roof: Polygon2D
 var roof_edge: ColorRect
 var roof_stripes: Control
+var roof_art: Control  # the cover in pixel art, when there is some (art/tarps: tools/art/tent.py), in place of the shapes
 var decor_back: Control  # the bar's touches: on the poles and back wall...
 var decor_counter: Control  # ...on the counter...
 var decor_roof: Control  # ...and hanging from the tarp
@@ -126,10 +127,28 @@ func show_look(bar: Dictionary) -> void:
 	sign_english.text = str(bar.get("name", "")).to_upper()
 	sign_node.tooltip_text = Text.tip("%s · %s (%s)" % [look["hangul"], bar.get("name", ""), bar.get("name_meaning", "")])
 	sign_node.visible = true
+	_cover_art("tarp/%s_%s" % [look["tarp"], shape])
 	for layer in [decor_back, decor_counter, decor_roof]:
 		Draw.clear(layer)
 	for id in look["touches"]:
 		add_touch(str(id))
+
+
+## The cover in pixel art, if there's an image for this colour and shape: drawn on the street's
+## grid (each pixel 3 on screen, from the stage's top), with its stripes, edge, scallops or
+## valance; the shapes stand in where there isn't.
+func _cover_art(key: String) -> void:
+	if roof_art == null:
+		return
+	Draw.clear(roof_art)
+	var art := Art.place(roof_art, key, Vector2(stage_size.x / 2, 0), "top", 3)
+	if art == null:
+		Art.drawn(key)
+		roof.visible = true
+		roof_stripes.visible = true
+		return
+	for piece in [roof, roof_edge, roof_stripes]:
+		piece.visible = false
 
 
 ## The outline of the tent's cover, by shape (the front edge is always at y = 112).

@@ -24,6 +24,59 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 
 | File | What | Source | Licence |
 | --- | --- | --- | --- |
+| `art/tents/stool_blue.png` | tent/stool_blue | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/stool_red.png` | tent/stool_red | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/counter.png` | tent/counter | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_stripes_rounded.png` | tarp/blue_stripes_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_stripes_awning.png` | tarp/blue_stripes_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_stripes_scalloped.png` | tarp/blue_stripes_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_stripes_peaked.png` | tarp/blue_stripes_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_stripes_classic.png` | tarp/blue_stripes_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_stripes_rounded.png` | tarp/red_stripes_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_stripes_awning.png` | tarp/red_stripes_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_stripes_scalloped.png` | tarp/red_stripes_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_stripes_peaked.png` | tarp/red_stripes_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_stripes_classic.png` | tarp/red_stripes_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/striped_rounded.png` | tarp/striped_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/striped_awning.png` | tarp/striped_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/striped_scalloped.png` | tarp/striped_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/striped_peaked.png` | tarp/striped_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/striped_classic.png` | tarp/striped_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/maroon_rounded.png` | tarp/maroon_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/maroon_awning.png` | tarp/maroon_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/maroon_scalloped.png` | tarp/maroon_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/maroon_peaked.png` | tarp/maroon_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/maroon_classic.png` | tarp/maroon_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/teal_rounded.png` | tarp/teal_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/teal_awning.png` | tarp/teal_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/teal_scalloped.png` | tarp/teal_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/teal_peaked.png` | tarp/teal_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/teal_classic.png` | tarp/teal_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/yellow_rounded.png` | tarp/yellow_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/yellow_awning.png` | tarp/yellow_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/yellow_scalloped.png` | tarp/yellow_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/yellow_peaked.png` | tarp/yellow_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/yellow_classic.png` | tarp/yellow_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/green_rounded.png` | tarp/green_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/green_awning.png` | tarp/green_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/green_scalloped.png` | tarp/green_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/green_peaked.png` | tarp/green_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/green_classic.png` | tarp/green_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_rounded.png` | tarp/blue_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_awning.png` | tarp/blue_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_scalloped.png` | tarp/blue_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_peaked.png` | tarp/blue_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/blue_classic.png` | tarp/blue_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_rounded.png` | tarp/red_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_awning.png` | tarp/red_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_scalloped.png` | tarp/red_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_peaked.png` | tarp/red_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/red_classic.png` | tarp/red_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/orange_rounded.png` | tarp/orange_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/orange_awning.png` | tarp/orange_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/orange_scalloped.png` | tarp/orange_scalloped | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/orange_peaked.png` | tarp/orange_peaked | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tarps/orange_classic.png` | tarp/orange_classic | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/streets/overpass_2.png` | street/overpass_2 | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1798563699, then pixelate.py: "pixel art, flat front elevation, orthographic, perfectly straight-on, a long horizontal concrete road overpass at night, thick level concrete deck on square pillars, stains on the concrete, no lamps, no cars, no people, no text, on a flat green background" | CC BY-SA 4.0 (this project) |
 | `art/streets/corner_shop_4.png` | street/corner_shop_4 | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 5402, then pixelate.py: "pixel art, flat front elevation, orthographic, perfectly straight-on, a small shop front at night with a bright lit glass front, a blank signboard with no writing, drinks fridges or plants outside, no text, no letters, no logos, no people, on a flat green background" | CC BY-SA 4.0 (this project) |
 | `art/streets/corner_shop_3.png` | street/corner_shop_3 | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 5401, then pixelate.py: "pixel art, flat front elevation, orthographic, perfectly straight-on, a small shop front at night with a bright lit glass front, a blank signboard with no writing, drinks fridges or plants outside, no text, no letters, no logos, no people, on a flat green background" | CC BY-SA 4.0 (this project) |

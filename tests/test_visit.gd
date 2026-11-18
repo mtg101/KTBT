@@ -738,7 +738,8 @@ func test_the_street_behind_the_tent_is_pixel_art_and_reaches_above_it() -> void
 	var street = scene._street_art
 	assert_bool(street.has_art()).is_true()  # (the game's own art folder has the street)
 	assert_array(street.chosen).not_contains([""])  # (this bar's own street, a piece in every slot)
-	assert_float(street.position.y + street.size.y).is_equal(scene._stage.position.y + scene.STAGE_SIZE.y)  # (behind the stage, and above it)
+	assert_float(street.position.y + street.size.y).is_equal_approx(scene._stage.position.y + scene.STAGE_SIZE.y, 2.0)  # (behind the stage, and above it)
+	assert_int(int(scene.STAGE_ROOM) % street.SCALE).is_equal(0)  # (the stage's top on a row of the grid: the tarp's pixels line up with the street's)
 	assert_float(scene._stage.position.y - street.position.y).is_equal(scene.STAGE_ROOM)
 	assert_bool(scene._tent_view.sky.visible).is_false()  # (the stage's own sky and city left out, so the street shows through)
 	assert_bool(scene._skyline.visible).is_false()
@@ -1576,6 +1577,18 @@ func test_the_tent_cover_has_the_chosen_shape() -> void:
 	for point in tarp.polygon:
 		top = minf(top, point.y)
 	assert_float(top).is_less(40.0)  # higher in the middle than the classic tarp
+	var art := runner.find_child("TarpArt") as Control  # ...and drawn in pixel art: this colour, this shape
+	var cover := art.get_child(0) as TextureRect
+	assert_str(cover.texture.resource_path).ends_with("/tarps/%s_peaked.png" % Game.bar["look"]["tarp"])
+	assert_int(cover.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+	assert_vector(cover.size).is_equal(cover.texture.get_size() * 3)  # (a pixel of it, 3 on screen: the street's grid)
+	assert_vector(cover.position).is_equal(Vector2.ZERO)
+	var counter := runner.find_child("Art_tent_counter", true, false) as TextureRect  # the counter and stools too
+	assert_vector(counter.position).is_equal(Visit.COUNTER_ART_AT)
+	var stools: Array = scene._stage.get_children().filter(func(node): return str(node.name).contains("Art_tent_stool"))
+	assert_int(stools.size()).is_equal(NightRules.SEATS)
+	for stool in stools:
+		assert_int(int(stool.position.x) % 3).is_equal(0)  # (on the grid's lines, as the counter)
 	for shape in BarLook.TENT_SHAPES:
 		assert_int(scene._tent_view.tent_shape(shape).size()).is_greater_equal(4)
 
@@ -1603,9 +1616,10 @@ func test_people_walk_past_without_coming_in() -> void:
 func test_no_template_tent_while_the_ai_thinks() -> void:
 	Ai.canned_think_seconds = 0.3
 	var runner := scene_runner(SCENE)
-	var tarp := runner.find_child("Tarp") as Polygon2D
-	assert_bool(tarp.visible).is_false()
-	assert_bool(await _wait_until(func(): return tarp.visible)).override_failure_message("the tent never went up").is_true()
+	var art := runner.find_child("TarpArt") as Control  # (the cover in pixel art: art/tarps)
+	assert_bool(art.visible).is_false()
+	assert_bool(await _wait_until(func(): return art.visible and art.get_child_count() == 1)).override_failure_message("the tent never went up").is_true()
+	assert_bool((runner.find_child("Tarp") as Polygon2D).visible).is_false()  # (the shape it stands in for, left out)
 
 
 func test_a_new_bar_chooses_from_a_few_colours_and_shapes() -> void:
@@ -1624,7 +1638,7 @@ func test_a_loading_screen_covers_a_new_bar_being_set_up() -> void:
 	var loading := runner.find_child("Loading") as Control
 	assert_bool(loading.visible).is_true()
 	assert_bool(await _wait_until(func(): return not loading.visible)).override_failure_message("the loading screen never went").is_true()
-	assert_bool((runner.find_child("Tarp") as Polygon2D).visible).is_true()
+	assert_bool((runner.find_child("TarpArt") as Control).visible).is_true()
 	assert_bool(loading.is_placeholder()).override_failure_message("the loading screen's tent became the bar's").is_false()
 	assert_str((loading.find_child("SignHangul", true, false) as Label).text).is_equal(str(Game.bar["look"]["hangul"]))
 	assert_str(str(runner.scene()._stats.story.get("loading_tent", runner.scene()._before_night.get("loading_tent", "")))).is_equal("placeholder, then the bar's")
