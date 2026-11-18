@@ -10,6 +10,7 @@ extends RefCounted
 
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
 const SCALE := 3
@@ -126,6 +127,7 @@ static func place(parent: Control, key: String, spot: Vector2, anchor: String = 
 	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	rect.stretch_mode = TextureRect.STRETCH_SCALE
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PixelLight.light(rect, "street" if key.begins_with("street/") else "tent")  # (by the hour: pixel_light.gd)
 	rect.size = image.get_size() * scale
 	rect.position = (spot - Vector2(rect.size.x / 2, rect.size.y if anchor == "bottom" else 0.0)).round()
 	if anchor == "topleft":  # (spot is its top-left corner: on a grid's lines)

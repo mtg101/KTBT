@@ -3,6 +3,7 @@ extends "res://tests/support/bar_test.gd"
 ## simulated mouse input, and check what happens. The AI is offline mode (the canned AI),
 ## sometimes with scripted replies, so these run without Ollama, quickly and repeatably.
 
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
@@ -1336,6 +1337,22 @@ func test_the_city_behind_the_tent_and_tonights_date() -> void:
 	assert_bool(Seasons.options(318).map(func(option): return option["text"]).has(scene._night_weather)).is_true()
 	assert_str(str(Game.bar["last_weather"])).is_equal(scene._night_weather)
 	assert_int(int(Game.bar["first_date"])).is_equal(318)
+
+
+func test_the_pixels_are_lit_by_the_hour() -> void:
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_int(PixelLight.count_lit(scene)).is_greater(3)  # the tent's pieces, the bulbs, the owner...
+	assert_object(scene._owner_node.find_child("Front", true, false).material).is_same(PixelLight.material("people"))
+	assert_float(PixelLight.ambient_steps).is_equal_approx(PixelLight.ambient(scene._clock, scene._weather_kind), 0.001)
+	assert_array(PixelLight.bulbs.map(func(b): return Vector2(b.x, b.y))).is_equal(scene._tent_view.bulb_spots())
+	assert_that(PixelLight.material("tent").get_shader_parameter("to_stage_offset")).is_equal(-scene._stage.global_position)
+	assert_int(scene._light_hour).is_equal(int(scene._clock) / 60)  # (logged on the hour)
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_int(int(scene._stats.art["lit"])).is_greater(3)  # (in the night's stats)
 
 
 func test_the_cat_wanders_by_itself() -> void:

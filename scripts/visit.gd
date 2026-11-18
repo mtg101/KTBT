@@ -71,6 +71,7 @@ const Ratings = preload("res://scripts/rules/ratings.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
@@ -421,6 +422,7 @@ var _night_ratings := {}
 var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
 var _skyline: SkylineView  # the city behind the tent
 var _street_art: StreetArt  # the street behind the tent, in pixel art (street_art.gd)
+var _light_hour := -1  # the hour the light was last logged
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
 ## Tonight's weather, as NightRules.weather_kind says it (kept by the night).
 var _weather_kind: String:
@@ -1097,6 +1099,7 @@ func _start_night() -> void:
 	_stats.sold_out = Menu.sold_out.duplicate()
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
 	_stats.art = Art.summary()  # (what's drawn from images so far, and what in code)
+	_stats.art["lit"] = PixelLight.count_lit(self)  # (pieces lit by the hour: pixel_light.gd)
 	_menu_change = {}
 	if _before_night.has("menu_change"):
 		_menu_change = _before_night["menu_change"].duplicate()
@@ -4627,6 +4630,18 @@ func _show_look() -> void:
 func _update_light(closing_dim: bool = false) -> void:
 	_tent_view.update_light(_clock, _weather_kind, closing_dim or (_closing_early and _night_open))
 	_street_art.set_sky(_tent_view.sky.color)
+	# The pixels' light (pixel_light.gd), in the stage's coordinates: the tent's and people's
+	# pieces are drawn on the screen, the street's on its grid (a pixel to 3).
+	var stage_at := _stage.get_global_transform().origin
+	PixelLight.place_kind("tent", 1.0, -stage_at)
+	PixelLight.place_kind("people", 1.0, -stage_at)
+	PixelLight.place_kind("street", StreetArt.SCALE, _street_art.get_global_transform().origin - stage_at)
+	var hour := int(_clock) / 60
+	if _night_open and hour != _light_hour:  # (logged on the hour: how dark, under the bulbs and out in the street)
+		_light_hour = hour
+		print("Light: %s · the night %.1f steps · at the counter %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),
+			PixelLight.ambient_steps, PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, 250)), PixelLight.light_at(Vector2(80, 360), "people"),
+			PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, -40), "street")])
 
 
 ## Tonight's weather, as you'd see it (see TentView).

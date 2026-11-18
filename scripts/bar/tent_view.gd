@@ -11,8 +11,10 @@ const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 
 const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
+const BULB_GLASS := Vector2(0, 44)  # the middle of a bulb's glass, from the top of its wire
 const CLOSING_GLOW := 0.6  # the tent's glow with one bulb off
 
 var stage_size: Vector2
@@ -279,7 +281,8 @@ static func bulb_colour(bulb: CanvasItem) -> Color:
 
 
 ## The sky, the tent's glow and the bulbs, by the hour. Cold nights look bluer, fog greys
-## everything, and a muggy night's a little warmer.
+## everything, and a muggy night's a little warmer. And the light on the pixels (pixel_light.gd):
+## the night's, and each bulb's that's on.
 func update_light(minutes: float, weather_kind: String, closing: bool) -> void:
 	var light := NightRules.night_light(minutes)
 	var colour: Color = light["sky"]
@@ -293,6 +296,15 @@ func update_light(minutes: float, weather_kind: String, closing: bool) -> void:
 		tint(bulb, light["bulb"])
 	if closing and not bulb_lights.is_empty():
 		tint(bulb_lights[-1], BULB_OFF)
+	var strengths: Array = bulbs.map(func(_b): return PixelLight.BULB_STEPS)
+	if closing and not strengths.is_empty():
+		strengths[-1] = 0.0
+	PixelLight.set_night(minutes, weather_kind, bulb_spots(), strengths)
+
+
+## Where the bulbs' light comes from, on the stage: each bulb's glass, under its wire.
+func bulb_spots() -> Array:
+	return bulbs.map(func(bulb: Control): return bulb.position + BULB_GLASS)
 
 
 ## The lights going out for a moment (a plant card), over what update_light set this frame:
@@ -303,6 +315,7 @@ func lights_out(off: bool) -> void:
 	glow.color.a = 0.02
 	for bulb in bulb_lights:
 		tint(bulb, BULB_OFF)
+	PixelLight.bulbs_off()
 
 
 ## Tonight's weather, as you'd see it: rain or snow falling, fog drifting, a warm haze, and

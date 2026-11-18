@@ -11,6 +11,7 @@ const BREATH_SECONDS := Vector2(2.6, 4.2)  # a breath every so often (each perso
 const BREATH_IN := 0.9  # ...held up this long
 
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const STEP := 20.0  # on the stage: a frame of the stride (or up or down a pixel, gliding) every this far they go
 const STILL_AFTER := 0.12  # seconds without moving: standing again
 
@@ -42,6 +43,7 @@ var _clock := 0.0
 func _init(picture: Texture2D, rows_up: int, walks: bool = false, stride: Array = []) -> void:
 	split = rows_up
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PixelLight.light(self, "people")  # (lit by the hour, wherever they are: pixel_light.gd; their parts share it)
 	size = picture.get_size() * GRID
 	_lower = _part(picture, Rect2(0, split - 1, picture.get_width(), picture.get_height() - split + 1))  # (a row more: no gap when the top rises)
 	_upper = _part(picture, Rect2(0, 0, picture.get_width(), split))
@@ -65,6 +67,7 @@ func _part(picture: Texture2D, region: Rect2) -> TextureRect:
 	part.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	part.position = region.position * GRID
 	part.size = region.size * GRID
+	part.use_parent_material = true
 	add_child(part)
 	return part
 

@@ -1,0 +1,214 @@
+extends RefCounted
+## The light by the hour, on the pixels themselves (ART.md, "Lighting by palette"): a small
+## shader on every piece of pixel art (the street's, the tent's, the people's) moves each pixel
+## up or down its own colour's light ramp (darker is bluer, lighter warmer: the palette's ramp()
+## sums), whole steps at a time, with a 4x4 Bayer dither on the grid between them, so the light
+## falls in bands of pixels and nothing's ever smoothed.
+## How far a pixel moves is the light where it is, in steps: the night's own (AMBIENT: dusk at
+## 6pm, darkest after midnight, a little less towards dawn) plus the bulbs' (each lights what's
+## round it, fading out with distance; the tarp holds their light in, so the street behind
+## hardly feels them). Under the bulbs the tent looks as drawn; out by its ends and in the
+## street it's the night's. What glows by itself (a lit window, the neon, a bulb that's on)
+## keeps its own light. Lights are data: tent_view.gd sets them each frame from the hour, the
+## weather and which bulbs are on.
+## Every piece shares one material for each KIND (its own way into the stage's coordinates),
+## so a frame's light is set once, on three materials.
+
+const GRID := 3.0  # screen pixels to a pixel of the art
+## The night's own light, in steps of the ramp below the art as drawn: [game minutes, steps].
+const AMBIENT := [[18 * 60, -0.4], [19 * 60 + 30, -0.9], [21 * 60, -1.4], [24 * 60, -1.7], [26 * 60, -1.9], [27 * 60, -1.6]]
+const WEATHER := {"fog": 0.2, "rain": -0.2, "drizzle": -0.1, "snow": 0.2}  # (fog and snow throw the light about)
+const BULB_STEPS := 1.25  # a bulb that's on, at the bulb (falling off to nothing at BULB_REACH)
+const BULB_REACH := 1000.0  # stage pixels
+const BRIGHTEST := 0.25  # nothing lit more than this above how it's drawn
+const MAX_BULBS := 4
+## Each kind of art: how much the bulbs light it (the tarp keeps their light off the street).
+const KINDS := {"street": 0.15, "tent": 1.0, "people": 1.0}
+## A step of the ramp, as in tools/art/palette.py ramp(): down, darker by this and bluer;
+## up, lighter by this (of what's left) and warmer.
+const DOWN_VALUE := 0.72
+const UP_VALUE := 0.35
+const BLUE_HUE := 0.64
+const WARM_HUE := 0.11
+
+const SHADER := """
+shader_type canvas_item;
+// The light by the hour on a piece of pixel art: scripts/ui/pixel_light.gd says how.
+uniform vec2 to_stage_scale = vec2(1.0);
+uniform vec2 to_stage_offset = vec2(0.0);
+uniform float ambient = 0.0;
+uniform float lit_by_bulbs = 1.0;
+uniform vec4 bulbs[4];  // x, y (on the stage), strength in steps, reach
+uniform float brightest = 0.25;
+uniform float down_value = 0.72;
+uniform float up_value = 0.35;
+uniform float blue_hue = 0.64;
+uniform float warm_hue = 0.11;
+varying vec2 stage_at;
+
+const float BAYER[16] = float[](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+
+void vertex() {
+	stage_at = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy * to_stage_scale + to_stage_offset;
+}
+
+vec3 to_hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x);
+}
+
+vec3 to_rgb(vec3 c) {
+	vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
+
+float towards(float hue, float to, float share) {
+	return fract(hue + (fract(to - hue + 0.5) - 0.5) * share);
+}
+
+void fragment() {
+	vec4 c = texture(TEXTURE, UV) * COLOR;
+	vec3 hsv = to_hsv(c.rgb);
+	float light = 0.0;
+	for (int i = 0; i < 4; i++) {
+		vec4 b = bulbs[i];
+		if (b.z > 0.0 && b.w > 0.0) {
+			light += b.z * clamp(1.0 - distance(stage_at, b.xy) / b.w, 0.0, 1.0);
+		}
+	}
+	float steps = min(ambient + lit_by_bulbs * light, brightest);
+	// What glows by itself (bright and coloured: a lit window, the neon) keeps its light.
+	steps *= 1.0 - smoothstep(0.78, 0.92, hsv.z) * smoothstep(0.3, 0.55, hsv.y);
+	vec2 cell = floor(stage_at / 3.0);
+	int k = int(mod(cell.y, 4.0)) * 4 + int(mod(cell.x, 4.0));
+	int n = int(floor(steps + (BAYER[k] + 0.5) / 16.0));
+	for (int i = 0; i < 4; i++) {
+		if (n < 0) {
+			hsv.z *= down_value;
+			hsv.x = towards(hsv.x, blue_hue, 0.06);
+			hsv.y = min(1.0, hsv.y * 1.04);
+			n += 1;
+		} else if (n > 0) {
+			hsv.z += (1.0 - hsv.z) * up_value;
+			hsv.x = towards(hsv.x, warm_hue, 0.05);
+			hsv.y *= 0.94;
+			n -= 1;
+		}
+	}
+	COLOR = vec4(to_rgb(hsv), c.a);
+}
+"""
+
+static var _shader: Shader
+static var _materials := {}  # kind -> ShaderMaterial
+static var ambient_steps := 0.0  # tonight's, now (for the tests and the log)
+static var bulbs: Array = []  # Vector4s: x, y on the stage, strength in steps, reach
+
+
+## The material for a kind of art ("street", "tent" or "people"), shared by all of that kind.
+static func material(kind: String) -> ShaderMaterial:
+	if not _materials.has(kind):
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = SHADER
+		var made := ShaderMaterial.new()
+		made.shader = _shader
+		made.set_shader_parameter("lit_by_bulbs", float(KINDS.get(kind, 1.0)))
+		for name in ["brightest", "down_value", "up_value", "blue_hue", "warm_hue"]:
+			made.set_shader_parameter(name, float({"brightest": BRIGHTEST, "down_value": DOWN_VALUE, "up_value": UP_VALUE,
+				"blue_hue": BLUE_HUE, "warm_hue": WARM_HUE}[name]))
+		_materials[kind] = made
+	return _materials[kind]
+
+
+## A piece of art, lit by the hour.
+static func light(item: CanvasItem, kind: String) -> void:
+	item.material = material(kind)
+
+
+## How many pieces under this node are lit by the hour (for the night's stats).
+static func count_lit(node: Node) -> int:
+	var count := 1 if node is CanvasItem and (node as CanvasItem).material in _materials.values() else 0
+	for child in node.get_children(true):
+		count += count_lit(child)
+	return count
+
+
+## How a kind's pieces map onto the stage: stage = where they're drawn x scale + offset.
+static func place_kind(kind: String, scale: float, offset: Vector2) -> void:
+	material(kind).set_shader_parameter("to_stage_scale", Vector2(scale, scale))
+	material(kind).set_shader_parameter("to_stage_offset", offset)
+
+
+## The night's light now: its own (by the hour and the weather) and the bulbs' (on the stage,
+## each its strength in steps: BULB_STEPS on, 0 off).
+static func set_night(minutes: float, weather_kind: String, bulb_spots: Array, bulb_strengths: Array) -> void:
+	ambient_steps = ambient(minutes, weather_kind)
+	bulbs = []
+	for i in mini(bulb_spots.size(), MAX_BULBS):
+		var spot: Vector2 = bulb_spots[i]
+		bulbs.append(Vector4(spot.x, spot.y, float(bulb_strengths[i]) if i < bulb_strengths.size() else BULB_STEPS, BULB_REACH))
+	var packed: Array = bulbs.duplicate()
+	while packed.size() < MAX_BULBS:
+		packed.append(Vector4.ZERO)
+	for kind in KINDS:
+		material(kind).set_shader_parameter("ambient", ambient_steps)
+		material(kind).set_shader_parameter("bulbs", packed)
+
+
+## Every bulb off for now (the lights going out: tent_view.gd lights_out), the night's own light
+## as it was.
+static func bulbs_off() -> void:
+	var packed: Array = []
+	for bulb: Vector4 in bulbs:
+		packed.append(Vector4(bulb.x, bulb.y, 0.0, bulb.w))
+	bulbs = packed.duplicate()
+	while packed.size() < MAX_BULBS:
+		packed.append(Vector4.ZERO)
+	for kind in KINDS:
+		material(kind).set_shader_parameter("bulbs", packed)
+
+
+## The night's own light at this time (and in this weather), in steps.
+static func ambient(minutes: float, weather_kind: String = "") -> float:
+	var steps: float = AMBIENT.back()[1]
+	if minutes <= AMBIENT[0][0]:
+		steps = AMBIENT[0][1]
+	else:
+		for i in range(1, AMBIENT.size()):
+			if minutes <= AMBIENT[i][0]:
+				var t: float = (minutes - AMBIENT[i - 1][0]) / float(AMBIENT[i][0] - AMBIENT[i - 1][0])
+				steps = lerpf(AMBIENT[i - 1][1], AMBIENT[i][1], t)
+				break
+	return steps + float(WEATHER.get(weather_kind, 0.0))
+
+
+## The light at a spot on the stage, in steps from how it's drawn (as the shader works it out,
+## before the dither): for the tests and the log.
+static func light_at(spot: Vector2, kind: String = "tent") -> float:
+	var from_bulbs := 0.0
+	for bulb: Vector4 in bulbs:
+		if bulb.z > 0.0 and bulb.w > 0.0:
+			from_bulbs += bulb.z * clampf(1.0 - spot.distance_to(Vector2(bulb.x, bulb.y)) / bulb.w, 0.0, 1.0)
+	return minf(ambient_steps + float(KINDS.get(kind, 1.0)) * from_bulbs, BRIGHTEST)
+
+
+## A colour moved whole steps along its ramp (as the shader does): for the tests.
+static func shifted(colour: Color, steps: int) -> Color:
+	var h := colour.h
+	var s := colour.s
+	var v := colour.v
+	for i in absi(steps):
+		if steps < 0:
+			v *= DOWN_VALUE
+			h = fposmod(h + (fposmod(BLUE_HUE - h + 0.5, 1.0) - 0.5) * 0.06, 1.0)
+			s = minf(1.0, s * 1.04)
+		else:
+			v += (1.0 - v) * UP_VALUE
+			h = fposmod(h + (fposmod(WARM_HUE - h + 0.5, 1.0) - 0.5) * 0.05, 1.0)
+			s *= 0.94
+	return Color.from_hsv(h, s, v, colour.a)
+

@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const Art = preload("res://scripts/ui/art.gd")
 const TentView = preload("res://scripts/bar/tent_view.gd")
 const StreetArt = preload("res://scripts/bar/street_art.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 
 const FIXTURES := "res://tests/support/art/"  # a lucky cat, and an entry whose file's missing
@@ -77,7 +78,7 @@ func test_the_street_draws_its_pieces_on_its_own_pixel_grid_or_is_just_the_sky()
 	var shops: TextureRect = street.pieces[0]
 	assert_vector(shops.size).is_equal(shops.texture.get_size())  # (one image pixel to a grid pixel)
 	assert_vector(shops.position + Vector2(shops.size.x / 2, shops.size.y)).is_equal(Vector2(300, StreetArt.GROUND))
-	assert_that(shops.modulate).is_equal(StreetArt.NIGHT)
+	assert_that(shops.material).is_same(PixelLight.material("street"))  # (lit by the hour: the street's kind)
 	street.set_sky(Color.RED)
 	assert_that(street.sky.color).is_equal(Color.RED)
 	assert_array(Art.summary()["drawn"]).contains(["street/overpass", "street/apartments"])  # (the rest, still the stage's own city)

@@ -5,6 +5,7 @@ const TentView = preload("res://scripts/bar/tent_view.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 
 const STAGE := Vector2(1872, 380)
 
@@ -56,6 +57,22 @@ func test_the_light_follows_the_hour_the_weather_and_closing_up() -> void:
 	view.update_light(23 * 60, "", true)
 	assert_float(view.glow.color.a).is_less(full)  # closing up: dimmer...
 	assert_bool(TentView.bulb_colour(view.bulb_lights[-1]).is_equal_approx(TentView.BULB_OFF)).is_true()  # ...and the far bulb's off
+	assert_float(PixelLight.bulbs[-1].z).is_equal(0.0)  # (its light off the pixels too)
+
+
+func test_the_pixels_light_comes_from_the_hour_and_the_bulbs() -> void:
+	var view := _tent()
+	view.bulbs[0].position = Vector2(621, 111)
+	view.update_light(23 * 60, "", false)
+	assert_float(PixelLight.ambient_steps).is_equal_approx(PixelLight.ambient(23 * 60), 0.001)
+	assert_array(view.bulb_spots()).is_equal([Vector2(621, 111) + TentView.BULB_GLASS])
+	assert_float(PixelLight.bulbs[0].z).is_equal(PixelLight.BULB_STEPS)
+	var under := PixelLight.light_at(Vector2(621, 200))
+	view.lights_out(true)  # (a plant card: the lights go out)
+	assert_float(PixelLight.bulbs[0].z).is_equal(0.0)
+	assert_float(PixelLight.light_at(Vector2(621, 200))).is_less(under)
+	view.update_light(23 * 60, "", false)  # (and back on)
+	assert_float(PixelLight.light_at(Vector2(621, 200))).is_equal_approx(under, 0.001)
 
 
 func test_the_weather_falls_and_the_bulbs_swing() -> void:

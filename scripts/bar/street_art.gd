@@ -14,9 +14,6 @@ const Art = preload("res://scripts/ui/art.gd")
 const SCALE := 3  # screen pixels to a street pixel
 const PIXELS := Vector2i(624, 154)  # the grid: 1872 x 462 on screen
 const GROUND := 152  # where the buildings stand (the tent's floor line on this grid)
-## The street's a little dimmer and bluer than the tent, so what happens under the tarp stands
-## out (until the palette's light does this properly: ART.md, "How it'll work in Godot").
-const NIGHT := Color(0.72, 0.74, 0.88)
 
 ## Where the street's pieces go, back to front: the pieces that can stand there, its centre x
 ## and bottom y on the grid. The tent hides most of the street (it's where everything happens):
@@ -85,8 +82,7 @@ func show_street(bar_id: String) -> void:
 			chosen.append("")
 			continue
 		var picked := "street/" + str(choices[dice.randi_range(0, choices.size() - 1)])
-		var drawn := Art.place(sky, picked, slot["at"], "bottom", 1)
-		drawn.modulate = NIGHT
+		var drawn := Art.place(sky, picked, slot["at"], "bottom", 1)  # (lit by the hour: pixel_light.gd, the "street" kind)
 		pieces.append(drawn)
 		chosen.append(picked)
 
