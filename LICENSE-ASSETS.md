@@ -26,6 +26,22 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 | --- | --- | --- | --- |
 | `art/tents/stool_blue.png` | tent/stool_blue | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/tents/stool_red.png` | tent/stool_red | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/knife_rack.png` | touch/knife_rack | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/fishing_net.png` | touch/fishing_net | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/photos.png` | touch/photos | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/lucky_cat.png` | touch/lucky_cat | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/calendar.png` | touch/calendar | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/plants.png` | touch/plants | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/radio.png` | touch/radio | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/lanterns.png` | touch/lanterns | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/touches/string_lights.png` | touch/string_lights | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/signs/lightbox.png` | sign/lightbox | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/signs/banner.png` | sign/banner | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/signs/neon.png` | sign/neon | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/signs/wood.png` | sign/wood | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/stove.png` | tent/stove | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/odeng_pot.png` | tent/odeng_pot | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
+| `art/tents/fridge.png` | tent/fridge | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/tents/counter.png` | tent/counter | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/tarps/blue_stripes_rounded.png` | tarp/blue_stripes_rounded | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |
 | `art/tarps/blue_stripes_awning.png` | tarp/blue_stripes_awning | drawn in code by tools/art/tent.py | CC BY-SA 4.0 (this project) |

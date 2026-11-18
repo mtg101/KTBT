@@ -1,5 +1,5 @@
 """The tent's tarp in pixel art, drawn in code (ART.md: small and exact things in code, big and
-varied ones from the model). The counter and the stools; and one image for each tarp colour and shape the game offers
+varied ones from the model). The counter, the stools, the fittings, signs and touches (fittings.py); and one image for each tarp colour and shape the game offers
 (rules/bar_look.gd's BAR_TARPS and TENT_SHAPES), lit from inside by the bulbs, in the palette's
 light ramps with a dithered step between them, onto the street's pixel grid (each pixel 3 on
 screen), the same outline as the stage's code tarp (tent_view.gd tent_shape), so everything
@@ -29,6 +29,13 @@ def tarps():
     text = open(os.path.join(palette.ROOT, "scripts/rules/bar_look.gd"), encoding="utf-8").read()
     block = text[text.index("const BAR_TARPS"):text.index("}", text.index("const BAR_TARPS"))]
     return {m[0]: (m[1], m[2]) for m in re.findall(r'"(\w+)": \["([0-9a-fA-F]{6})", "([0-9a-fA-F]{0,6})"\]', block)}
+
+
+def sign_styles():
+    """The game's sign styles: {id: (board colour, text colour)}, from bar_look.gd."""
+    text = open(os.path.join(palette.ROOT, "scripts/rules/bar_look.gd"), encoding="utf-8").read()
+    block = text[text.index("const SIGN_STYLES"):text.index("}", text.index("const SIGN_STYLES"))]
+    return {m[0]: (m[1], m[2]) for m in re.findall(r'"(\w+)": \["([0-9a-fA-F]{6})", "([0-9a-fA-F]{6})"\]', block)}
 
 
 def shapes():
@@ -198,7 +205,14 @@ if __name__ == "__main__":
         for shape in shapes():
             add_to_game(lit(draw(tarp, shape)), "tarp/%s_%s" % (tarp, shape), SOURCE, LICENCE)
             n += 1
+    import fittings
     add_to_game(counter(), "tent/counter", SOURCE, LICENCE)
+    for key, image in [("tent/fridge", fittings.fridge()), ("tent/odeng_pot", fittings.odeng_pot()), ("tent/stove", fittings.stove())]:
+        add_to_game(image, key, SOURCE, LICENCE)
+    for style, colours in sign_styles().items():
+        add_to_game(fittings.sign(style, colours), "sign/" + style, SOURCE, LICENCE)
+    for touch, image in fittings.touches().items():
+        add_to_game(image, "touch/" + touch, SOURCE, LICENCE)
     add_to_game(stool("c8443a"), "tent/stool_red", SOURCE, LICENCE)
     add_to_game(stool("3a6ec8"), "tent/stool_blue", SOURCE, LICENCE)
-    print("%d tarps, the counter and two stools drawn into art/" % n)
+    print("%d tarps, the counter, stools, fittings, signs and touches drawn into art/" % n)

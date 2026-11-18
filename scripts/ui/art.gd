@@ -11,7 +11,7 @@ extends RefCounted
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
-const SCALE := 4
+const SCALE := 3
 
 ## The kinds of thing that can have art, and the ids each can have: what the game decides.
 ## More kinds come with their stage of the art (the street, people, food: PLAN.md).
@@ -20,7 +20,9 @@ static func ids(kind: String) -> Array:
 		"touch":
 			return BarLook.BAR_TOUCHES.keys()
 		"tent":  # the tent's own pieces (drawn in code by tools/art/tent.py)
-			return ["counter", "stool_red", "stool_blue"]
+			return ["counter", "stool_red", "stool_blue", "fridge", "odeng_pot", "stove"]
+		"sign":  # the sign's board, in each style (drawn in code by tools/art/fittings.py; its words stay text)
+			return BarLook.SIGN_STYLES.keys()
 		"tarp":  # the tent's cover, one for each colour and shape (drawn in code by tools/art/tent.py)
 			var tarps: Array = []
 			for tarp in BarLook.BAR_TARPS:
@@ -102,6 +104,8 @@ static func place(parent: Control, key: String, spot: Vector2, anchor: String = 
 	rect.position = (spot - Vector2(rect.size.x / 2, rect.size.y if anchor == "bottom" else 0.0)).round()
 	if anchor == "topleft":  # (spot is its top-left corner: on a grid's lines)
 		rect.position = spot
+	else:  # (onto the grid's lines, so its pixels line up with everything else's)
+		rect.position = (rect.position / scale).round() * scale
 	parent.add_child(rect, true)  # (readable names: a second lantern is Art_touch_lanterns2)
 	used[key] = "image"
 	return rect

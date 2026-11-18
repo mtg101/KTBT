@@ -8,6 +8,7 @@ const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
 ## Dishes that steam when they're set down (and any stew, pancake, grill or fried dish).
 const HOT_DISHES := ["tteokbokki", "odeng", "sundae", "dakgalbi", "pajeon", "ramyeon", "gonggibap", "bokkeumbap"]
@@ -33,6 +34,9 @@ func build_fridge(stage: Control) -> void:
 	fridge.mouse_filter = Control.MOUSE_FILTER_STOP
 	fridge.tooltip_text = Text.tip("The drinks fridge: soju, beer and makgeolli, ice cold.")
 	stage.add_child(fridge)
+	if Art.place(fridge, "tent/fridge", Vector2(0, 1), "topleft", 3) != null:  # (in pixel art: art/tents, its top on a row of the grid)
+		return
+	Art.drawn("tent/fridge")
 	Draw.rect(fridge, Vector2.ZERO, Vector2(92, 134), Color("d8dce4"))  # the cabinet
 	Draw.rect(fridge, Vector2.ZERO, Vector2(92, 14), Color("c8443a"))  # the header strip
 	Draw.rect(fridge, Vector2(6, 18), Vector2(80, 112), Color("23344a"))  # inside
@@ -73,13 +77,15 @@ func build_odeng_pot(stage: Control) -> void:
 	pot.size = Vector2(60, 32)
 	pot.tooltip_text = Text.tip("Odeng: %s" % Catalogue.find("odeng")["desc"])  # (every tent's pot, on the menu or not)
 	stage.add_child(pot)
-	for k in 4:  # skewers, at a slant
-		var skewer := Draw.rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
-		skewer.rotation = -0.2 + k * 0.12
-		Draw.rect(pot, Vector2(7 + k * 12, -2 + (k % 2) * 4), Vector2(9, 8), Color("c9a26b"))  # a folded fish cake
-	Draw.rect(pot, Vector2(0, 6), Vector2(60, 26), Color("8a8c96"))  # the pot (a square metal one)
-	Draw.rect(pot, Vector2(-3, 4), Vector2(66, 4), Color("b0b2bc"))  # its rim
-	Draw.rect(pot, Vector2(2, 8), Vector2(56, 3), Color("c9a26b", 0.8))  # the broth
+	if Art.place(pot, "tent/odeng_pot", Vector2(-3, -14), "topleft", 3) == null:  # (in pixel art: art/tents, on the grid's lines)
+		Art.drawn("tent/odeng_pot")
+		for k in 4:  # skewers, at a slant
+			var skewer := Draw.rect(pot, Vector2(10 + k * 12, -14 + (k % 2) * 4), Vector2(2, 22), Color("d8c49a"))
+			skewer.rotation = -0.2 + k * 0.12
+			Draw.rect(pot, Vector2(7 + k * 12, -2 + (k % 2) * 4), Vector2(9, 8), Color("c9a26b"))  # a folded fish cake
+		Draw.rect(pot, Vector2(0, 6), Vector2(60, 26), Color("8a8c96"))  # the pot (a square metal one)
+		Draw.rect(pot, Vector2(-3, 4), Vector2(66, 4), Color("b0b2bc"))  # its rim
+		Draw.rect(pot, Vector2(2, 8), Vector2(56, 3), Color("c9a26b", 0.8))  # the broth
 	for k in 3:  # steam, rising and fading, one puff after another
 		var puff := Draw.rect(pot, Vector2(20 + k * 10, 0), Vector2(10, 10), Color(1, 1, 1, 0.0))
 		var rise := puff.create_tween().set_loops()

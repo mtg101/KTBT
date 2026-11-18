@@ -1,4 +1,24 @@
 {
+	"sign/banner": {
+		"file": "signs/banner.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"sign/lightbox": {
+		"file": "signs/lightbox.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"sign/neon": {
+		"file": "signs/neon.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"sign/wood": {
+		"file": "signs/wood.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"street/apartments": {
 		"file": "streets/apartments.png",
 		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 1260201645, then pixelate.py: \"pixel art, flat front elevation, orthographic, perfectly straight-on, a tall plain Korean apartment block at night, many small windows in a grid, some lit warm yellow, some dark, balconies with laundry, no text, no letters, no numbers, no people, on a flat green background\"",
@@ -354,6 +374,16 @@
 		"source": "drawn in code by tools/art/tent.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"tent/fridge": {
+		"file": "tents/fridge.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/odeng_pot": {
+		"file": "tents/odeng_pot.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"tent/stool_blue": {
 		"file": "tents/stool_blue.png",
 		"source": "drawn in code by tools/art/tent.py",
@@ -361,6 +391,56 @@
 	},
 	"tent/stool_red": {
 		"file": "tents/stool_red.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"tent/stove": {
+		"file": "tents/stove.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/calendar": {
+		"file": "touches/calendar.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/fishing_net": {
+		"file": "touches/fishing_net.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/knife_rack": {
+		"file": "touches/knife_rack.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/lanterns": {
+		"file": "touches/lanterns.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/lucky_cat": {
+		"file": "touches/lucky_cat.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/photos": {
+		"file": "touches/photos.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/plants": {
+		"file": "touches/plants.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/radio": {
+		"file": "touches/radio.png",
+		"source": "drawn in code by tools/art/tent.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"touch/string_lights": {
+		"file": "touches/string_lights.png",
 		"source": "drawn in code by tools/art/tent.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	}

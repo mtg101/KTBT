@@ -4504,8 +4504,9 @@ func _build_stage(stage: Control) -> void:
 	var counter: Array = [_rect(stage, Vector2(100, 250), Vector2(w - 182, 18), Color("8a5a33"))]  # counter top
 	counter.append(_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820")))  # counter front
 	_pixel_piece(stage, "tent/counter", COUNTER_ART_AT, counter)
-	_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))  # the stove
-	_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a"))  # a flame
+	var stove: Array = [_rect(stage, Vector2(104, 244), Vector2(236, 6), Color("3a3946"))]  # the stove
+	stove.append(_rect(stage, Vector2(130, 241), Vector2(40, 3), Color("e8833a")))  # a flame
+	_pixel_piece(stage, "tent/stove", Vector2(102, 240), stove)
 	_scenery.build_odeng_pot(stage)
 	_tent_view.decor_counter = _layer(stage, "DecorCounter")
 

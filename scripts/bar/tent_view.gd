@@ -115,6 +115,7 @@ func show_look(bar: Dictionary) -> void:
 				roof_stripes.add_child(tooth)
 	var style: Array = BarLook.SIGN_STYLES.get(look["sign"], BarLook.SIGN_STYLES["wood"])
 	sign_board.color = Color(style[0])
+	_sign_art("sign/" + str(look["sign"]))
 	for label in [sign_hangul, sign_english]:
 		label.add_theme_color_override("font_color", Color(style[1]))
 		if look["sign"] == "neon":  # a glowing tube: a soft halo round the letters
@@ -149,6 +150,22 @@ func _cover_art(key: String) -> void:
 		return
 	for piece in [roof, roof_edge, roof_stripes]:
 		piece.visible = false
+
+
+## The sign's board in pixel art, in its style, if there's art for it (its words stay text over
+## it, to hover): just in front of the plain board, which is left out; one row up, so its pixels
+## sit on the street's grid.
+func _sign_art(key: String) -> void:
+	for child in sign_node.get_children():
+		if str(child.name).begins_with("Art_"):
+			sign_node.remove_child(child)
+			child.queue_free()
+	var art := Art.place(sign_node, key, Vector2(0, -1), "topleft", 3)
+	sign_board.visible = art == null
+	if art == null:
+		Art.drawn(key)
+		return
+	sign_node.move_child(art, sign_board.get_index() + 1)
 
 
 ## The outline of the tent's cover, by shape (the front edge is always at y = 112).
@@ -227,8 +244,8 @@ func add_touch(id: String) -> void:
 func touch_spots(id: String) -> Array:
 	var w := stage_size.x
 	match id:
-		"string_lights":
-			return range(40, int(w) - 40, 56).map(func(x): return [decor_roof, Vector2(x + 3, 120), "top"])
+		"string_lights":  # (the whole string, one image)
+			return [[decor_roof, Vector2(w / 2, 117), "top"]]
 		"lanterns":
 			return [330.0, w / 2, w - 330.0].map(func(x): return [decor_roof, Vector2(x, 122), "top"])
 		"radio":

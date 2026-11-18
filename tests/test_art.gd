@@ -24,9 +24,10 @@ func test_an_image_is_drawn_in_pixels_where_the_game_puts_it() -> void:
 	assert_str(cat.name).is_equal("Art_touch_lucky_cat")
 	assert_int(cat.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)  # (pixels, never smoothed)
 	assert_vector(cat.size).is_equal(cat.texture.get_size() * Art.SCALE)
-	assert_vector(cat.position + Vector2(cat.size.x / 2, cat.size.y)).is_equal(Vector2(100, 250))  # (standing on the spot)
+	assert_vector(cat.position + Vector2(cat.size.x / 2, cat.size.y)).is_equal_approx(Vector2(100, 250), Vector2(2, 2))  # (standing on the spot...)
+	assert_vector(cat.position.posmodv(Vector2(Art.SCALE, Art.SCALE))).is_equal(Vector2.ZERO)  # (...on the grid's lines)
 	var hanging := Art.place(parent, "touch/lucky_cat", Vector2(100, 120), "top")
-	assert_vector(hanging.position + Vector2(hanging.size.x / 2, 0)).is_equal(Vector2(100, 120))
+	assert_vector(hanging.position + Vector2(hanging.size.x / 2, 0)).is_equal_approx(Vector2(100, 120), Vector2(2, 2))
 	assert_array(Art.summary()["images"]).is_equal(["touch/lucky_cat"])
 
 
