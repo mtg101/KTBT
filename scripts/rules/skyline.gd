@@ -101,7 +101,7 @@ static func _windows(building: Dictionary, dice: RandomNumberGenerator) -> Array
 		for k in across:
 			var window := {"x": MARGIN + k * (WINDOW.x + WINDOW_GAP.x), "y": y, "dark_at": dice.randf(), "tv": dice.randf() < TV_CHANCE}
 			if building["kind"] == "office":  # (a district office empties early: a few on the night desk)
-				window["until"] = (27 * 60) if dice.randf() < 0.05 else (18 * 60 + dice.randf_range(30.0, 180.0))
+				window["until"] = (27.0 * 60) if dice.randf() < 0.05 else (18.0 * 60 + dice.randf_range(30.0, 180.0))
 			windows.append(window)
 		y += WINDOW.y + WINDOW_GAP.y
 	return windows

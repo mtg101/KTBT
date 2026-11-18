@@ -298,14 +298,8 @@ var _music_toggle: CheckBox
 var _options_button: Button  # the top bar's Options button...
 var _options_panel: PanelContainer  # ...and the panel it drops down
 var _captions_part: CaptionsOnScreen  # TV captions on screen: pacing, popping, the red light (scripts/bar/captions_on_screen.gd)
-var _caption_shown: Control:  # the one up now
-	get:
-		return _captions_part.shown
 var _rush_shown := false  # tonight's after-work rush has been and gone
 var _dawn_shown := false  # ...and 2am feelings
-var _red_flashes: int:  # emergencies flashed (for tests)
-	get:
-		return _captions_part.red_flashes
 ## Tonight's specials (menu ids, rules/specials.gd): marked on the menu customers see. (What's
 ## sold out tonight is Menu.sold_out.)
 var _specials: Array = []

@@ -1293,14 +1293,14 @@ func test_last_times_cliffhanger_comes_true() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._cliffhanger = {"kind": "comes_back", "who": ["Kim Jin-seok"], "teaser": "Will Jin-seok come back?", "answered": false}
-	var flashes: int = scene._red_flashes
+	var flashes: int = scene._captions_part.red_flashes
 	scene._watch_cliffhanger("sat_down", {"name": "Lee Ha-na"}, null, Vector2.ZERO)
 	assert_bool(scene._cliffhanger["answered"]).is_false()  # (someone else)
 	scene._watch_cliffhanger("sat_down", {"name": "Kim Jin-seok"}, null, Vector2.ZERO)
 	assert_bool(scene._cliffhanger["answered"]).is_true()
 	assert_str(_transcript(runner)).contains("Last time's cliffhanger, answered: \"Will Jin-seok come back?\"")
 	assert_int(int(scene._stats.captions.get("cliffhanger", 0))).is_equal(1)
-	assert_int(scene._red_flashes).is_equal(flashes + 1)  # the red light
+	assert_int(scene._captions_part.red_flashes).is_equal(flashes + 1)  # the red light
 	scene._watch_cliffhanger("sat_down", {"name": "Kim Jin-seok"}, null, Vector2.ZERO)
 	assert_int(int(scene._stats.captions.get("cliffhanger", 0))).is_equal(1)  # (once)
 	assert_str(scene._diary_facts()["cliffhanger"]["teaser"]).is_equal("Will Jin-seok come back?")
@@ -2106,12 +2106,12 @@ func test_noteworthy_moments_get_tv_captions() -> void:
 	assert_bool(await _wait_until(func(): return scene._street.passers_by == 1)).is_true()
 	assert_str(_transcript(runner)).contains("[TV] ")
 	assert_int(int(scene._stats.captions["full_house"])).is_equal(1)
-	assert_int(scene._red_flashes).override_failure_message("no red light for an emergency").is_greater_equal(1)  # (six orders at once can pile up on the stove too: a second emergency)
+	assert_int(scene._captions_part.red_flashes).override_failure_message("no red light for an emergency").is_greater_equal(1)  # (six orders at once can pile up on the stove too: a second emergency)
 	# Drawn: Hangul over the English, by the tent (at normal speed, so it's still up to look at).
 	Hooks.pause_scale_override = 1.0
 	scene._caption("stove")
 	Hooks.pause_scale_override = 0.01
-	var caption: Control = scene._caption_shown
+	var caption: Control = scene._captions_part.shown
 	assert_object(caption).is_not_null()
 	if caption != null:
 		assert_str(caption.name).is_equal("Caption")
@@ -2147,7 +2147,7 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	await scene._react(lines, names, [])
 	assert_str(_transcript(runner)).contains("SHE QUIT HER JOB?!")
 	assert_int(int(scene._stats.reactions_shown.get("shock", 0))).is_equal(1)
-	assert_array(Captions.REACTIONS["shock"]["hangul"]).contains([(scene._caption_shown.find_child("Hangul", true, false) as Label).text])
+	assert_array(Captions.REACTIONS["shock"]["hangul"]).contains([(scene._captions_part.shown.find_child("Hangul", true, false) as Label).text])
 	# Nothing special: no caption. A bad answer: dropped, not asked again.
 	CannedAi.scripted = [{"mood": "none"}]
 	await scene._react(lines, names, [])
