@@ -49,6 +49,10 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			night.owner_stunned = ""
 		else:
 			guest.stunned = ""
+	elif owner_speaks and night.owner_plant_moment != "":  # (a PD's card for the whole tent: the owner reacts too, 18 Nov)
+		direction = (night.owner_plant_moment + " " + direction).strip_edges()
+		hint = "plant_" + night.owner_plant_card
+		night.owner_plant_moment = ""  # once
 	elif line > 0 and not owner_speaks and guest.plant_moment != "":  # (a PD's plant card: it's happened to them)
 		direction = (guest.plant_moment + " " + direction).strip_edges()
 		hint = "plant_" + guest.plant_card

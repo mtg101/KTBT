@@ -173,7 +173,8 @@ func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:
 func test_a_big_moment_stays_on_their_minds_for_a_few_lines() -> void:
 	# 17 Nov: the ex walked past, and two lines on they were arguing about ramyeon.
 	assert_int(Plants.lingers("ex_walks_past")).is_equal(3)
-	assert_int(Plants.lingers("rain")).is_equal(0)
+	assert_int(Plants.lingers("ppl")).is_equal(0)  # (a plug for the sponsor: said, and on to other things)
+	assert_int(Plants.lingers("power_goes")).is_equal(2)  # (the whole tent's, 18 Nov)
 	var steer := Talk.aftermath_hint(Plants.happened("ex_walks_past", "Jang Yeon-mi", "", "arm in arm with someone new", "female"))
 	assert_str(steer).contains("A little while ago").contains("arm in arm with someone new").contains("needn't be every line")
 	var night := Night.new()
@@ -185,3 +186,16 @@ func test_a_big_moment_stays_on_their_minds_for_a_few_lines() -> void:
 	for i in 3:
 		assert_str(str(Conversation.chat_line(night, chat, "Jang Yeon-mi", "Park Joon-hyung", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).contains("arm in arm")
 	assert_str(str(Conversation.chat_line(night, chat, "Jang Yeon-mi", "Park Joon-hyung", false, guest, false, false, "", false, [0, 0, false], 0, false, dice)["direction"])).not_contains("arm in arm")
+
+
+func test_the_owner_reacts_to_a_card_for_the_whole_tent() -> void:
+	# 18 Nov: the song and the power cut, and the owner talked on about the kimchi.
+	var night := Night.new()
+	night.owner_plant_moment = "The tent's power has just cut out for a moment, then come back on."
+	night.owner_plant_card = "power_goes"
+	var guest := Someone.new()
+	var given := Conversation.owner_line(night, guest, 2, true, false)
+	assert_str(str(given["direction"])).contains("power has just cut out")
+	assert_str(str(given["hint"])).is_equal("plant_power_goes")
+	assert_str(night.owner_plant_moment).is_empty()  # (once)
+	assert_str(str(Conversation.owner_line(night, guest, 4, true, false)["direction"])).not_contains("power")

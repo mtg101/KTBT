@@ -2409,6 +2409,9 @@ func _their_turn_first(guest: Guest) -> bool:
 func _next_line(guest: Guest) -> void:
 	var i := guest.line
 	guest.moment["time"] = NightRules.clock_text(int(_clock))
+	if guest.extra_turns.has(i) and not _last_orders and guest.plant_moment != "":
+		guest.extra_turns.erase(i)  # (something's just happened to them: that comes first, the order a turn later)
+		guest.extra_turns.append(i + 2)
 	if guest.extra_turns.has(i) and not _last_orders:
 		var ordered: bool = await _extra_order(guest)
 		if ordered:
@@ -3766,6 +3769,19 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 				_plant_on(guest, card, Plants.moment(card, str(guest.customer["name"]), "", what), Plants.happened(card, "", "", what))
 			for chat in _chats:
 				chat.transcript.append({"action": Plants.happened(card, "", "", what)})
+			# The owner's in the tent too, and talks most: their next line reacts (18 Nov: the song and
+			# the power cut went by with nobody but the customers told, and they talked on).
+			_night.owner_plant_moment = Plants.moment(card, str(_owner["name"]), "", what)
+			_night.owner_plant_card = card
+			if Plants.lingers(card) > 0:  # (and it stays on everyone's minds for a few lines)
+				var steer := Talk.aftermath_hint(Plants.happened(card, "", "", what))
+				for guest in _guests:
+					if _chat_of(guest) == null:
+						guest.pd_topic = steer
+						guest.pd_topic_lines = Plants.lingers(card)
+				for chat in _chats:
+					chat.pd_topic = steer
+					chat.pd_topic_lines = Plants.lingers(card)
 			if str(data.get("fact", "")) == "":
 				_narrate(Plants.happened(card, "", "", what))
 	# The facts: what the game makes true.

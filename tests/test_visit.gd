@@ -1210,6 +1210,12 @@ func test_more_of_the_pds_plant_cards() -> void:
 	# The tent's lights go out: out for a moment, and back.
 	scene._pd.press("power_goes")
 	assert_float(scene._lights_out).is_greater(0.0)
+	# The whole tent's: the owner's next line reacts too, and it stays on everyone's minds a while.
+	assert_str(scene._night.owner_plant_moment).contains("power")
+	assert_str(scene._night.owner_plant_card).is_equal("power_goes")
+	for chat in scene._chats:
+		assert_str(chat.pd_topic).contains("still on their minds")
+		assert_int(chat.pd_topic_lines).is_equal(Plants.lingers("power_goes"))
 	assert_bool(await _wait_until(func(): return scene._lights_out <= 0.0, 5000)).is_true()
 	assert_str(_transcript(runner)).contains("The tent's lights go out")
 	assert_int(int(scene._stats.event_counts.get("plant_played", 0))).is_equal(3)
