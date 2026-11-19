@@ -108,7 +108,7 @@ func _fill_list() -> void:
 		_list.add_child(row)
 
 
-## One saved bar: its name and meaning, owner, nights, visits, takings and when it was last played.
+## One saved bar: its name and meaning, owner, nights, visits, regulars and when it was last played.
 func _bar_button(bar: Dictionary, index: int) -> Button:
 	var button := Button.new()
 	button.name = "Bar%d" % index
@@ -118,13 +118,12 @@ func _bar_button(bar: Dictionary, index: int) -> Button:
 	var visits := int(bar.get("visits", 0))
 	var nights := int(bar.get("nights", 0))
 	var regulars := Array(bar.get("regulars", [])).size()
-	button.text = "%s  (%s)\n%s (%s)  ·  %d %s, %d %s, %d %s  ·  %s  ·  last played %s" % [
+	button.text = "%s  (%s)\n%s (%s)  ·  %d %s, %d %s, %d %s  ·  last played %s" % [
 		bar.get("name", "?"), bar.get("name_meaning", ""),
 		owner_data.get("name", "?"), owner_data.get("title", ""),
 		nights, "night" if nights == 1 else "nights",
 		visits, "visit" if visits == 1 else "visits",
 		regulars, "regular" if regulars == 1 else "regulars",
-		Menu.format_won(int(bar.get("takings", 0))),
 		_when(int(bar.get("last_played", 0)))]
 	if bool(bar.get("autoplay", false)):
 		button.text += "  ·  played by autoplay"  # (a test bar: see autoplay.gd)

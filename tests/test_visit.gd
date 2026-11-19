@@ -104,12 +104,19 @@ func test_clicking_next_customer_plays_a_whole_visit() -> void:
 	assert_str(text).contains("with the free banchan")
 	assert_str(text).contains("heads back out into the night")
 	# The bill is the game's: exactly the menu prices of everything they ordered.
-	assert_int(scene._takings).is_equal(Orders.bill(scene._order))
-	assert_int(scene._takings).is_greater(0)
-	assert_str((runner.find_child("TakingsLabel") as Label).text).is_equal("Takings: %s" % Menu.format_won(scene._takings))
+	assert_int(_last_bill()).is_equal(Orders.bill(scene._order))
+	assert_int(_last_bill()).is_greater(0)
+	assert_str(text).contains("pays %s" % Menu.format_won(_last_bill()))
+	assert_object(runner.find_child("TakingsLabel")).is_null()  # (takings aren't kept: the ratings are the score, 19 Nov)
+	assert_bool(Game.bar.has("takings")).is_false()
 	# They've gone, and the counter's clear.
 	assert_array(scene._guests).is_empty()
 	assert_int(scene._table_item_count()).is_equal(0)
+
+
+## What the last customer paid (from the bar's short history of visits).
+func _last_bill() -> int:
+	return int(Game.bar["history"][-1]["bill"])
 
 
 # --- Several at once ---------------------------------------------------------------------
@@ -127,13 +134,11 @@ func test_several_customers_sit_at_once() -> void:
 	var together: bool = await _wait_until(func(): return scene._guests.size() >= 2)
 	assert_bool(together).override_failure_message("never more than one customer at a time").is_true()
 	assert_bool(await _wait_until(func(): return not scene.busy)).override_failure_message("the customers never all left").is_true()
-	# Everyone paid, and the takings are exactly their bills added up.
+	# Everyone paid their own bill.
 	var saved := SaveStore.load_bar(str(Game.bar["id"]))
 	assert_int(int(saved["visits"])).is_equal(3)
-	var bills := 0
 	for visit in saved["history"]:
-		bills += int(visit["bill"])
-	assert_int(scene._takings).is_equal(bills)
+		assert_int(int(visit["bill"])).is_equal(Orders.bill(visit["order"]))
 	assert_int(scene._table_item_count()).is_equal(0)
 
 
@@ -273,15 +278,13 @@ func test_the_owner_moves_between_customers() -> void:
 	assert_str(text).contains(") to ")
 
 
-func test_takings_add_up_over_several_visits() -> void:
-	# Covers later orders too: whatever they add partway through goes on the bill.
+func test_each_bill_covers_later_orders_over_several_visits() -> void:
+	# Whatever they add partway through goes on their bill.
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	var expected := 0
 	for visit in 4:
 		await _run_one_visit(runner)
-		expected += Orders.bill(scene._order)
-		assert_int(scene._takings).is_equal(expected)
+		assert_int(_last_bill()).is_equal(Orders.bill(scene._order))
 
 
 func test_a_bad_owner_reply_is_retried() -> void:
@@ -332,7 +335,7 @@ func test_unreachable_ollama_switches_to_offline_mode() -> void:
 	assert_bool((runner.find_child("ModeLabel") as Label).visible).is_true()
 	assert_str(_transcript(runner)).contains("switched to offline mode")
 	await _run_one_visit(runner)
-	assert_int(scene._takings).is_greater(0)
+	assert_int(_last_bill()).is_greater(0)
 
 
 func test_ollama_backend_never_falls_back() -> void:

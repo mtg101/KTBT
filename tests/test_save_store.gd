@@ -44,7 +44,7 @@ func _bar(bar_name := "Mi-sook-ne Pocha") -> Dictionary:
 func test_new_bar_starts_empty() -> void:
 	var bar := _bar()
 	assert_int(bar["version"]).is_equal(SaveStore.VERSION)
-	assert_int(bar["takings"]).is_equal(0)
+	assert_bool(bar.has("takings")).is_false()  # (not kept: the ratings are the score, 19 Nov)
 	assert_int(bar["visits"]).is_equal(0)
 	assert_array(bar["history"]).is_empty()
 	assert_str(str(bar["owner"]["name"])).is_equal("Park Mi-sook")
@@ -65,21 +65,21 @@ func test_ids_are_readable_and_unique_per_time() -> void:
 
 func test_saved_bar_loads_back_the_same() -> void:
 	var bar := _bar()
-	bar["takings"] = 41000
+	bar["visits"] = 41
 	assert_int(SaveStore.save_bar(bar)).is_equal(OK)
 	var loaded := SaveStore.load_bar(bar["id"])
 	assert_str(str(loaded["name"])).is_equal("Mi-sook-ne Pocha")
 	assert_str(str(loaded["name_meaning"])).is_equal("Mi-sook's family's tent")
 	assert_str(str(loaded["owner"]["title"])).is_equal("Ajumma")
-	assert_int(loaded["takings"]).is_equal(41000)
+	assert_int(loaded["visits"]).is_equal(41)
 
 
 func test_whole_numbers_come_back_as_whole_numbers() -> void:
-	# JSON stores every number as a decimal; the game expects ints for money and ages.
+	# JSON stores every number as a decimal; the game expects ints for counts and ages.
 	var bar := _bar()
 	SaveStore.save_bar(bar)
 	var loaded := SaveStore.load_bar(bar["id"])
-	assert_int(typeof(loaded["takings"])).is_equal(TYPE_INT)
+	assert_int(typeof(loaded["visits"])).is_equal(TYPE_INT)
 	assert_int(typeof(loaded["owner"]["age"])).is_equal(TYPE_INT)
 
 
@@ -93,9 +93,9 @@ func test_saving_leaves_no_temporary_file() -> void:
 func test_saving_again_replaces_the_old_save() -> void:
 	var bar := _bar()
 	SaveStore.save_bar(bar)
-	bar["takings"] = 99000
+	bar["visits"] = 99
 	SaveStore.save_bar(bar)
-	assert_int(SaveStore.load_bar(bar["id"])["takings"]).is_equal(99000)
+	assert_int(SaveStore.load_bar(bar["id"])["visits"]).is_equal(99)
 	assert_int(SaveStore.list_bars().size()).is_equal(1)
 
 
@@ -133,12 +133,13 @@ func test_list_is_empty_when_there_are_no_saves() -> void:
 	assert_array(SaveStore.list_bars()).is_empty()
 
 
-func test_recording_a_visit_adds_takings_and_history() -> void:
+func test_recording_a_visit_adds_a_visit_and_history() -> void:
 	var bar := _bar()
 	SaveStore.record_visit(bar, {"customer": "Kim Ji-ho", "bill": 17000})
 	SaveStore.record_visit(bar, {"customer": "Lee Min-ji", "bill": 12000})
 	assert_int(bar["visits"]).is_equal(2)
-	assert_int(bar["takings"]).is_equal(29000)
+	assert_bool(bar.has("takings")).is_false()
+	assert_int(int(bar["history"][0]["bill"])).is_equal(17000)  # (what they paid, as a record)
 	assert_str(str(bar["history"][1]["customer"])).is_equal("Lee Min-ji")
 
 
@@ -159,8 +160,8 @@ func test_new_bar_has_had_no_nights() -> void:
 
 func test_recording_a_night_counts_it_and_logs_it() -> void:
 	var bar := _bar()
-	SaveStore.record_night(bar, {"night": 1, "customers": 7, "takings": 98000})
-	SaveStore.record_night(bar, {"night": 2, "customers": 9, "takings": 121000})
+	SaveStore.record_night(bar, {"night": 1, "customers": 7})
+	SaveStore.record_night(bar, {"night": 2, "customers": 9})
 	assert_int(bar["nights"]).is_equal(2)
 	assert_int(int(bar["night_log"][1]["customers"])).is_equal(9)
 
@@ -207,5 +208,5 @@ func test_diary_entries_are_kept_one_per_night() -> void:
 
 func test_a_bar_with_no_id_is_never_written() -> void:
 	# (What's left of a bar closed mid-visit: a few counts, no id. Saving it must not crash.)
-	assert_int(SaveStore.save_bar({"takings": 12000, "visits": 1})).is_equal(ERR_INVALID_PARAMETER)
+	assert_int(SaveStore.save_bar({"nights": 2, "visits": 1})).is_equal(ERR_INVALID_PARAMETER)
 	assert_array(SaveStore.list_bars()).is_empty()

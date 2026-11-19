@@ -68,7 +68,7 @@ func test_customers_arrive_without_clicking() -> void:
 	var served: bool = await _wait_until(func(): return scene._night_visits >= 1, NIGHT_TIMEOUT_MS)
 	assert_bool(served).override_failure_message("nobody turned up on their own").is_true()
 	assert_int(int(Game.bar["visits"])).is_greater_equal(1)
-	# The ratings so far, beside the takings, as things happen (the final one's at 3am).
+	# The ratings so far, in the top bar, as things happen (the final one's at 3am).
 	assert_str((runner.find_child("RatingsLabel") as Label).text).starts_with("시청률 ").ends_with(" so far")
 
 
@@ -114,7 +114,7 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_float(float(entry["ratings"]["rating"])).is_greater(0.0)
 	assert_str(page.ratings_text()).starts_with("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
 	assert_str((page.find_child("Ratings", true, false) as Label).tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")  # (Text.tip wraps it)
-	# And beside the takings, all night: so far, then tonight's (its own section in the stats too).
+	# And in the top bar, all night: so far, then tonight's (its own section in the stats too).
 	var beside := runner.find_child("RatingsLabel") as Label
 	assert_str(beside.text).is_equal("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
 	assert_str(beside.tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")
@@ -150,7 +150,7 @@ func test_the_finished_night_is_saved() -> void:
 	var entry: Dictionary = saved["night_log"][0]
 	assert_int(int(entry["night"])).is_equal(1)
 	assert_int(int(entry["customers"])).is_equal(scene._night_visits)
-	assert_int(int(entry["takings"])).is_equal(scene._night_takings)
+	assert_bool(entry.has("takings")).is_false()  # (not kept: the ratings are the score, 19 Nov)
 	assert_float(float(entry["ratings"])).is_equal_approx(float(scene._night_ratings["rating"]), 0.001)  # (for the next nights' nudge)
 	assert_str(str(scene._stats.story["ratings_text"])).starts_with("%.1f%%" % float(entry["ratings"]))
 

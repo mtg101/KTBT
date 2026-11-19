@@ -929,7 +929,7 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		if str(person.get("ordered", "")) != "":
 			about.append("had " + str(person["ordered"]))
 		who.append("%s (%s)" % [bits, ", ".join(about)])
-	lines.append("- %d customers: %s." % [int(facts.get("customers", people.size())), "; ".join(who) if not who.is_empty() else "nobody"])
+	lines.append("- %d customers%s: %s." % [int(facts.get("customers", people.size())), (" (%s)" % facts["busy_vs_usual"]) if str(facts.get("busy_vs_usual", "")) != "" else "", "; ".join(who) if not who.is_empty() else "nobody"])
 	if str(facts.get("busiest", "")) != "":
 		lines.append("- Busiest at %s." % facts["busiest"])
 	var cliff: Dictionary = facts.get("cliffhanger", {})
@@ -967,7 +967,6 @@ static func diary_facts_text(facts: Dictionary) -> String:
 		lines.append("- %s, the cat, stole an odeng skewer off %s's plate and ran off with it." % [facts.get("cat", "The cat"), robbed])
 	if int(facts.get("walked_on", 0)) > 0:
 		lines.append("- %d %s had to walk on: every stool was taken." % [int(facts["walked_on"]), "person" if int(facts["walked_on"]) == 1 else "people"])
-	lines.append("- Takings: %s%s." % [facts.get("takings", ""), (", " + str(facts["takings_vs_usual"])) if str(facts.get("takings_vs_usual", "")) != "" else ""])
 	if not pronouns.is_empty():
 		# (Without these, a small model guesses, and gets women's names wrong: "Jin-sook... he".)
 		var each := PackedStringArray()

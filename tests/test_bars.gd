@@ -2,6 +2,7 @@ extends "res://tests/support/bar_test.gd"
 ## Click-through tests for bars and saves: the title screen, new and saved bars, and
 ## autosave. Like test_visit.gd, these use offline mode and their own save folder.
 
+const Orders = preload("res://scripts/rules/orders.gd")
 const Visit = preload("res://scripts/visit.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -31,10 +32,10 @@ func _wait_for_scene(scene_path: String) -> bool:
 	return await _wait_until(func(): return Game.requested_scene == scene_path, 3000)
 
 
-## A saved bar with this name and takings, written straight to the test folder.
-func _saved_bar(bar_name: String, takings: int, last_played := 0) -> Dictionary:
+## A saved bar with this name and this many visits, written straight to the test folder.
+func _saved_bar(bar_name: String, visits: int, last_played := 0) -> Dictionary:
 	var bar := SaveStore.new_bar(bar_name, "A test tent", OWNER_DATA)
-	bar["takings"] = takings
+	bar["visits"] = visits
 	SaveStore.save_bar(bar)
 	if last_played > 0:
 		# save_bar stamps "now"; rewrite the file to fake an older or newer last visit.
@@ -72,14 +73,15 @@ func test_title_says_when_there_are_no_bars() -> void:
 
 
 func test_title_lists_saved_bars_newest_first() -> void:
-	_saved_bar("Golmok Pocha", 12000, 1000)
-	_saved_bar("Sarang Pocha", 34000, 2000)
+	_saved_bar("Golmok Pocha", 12, 1000)
+	_saved_bar("Sarang Pocha", 34, 2000)
 	var runner := scene_runner(TITLE)
 	var first := runner.find_child("Bar0") as Button
 	var second := runner.find_child("Bar1") as Button
 	assert_str(first.text).contains("Sarang Pocha")
 	assert_str(first.text).contains("Kim Sung-ho (Ajusshi)")
-	assert_str(first.text).contains(Menu.format_won(34000))
+	assert_str(first.text).contains("34 visits")
+	assert_str(first.text).not_contains("₩")  # (takings aren't kept: 19 Nov)
 	assert_str(second.text).contains("Golmok Pocha")
 
 
@@ -93,7 +95,7 @@ func test_title_shows_nights_and_visits() -> void:
 
 
 func test_a_bars_diary_can_be_read_from_the_title() -> void:
-	_saved_bar("Golmok Pocha", 12000, 1000)  # no diary yet: no Diary button
+	_saved_bar("Golmok Pocha", 12, 1000)  # no diary yet: no Diary button
 	var bar := SaveStore.new_bar("Sarang Pocha", "A test tent", OWNER_DATA)
 	for night in [1, 2, 3]:
 		SaveStore.record_diary(bar, {"night": night, "episode": night, "day": "Friday", "weather": "rain", "text": "Night %d was a night." % night, "stamp": "soju"})
@@ -116,8 +118,8 @@ func test_a_bars_diary_can_be_read_from_the_title() -> void:
 
 
 func test_deleting_a_bar_takes_two_clicks() -> void:
-	_saved_bar("Golmok Pocha", 12000, 1000)
-	_saved_bar("Sarang Pocha", 34000, 2000)
+	_saved_bar("Golmok Pocha", 12, 1000)
+	_saved_bar("Sarang Pocha", 34, 2000)
 	var runner := scene_runner(TITLE)
 	await _click(runner, runner.find_child("Delete0"))
 	# One click only asks: nothing's gone yet.
@@ -138,12 +140,12 @@ func test_new_bar_button_starts_a_new_bar() -> void:
 
 
 func test_clicking_a_saved_bar_opens_it() -> void:
-	var saved := _saved_bar("Byeolbit Pocha", 20000)
+	var saved := _saved_bar("Byeolbit Pocha", 20)
 	var runner := scene_runner(TITLE)
 	await _click(runner, runner.find_child("Bar0"))
 	assert_bool(await _wait_for_scene(VISIT)).override_failure_message("clicking the bar didn't ask for the visit scene").is_true()
 	assert_str(str(Game.bar.get("id", ""))).is_equal(saved["id"])
-	assert_int(int(Game.bar["takings"])).is_equal(20000)
+	assert_int(int(Game.bar["visits"])).is_equal(20)
 
 
 # --- New bars ------------------------------------------------------------------------------
@@ -206,27 +208,25 @@ func test_each_visit_is_saved() -> void:
 	await _run_one_visit(runner)
 	var saved := SaveStore.load_bar(Game.bar["id"])
 	assert_int(saved["visits"]).is_equal(1)
-	assert_int(saved["takings"]).is_equal(scene._takings)
+	assert_bool(saved.has("takings")).is_false()
 	assert_int(saved["history"].size()).is_equal(1)
 	assert_str(str(saved["history"][0]["customer"])).is_equal(str(scene._customer["name"]))
-	assert_int(int(saved["history"][0]["bill"])).is_equal(scene._takings)
+	assert_int(int(saved["history"][0]["bill"])).is_equal(Orders.bill(scene._order))
 
 
 # --- Saved bars ----------------------------------------------------------------------------
 
-func test_a_saved_bar_reopens_with_its_owner_and_takings() -> void:
-	var saved := _saved_bar("Dalbit Pojangmacha", 50000)
+func test_a_saved_bar_reopens_with_its_owner_and_visits() -> void:
+	var saved := _saved_bar("Dalbit Pojangmacha", 50)
 	Game.bar = SaveStore.load_bar(saved["id"])
 	var runner := await _open_visit()
 	var scene = runner.scene()
 	assert_str(str(scene._owner["name"])).is_equal("Kim Sung-ho")
-	assert_str((runner.find_child("TakingsLabel") as Label).text).is_equal("Takings: %s" % Menu.format_won(50000))
 	assert_str((runner.find_child("BarName") as Label).text).contains("Dalbit Pojangmacha")
 	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("again for the night")
-	# Takings carry on from where they were, and the save keeps up.
+	# Visits carry on from where they were, and the save keeps up.
 	await _run_one_visit(runner)
-	assert_int(scene._takings).is_greater(50000)
-	assert_int(SaveStore.load_bar(saved["id"])["takings"]).is_equal(scene._takings)
+	assert_int(int(SaveStore.load_bar(saved["id"])["visits"])).is_equal(51)
 
 
 func test_reopening_a_bar_doesnt_invent_a_new_owner() -> void:
@@ -409,11 +409,11 @@ func test_closing_early_sees_everyone_off_first() -> void:
 
 
 func test_closing_the_window_saves_the_bar() -> void:
-	var saved := _saved_bar("Saebyeok Pocha", 1000)
+	var saved := _saved_bar("Saebyeok Pocha", 10)
 	Game.bar = SaveStore.load_bar(saved["id"])
-	Game.bar["takings"] = 77000
+	Game.bar["visits"] = 77
 	Game.notification(NOTIFICATION_WM_CLOSE_REQUEST)
-	assert_int(SaveStore.load_bar(saved["id"])["takings"]).is_equal(77000)
+	assert_int(int(SaveStore.load_bar(saved["id"])["visits"])).is_equal(77)
 
 
 func test_a_bar_saved_before_hangul_names_gets_them() -> void:

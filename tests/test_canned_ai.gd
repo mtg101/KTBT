@@ -216,7 +216,7 @@ func test_the_canned_recap_passes_the_rules() -> void:
 
 
 func test_the_canned_diary_passes_the_rules() -> void:
-	var facts := {"episode": 1, "day": "Friday", "weather": "a clear, cold night", "owner": "Park Mi-sook", "customers": 3, "takings": "₩61,000",
+	var facts := {"episode": 1, "day": "Friday", "weather": "a clear, cold night", "owner": "Park Mi-sook", "customers": 3,
 		"people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [], "ordered": ["soju"], "cat": "Mandu", "cat_laps": ["Kim Ji-ho"]}
 	var reply: Dictionary = _canned.reply({"purpose": "diary", "facts": facts})
 	assert_str(Story.validate_diary(reply, facts)).is_empty()

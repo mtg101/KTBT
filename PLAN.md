@@ -34,24 +34,25 @@ Every list item is a **bold label**, a colon, then the details.
 - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
 - **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
 - **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
-- **Resume mid-night:** a night you quit by closing the window isn't counted, and reopening starts it again at 6pm (Close the bar does count). Saving the clock, weather and takings would let it carry on.
+- **Resume mid-night:** a night you quit by closing the window isn't counted, and reopening starts it again at 6pm (Close the bar does count). Saving the clock and weather would let it carry on.
 - **A better memorable line:** the summary quotes the longest line; the AI could pick it, or the game could favour lines with drama.
 - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
 - **Non-binary owners:** the owner's title (Ajumma, Ajusshi) depends on gender; a non-binary owner needs one that works (perhaps Sajangnim, boss).
 
 ### An actual game or experience
 
-- **A reason to play:** nothing's at stake yet: the ratings change nothing and the takings buy nothing. Something small first: a season of ten episodes where the ratings decide renewal, with a finale; or takings that buy things for the tent (a touch, a new dish, a sixth stool).
+- **A reason to play:** the ratings are the score (takings aren't kept), but nothing's at stake yet: they change nothing. Something small first: a season of ten episodes where the ratings decide renewal, with a finale
 - **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
+- **ratings, seasons & platforms (never losing):** There are different levels of platforms: from basic sharing on social media, through monetized video platforms, into broadcast tv and even up to prime time. If you do well in a season ratins you move up, if you do badly you move down. But ou can always keep going on the lowest level, never being taken off air, and never losing your story and regulars. 
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
 - **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own bar; and settings like time speed and weather.
 
 ### Presentation
 
-- **Portraits:** a picture of each character (for the hover or the diary). The game decides how everyone looks; the AI never draws anyone directly.
-  - **Pre-generated (the likely one):** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
-  - **Mixed:** regulars get their own portrait made between nights.
-  - **Live (not planned):** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
+- **Portraits:** a picture of each character (for the hover or the diary).
+  - **Pre-generated:** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
+  - **Mixed (probably the right balance):** regulars get their own portrait made between nights.
+  - **Live:** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
 - **Ambience (sound and animation):** the first version's built, all made in code, driven by game facts (weather, time, what's cooking, how busy). What's left:
   - **Ambient sound:** real recordings in place of the code-made placeholders, most synthetic first (the murmur, the pour, the cat, the cash tin), then rain, traffic and the rest. CC0: Freesound (filter by licence), Kenney's audio packs; logged in `CREDITS.md`. Each sound is one entry in `ambience.gd`.
   - **Music:** Arirang, arranged in code, is the placeholder; later a real recording or arrangement (public domain performed for the project, or CC0), and the old radio playing in bars that have one.

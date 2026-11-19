@@ -23,6 +23,12 @@ func test_an_old_bar_gets_what_the_game_can_fill_in_once() -> void:
 	assert_str(str(with_cat["cat"]["former_name"])).is_equal("Ji-eun")
 	assert_str(str(with_cat["cat"]["hangul"])).is_equal(str(CatRules.CAT_NICKNAMES[with_cat["cat"]["name"]]["hangul"]))
 	assert_array(SaveUpgrades.upgrade(with_cat)).is_empty()
+	# A bar from when takings were kept: they go (the ratings are the score, 19 Nov), once.
+	var with_takings := {"id": "rich-pocha", "owner": bar["owner"], "takings": 412000, "night_log": [{"night": 1, "customers": 9, "takings": 98000}]}
+	assert_array(SaveUpgrades.upgrade(with_takings)).is_equal(["takings"])
+	assert_bool(with_takings.has("takings")).is_false()
+	assert_dict(with_takings["night_log"][0]).is_equal({"night": 1, "customers": 9})
+	assert_array(SaveUpgrades.upgrade(with_takings)).is_empty()
 
 
 func test_what_an_old_bar_still_needs_the_ai_for() -> void:

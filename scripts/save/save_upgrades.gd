@@ -17,7 +17,7 @@ const Bonds = preload("res://scripts/rules/bonds.gd")
 
 
 ## What the game fills in itself, without the AI. Returns what it filled in ([]: nothing):
-## "owner_look", "owner_life", "cat_nickname", "bonds". (The game's dice, in the order they always were:
+## "owner_look", "owner_life", "cat_nickname", "bonds", "takings" (dropped). (The game's dice, in the order they always were:
 ## the look first; the cat's nickname needs none.)
 static func upgrade(bar: Dictionary) -> Array:
 	var changed: Array = []
@@ -35,6 +35,11 @@ static func upgrade(bar: Dictionary) -> Array:
 		changed.append("cat_nickname")
 	if Bonds.upgrade(bar):  # regulars from before bonds (no dice)
 		changed.append("bonds")
+	if bar.has("takings"):  # a bar from when takings were kept (they aren't: the ratings are the score, 19 Nov)
+		bar.erase("takings")
+		for night in bar.get("night_log", []):
+			night.erase("takings")
+		changed.append("takings")
 	return changed
 
 

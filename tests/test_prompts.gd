@@ -414,7 +414,7 @@ func test_founding_regular_prompt_has_the_games_facts() -> void:
 
 func test_the_diary_prompt_has_the_nights_facts() -> void:
 	var facts := {"episode": 12, "day": "Friday", "weather": "the first snow of winter", "owner": "Park Mi-sook", "customers": 14,
-		"takings": "₩412,000", "takings_vs_usual": "better than usual", "busiest": "10:40pm, with 5 at the counter",
+		"busy_vs_usual": "busier than usual", "busiest": "10:40pm, with 5 at the counter",
 		"people": [{"name": "Kim Ji-ho", "job": "nurse", "regular": "a regular", "ordered": "Soju"}], "missing": ["Hwang Tae-oh"],
 		"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT HER JOB?!", "said": "I quit today."}],
 		"friendlier": ["Kim Ji-ho and Lee Da-eun are on \"eonni\" terms now"], "new_regulars": ["Kim Ji-ho"], "cat": "Mandu",
@@ -422,13 +422,13 @@ func test_the_diary_prompt_has_the_nights_facts() -> void:
 	var text := _request(Prompts.diary_messages(_owner_data(), facts))
 	for bit in ["episode 12", "Friday, the first snow of winter", "Kim Ji-ho (nurse, a regular, had Soju)", "SHE QUIT HER JOB?!", "I quit today.",
 			"Hwang Tae-oh, a regular, didn't come in", "\"eonni\" terms", "looks like becoming a regular", "Mandu, the cat, sat on Kim Ji-ho's lap",
-			"2 people had to walk on", "₩412,000, better than usual", "first person", "\"entry\"", "no numbers but the ones above"]:
+			"2 people had to walk on", "14 customers (busier than usual)", "first person", "\"entry\"", "no numbers but the ones above"]:
 		assert_str(text).contains(bit)
 
 
 func test_the_recap_prompt_tells_last_time() -> void:
 	var facts := {"episode": 13, "bar": "Donghwa Pocha", "owner_data": _owner_data(), "last_entry": "Ji-ho quit. Tae-oh didn't come.",
-		"last": {"day": "Friday", "weather": "snow", "customers": 9, "takings": "₩300,000", "people": [], "missing": ["Hwang Tae-oh"]},
+		"last": {"day": "Friday", "weather": "snow", "customers": 9, "people": [], "missing": ["Hwang Tae-oh"]},
 		"memories": ["Lee Da-eun, a regular: nervous about her exam."]}
 	var text := _request(Prompts.recap_messages(facts))
 	for bit in ["Donghwa Pocha", "Episode 13", "Previously on", "Ji-ho quit. Tae-oh didn't come.", "Hwang Tae-oh, a regular, didn't come in",

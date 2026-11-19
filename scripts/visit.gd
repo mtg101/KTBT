@@ -207,7 +207,6 @@ signal _frame_done
 
 var _ai: Ai
 var _owner := {}
-var _takings := 0
 
 # Who's here and what the owner's doing
 var _guests: Array = []  # Guest: whoever's on a stool
@@ -380,7 +379,6 @@ var _night_weather := ""
 var _clock := float(NightRules.OPEN_MINUTES)  # game minutes since midnight at the start of the night
 var _next_arrival := 0.0
 var _night_visits := 0
-var _night_takings := 0
 var _night_lines: Array = []  # what customers said tonight, for the summary
 ## Tonight's events (see night_events.gd): announced once each, and listened to by the stats,
 ## the TV captions and (from its list) the owner's diary.
@@ -408,7 +406,6 @@ var _stats_view: StatsPanel  # what the stats panel shows, in its tabs (scripts/
 var _log_panel: PanelContainer
 var _moment_label: Label
 var _mode_label: Label
-var _takings_label: Label
 ## The autopilot PD (an autoplay batch only: see autopilot.gd), or null: a player's at the desk.
 var _autopilot: Autopilot = null
 var _ratings_label: Label  # 시청률: tonight's so far, the final at 3am, or last time's (see _update_ratings)
@@ -480,13 +477,11 @@ func _ready() -> void:
 		_open_saved_bar()
 
 
-## A bar from a save: its owner is back behind the counter, and the takings carry on.
+## A bar from a save: its owner is back behind the counter.
 func _open_saved_bar() -> void:
 	if not SaveUpgrades.upgrade(Game.bar).is_empty():  # a bar saved by an older version: what the game fills in itself, once
 		Game.save()
 	_owner = Game.bar["owner"].duplicate(true)
-	_takings = int(Game.bar.get("takings", 0))
-	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
 	_show_bar_name()
 	_show_look()
 	_people_view.dress(_owner_node, _owner_look())
@@ -1095,7 +1090,6 @@ func _start_night() -> void:
 	_narrate_board()
 	_clock = float(NightRules.OPEN_MINUTES)
 	_night_visits = 0
-	_night_takings = 0
 	_night_lines = []
 	_stats = NightStats.new()
 	_camera = PdCamera.new()
@@ -1354,19 +1348,18 @@ func _end_night() -> void:
 	_rate_night()
 	SaveStore.record_night(Game.bar, {
 		"night": _night_number, "day": _night_day, "weather": _night_weather,
-		"customers": _night_visits, "takings": _night_takings,
+		"customers": _night_visits,
 		"ratings": float(_night_ratings["rating"]),
 		"line": line.duplicate(),
 		"when": int(Time.get_unix_time_from_system()),
 	})
 	Game.save()
-	_narrate("%s. %s pulls down the tarp and counts the takings." % [NightRules.clock_text(int(_clock)), _owner_display()])
+	_narrate("%s. %s pulls down the tarp and stacks the stools." % [NightRules.clock_text(int(_clock)), _owner_display()])
 	_update_clock_label()
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
-	t += "%d %s  ·  %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers", Menu.format_won(_night_takings)]
-	t += "TV ratings %s  ·  %s\n" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]
-	t += "[color=#%s]%s in total[/color]" % [MUTED.to_html(false), Menu.format_won(_takings)]
+	t += "%d %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers"]
+	t += "[b]TV ratings %s[/b]  ·  %s" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]  # (the night's score: takings aren't kept)
 	if not line.is_empty():
 		t += "\n\n[i][color=#%s]\"%s\"[/color][/i]\n[color=#%s]%s[/color]" % [OWNER_TEXT.to_html(false), _esc(line["text"]), MUTED.to_html(false), _esc(line["speaker"])]
 	t += "[/center]\n\n" + _stats.panel_text(0, 0)
@@ -1445,7 +1438,7 @@ func _autopilot_did(what: String) -> void:
 		_stats.autopilot = _autopilot.counts.duplicate(true)
 
 
-## The 시청률 beside the takings: tonight's so far (worked out as at 3am, before the luck, as
+## The 시청률 in the top bar: tonight's so far (worked out as at 3am, before the luck, as
 ## things happen), tonight's once it's rated, or, before a night, last time's. Its hover says what
 ## ratings are and where the number comes from; the stats panel's RATINGS section has the rest.
 func _update_ratings() -> void:
@@ -1533,8 +1526,8 @@ func _validate_diary(data: Variant, facts: Dictionary) -> String:
 func _diary_facts() -> Dictionary:
 	return Story.diary_facts(_events.timeline, {
 		"episode": _night_number, "day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]), "date": _date_words(),
-		"owner_gender": str(_owner.get("gender", "")), "customers": _night_visits, "takings": _night_takings,
-		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("takings", 0))),
+		"owner_gender": str(_owner.get("gender", "")), "customers": _night_visits,
+		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("customers", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
 		"cat": str(_cat.get("name", "")), "line": _night_quote(), "specials": _specials.duplicate(),
 		"pinned": [] if _pd == null else _pd.pins.map(func(p): return {"speaker": str(p["speaker"]), "text": str(p["text"]), "at": int(p.get("at", -1))}),
@@ -2749,10 +2742,7 @@ func _settle_up(guest: Guest) -> void:
 		"when": int(Time.get_unix_time_from_system()),
 	})
 	Game.save()
-	_takings = int(Game.bar["takings"])
-	_takings_label.text = "Takings: %s" % Menu.format_won(_takings)
 	_night_visits += 1
-	_night_takings += bill
 	var standing := ""
 	var known := _regular(str(guest.customer.get("regular_id", "")))
 	if not known.is_empty():
@@ -4750,12 +4740,6 @@ func _build_ui() -> void:
 	_moment_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_moment_label.clip_text = true
 	bar.add_child(_moment_label)
-
-	_takings_label = Label.new()
-	_takings_label.name = "TakingsLabel"
-	_takings_label.text = "Takings: %s" % Menu.format_won(0)
-	_takings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.add_child(_takings_label)
 
 	_ratings_label = Label.new()
 	_ratings_label.name = "RatingsLabel"

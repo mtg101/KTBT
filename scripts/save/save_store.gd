@@ -6,7 +6,7 @@ extends RefCounted
 ## swapped in, so a crash mid-save can't corrupt a bar. If a crash leaves only the .tmp
 ## file, loading uses it.
 ##
-## A bar: {version, id, name, name_meaning, owner, takings, visits, history, created,
+## A bar: {version, id, name, name_meaning, owner, visits, history, created,
 ## last_played}. history holds a short summary of each visit (newest last), kept to
 ## HISTORY_LIMIT entries; later stages (regulars) will build on it.
 
@@ -29,7 +29,6 @@ static func new_bar(bar_name: String, meaning: String, owner_data: Dictionary) -
 		"name": bar_name,
 		"name_meaning": meaning,
 		"owner": owner_data.duplicate(true),
-		"takings": 0,
 		"visits": 0,
 		"nights": 0,
 		"first_day": 4,  # 0 = Monday; the visit scene picks a random one for a new bar
@@ -119,10 +118,10 @@ static func list_bars() -> Array:
 	return bars
 
 
-## Adds a finished visit to the bar: takings, visit count and a short history entry.
+## Adds a finished visit to the bar: the visit count and a short history entry (what they had and
+## paid, as a record: the bar's takings aren't kept, 19 Nov).
 static func record_visit(bar: Dictionary, summary: Dictionary) -> void:
 	bar["visits"] = int(bar.get("visits", 0)) + 1
-	bar["takings"] = int(bar.get("takings", 0)) + int(summary.get("bill", 0))
 	var history: Array = bar.get("history", [])
 	history.append(summary.duplicate(true))
 	while history.size() > HISTORY_LIMIT:
@@ -164,7 +163,7 @@ static func _read(path: String) -> Dictionary:
 		if not data.has(key):
 			return {}
 	# JSON has no integers, so whole numbers come back as floats: put them back.
-	for key in ["version", "takings", "visits", "nights", "first_day", "first_date", "snowed_winter", "created", "last_played"]:
+	for key in ["version", "visits", "nights", "first_day", "first_date", "snowed_winter", "created", "last_played"]:
 		if data.has(key):
 			data[key] = int(data[key])
 	if data["owner"] is Dictionary and data["owner"].has("age"):

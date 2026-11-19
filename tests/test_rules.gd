@@ -1823,7 +1823,7 @@ func test_cravings_only_say_what_is_true() -> void:
 
 
 func test_the_diary_may_mention_tonights_specials() -> void:
-	var facts := {"people": [], "ordered": ["soju"], "specials": ["pajeon", "makgeolli"], "customers": 0, "takings": "₩0", "owner": "Park Mi-sook"}
+	var facts := {"people": [], "ordered": ["soju"], "specials": ["pajeon", "makgeolli"], "customers": 0, "owner": "Park Mi-sook"}
 	var problem := Story.validate_diary({"entry": "Rain all night, and I had the pajeon ready for anyone who wanted it. Nobody did. Still, the soju went, and the tarp held up fine until close."}, facts)
 	assert_str(problem).not_contains("nobody ordered")
 	assert_str(Prompts.diary_facts_text(facts)).contains("Tonight's specials: Pajeon and Makgeolli.")
@@ -1903,7 +1903,7 @@ func test_a_greedy_cat_steals_fish_cakes() -> void:
 
 
 func test_closing_early_goes_in_the_diary() -> void:
-	var facts := Story.diary_facts([], {"day": "Friday", "weather": "rain", "owner": "Park Mi-sook", "customers": 0, "takings": 0, "closed_early": "11:42pm"})
+	var facts := Story.diary_facts([], {"day": "Friday", "weather": "rain", "owner": "Park Mi-sook", "customers": 0, "closed_early": "11:42pm"})
 	assert_str(str(facts["closed_early"])).is_equal("11:42pm")
 	assert_str(Prompts.diary_facts_text(facts)).contains("The owner closed up early, at 11:42pm.")
 	assert_str(Story.diary_stamp(facts)).is_equal("early")
@@ -2349,7 +2349,7 @@ func test_names_in_western_order_are_turned_round() -> void:
 
 func _diary_facts() -> Dictionary:
 	return {"episode": 12, "day": "Friday", "weather": "the first snow of winter", "owner": "Park Mi-sook",
-		"customers": 14, "takings": "₩412,000", "takings_vs_usual": "better than usual", "busiest": "10:40pm, with 5 at the counter",
+		"customers": 14, "busy_vs_usual": "busier than usual", "busiest": "10:40pm, with 5 at the counter",
 		"people": [{"name": "Kim Ji-ho", "job": "nurse", "regular": "a regular", "ordered": "Soju, Tteokbokki", "order_ids": ["soju", "tteokbokki"]}],
 		"missing": ["Hwang Tae-oh"], "not_here": ["Lee Da-eun"],
 		"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT HER JOB?!", "said": "I quit today."}],
@@ -2359,7 +2359,7 @@ func _diary_facts() -> Dictionary:
 
 func test_the_diary_keeps_to_the_nights_facts() -> void:
 	var facts := _diary_facts()
-	var good := {"entry": "\"First snow, and the stools full by 10:40pm. Ji-ho finally said it: she quit. I gave her extra tteokbokki and pretended not to see her face. Tae-oh didn't come, the old goat. ₩412,000, a good Friday.\""}
+	var good := {"entry": "\"First snow, and the stools full by 10:40pm. Ji-ho finally said it: she quit. I gave her extra tteokbokki and pretended not to see her face. Tae-oh didn't come, the old goat. 14 of them, a good Friday.\""}
 	assert_str(Story.validate_diary(good, facts)).is_empty()
 	assert_bool(str(good["entry"]).begins_with("First snow")).is_true()  # quotes tidied off
 	assert_str(Story.validate_diary({"entry": "Too short."}, facts)).contains("too short")
@@ -2376,19 +2376,18 @@ func test_the_diary_keeps_to_the_nights_facts() -> void:
 	quiet["people"] = []
 	quiet["moments"] = []
 	quiet["customers"] = 0
-	quiet["takings"] = "₩0"
 	assert_str(Story.validate_diary({"entry": Story.stitched_diary(quiet)}, quiet)).is_empty()
 
 
-func test_the_diary_page_gets_a_stamp_and_the_takings_a_word() -> void:
-	assert_str(Story.takings_word(100, [])).is_empty()  # the first night: nothing to compare
-	assert_str(Story.takings_word(100, [100, 100, 100])).is_equal("about usual")
-	assert_str(Story.takings_word(130, [100, 100])).is_equal("better than usual")
-	assert_str(Story.takings_word(200, [100, 100, 120])).is_equal("the best night yet")
-	assert_str(Story.takings_word(50, [100, 100])).is_equal("quieter than usual")
+func test_the_diary_page_gets_a_stamp_and_how_busy_a_word() -> void:
+	assert_str(Story.busy_word(10, [])).is_empty()  # the first night: nothing to compare
+	assert_str(Story.busy_word(10, [10, 10, 10])).is_equal("about usual")
+	assert_str(Story.busy_word(13, [10, 10])).is_equal("busier than usual")
+	assert_str(Story.busy_word(20, [10, 10, 12])).is_equal("the busiest night yet")
+	assert_str(Story.busy_word(5, [10, 10])).is_equal("quieter than usual")
 	var facts := _diary_facts()
 	assert_str(Story.diary_stamp(facts)).is_equal("well_done")
-	facts["takings_vs_usual"] = "about usual"
+	facts["busy_vs_usual"] = "about usual"
 	assert_str(Story.diary_stamp(facts)).is_equal("snow")
 	facts["cat_laps"] = ["Kim Ji-ho"]
 	assert_str(Story.diary_stamp(facts)).is_equal("paw")
@@ -2548,7 +2547,7 @@ func test_the_diary_facts_come_from_the_nights_events() -> void:
 		{"kind": "paid", "at": 1420, "name": "Lee Da-eun", "hangul": "이다은", "job": "teacher", "regular": "a regular", "ordered": "Soju", "order_ids": ["soju"]},
 	]
 	var facts := Story.diary_facts(events, {"episode": 3, "day": "Friday", "weather": "rain", "owner": "Park Mi-sook", "customers": 2,
-		"takings": 26000, "before": [10000, 10000, 10000], "cat": "Mandu", "line": {"speaker": "Kim Ji-ho", "text": "I quit today."},
+		"before": [1, 1, 1], "cat": "Mandu", "line": {"speaker": "Kim Ji-ho", "text": "I quit today."},
 		"regulars": [{"name": "Hwang Tae-oh", "founding": true}, {"name": "Lee Da-eun", "founding": false}, {"name": "Choi Min-ho", "founding": false}]})
 	assert_str(str(facts["busiest"])).is_equal("10:40pm, with 5 at the counter")
 	assert_int(int(facts["walked_on"])).is_equal(1)
@@ -2560,8 +2559,8 @@ func test_the_diary_facts_come_from_the_nights_events() -> void:
 	assert_array(facts["new_regulars"]).is_equal(["Kim Ji-ho"])
 	assert_array(facts["missing"]).is_equal(["Hwang Tae-oh"])  # a founding regular who didn't come
 	assert_array(facts["not_here"]).is_equal(["Choi Min-ho"])  # a regular who didn't come (not missed by name)
-	assert_str(str(facts["takings"])).is_equal("₩26,000")
-	assert_str(str(facts["takings_vs_usual"])).is_equal("the best night yet")
+	assert_bool(facts.has("takings")).is_false()  # (not kept: 19 Nov)
+	assert_str(str(facts["busy_vs_usual"])).is_equal("the busiest night yet")
 	assert_str(Story.validate_diary({"entry": Story.stitched_diary(facts)}, facts)).is_empty()  # and the game's own entry passes its checks
 
 
@@ -2572,7 +2571,7 @@ func test_the_diary_and_recap_know_everyones_pronouns() -> void:
 		{"kind": "paid", "at": 1420, "name": "Lee Min-jun", "gender": "man", "job": "chef", "regular": "", "ordered": "Beer", "order_ids": ["beer"]},
 		{"kind": "paid", "at": 1430, "name": "Han Ri-an", "gender": "non-binary", "job": "artist", "regular": "", "ordered": "Beer", "order_ids": ["beer"]},
 	]
-	var facts := Story.diary_facts(events, {"owner": "Park Mi-sook", "owner_gender": "woman", "customers": 3, "takings": 15000,
+	var facts := Story.diary_facts(events, {"owner": "Park Mi-sook", "owner_gender": "woman", "customers": 3,
 		"regulars": [{"name": "Kim Jin-sook", "founding": true, "gender": "woman"}]})
 	assert_dict(facts["pronouns"]).is_equal({"Park Mi-sook": "she", "Kim Jin-sook": "she", "Kim Ji-ho": "she", "Lee Min-jun": "he", "Han Ri-an": "they"})
 	var text := Prompts.diary_facts_text(facts)

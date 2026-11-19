@@ -45,8 +45,9 @@ const DIARY_STAMPS := {
 }
 
 
-## How tonight's takings compare with the bar's last few nights: "" for its first night.
-static func takings_word(tonight: int, before: Array) -> String:
+## How busy tonight was (customers) against the bar's last few nights: "" for its first night.
+## (Takings aren't kept: the game's score is the ratings, 19 Nov.)
+static func busy_word(tonight: int, before: Array) -> String:
 	if before.is_empty():
 		return ""
 	var total := 0
@@ -56,9 +57,9 @@ static func takings_word(tonight: int, before: Array) -> String:
 		best = maxi(best, int(amount))
 	var usual := float(total) / before.size()
 	if tonight > best and before.size() >= 3:
-		return "the best night yet"
+		return "the busiest night yet"
 	if tonight > usual * 1.2:
-		return "better than usual"
+		return "busier than usual"
 	if tonight < usual * 0.8:
 		return "quieter than usual"
 	return "about usual"
@@ -70,7 +71,7 @@ static func diary_stamp(facts: Dictionary) -> String:
 		return "thief"  # (nothing tops the cat making off with a fish cake)
 	if str(facts.get("closed_early", "")) != "":
 		return "early"
-	if str(facts.get("takings_vs_usual", "")) in ["the best night yet", "better than usual"]:
+	if str(facts.get("busy_vs_usual", "")) in ["the busiest night yet", "busier than usual"]:
 		return "well_done"
 	if not facts.get("new_regulars", []).is_empty():
 		return "star"
@@ -175,8 +176,9 @@ static func stitched_diary(facts: Dictionary) -> String:
 		sentences.append("%s spent a while on %s's lap." % [str(facts.get("cat", "The cat")), Names.given_name(str(laps[0]))])
 	if int(facts.get("walked_on", 0)) > 0:
 		sentences.append("We were full, and someone had to walk on. I hate that.")
-	var word := str(facts.get("takings_vs_usual", ""))
-	sentences.append("%s, %s." % [str(facts.get("takings", "")), word] if word != "" else "%s in the tin." % str(facts.get("takings", "")))
+	var word := str(facts.get("busy_vs_usual", ""))
+	var served := int(facts.get("customers", 0))
+	sentences.append(("%d customers, %s." % [served, word]) if word != "" else ("%d %s tonight." % [served, "customer" if served == 1 else "customers"]))
 	if str(facts.get("closed_early", "")) != "":
 		sentences.append("I closed up early, at %s. Some nights you just know when to stop." % facts["closed_early"])
 	sentences.append("Another night under the overpass. Tomorrow, the same again.")
@@ -438,7 +440,7 @@ static func pick_recap_style(last: Dictionary, previous: String, roll: float) ->
 
 ## The facts the owner's diary is written from, from tonight's events (NightEvents.timeline) and
 ## what else the game knows (context: "episode", "day", "weather", "owner", "customers",
-## "takings" (won), "before" (the last nights' takings), "regulars" ({"name", "founding"}),
+## "before" (the last nights' customers), "regulars" ({"name", "founding"}),
 ## "cat", "line"). Kept with the entry, for the diary book and "Previously on…".
 static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 	var people: Array = []
@@ -514,8 +516,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 	var before: Array = context.get("before", [])
 	return {
 		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "date": str(context.get("date", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
-		"customers": int(context.get("customers", 0)), "takings": Menu.format_won(int(context.get("takings", 0))),
-		"takings_vs_usual": takings_word(int(context.get("takings", 0)), before.slice(-7)),
+		"customers": int(context.get("customers", 0)), "busy_vs_usual": busy_word(int(context.get("customers", 0)), before.slice(-7)),
 		"busiest": ("%s, with %d at the counter" % [NightRules.clock_text(peak_at), peak]) if peak_at >= 0 else "",
 		"people": people, "missing": missing, "not_here": not_here, "pronouns": _pronouns(context, people),
 		"moments": moments, "friendlier": friendlier, "new_regulars": new_regulars,
