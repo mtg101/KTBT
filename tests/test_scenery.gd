@@ -17,6 +17,11 @@ func test_the_tents_fixtures() -> void:
 	assert_object(stage.get_node_or_null("Fridge")).is_not_null()
 	assert_str((stage.get_node("OdengPot") as Control).tooltip_text).contains("Odeng")
 	assert_str(scenery.neon.tooltip_text).contains("noraebang")  # (Korean on screen explains itself)
+	# Its three syllables fit on its board (117 to 216), in the pixel font.
+	assert_float(scenery.neon.position.y).is_greater_equal(117.0)
+	assert_float(scenery.neon.position.y + scenery.neon.get_combined_minimum_size().y).is_less_equal(216.0)
+	var board_left: float = scenery.stage_width - Scenery.NEON_BOARD_IN
+	assert_float(scenery.neon.position.x - board_left).is_equal(9.0)  # (inside the tube, a pixel clear: the board 39 wide)
 	var dish := Control.new()
 	stage.add_child(dish)
 	scenery.steam(dish)

@@ -31,6 +31,11 @@ var _last_at := Vector2.INF
 var _walked := 0.0
 var _still_for := 0.0
 var breathing := 0.0  # 0 or 1: up a pixel (for the tests)
+## Leaning (radians, + to the right, as people_view.gd lean says): pixel people are never turned
+## (turned pixels shimmer), so their head and shoulders lean over a pixel or two instead, or
+## the whole of them, walking.
+var lean := 0.0
+const LEAN_PIXELS := 30.0  # pixels of the grid to a radian of leaning (0.07, a tipsy sway: 2)
 var _upper: TextureRect
 var _lower: TextureRect
 var _next_breath := 0.0
@@ -95,10 +100,15 @@ func _process(delta: float) -> void:
 				nudge.x = GRID * (1 if int(t * 8.0) % 2 == 0 else -1)
 		if _pose_left <= 0.0:
 			pose_mood = ""
-	_upper.position.y = upper_y
+	_upper.position = Vector2(lean_x(), upper_y)
 	_walk(delta)
 	snap()
 	position += nudge
+
+
+## How far over they're leaning, on the screen: whole pixels of the grid, three at most.
+func lean_x() -> float:
+	return GRID * clampi(roundi(lean * LEAN_PIXELS), -3, 3)
 
 
 ## A big moment's mood, in their pose for a while (POSES); one they haven't got, nothing.
@@ -133,6 +143,7 @@ func _walk(delta: float) -> void:
 	_upper.visible = not walking
 	_lower.visible = not walking
 	if walking:
+		_walker.position.x = lean_x()
 		_walker.texture = _frames[walk_frame]
 		_walker.flip_h = _strides and facing_left
 	_hold_phone(holder, walking and _strides)

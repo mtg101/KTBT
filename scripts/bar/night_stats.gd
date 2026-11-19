@@ -735,7 +735,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	if not art.is_empty():
-		lines.append("Art: images %d · drawn in code %d · lit by the hour %d · poses %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)), poses,
+		lines.append("Art: images %d · drawn in code %d · lit by the hour %d · words in pixels %d · poses %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)), int(art.get("pixel_words", 0)), poses,
 			(" · BROKEN %s" % ", ".join(PackedStringArray(art["broken"]))) if not art.get("broken", []).is_empty() else ""])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.has("cliffhanger"):

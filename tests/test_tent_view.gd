@@ -6,6 +6,7 @@ const Draw = preload("res://scripts/bar/draw.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 const STAGE := Vector2(1872, 380)
 
@@ -39,6 +40,8 @@ func test_the_tent_shows_the_bars_look() -> void:
 	view.show_look({"name": "Golmok Pocha", "name_meaning": "alley tent", "look": look})
 	assert_str(view.sign_english.text).is_equal("GOLMOK POCHA")
 	assert_str(view.sign_hangul.text).is_equal(str(look["hangul"]))
+	assert_int(view.sign_hangul.get_theme_font_size("font_size")).is_equal(PixelFont.size_for("sign_hangul"))  # in the pixel font
+	assert_object(view.sign_english.get_theme_font("font")).is_same(PixelFont.font("galmuri7"))
 	assert_bool(view.sign_node.visible).is_true()
 	assert_int(view.decor_roof.get_child_count()).is_greater(0)  # the lanterns
 	assert_int(view.decor_counter.get_child_count()).is_greater(0)  # the radio

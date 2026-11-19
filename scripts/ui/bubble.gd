@@ -9,6 +9,7 @@ const NARROW := 330.0
 const WIDE := 440.0  # for a long line, so it stays a few lines tall
 const ABOVE_HEAD := 36.0  # the bubble sits this far above the top of the speaker's head (over their name)
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const PAPER := Ktv.PAPER
 const INK := Ktv.INK
 
@@ -60,6 +61,7 @@ func setup(header_text: String, header_colour: Color, wide: bool = false) -> voi
 	_header.name = "Header"
 	_header.text = header_text
 	_header.add_theme_font_size_override("font_size", 13)
+	PixelFont.apply(_header, "bubble_header")  # (in pixels: pixel_font.gd)
 	_header.add_theme_color_override("font_color", header_colour.darkened(0.35))
 	column.add_child(_header)
 	_body = Label.new()
@@ -67,6 +69,7 @@ func setup(header_text: String, header_colour: Color, wide: bool = false) -> voi
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_body.custom_minimum_size = Vector2(width - 24, 0)
 	_body.add_theme_font_size_override("font_size", 17)
+	PixelFont.apply(_body, "bubble")
 	_body.add_theme_color_override("font_color", INK)
 	column.add_child(_body)
 	# The listener's name tag lights up while they're being spoken to.

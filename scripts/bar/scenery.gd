@@ -9,8 +9,12 @@ const Text = preload("res://scripts/rules/text.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 ## Dishes that steam when they're set down (and any stew, pancake, grill or fried dish).
+const NEON_BOARD_IN := 42.0  # the neon's board, its left edge this far in from the stage's right (39 wide)
+const NEON_TOP := 126.0  # the neon's first syllable, on its board (the board: 117 to 216, a pixel to 3)
+const NEON_LINE := 27  # a syllable every 27 (9 of the grid's pixels: 8 for the letter, 1 between)
 const HOT_DISHES := ["tteokbokki", "odeng", "sundae", "dakgalbi", "pajeon", "ramyeon", "gonggibap", "bokkeumbap"]
 
 var dice: RandomNumberGenerator  # the scenery's (it never shifts the game's own rolls)
@@ -97,13 +101,16 @@ func build_odeng_pot(stage: Control) -> void:
 ## A neon sign on the pillar across from the tent: 노래방, karaoke (a kind of place, not a
 ## name: see CONCEPT.md, "Real people, brands and shows"), flickering now and then.
 func build_neon(stage: Control) -> void:
-	if Art.place(stage, "tent/neon_board", Vector2(stage_width - 39, 117), "topleft", 3) == null:  # its board, in pixel art (the word stays text over it, to hover)
+	if Art.place(stage, "tent/neon_board", Vector2(stage_width - NEON_BOARD_IN, 117), "topleft", 3) == null:  # its board, in pixel art (the word stays text over it, to hover)
 		Art.drawn("tent/neon_board")
 	neon = Ktv.label("노\n래\n방", 22, Color("ff5fa2"), 6, Color("ff5fa2", 0.35))
 	neon.name = "Neon"
+	PixelFont.apply(neon, "neon")  # (in pixels, on the grid: pixel_font.gd)
+	PixelFont.space_lines(neon, "neon", NEON_LINE)  # (all three on its board)
 	neon.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
 	neon.tooltip_text = Text.tip("노래방 noraebang: a karaoke room across the street, where the night carries on after the pocha.")
-	neon.position = Vector2(stage_width - 36, 122)
+	neon.position = Vector2(stage_width - NEON_BOARD_IN + 9, NEON_TOP)  # (3 of the grid's pixels in: a pixel clear inside the tube)
+	neon.size = Vector2(24, 0)  # (a syllable's width: 8 of the grid's pixels, its last one the gap after it)
 	neon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage.add_child(neon)
 	dice.randomize()

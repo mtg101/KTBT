@@ -272,9 +272,10 @@ def bulb():
 
 
 def neon_board():
-    """The board the 노래방 neon hangs on across the street (36 by 99 on the stage; the word stays
-    text over it, to hover): dark, a pink tube round its edge."""
-    w, h = 12, 33
+    """The board the 노래방 neon hangs on across the street (39 by 99 on the stage; the word stays
+    text over it, to hover, in the pixel font: each syllable 7 of these pixels wide, with one
+    clear each side inside the tube): dark, a pink tube round its edge."""
+    w, h = 13, 33
     s = Sprite(w, h, light=0.85, fall=0.1)
     s.rect(0, 0, w, h, "141224", 0.85)
     for edge in [(1, 1, w - 1, 2), (1, h - 2, w - 1, h - 1), (1, 1, 2, h - 1), (w - 2, 1, w - 1, h - 1)]:

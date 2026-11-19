@@ -2,8 +2,9 @@
 # and check a batch of autoplay nights (see scripts/autoplay.gd) while nobody's at the PC.
 # It can do these things and nothing else: start a batch (Godot with --autoplay, in this
 # project only), say how one's going (and whether Ollama answers), and stop one; and ask
-# ComfyUI on this PC for pictures for the art (into art\raw\). No general shell, no other
-# programs. Plain PowerShell, so nothing to install.
+# ComfyUI on this PC for pictures for the art (into art\raw\); and import the project's new
+# or changed art and fonts (Godot's own --import, so the game and the tests see them without
+# opening the editor). No general shell, no other programs. Plain PowerShell, so nothing to install.
 #
 # Set up once (TOOLCHAIN.md, "Autoplay from your phone"): add it to the desktop app's local MCP
 # servers, with powershell.exe -NoProfile -ExecutionPolicy Bypass -File <this file>.
@@ -75,6 +76,38 @@ function NewestSummary {
 	return Get-ChildItem -Path $folder -Filter '*.txt' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 }
 
+# Godot's console build beside it, if there is one (its output can be read); else Godot itself.
+function GodotConsolePath {
+	$godot = GodotPath
+	if ($null -eq $godot) { return $null }
+	$console = $godot -replace '\.exe$', '_console.exe'
+	if ($console -ne $godot -and (Test-Path $console -PathType Leaf)) { return $console }
+	return $godot
+}
+
+# Imports new and changed assets (art, fonts) the way the editor does when it opens, then quits:
+# so the game and the tests see art changed outside the editor. Returns a note of how it went
+# (and any errors), or $null if Godot can't be found.
+function ImportAssets {
+	$godot = GodotConsolePath
+	if ($null -eq $godot) { return $null }
+	$out = Join-Path $env:TEMP 'ktbt_import_out.txt'
+	$err = Join-Path $env:TEMP 'ktbt_import_err.txt'
+	$process = Start-Process -FilePath $godot -ArgumentList @('--headless', '--path', "`"$Root`"", '--import') -WorkingDirectory $Root `
+		-WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+	if (-not $process.WaitForExit(180000)) {
+		try { $process.Kill() } catch { }
+		return 'The import took over 3 minutes and was stopped.'
+	}
+	$lines = @()
+	foreach ($file in @($out, $err)) {
+		if (Test-Path $file) { $lines += Get-Content -Path $file -Encoding UTF8 }
+	}
+	$problems = @($lines | Where-Object { $_ -match 'ERROR|WARNING|Error' } | Select-Object -First 12)
+	if ($problems.Count -eq 0) { return 'Imported: the art and fonts are up to date.' }
+	return "Imported, with these messages:`n" + ($problems -join "`n")
+}
+
 function StartBatch($arguments) {
 	$nights = 10
 	if ($null -ne $arguments -and $null -ne $arguments.nights) { $nights = [int]$arguments.nights }
@@ -87,6 +120,7 @@ function StartBatch($arguments) {
 	if ($null -eq $godot) { return ToolText "Can't find Godot: put the full path of its .exe on one line in tools\godot_path.txt." $true }
 	if (-not (OllamaAnswers)) { return ToolText "Ollama isn't answering at localhost:11434: start it on the PC first (the nights would only be offline ones)." $true }
 	$freed = StopComfy  # (the GPU's Ollama's while the nights play)
+	$null = ImportAssets  # (any art changed since the editor last looked: the nights use it)
 	$godotArgs = @('--path', "`"$Root`"", '--audio-driver', 'Dummy', '--', "--autoplay=$nights")  # (no sound: Windows' audio driver only adds errors)
 	if ($bar -ne '') { $godotArgs += "--autoplay-bar=$bar" }
 	Start-Process -FilePath $godot -ArgumentList $godotArgs -WorkingDirectory $Root | Out-Null
@@ -334,6 +368,8 @@ $Tools = @(
 	[ordered]@{ name = 'collect_art'; description = 'Fetch any pictures generate_art was still making.'
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
 	[ordered]@{ name = 'stop_art'; description = 'Stop ComfyUI, to give the GPU back (start_autoplay does this itself).'
+		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
+	[ordered]@{ name = 'import_assets'; description = "Import KTBT's new or changed art and fonts with Godot (headless, as the editor does when it opens), so the game and its tests use them without opening the editor. Waits until it's done (up to 3 minutes); start_autoplay does it first itself."
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } }
 )
 
@@ -367,6 +403,13 @@ while ($true) {
 					'generate_art' { GenerateArt $arguments }
 					'collect_art' { CollectArt }
 					'stop_art' { StopArt }
+					'import_assets' {
+						if ($null -ne (RunningBatch)) { ToolText 'A batch is running: import once it has finished (it imported as it started).' $true }
+						else {
+							$note = ImportAssets
+							if ($null -eq $note) { ToolText "Can't find Godot: put the full path of its .exe on one line in tools\godot_path.txt." $true } else { ToolText $note }
+						}
+					}
 					default { ToolText "No such tool: $($message.params.name)" $true }
 				}
 				Reply $id $result

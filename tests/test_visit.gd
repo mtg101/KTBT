@@ -1354,6 +1354,7 @@ func test_the_pixels_are_lit_by_the_hour() -> void:
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_int(int(scene._stats.art["lit"])).is_greater(3)  # (in the night's stats)
+	assert_int(int(scene._stats.art["pixel_words"])).is_greater(3)  # the sign, the neon, the name tags... in the pixel font
 
 
 func test_the_cat_wanders_by_itself() -> void:
@@ -1750,9 +1751,11 @@ func test_customers_come_in_under_umbrellas_and_put_them_down() -> void:
 	# Running for it: the bobbing and leaning stop once they're in.
 	scene._street.gear_up(person, {"umbrella": false}, true)
 	assert_bool(scene._people_view.is_running(person)).is_true()
-	assert_float(person.rotation).is_not_equal(0.0)
+	assert_float(scene._people_view.leaning(person)).is_not_equal(0.0)
+	assert_float(person.rotation).is_not_equal(0.0)  # (drawn in shapes, they tilt; in pixel art they lean: test_a_couple_of_bottles_and_they_sway)
 	scene._people_view.gear_down(person)
 	assert_bool(scene._people_view.is_running(person)).is_false()
+	assert_float(scene._people_view.leaning(person)).is_equal(0.0)
 	assert_float(person.rotation).is_equal(0.0)
 	assert_float(person.position.y).is_equal(Visit.CUSTOMER_Y)
 	assert_object(person.find_child("OverHead", true, false)).is_null()
@@ -1803,8 +1806,12 @@ func test_a_couple_of_bottles_and_they_sway() -> void:
 	assert_bool(guest.node.has_meta("sway")).is_true()  # two: a gentle sway
 	# (Waits for it to move, rather than a fixed time: on a slow machine a drink served just then
 	# restarts the sway from upright, and a fixed wait could look just as it restarts.)
-	assert_bool(await _wait_until(func(): return absf(guest.node.rotation) > 0.0)).override_failure_message("never swayed").is_true()
-	assert_float(absf(guest.node.rotation)).is_less(0.08)  # (gentle)
+	assert_bool(await _wait_until(func(): return absf(scene._people_view.leaning(guest.node)) > 0.0)).override_failure_message("never swayed").is_true()
+	assert_float(absf(scene._people_view.leaning(guest.node))).is_less(0.08)  # (gentle)
+	assert_float(guest.node.rotation).is_equal(0.0)  # in pixel art: never turned (their name stays put)...
+	var picture = guest.node.get_node("Look/Back")
+	assert_bool(await _wait_until(func(): return picture.lean_x() != 0.0)).override_failure_message("never leaned").is_true()  # ...their head and shoulders lean over
+	assert_float(fposmod(picture.lean_x(), 3.0)).is_equal(0.0)  # (by whole pixels of the grid)
 	# Going home: the sway stops and the wobble starts.
 	scene._guests.erase(guest)  # (off the counter first, so the night doesn't carry on with them)
 	scene._walk_out(guest)

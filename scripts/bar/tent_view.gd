@@ -12,6 +12,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
 const BULB_GLASS := Vector2(0, 44)  # the middle of a bulb's glass, from the top of its wire
@@ -59,6 +60,7 @@ func build_sign(stage: Control) -> void:
 	sign_hangul.size = Vector2(420, 38)
 	sign_hangul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sign_hangul.add_theme_font_size_override("font_size", 28)
+	PixelFont.apply(sign_hangul, "sign_hangul")  # (in pixels, on the grid: pixel_font.gd)
 	sign_node.add_child(sign_hangul)
 	sign_english = Label.new()
 	sign_english.name = "SignEnglish"
@@ -66,6 +68,7 @@ func build_sign(stage: Control) -> void:
 	sign_english.size = Vector2(420, 20)
 	sign_english.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sign_english.add_theme_font_size_override("font_size", 13)
+	PixelFont.apply(sign_english, "sign_english")
 	sign_node.add_child(sign_english)
 
 

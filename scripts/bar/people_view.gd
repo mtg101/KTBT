@@ -12,6 +12,7 @@ const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PixelPerson = preload("res://scripts/ui/pixel_person.gd")
 const PixelShape = preload("res://scripts/ui/pixel_shape.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const Night = preload("res://scripts/bar/night.gd")
 
 ## The colours people are drawn in before they're dressed (and the bags held over heads).
@@ -67,6 +68,7 @@ func new_person(parent: Control, pos: Vector2, colour: Color) -> Control:
 	tag.size = Vector2(300, 24)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.add_theme_font_size_override("font_size", 15)
+	PixelFont.apply(tag, "name_tag")  # (in pixels: pixel_font.gd)
 	tag.add_theme_constant_override("outline_size", 6)
 	tag.add_theme_color_override("font_outline_color", Color.BLACK)
 	root.add_child(tag)
@@ -473,7 +475,7 @@ func run_for_it(person: Control, going_right: bool) -> void:
 	cover.color = CUSTOMER_COLORS.pick_random().darkened(0.4)
 	person.add_child(cover)
 	person.pivot_offset = Vector2(48, 216)  # leaning from the feet (Layout.PERSON_SIZE)
-	person.rotation = 0.1 if going_right else -0.1
+	lean(person, 0.1 if going_right else -0.1)
 	var bob := person.create_tween().set_loops()
 	bob.tween_property(person, "position:y", ground - 6, Draw.scaled(0.14)).set_trans(Tween.TRANS_SINE)
 	bob.tween_property(person, "position:y", ground, Draw.scaled(0.14)).set_trans(Tween.TRANS_SINE)
@@ -504,9 +506,36 @@ func gear_down(person: Control) -> void:
 		var bob: Tween = person.get_meta("bob")
 		if bob != null and bob.is_valid():
 			bob.kill()
-		person.rotation = 0.0
+		lean(person, 0.0)
 		person.position.y = float(person.get_meta("ground"))
 		person.remove_meta("running")
+
+
+## Someone leaning (radians, + to the right: a tipsy sway, running for it, turning away to
+## drink). In pixel art they're never turned (turned pixels shimmer, and their name over them
+## would too): their head and shoulders lean over a pixel or two (pixel_person.gd lean). Drawn
+## in shapes, they tilt as before.
+func lean(person: Control, amount: float) -> void:
+	if not is_instance_valid(person):
+		return
+	person.set_meta("lean", amount)
+	var pictures: Array = ["Look/Front", "Look/Back"].map(func(path): return person.get_node_or_null(path)).filter(func(p): return p is PixelPerson)
+	if pictures.is_empty():
+		person.rotation = amount
+		return
+	person.rotation = 0.0
+	for picture in pictures:
+		picture.lean = amount
+
+
+## How far someone's leaning (lean).
+func leaning(person: Control) -> float:
+	return float(person.get_meta("lean", 0.0))
+
+
+## A lean from one amount to another, as a step of a tween.
+func lean_step(tween: Tween, person: Control, from: float, to: float, seconds: float) -> MethodTweener:
+	return tween.tween_method(func(amount: float): lean(person, amount), from, to, seconds)
 
 
 func is_running(person: Control) -> bool:

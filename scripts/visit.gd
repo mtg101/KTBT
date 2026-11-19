@@ -72,6 +72,7 @@ const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
@@ -993,6 +994,7 @@ func _show_closing_up() -> void:
 		label.size = Vector2(84, 20)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		PixelFont.apply(label, "closed_hangul" if line[0] == "마감" else "closed_english")  # (in pixels: pixel_font.gd)
 		_closed_sign.add_child(label)
 	_closed_sign.scale = Vector2(1.0, 0.0)
 	var pop := _closed_sign.create_tween()
@@ -1100,6 +1102,7 @@ func _start_night() -> void:
 	_stats.story = _before_night.duplicate()  # (how it opened: only the first night after opening has any)
 	_stats.art = Art.summary()  # (what's drawn from images so far, and what in code)
 	_stats.art["lit"] = PixelLight.count_lit(self)  # (pieces lit by the hour: pixel_light.gd)
+	_stats.art["pixel_words"] = PixelFont.count_in(self)  # (words on the stage in the pixel font: pixel_font.gd)
 	_menu_change = {}
 	if _before_night.has("menu_change"):
 		_menu_change = _before_night["menu_change"].duplicate()
@@ -3035,9 +3038,9 @@ func _walk_out(guest: Guest) -> void:
 	if wobbly:
 		guest.node.pivot_offset = Vector2(Layout.PERSON_SIZE.x / 2, Layout.PERSON_SIZE.y)
 		var wobble := guest.node.create_tween().set_loops()
-		wobble.tween_property(guest.node, "rotation", 0.1, _scaled(0.28)).set_trans(Tween.TRANS_SINE)
+		_people_view.lean_step(wobble, guest.node, -0.08, 0.1, _scaled(0.28)).set_trans(Tween.TRANS_SINE)
 		wobble.parallel().tween_property(guest.node, "position:y", CUSTOMER_Y + 5, _scaled(0.28))
-		wobble.tween_property(guest.node, "rotation", -0.08, _scaled(0.32)).set_trans(Tween.TRANS_SINE)
+		_people_view.lean_step(wobble, guest.node, 0.1, -0.08, _scaled(0.32)).set_trans(Tween.TRANS_SINE)
 		wobble.parallel().tween_property(guest.node, "position:y", CUSTOMER_Y - 3, _scaled(0.32))
 		guest.node.set_meta("wobbly", true)
 		_stats.record_street("wobbled home")
@@ -3061,8 +3064,8 @@ func _tipsy(guest: Guest) -> void:
 	guest.node.pivot_offset = Vector2(Layout.PERSON_SIZE.x / 2, Layout.PERSON_SIZE.y)  # swaying from where they sit
 	_stop_swaying(guest.node)
 	var sway := guest.node.create_tween().set_loops()
-	sway.tween_property(guest.node, "rotation", lean, _scaled(1.6)).set_trans(Tween.TRANS_SINE)
-	sway.tween_property(guest.node, "rotation", -lean * 0.6, _scaled(1.8)).set_trans(Tween.TRANS_SINE)
+	_people_view.lean_step(sway, guest.node, -lean * 0.6, lean, _scaled(1.6)).set_trans(Tween.TRANS_SINE)
+	_people_view.lean_step(sway, guest.node, lean, -lean * 0.6, _scaled(1.8)).set_trans(Tween.TRANS_SINE)
 	guest.node.set_meta("sway", sway)
 
 
@@ -3077,7 +3080,7 @@ func _stop_swaying(person: Control) -> void:
 	if sway != null and sway.is_valid():
 		sway.kill()
 	person.remove_meta("sway")
-	person.rotation = 0.0
+	_people_view.lean(person, 0.0)
 
 
 func _move_owner(x: float) -> void:
@@ -3382,9 +3385,9 @@ func _mind_your_elders(guest: Variant, listener: Variant) -> void:
 	_narrate("%s turns away to drink, the way you do in front of someone older." % Names.given_name(str(guest.customer["name"])))
 	var node: Control = guest.node
 	var turn := node.create_tween()
-	turn.tween_property(node, "rotation_degrees", -7.0, 0.25)
+	_people_view.lean_step(turn, node, 0.0, -0.12, 0.25)
 	turn.tween_interval(_scaled(1.2))
-	turn.tween_property(node, "rotation_degrees", 0.0, 0.3)
+	_people_view.lean_step(turn, node, -0.12, 0.0, 0.3)
 
 
 ## A new bottle of soju: the tornado (회오리), swirled hard before it's opened.
