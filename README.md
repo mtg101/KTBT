@@ -12,7 +12,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Next up:** real art; then more of being on a show, and more PD cards. See [PLAN.md](PLAN.md).
+**Next up:** to decide: the basics are in, and the strongest candidate is giving the player a reason to play (a season the ratings decide). See [PLAN.md](PLAN.md).
 
 ### What's in it so far
 

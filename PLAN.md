@@ -1,102 +1,94 @@
 # KTBT: Plan
 
-What we're going to build next for [KTBT](CONCEPT.md). Stages are listed in the order we'll build them, and the first one is up next. Each stage ends with something you can run and watch.
+What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when something's built, it moves to [DEVLOG.md](DEVLOG.md) (and how it works, to CONCEPT.md), and a part-built item keeps only what's still to do. AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).
 
-Only what's left goes here. When a stage is finished, it moves out of this file and into [DEVLOG.md](DEVLOG.md); when part of an item is built, that part goes to the DEVLOG too (and how it works, to CONCEPT.md), and the item keeps only what's still to do. AI quirks and how we handle them are in [LLM-TUNING.md](LLM-TUNING.md).
+Every list item is a **bold label**, a colon, then the details.
 
-## Stages
+## Next stages
 
-- done basic 'customers coming in together'... not sure what's next?
-  - I think we have all the basics... and everything else is improvements?
-  - let's think on it...
+- **To decide:** the basics are in (the latest, pairs coming in together); everything below is an improvement. The strongest candidate is **A reason to play** (under An actual game): the game has no goal yet.
 
-## Later ideas (not committed)
-
-Grouped by type. Within each group, roughly in order of importance.
-
-### Essentials (needed before anyone else plays it)
-
-- **A cultural review, before anyone else plays:** the game is made from outside Korean culture, by a developer and an AI, and the AI's picture of Korea is second-hand, from what's written in English, and leans on stereotypes. 
-- **Content boundaries (a setting):** the AI writes about late-night drinking and K-drama heartbreak, so it will sometimes drift somewhere dark or crude. 
-  **content setting** chooses how far it may go, e.g.
-      - **Drama** (PG-13 heartbreak, mild language)
-      - **Mature** (the default: 15+ stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. 
-      - **Adult** (18+ for adults) can go further: adult themes, sex and crude humour between grown-ups who want it. 
-    - Outside Adult, nothing sexual beyond a kiss implied off-screen. Some limits apply at every setting
-    - Adult included: **teasing is never cover for harassment** (see CONCEPT.md, Korean TV can be quite direct in the teasing, but let's keep it civil - "Cheeky, not 'bants' or worse")
-- **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting. Still to do:
-  - **Warm the model up at the title screen:** Ollama unloads the model after it's been idle (`keep_alive`, 30 minutes), and the first reply after that can take up to a minute while it loads back into the GPU: on the loading screen, it looks stuck. The title screen could send a tiny request as it opens, so the model's ready by the time a bar's picked.
-  - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes on average, and customer chats got 8–21% of lines), because one AI request runs at a time. Customer chats could run on a second voice alongside the owner's conversations: two requests at once. Ollama can serve two together (`OLLAMA_NUM_PARALLEL`), but on one GPU each is slower, so measure it on the desktop and the laptop before relying on it; the game would need two AI objects, and chats that never wait for the owner's. Steps:
-    1. **Measure it first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) that times one request, then two at once, a few times each, and logs the seconds: run on the desktop and the laptop. If two at once take much less than twice as long, go on.
-    2. **Then build it:** a second AI object for customer chats, chats that run while the owner talks (never waiting for her voice), the speech bubbles and transcript coping with two at once, and the stats showing each voice's share.
-    (Night 28's low chat share, 10%, wasn't the voice: quiet customers left few pairs who'd chat, and 7 of 8 chances were taken. Now a chatty one can draw a quiet one in; see the DEVLOG.)
-- **Older saves kept up to date:** before anyone else plays (`scripts/save/save_upgrades.gd`): upgrade by the save's `version` rather than by what's missing, and fill in everything a new feature needs (a bar from before the cat still has no cat).
-- **Packaging, first-run setup and releasing:** a big part of the point is learning how to ship a Godot game.
-  - **Exporting:** Godot's export templates, a Windows export preset, an icon, the game's name and version in the build, and checking the exported build runs on a clean machine (no editor, no project folder: saves and logs go to the user folder).
-  - **First run:** check for Ollama and the model, offer offline mode if they're missing, and point to setup help. Without this, nobody but the developer can run it.
-  - **Releasing:** versions (the save's `version` too, so older saves can be upgraded: see **Older saves kept up to date**), release notes from the DEVLOG, licences for everything bundled (`LICENSE-ASSETS.md`), and an itch.io page (perhaps with butler for uploads). Maybe automated builds on GitHub later.
-  - **A store page, as if for real:** everything an itch.io or Steam page needs, made the way we'd make it for a real release:
-    - **The overview:** a one-line pitch ("Coffee Talk with soju: a Korean tent bar where every customer is invented by an AI, and every night is an episode"), a short description, a longer "about this game", features as bullets (AI customers with memories, regulars who come back, Korean TV captions, the owner's diary, Hangul names, offline mode), and tags.
-    - **Screenshots:** five or six moments that sell it, taken in the game at full resolution: a full house in the rain, a TV caption mid-pop, a reaction ("충격!"), the 3am diary page, the "Previously on…" card, the title screen. Perhaps a way to take them from the game (a key, or a screenshot mode with the panels hidden).
-    - **A promo video:** a 30–60 second trailer cut like a K-drama teaser: the tarp going up, customers ducking in, captions popping, a big moment, the diary, ending on the title card. Recorded from the game, with Arirang (or another of our public-domain arrangements) under it, and the game's own stings.
-    - **The rest:** a cover image and a banner (from the title and loading screens' art), a short GIF or two, system requirements (an NVIDIA GPU with about 10GB for the local model, or offline mode without one), what the AI does and doesn't do (it runs on your machine; nothing's sent anywhere), credits and licences, and a press kit page.
-    - **Being open about the AI:** the page says plainly that the characters are written by a local AI model and the game was built with AI help, as the project is.
+## Future ideas and improvements
 
 ### Richer play
 
-- **Follow-ups from the Regulars and relationships stage:**
-  - **Contradictions between nights:** lines that contradict a regular's or the owner's family (married, widowed, divorced, single; children or none) are sent back now. Watch "contradictions caught" in the stats: if it's high, the prompts need to lean on the facts harder (step 2 of the memory stage); other kinds of fact (a job, a home town) aren't checked yet.
+- **Memories and relationships, follow-ups:**
+  - **Contradictions:** lines contradicting someone's family (married, widowed, divorced, single; children or none) are sent back. If "contradictions caught" runs high, the prompts need to lean on the facts harder; other facts (a job, a home town) aren't checked yet.
   - **Terms of address in every line:** watch whether "most lines need none" brought it down.
-  - **Banmal too soon:** close regulars talk casually now (말 놓을까요?, with the friendlier term); a stranger slipping into banmal too soon could be a small rudeness the other notices.
-  - **Memories in the next batch:** check "lines told who they know here", "regulars remembered each other" (and failed), facts by kind and who heard them, threads asked and answered, and the closeness line (sat by a friend, waved over, the owner saving them something, coming in together); and in the transcripts, whether lines use what they're told without overdoing it.
-- **Resume mid-night:** today, a night you quit (closing the window) before 3am isn't counted (Close the bar closes up early instead, and counts), and opening the bar again starts that night afresh at 6pm. Later, the clock, weather and night's takings could be saved, so it carries on where you left.
-- **Calendar, holidays and events:** 
-  - occasions hanging off the date (`rules/seasons.gd`): 
-    - Korean occasions (Seollal, Chuseok, Christmas, 11/11, etc) Game facts that shape who turns up, what they order and what they talk about.
-    - whenever events are mentioned, check they are culturally correct and on/references wht correct dates
-- **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
-  1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
-  2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
-- **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken gets a situation to make the 2am call to an ex (술김에?! on TV), and once customers come in together, the piggyback home. Alongside **Content boundaries**, since it's drunkenness played for drama.
-- **Cliffhangers the night can answer, more often:** the first two nights' recaps both ended on a question nothing in a night can answer ("other"). Watch a few more nights in the stats' HIGHLIGHTS and THE STORY; if it stays that way, steer the recap prompt toward the kinds on the list.
-- **Cliffhangers about what's said (a stage of its own):** the teasers about what someone says or does: "will she finally confess?", "will he quit?", "is the secret out?". Those need the AI to judge, after a conversation, whether it was answered (like the TV reaction check), with a check and tests for each kind.
-- **Drama incidents and story arcs:** K-drama beats across nights: a confession at the counter, a drunk customer the owner sends home in a taxi, a breakup at the next table, the owner's secret slowly coming out, and the classic: redevelopers threatening to tear the tent down. A light **drama director** in the game picks a beat for the night (a game fact), and the AI writes it.
-- **Regulars book (after the Regulars and relationships stage):** a page per bar, from the title screen and a button in the bar, with a card per regular: their look drawn small, name in Hangul and English, their role (founding regulars), how close they are as a row of soju cups 🍶 filling up from stranger to old friend, how often they come in words ("comes most Fridays", "hasn't been in for a while"), visits, first and last visit, their usual, the things that stuck, the latest summary from each side, and the other regulars they know. A natural first piece of the journal.
-- **More cat:** customers ordering something for it, a cat that's out all night on a curious streak, or one that only likes certain people. Game events, like the rest of its behaviour.
-- **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…), shaping how they talk: a Busan customer with the blunt, warm Gyeongsang satoori (dialect) K-dramas love, written as a flavour in fluent English (the odd "mwo-kko?"-style word, a gruffer rhythm) rather than broken English. Ties into the things that stick ("from Busan").
-- **Customers coming in together (next: see Stages):** pairs come in together now (a couple, colleagues escaping a hoesik, old school friends, a sunbae and their hoobae, two close regulars), sit side by side, talk to each other first, leave together and settle the bill (one for both, a bill fight with kawi-bawi-bo, or split). Still to do:
-  - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools, or squeezing in; who pays (the bill fight with three).
-  - **Greeted and ordering together, sometimes:** today the owner takes each one's order in turn. Now and then, the owner greets them as a pair (one welcome for both: "two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding which; and the sharing moments (pouring for each other, ssam) made for them.
-  - **The story:** a pair as a fact in the diary and "Previously on…" (who came in with whom), and a new pair who both become regulars coming back together (their bond says so already).
-  - **Speaking for the right person:** in a three- or four-way chat, small models are more likely to write a line for someone else, or a whole exchange. The checks that strip "Name:" and cut off second lines should know every name in the chat.
-  - **The piggyback home:** with **Drinking too much**, one carrying the other out.
-  - **Long-term relationships:** beyond the Regulars and relationships stage: arcs that play out over many nights between the owner and regulars (and between regulars), such as a regular moving away, a romance at the counter, or an old friend falling out with the owner.
-- **Weather that changes:** today each night picks one weather at 6pm; it could change during the night (rain setting in after midnight).
-- **A better memorable line:** the night summary quotes the longest thing a customer said. The AI could pick the line instead, or the game could favour lines with drama.
+  - **Banmal too soon:** close regulars talk casually now; a stranger slipping into banmal too soon could be a small rudeness the other notices.
+  - **Check in the next batch:** "lines told who they know here", "regulars remembered each other" (and failed), facts by kind and who heard them, threads asked and answered, the closeness line; and in the transcripts, whether lines use what they're told without overdoing it.
+- **Customers coming in together, the rest:**
+  - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
+  - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
+  - **The story:** who came in with whom in the diary and "Previously on…".
+  - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
+- **The game, as the PD (next steps):** how it works now is in CONCEPT.md ("The player is the show's PD", "The PD's cards"). In order:
+  1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
+  2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life); the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); choosing a card's variant, or typing your own ("they worked out they ___"); rare cards (towards the roguelike PD); cards that never land (from the logs) reworded or dropped; later, cards players write.
+- **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
+- **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken makes the 2am call to an ex (술김에?! on TV), and one of a pair piggybacks the other home. Drunkenness played for drama, so alongside **Content boundaries**.
+- **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
+- **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
+- **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
+- **Regulars book:** a page per bar (from the title screen and a button in the bar), a card per regular: their look drawn small, name in Hangul and English, their role, closeness as soju cups 🍶 filling up, how often they come ("most Fridays", "hasn't been in for a while"), visits, first and last, their usual, the things that stuck, each side's latest memory, the regulars they know. A first piece of the journal.
+- **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
+- **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
+- **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
+- **Resume mid-night:** a night you quit by closing the window isn't counted, and reopening starts it again at 6pm (Close the bar does count). Saving the clock, weather and takings would let it carry on.
+- **A better memorable line:** the summary quotes the longest line; the AI could pick it, or the game could favour lines with drama.
+- **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
+- **Non-binary owners:** the owner's title (Ajumma, Ajusshi) depends on gender; a non-binary owner needs one that works (perhaps Sajangnim, boss).
+
+### An actual game or experience
+
+- **A reason to play:** nothing's at stake yet: the ratings change nothing and the takings buy nothing. Something small first: a season of ten episodes where the ratings decide renewal, with a finale; or takings that buy things for the tent (a touch, a new dish, a sixth stool).
+- **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
+- **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
+- **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own bar; and settings like time speed and weather.
 
 ### Presentation
 
-- **Portraits:** a picture of each character, for the hover or the diary, beyond the stage's pixel people. The game decides how everyone looks, from facts it owns, and the AI never draws anyone directly. Two ways:
-  - **Pre-generated (the likely one):** on the desktop, the local image model (FLUX.2 Klein, already set up for the street) makes portraits or parts in one fixed style, tagged by age, gender, job and so on; a human curates them, and the game ships the keepers and picks the best match. Nothing runs during play, so no GPU contention with the LLM, and it works on the laptop.
-  - **Live (theoretically possible):** the image model draws each new customer from their profile as they arrive. Not planned for now: it competes with the LLM for GPU memory, takes several seconds per image, drifts off-style, can't run on the laptop, and sometimes produces something unusable.
-  - **mixed* where regular get proper live (or between nights) custom portraits created for them
-- **Ambience (sound and animation):** the tent should feel alive even when nobody's talking. Driven by facts the game owns (weather, time of night, what's cooking, how busy it is), so it always matches what's happening, and it needs no AI. The first version is built (the Atmosphere and Sound and music stages), all made in code; what's left:
-  - **Ambient sound:** swap the placeholders made in code for real recordings one at a time, starting with the ones that sound most synthetic (the murmur, the pour, the cat, the cash tin), then rain, traffic and the rest. CC0 sources: Freesound (filter by licence) and Kenney's audio packs; log everything in `CREDITS.md`. Each sound is one entry in `ambience.gd`, so a recording can replace it without changing the rest.
-  - **Music:** Arirang, arranged in code, is the placeholder. Later: a real recording or arrangement (a public-domain tune performed for the project, or a CC0 track), perhaps more tunes (other folk songs, or a lo-fi theme), and music from the old radio in bars that have one.
-    - **Varying the music:** more public-domain tunes of the kind Korean TV and K-dramas use, arranged in code like Arirang: other Korean folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya), and the classical pieces variety shows love for comic and dramatic moments (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can). Chosen by the game from the scene (the rush, the small hours, a big moment, the diary), never playing over a reaction's sting. The music is the composer's (long out of copyright); the arrangement is ours.
-  - **Background animation, still to do:** the occasional street cat, and more vessels and bits as dishes are added (the moon and stars are in the sky now). (Cars on the overpass were tried and taken out: lights above the tent looked wrong.) Godot handles these cheaply with particles, tweens and simple animations, so they run fine on the laptop.
-  - **Weather changing during the night:** the weather is already something you see and hear; when it can change during the night (see **Weather that changes**), the sound and visuals should fade across smoothly.
-  - **A proper bundled font:** only the words in the bar's art are in the pixel font (Galmuri); the name tags, speech bubbles, TV captions, panels, buttons, the PD's desk and the loading screens use Godot's built-in font, with the computer's own fonts behind it for Hangul (which could show boxes, or just look different, on another machine). Bundle a free Korean UI font for all of them (Pretendard, or Noto Sans KR, both under the OFL), set as the game's default, and log it in `LICENSE-ASSETS.md`.
-- **Voices:** characters "speak" their lines, with a setting to choose **off**, **babble**, **system voices** or **AI voices**. The game picks each character's voice from facts it owns (gender, age, mood), never the AI.
-  - **Babble:** Animal Crossing-style babble: a short syllable sound per letter or word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous). No AI, works on any machine, and suits the cosy tone. Built in Godot from a few CC0 syllable sounds, pitch-shifted. The first one to build.
-  - **System voices:** Godot's built-in text-to-speech, which reads lines aloud with the voices installed in Windows. No setup and no extra software, and it works on the laptop. The voices sound robotic and the choice depends on what Windows has installed, so it's mainly a quick way to test whether spoken lines add anything, and a fallback when no AI voice service is running.
-  - **AI voices:** a local text-to-speech model reads the lines aloud, running as a separate local service like Ollama, with Godot playing the audio. Candidates: **Kokoro** (small 82M model, Apache-2.0 licence, good quality, runs on CPU) and **Piper** (fast on CPU, GPL-3.0 engine, many downloadable voices, each with its own licence to check). Run it on the CPU so it doesn't fight the LLM for GPU memory. Things to check first: how they pronounce Korean names and words, and whether any voices suit the setting.
-- **Speech bubbles, next steps:** a taller stage (or a strip above the tent) if bubbles cover the sign too much, text size with the other settings, and remembering the Bubbles checkbox between runs.
-- **Korean words on hover, next steps:** more words as they turn up in transcripts (the stats count which are said), and perhaps a glossary page.
+- **Portraits:** a picture of each character (for the hover or the diary). The game decides how everyone looks; the AI never draws anyone directly.
+  - **Pre-generated (the likely one):** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
+  - **Mixed:** regulars get their own portrait made between nights.
+  - **Live (not planned):** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
+- **Ambience (sound and animation):** the first version's built, all made in code, driven by game facts (weather, time, what's cooking, how busy). What's left:
+  - **Ambient sound:** real recordings in place of the code-made placeholders, most synthetic first (the murmur, the pour, the cat, the cash tin), then rain, traffic and the rest. CC0: Freesound (filter by licence), Kenney's audio packs; logged in `CREDITS.md`. Each sound is one entry in `ambience.gd`.
+  - **Music:** Arirang, arranged in code, is the placeholder; later a real recording or arrangement (public domain performed for the project, or CC0), and the old radio playing in bars that have one.
+  - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
+  - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
+- **A proper bundled font:** only the bar's art uses the pixel font; everything else uses Godot's built-in font, with the computer's own fonts for Hangul (boxes, or a different look, on another machine). Bundle a free Korean UI font (Pretendard or Noto Sans KR, OFL) as the default, logged in `LICENSE-ASSETS.md`.
+- **Voices:** characters speak their lines, a setting choosing **off**, **babble**, **system voices** or **AI voices**; the game picks each voice from facts it owns (gender, age, mood).
+  - **Babble (first):** Animal Crossing-style syllables per word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous), from a few CC0 sounds. No AI, runs anywhere.
+  - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.
+  - **AI voices:** a local text-to-speech service beside Ollama, on the CPU so it doesn't fight the LLM: **Kokoro** (82M, Apache-2.0, good quality) or **Piper** (fast, GPL-3.0 engine, voices with their own licences). Check first how they say Korean names and words.
+- **Speech bubbles:** a taller stage (or a strip above the tent) if bubbles cover the sign too much, text size with the other settings, and the Bubbles checkbox remembered between runs.
+- **Korean words on hover:** more as they turn up in transcripts (the stats count which are said), perhaps a glossary page.
 
-### Lower priority
+### Technical
 
-- **A roguelike PD (much later):** the plant cards could grow into a game of their own: a deck you build up over a season of episodes, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands for each run (a ratings target, "more romance this week"), and a season that ends when the show's renewed or cancelled. The tent bar still runs itself; the run is the PD's.
-- **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own version of the bar.
-- **Non-Korean visitors:** tourists and expats, who would naturally use Western name order (see the name-order note in [LLM-TUNING.md](LLM-TUNING.md)).
-- **Non-binary owners:** owners are a woman or a man for now, because their title (Ajumma or Ajusshi) depends on it; a non-binary owner would need a title that works (perhaps just Sajangnim, boss).
+- **Watching AI quality over time:** autoplay writes the batch review we do by hand (rejections by kind, give-ups, facts and threads that went wrong, lines misusing what they were told) and compares it with the last batch; a small model reading transcripts could flag what the checks can't see (19 Nov: "that husband… he's a good kid").
+- **Prompt length:** every feature adds context (who you know, facts, threads, notes), and with an 8B model length costs speed and obedience. Measure prompt size and reply time per call in the stats, set a budget, and try a newer or Korean-fluent local model then: a better model may fix more than any single check.
+- **Speed and waiting:** each visit is 10+ AI calls:
+  - **Warm the model up at the title screen:** Ollama unloads the model after 30 idle minutes (`keep_alive`), and the first reply then takes up to a minute (the loading screen looks stuck): a tiny request as the title opens.
+  - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes; chats got 8–21% of lines) because one request runs at a time. Customer chats on a second voice, alongside (`OLLAMA_NUM_PARALLEL`), each slower on one GPU:
+    1. **Measure first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) timing one request, then two at once, on the desktop and the laptop. Go on only if two take much less than twice as long.
+    2. **Then build it:** a second AI object for chats that never wait for the owner, bubbles and transcript coping with two at once, and each voice's share in the stats.
+- **Older saves kept up to date:** upgrade by the save's `version` rather than by what's missing (`scripts/save/save_upgrades.gd`), filling in whatever a new feature needs (a bar from before the cat still has none).
+
+### Before anyone else plays
+
+- **A cultural review:** the game's made from outside Korean culture, by a developer and an AI whose picture of Korea is second-hand, from English, and leans on stereotypes.
+- **Content boundaries (a setting):** late-night drinking and K-drama heartbreak drift dark or crude now and then. A setting says how far: **Drama** (PG-13 heartbreak, mild language), **Mature** (the default, 15+: stronger language, heavier themes, handled with care), **Adult** (18+, opt-in: adult themes, sex and crude humour between grown-ups who want it). It goes into every prompt's style guide, and lines that cross it are rejected like wrong titles. Outside Adult, nothing sexual beyond a kiss implied off-screen. At every setting, **teasing is never cover for harassment** (CONCEPT.md, "Cheeky, not 'bants'": Korean TV's teasing can be direct, but it stays civil).
+- **A first night for someone new:** a guided first episode, the producer explaining one control per beat (the desk, cards, pins, spins, the edit suite).
+- **The player's own controls:** pause, game speed, text size and reading speed (accessibility too).
+- **Packaging, first-run setup and releasing:** a big part of the point is learning to ship a Godot game.
+  - **Exporting:** export templates, a Windows preset, an icon, the name and version in the build, and a check that it runs on a clean machine (saves and logs in the user folder).
+  - **First run:** check for Ollama and the model, offer offline mode if they're missing, point to setup help.
+  - **Releasing:** versions (the save's `version` too: see **Older saves kept up to date**), release notes from the DEVLOG, licences for everything bundled (`LICENSE-ASSETS.md`), an itch.io page (perhaps with butler), maybe automated builds on GitHub.
+  - **A store page, as if for real:**
+    - **The overview:** a one-line pitch ("Coffee Talk with soju: a Korean tent bar where every customer is invented by an AI, and every night is an episode"), short and long descriptions, features as bullets (AI customers with memories, regulars who come back, Korean TV captions, the owner's diary, Hangul names, offline mode), tags.
+    - **Screenshots:** five or six moments at full resolution: a full house in the rain, a TV caption mid-pop, a reaction ("충격!"), the 3am diary, the "Previously on…" card, the title screen; perhaps a screenshot mode with the panels hidden.
+    - **A promo video:** a 30–60 second K-drama-teaser cut: the tarp going up, customers ducking in, captions popping, a big moment, the diary, the title card; Arirang (or another of our arrangements) under it, and the game's stings.
+    - **The rest:** a cover and a banner (from the title and loading art), a GIF or two, system requirements (an NVIDIA GPU with about 10GB, or offline mode), what the AI does and doesn't do (it runs on your machine; nothing's sent anywhere), credits, licences, a press kit.
+    - **Being open about the AI:** the page says plainly that a local AI model writes the characters and the game was built with AI help.
