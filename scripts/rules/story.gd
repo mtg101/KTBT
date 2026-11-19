@@ -24,7 +24,7 @@ const DAY_HANGUL := {"Monday": "월요일", "Tuesday": "화요일", "Wednesday":
 const MIN_DIARY := 120  # characters: a few sentences...
 
 
-const MAX_DIARY := 900  # ...but not a page and a half
+const MAX_DIARY := 560  # ...but no more than the diary page holds (11 ruled lines: diary_page.gd; 900 ran off the page)
 
 
 ## The stamp in the corner of a diary page, from what happened: the teacher's "참 잘했어요"
@@ -102,9 +102,9 @@ static func validate_diary(data: Variant, facts: Dictionary) -> String:
 		return problem
 	var entry := Text.unquote(Text.tidy_text(data["entry"]))
 	if entry.length() < MIN_DIARY:
-		return "the diary entry is too short: write four to six sentences"
+		return "the diary entry is too short: write four or five sentences"
 	if entry.length() > MAX_DIARY:
-		return "the diary entry is too long: four to six sentences"
+		return "the diary entry is too long for the page: four or five short sentences"
 	var opening := entry.left(70).to_lower()
 	if opening.contains("diary") or opening.contains("entry") or opening.begins_with("wrote") or opening.begins_with("writing"):
 		return "the diary entry talks about writing the diary: start straight in with the night itself"

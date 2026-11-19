@@ -8,7 +8,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ✅ **Latest (17 Nov):** the show's ratings (시청률). At 3am every episode gets a Korean TV rating, the share of Korea's TV homes said to be watching: a few percent is an ordinary night for a late-night cable show, double digits is a hit, 20% is legend. It comes from what happened (big moments, a mix of moods, the cliffhanger paying off, regulars' stories, the PD's cards taken up) and a little luck, it's on the diary page with a hover saying where it came from, and the last few nights' ratings make the bar a little busier or quieter (±10% at most). Before that, the edit suite, and autoplay you can start from your phone.
 
-**Recently:** the PD's desk (camera, plant cards, write-ins, the edit's spin on a caption, pins); a lighter, cheekier night that stays warm, not "bants"; the city behind the tent; each bar's own menu. The whole story is in [DEVLOG.md](DEVLOG.md).
+**Recently:** the PD's desk (camera, plant cards, write-ins, the edit's spin on a caption, pins); a lighter, cheekier night that stays warm, not "bants"; the stage in pixel art, lit by the hour (the street, the tent, the people and the cat, words in a pixel Korean font); each bar's own menu. The whole story is in [DEVLOG.md](DEVLOG.md).
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
@@ -29,7 +29,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 671 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 674 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -118,7 +118,6 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
 | `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
-| `scripts/ui/skyline_view.gd` | The city behind the tent, drawn in one go (its windows going dark through the night), with hovers for what each building is |
 
 ## AI usage
 

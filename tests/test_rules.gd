@@ -22,7 +22,6 @@ const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
-const Skyline = preload("res://scripts/rules/skyline.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 
 
@@ -1246,77 +1245,6 @@ func test_the_weather_follows_on_through_the_seasons() -> void:
 	# The season in the prompts.
 	assert_str(Prompts.describe_moment({"day": "Wednesday", "time": "9:40pm", "weather": "thick fog", "date": "15 November, late autumn"})).starts_with("TONIGHT: Wednesday 15 November, late autumn, 9:40pm, with thick fog")
 	assert_str(Prompts.describe_moment({"day": "Wednesday", "time": "9:40pm", "weather": "thick fog"})).starts_with("TONIGHT: Wednesday, 9:40pm")
-
-
-func test_the_skyline_behind_the_tent() -> void:
-	var city := Skyline.plan(1872.0, 42)
-	assert_str(str(city)).is_equal(str(Skyline.plan(1872.0, 42)))  # each bar's own, the same every night
-	assert_str(str(city)).is_not_equal(str(Skyline.plan(1872.0, 43)))
-	var last: Dictionary = city[-1]
-	assert_float(float(last["x"]) + float(last["width"])).is_greater_equal(1872.0)  # right across
-	var kinds: Array = city.map(func(building): return building["kind"])
-	assert_array(kinds).contains(["apt"])
-	assert_int(kinds.count("tower")).is_less_equal(2)
-	var numbers: Array = city.filter(func(building): return building["kind"] == "apt").map(func(building): return int(building["number"]))
-	for k in range(1, numbers.size()):
-		assert_int(numbers[k]).is_equal(numbers[k - 1] + 1)  # 101동, 102동, 103동... (for their hover)
-	# Shop buildings: a sign on every floor, all different, and they go dark as the shops shut.
-	var shops: Array = city.filter(func(building): return building["kind"] == "shops")
-	assert_array(shops).is_not_empty()
-	for building in shops:
-		var signs: Array = building["signs"]
-		assert_int(signs.size()).is_equal(roundi((float(building["height"]) - 6.0) / Skyline.FLOOR))
-		for index in signs:
-			assert_int(signs.count(index)).is_equal(1)
-	for k in Skyline.SIGNS.size():
-		assert_str(Talk.real_brand(str(Skyline.SIGNS[k]["means"]))).is_empty()
-	var hagwon: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("학원")
-	assert_bool(Skyline.sign_lit(hagwon, 21 * 60)).is_true()
-	assert_bool(Skyline.sign_lit(hagwon, 23 * 60)).is_false()  # (lessons over)
-	# A mix, mostly APTs: and at most one district office and one block going up, gaps where
-	# the mountains show, no two shop buildings side by side.
-	var counts := {}
-	for k in 40:
-		var plan := Skyline.plan(1872.0, k)
-		for building in plan:
-			counts[building["kind"]] = int(counts.get(building["kind"], 0)) + 1
-		assert_int(plan.filter(func(b): return b["kind"] == "office").size()).is_less_equal(1)
-		assert_int(plan.filter(func(b): return b["kind"] == "construction").size()).is_less_equal(1)
-		for n in range(1, plan.size()):
-			assert_bool(plan[n]["kind"] == "shops" and plan[n - 1]["kind"] == "shops").is_false()
-	for kind in ["apt", "tower", "church", "shops", "office", "construction", "gap"]:
-		assert_int(int(counts.get(kind, 0))).override_failure_message("no %s in 40 skylines" % kind).is_greater(0)
-	assert_int(int(counts["apt"])).is_greater(int(counts["shops"]) + int(counts["office"]) + int(counts["construction"]) + int(counts["gap"]))
-	# The district office empties early (bar the night desk).
-	var office: Dictionary = {}
-	for k in 40:
-		for building in Skyline.plan(1872.0, k):
-			if building["kind"] == "office" and office.is_empty():
-				office = building
-	var lit_late: int = office["windows"].filter(func(w): return Skyline.lit(w, 23 * 60)).size()
-	assert_int(lit_late).is_less(office["windows"].filter(func(w): return Skyline.lit(w, 18 * 60)).size())
-	# The mountains behind, with the old hillside houses (some with a rooftop room).
-	var hills := Skyline.hills(1872.0, 42)
-	assert_float(float(hills["near"][-1].x)).is_greater_equal(1872.0)
-	assert_str(str(hills)).is_equal(str(Skyline.hills(1872.0, 42)))
-	var karaoke: int = Skyline.SIGNS.map(func(s): return s["hangul"]).find("노래방")
-	assert_bool(Skyline.sign_lit(karaoke, 27 * 60)).is_true()  # (never shuts)
-	for building in city:
-		for window in building["windows"]:
-			assert_float(float(window["x"]) + Skyline.WINDOW.x).is_less_equal(float(building["width"]))
-			assert_float(float(window["y"]) + Skyline.WINDOW.y).is_less_equal(float(building["height"]))
-	# Windows go dark through the night.
-	assert_float(Skyline.lit_share(18 * 60)).is_equal_approx(0.45, 0.001)
-	assert_float(Skyline.lit_share(21 * 60)).is_greater(Skyline.lit_share(26 * 60))
-	assert_float(Skyline.lit_share(26 * 60 + 30)).is_between(Skyline.lit_share(27 * 60), Skyline.lit_share(26 * 60))
-	var at_nine := 0
-	var at_two := 0
-	for building in city:
-		for window in building["windows"]:
-			at_nine += 1 if Skyline.lit(window, 21 * 60) else 0
-			at_two += 1 if Skyline.lit(window, 26 * 60) else 0
-	assert_int(at_nine).is_greater(at_two * 3)
-	assert_str(Skyline.block_label(103)).is_equal("103동")
 
 
 func test_dishes_are_drawn_from_what_they_come_in() -> void:

@@ -69,13 +69,22 @@ func _init() -> void:
 	_body = RichTextLabel.new()
 	_body.name = "Entry"
 	_body.bbcode_enabled = true
-	_body.scroll_active = false
-	_body.mouse_filter = Control.MOUSE_FILTER_PASS  # (for the hover hints; clicks still go through)
+	_body.scroll_active = true  # (an entry longer than the page, from before the limit or a long one let through: the wheel scrolls it)
+	_body.scroll_following = false
+	_body.mouse_filter = Control.MOUSE_FILTER_PASS  # (for the hover hints and the wheel; clicks still go through)
 	_body.add_theme_font_size_override("normal_font_size", 23)
 	_body.add_theme_color_override("default_color", INK)
 	_body.position = Vector2(LEFT + 12, BODY_TOP - 30)
-	_body.size = Vector2(PAGE.x - LEFT - 60, PAGE.y - BODY_TOP - 20)
+	_body.size = Vector2(PAGE.x - LEFT - 60, PAGE.y - BODY_TOP - 10)  # (11 ruled lines)
 	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var bar := _body.get_v_scroll_bar()  # a thin bar in the margin, only when there's more to read
+	bar.custom_minimum_size.x = 6
+	var grabber := StyleBoxFlat.new()
+	grabber.bg_color = Color(INK, 0.35)
+	grabber.set_corner_radius_all(3)
+	for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		bar.add_theme_stylebox_override(state, grabber)
+	bar.add_theme_stylebox_override("scroll", StyleBoxEmpty.new())
 	_body.add_theme_constant_override("line_separation", int(LINE_GAP) - 30)
 	add_child(_body)
 
@@ -136,6 +145,7 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 	_writing.visible = false
 	_body.text = Glossary.explain_hangul(Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK))
 	_body.visible = true
+	_body.scroll_to_line(0)
 	_show_ratings(entry.get("ratings", {}))
 	_set_stamp(str(entry.get("stamp", "soju")))
 	_stamp.visible = true

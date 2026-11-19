@@ -848,7 +848,7 @@ static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
 It's %s and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
 %s
 
-Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four to six sentences. Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.%s
+Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four or five short sentences (it has to fit on one page of the diary). Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.%s
 
 Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
 

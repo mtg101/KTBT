@@ -54,8 +54,7 @@ const Memories = preload("res://scripts/rules/memories.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
-const Skyline = preload("res://scripts/rules/skyline.gd")
-const SkylineView = preload("res://scripts/ui/skyline_view.gd")
+const StreetLights = preload("res://scripts/bar/street_lights.gd")
 const StreetArt = preload("res://scripts/bar/street_art.gd")
 const DishArt = preload("res://scripts/rules/dish_art.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
@@ -421,7 +420,9 @@ var _ratings_dice := RandomNumberGenerator.new()
 var _busier := 1.0
 var _night_ratings := {}
 var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
-var _skyline: SkylineView  # the city behind the tent
+var _street_lights: StreetLights  # the street's lamps, cables, stars, moon and wet road (street_lights.gd)
+var _street_for := ""  # the bar whose street is drawn
+var _road: Control  # the wet road in front of the tent, on the stage (its reflections)
 var _street_art: StreetArt  # the street behind the tent, in pixel art (street_art.gd)
 var _light_hour := -1  # the hour the light was last logged
 var _menu_board: MenuBoard  # the menu, taped up on the back wall
@@ -1058,9 +1059,11 @@ func _start_night() -> void:
 	_night_day = NightRules.night_day(int(Game.bar.get("first_day", 4)), _night_number)
 	_pick_weather()
 	var bar_id := str(Game.bar.get("id", ""))
-	if _skyline.seed_for != bar_id:
-		_skyline.show_city(Skyline.plan(STAGE_SIZE.x, hash(bar_id)), bar_id, Skyline.hills(STAGE_SIZE.x, hash(bar_id)))  # (its own dice: the game's rolls don't shift)
-		_street_art.show_street(bar_id)  # (this bar's own street, from the art there is: its own dice too)
+	if _street_for != bar_id:
+		_street_for = bar_id
+		_street_art.show_street(bar_id)  # (this bar's own street, from the art there is: its own dice, so the game's rolls don't shift)
+		_street_lights.build(_street_art, _road, bar_id)  # (its lamps, cables and stars)
+	_street_lights.tonight(Seasons.day_of_year(int(Game.bar.get("first_date", 0)), _night_number), NightRules.weather_kind(_night_weather))
 	var board_dice := RandomNumberGenerator.new()
 	board_dice.seed = hash([randf(), randf()])  # (two rolls of the game's dice, as before: its other rolls don't shift)
 	var board := Specials.tonight(Menu.items(), NightRules.weather_kind(_night_weather), str(_night_date.get("season", "")),
@@ -1103,6 +1106,7 @@ func _start_night() -> void:
 	_stats.art = Art.summary()  # (what's drawn from images so far, and what in code)
 	_stats.art["lit"] = PixelLight.count_lit(self)  # (pieces lit by the hour: pixel_light.gd)
 	_stats.art["pixel_words"] = PixelFont.count_in(self)  # (words on the stage in the pixel font: pixel_font.gd)
+	_stats.art["street"] = _street_lights.summary()  # (its lamps, stars, the moon and the road: street_lights.gd)
 	_menu_change = {}
 	if _before_night.has("menu_change"):
 		_menu_change = _before_night["menu_change"].duplicate()
@@ -1167,7 +1171,7 @@ func _process(delta: float) -> void:
 	if _lights_out > 0.0:  # (a plant card: the lights flicker and go out for a moment)
 		_lights_out -= delta
 		_tent_view.lights_out(int(_lights_out * 8.0) % 3 != 0)  # (stuttering back on)
-	_skyline.set_minutes(_clock)
+	_street_lights.set_minutes(_clock)
 	if _loading != null and _loading.visible:
 		_loading.status = _loading_status()
 	_ambience.set_scene({"weather": _weather_kind, "people": _guests.size(), "cooking": not _kitchen.is_empty(),
@@ -4470,12 +4474,8 @@ func _build_stage(stage: Control) -> void:
 	var w := STAGE_SIZE.x
 	_tent_view.sky = _rect(stage, Vector2.ZERO, STAGE_SIZE, Color("3c3a72"))  # the night sky, changing with the hour
 	_tent_view.sky.name = "Sky"
-	_skyline = SkylineView.new()
-	_skyline.name = "Skyline"
-	_skyline.size = STAGE_SIZE
-	stage.add_child(_skyline)
 	_tent_view.weather_back = _layer(stage, "WeatherBack")
-	var city: Array = [_tent_view.sky, _skyline]  # (the stage's own city: left out when the street's art shows through)
+	var city: Array = [_tent_view.sky]  # (the stage's own sky and overpass, in shapes: left out when the street's art shows through)
 	city.append(_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a")))  # the overpass
 	city.append(_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36")))  # pillars
 	city.append(_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36")))
@@ -4486,6 +4486,15 @@ func _build_stage(stage: Control) -> void:
 	_tent_view.glow = _rect(stage, Vector2(110, 110), Vector2(w - 220, 270), Color(0.91, 0.51, 0.23, 0.16))  # warm glow inside the tent
 	_tent_view.glow.name = "Glow"
 	_rect(stage, Vector2(0, 372), Vector2(w, 8), Color("2a2840"))  # wet street
+	_road = Control.new()  # its reflections, on a wet night (street_lights.gd)
+	_road.name = "Road"
+	_road.position = StreetLights.ROAD
+	_road.size = Vector2(w, 8)
+	_road.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(_road)
+	_street_lights = StreetLights.new()
+	_street_lights.name = "StreetLights"
+	add_child(_street_lights)
 	var tent_from := stage.get_child_count()  # from here on is the tent (the cat and sign aside)
 
 	for bulb_x in [621.0, 1251.0]:  # (on the street's grid: a pixel to 3)
@@ -4638,6 +4647,7 @@ func _update_light(closing_dim: bool = false) -> void:
 	var stage_at := _stage.get_global_transform().origin
 	PixelLight.place_kind("tent", 1.0, -stage_at)
 	PixelLight.place_kind("people", 1.0, -stage_at)
+	PixelLight.place_kind("tarp", 1.0, -stage_at)
 	PixelLight.place_kind("street", StreetArt.SCALE, _street_art.get_global_transform().origin - stage_at)
 	var hour := int(_clock) / 60
 	if _night_open and hour != _light_hour:  # (logged on the hour: how dark, under the bulbs and out in the street)

@@ -27,6 +27,7 @@ func test_the_night_darkens_by_the_hour() -> void:
 
 
 func test_the_bulbs_light_the_tent_and_hardly_the_street() -> void:
+	PixelLight.set_lamps([])  # (the street's own lamps aside: test_street_lights.gd)
 	PixelLight.set_night(24 * 60, "", BULBS, [PixelLight.BULB_STEPS, PixelLight.BULB_STEPS])
 	var counter := PixelLight.light_at(Vector2(936, 250))
 	var far_end := PixelLight.light_at(Vector2(40, 250))
@@ -35,6 +36,12 @@ func test_the_bulbs_light_the_tent_and_hardly_the_street() -> void:
 	assert_float(far_end).is_less(counter)  # out at the ends, darker
 	assert_float(PixelLight.light_at(Vector2(936, -40), "street")).is_less(PixelLight.light_at(Vector2(936, -40), "tent"))  # (the tarp holds it in)
 	assert_float(PixelLight.light_at(Vector2(936, 250), "people")).is_equal(counter)  # people as the tent
+	assert_float(PixelLight.light_at(Vector2(936, 60), "tarp")).is_less(PixelLight.light_at(Vector2(936, 60), "tent"))  # the tarp glows dim...
+	assert_float(float(PixelLight.material("tarp").get_shader_parameter("self_lit"))).is_equal(0.0)  # ...its orange isn't a light of its own
+	assert_float(float(PixelLight.material("tent").get_shader_parameter("self_lit"))).is_equal(1.0)
+	PixelLight.set_lamps([Vector4(100, 300, 0.9, 300)])  # a street lamp lights what's round it, whatever it is
+	assert_float(PixelLight.light_at(Vector2(100, 300), "street")).is_greater(PixelLight.light_at(Vector2(1000, 300), "street"))
+	PixelLight.set_lamps([])
 	PixelLight.set_night(24 * 60, "", BULBS, [PixelLight.BULB_STEPS, 0.0])  # closing up: the far bulb off
 	assert_float(PixelLight.light_at(Vector2(1251, 250))).is_less(counter)
 	PixelLight.bulbs_off()  # the lights go out

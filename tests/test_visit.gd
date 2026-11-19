@@ -24,7 +24,7 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
-const Skyline = preload("res://scripts/rules/skyline.gd")
+const StreetLights = preload("res://scripts/bar/street_lights.gd")
 const RecapScreen = preload("res://scripts/ui/recap_screen.gd")
 const DiaryPage = preload("res://scripts/ui/diary_page.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
@@ -744,7 +744,6 @@ func test_the_street_behind_the_tent_is_pixel_art_and_reaches_above_it() -> void
 	assert_int(int(scene.STAGE_ROOM) % street.SCALE).is_equal(0)  # (the stage's top on a row of the grid: the tarp's pixels line up with the street's)
 	assert_float(scene._stage.position.y - street.position.y).is_equal(scene.STAGE_ROOM)
 	assert_bool(scene._tent_view.sky.visible).is_false()  # (the stage's own sky and city left out, so the street shows through)
-	assert_bool(scene._skyline.visible).is_false()
 	assert_that(street.sky.color).is_equal(scene._tent_view.sky.color)  # (the night by the hour)
 	assert_float(scene._log_panel.position.y).is_greater(scene._stage.position.y + scene.STAGE_SIZE.y)  # (the panels below it all)
 
@@ -1311,26 +1310,18 @@ func test_last_times_cliffhanger_comes_true() -> void:
 	assert_str(scene._diary_facts()["cliffhanger"]["teaser"]).is_equal("Will Jin-seok come back?")
 
 
-func test_the_city_behind_the_tent_and_tonights_date() -> void:
+func test_the_street_finished_and_tonights_date() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()
-	var city = runner.find_child("Skyline", true, false)
-	assert_array(city.buildings).is_not_empty()
-	city.set_minutes(21 * 60)
-	var at_nine: int = city.lit_count()
-	city.set_minutes(26 * 60)
-	assert_int(city.lit_count()).is_less(at_nine)  # windows going dark
-	var apt: Dictionary = city.buildings.filter(func(building): return building["kind"] == "apt")[0]
-	var over := Vector2(float(apt["x"]) + 10, city.ground - 5)
-	assert_str(city._get_tooltip(over)).contains("APT")  # Korean on screen explains itself
-	assert_dict(city.hills).is_not_empty()  # (the mountains behind)
-	var gaps: Array = city.buildings.filter(func(building): return building["kind"] == "gap")
-	if not gaps.is_empty():  # (in a gap, the mountains: explained)
-		assert_str(city._get_tooltip(Vector2(float(gaps[0]["x"]) + float(gaps[0]["width"]) / 2.0, city.ground - 2))).contains("산")
-	var shops: Array = city.buildings.filter(func(building): return building["kind"] == "shops")
-	if not shops.is_empty():
-		var tip: String = city._get_tooltip(Vector2(float(shops[0]["x"]) + 10, city.ground - 5))
-		assert_str(tip).contains("상가").contains(str(Skyline.SIGNS[int(shops[0]["signs"][0])]["hangul"]))
+	var lights = scene._street_lights
+	assert_int(lights.lamps.size()).is_equal(StreetLights.LAMP_XS.size())  # the lamps under the overpass...
+	assert_object(scene._street_art.sky.find_child("Cables", false, false)).is_not_null()  # ...the cables...
+	assert_int(PixelLight.lamps.size()).is_equal(StreetLights.LAMP_XS.size() + 1)  # (lighting the street: the lamps and the neon)
+	assert_float(lights.moon_phase).is_equal_approx(StreetLights.phase(318), 0.001)  # ...the moon, in tonight's phase
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+	assert_int(int(scene._stats.art["street"]["lamps"])).is_equal(StreetLights.LAMP_XS.size())  # (in the night's stats)
+	assert_object(runner.find_child("Skyline", true, false)).is_null()  # (the old city drawn in code: retired)
 	# Tonight's date, in the season (the tests' calendar starts on 15 November).
 	assert_str(str(scene._night_date["text"])).is_equal("15 November")
 	assert_str((runner.find_child("MomentLabel", true, false) as Label).text).contains("15 Nov")
@@ -2234,6 +2225,24 @@ func test_a_reaction_check_waits_for_the_owner_instead_of_being_lost() -> void:
 	assert_int(scene._stats.reactions_asked).is_equal(1)
 	assert_int(scene._stats.reactions_skipped).is_equal(1)
 	CannedAi.scripted = []
+
+
+func test_a_diary_entry_fits_its_page_and_a_longer_one_scrolls() -> void:
+	var page = auto_free(DiaryPage.new())
+	add_child(page)
+	var words := "It was a quiet night under the tarp, and the rain kept most people home tonight. "
+	var longest := words.repeat(Story.MAX_DIARY / words.length() + 1).left(Story.MAX_DIARY)
+	page.show_entry({"episode": 2, "day": "Wednesday", "weather": "light drizzle", "text": longest}, "Kim Ji-hyun")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var body: RichTextLabel = page.find_child("Entry", true, false)
+	assert_float(float(body.get_content_height())).is_less_equal(body.size.y)  # as long as the AI may write: on the page
+	assert_bool(body.scroll_active).is_true()  # (longer, an old one: the wheel scrolls it)
+	page.show_entry({"episode": 2, "day": "Wednesday", "weather": "light drizzle", "text": words.repeat(14)}, "Kim Ji-hyun")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_float(float(body.get_content_height())).is_greater(body.size.y)
+	assert_bool(body.get_v_scroll_bar().visible).is_true()  # (a bar in the margin says there's more)
 
 
 func test_the_diary_can_be_read_during_a_night() -> void:
