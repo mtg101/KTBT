@@ -381,7 +381,7 @@ func add_umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape"
 	var across := float(shape["across"])
 	var high := float(shape["high"])
 	var metal := Color("55536b")
-	holder.add_child(_bar(Vector2(-1, middle.y - high + 8), Vector2(2, high - 8 - middle.y), metal))  # the shaft, down to the hand
+	holder.add_child(_bar(Vector2(-1, middle.y - high + 8), Vector2(2, high - 8 - middle.y), metal, holder.scale.x))  # the shaft, down to the hand
 	var points := PackedVector2Array()
 	for step in 13:
 		var angle: float = PI + PI * step / 12.0
@@ -394,7 +394,7 @@ func add_umbrella(person: Control, gear: Dictionary = {"umbrella": true, "shape"
 	var canopy := PixelShape.sprite(points, UMBRELLA_CLEAR if str(gear.get("shape", "")) == "bubble" else UMBRELLA_COLOURS.pick_random(), holder.scale.x)  # (in pixels: the grid's size)
 	canopy.name = "Canopy"
 	holder.add_child(canopy)
-	holder.add_child(_bar(Vector2(-2, middle.y - high - 4), Vector2(4, 6), metal))  # the tip
+	holder.add_child(_bar(Vector2(-2, middle.y - high - 4), Vector2(4, 6), metal, holder.scale.x))  # the tip
 	# The weather lands on it (unlike some K-drama umbrellas): snow builds up on top, and
 	# rain runs off the rim in drops.
 	holder.set_meta("middle", middle)
@@ -457,10 +457,19 @@ func _shake_off(person: Control, holder: Node2D) -> void:
 
 
 ## A rectangle for something that isn't a Control (the umbrella's shaft and tip).
-func _bar(pos: Vector2, bar_size: Vector2, colour: Color) -> Polygon2D:
-	var bar := Polygon2D.new()
-	bar.polygon = PackedVector2Array([pos, pos + Vector2(bar_size.x, 0), pos + bar_size, pos + Vector2(0, bar_size.y)])
-	bar.color = colour
+## A straight little piece (a shaft, a tip, a drop) in the grid's pixels: at least one, never
+## a sliver thinner than a pixel. scale: its holder's (so its pixels stay the grid's size).
+func _bar(pos: Vector2, bar_size: Vector2, colour: Color, scale: float = 1.0) -> Sprite2D:
+	var cell := 3.0 / maxf(scale, 0.01)
+	var cells := Vector2i(maxi(1, roundi(bar_size.x / cell)), maxi(1, roundi(bar_size.y / cell)))
+	var image := Image.create(cells.x, cells.y, false, Image.FORMAT_RGBA8)
+	image.fill(colour)
+	var bar := Sprite2D.new()
+	bar.texture = ImageTexture.create_from_image(image)
+	bar.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	bar.centered = false
+	bar.position = ((pos + bar_size / 2.0) / cell - Vector2(cells) / 2.0).round() * cell
+	bar.scale = Vector2.ONE * cell
 	return bar
 
 
@@ -469,10 +478,9 @@ func run_for_it(person: Control, going_right: bool) -> void:
 	var ground := person.position.y
 	person.set_meta("running", true)
 	person.set_meta("ground", ground)
-	var cover := Polygon2D.new()
+	var cover := PixelShape.sprite(PackedVector2Array([Vector2(8, -4), Vector2(72, -8), Vector2(70, 4), Vector2(10, 6)]),
+		CUSTOMER_COLORS.pick_random().darkened(0.4))  # (a jacket or a bag, in pixels as the umbrellas are)
 	cover.name = "OverHead"
-	cover.polygon = PackedVector2Array([Vector2(8, -4), Vector2(72, -8), Vector2(70, 4), Vector2(10, 6)])
-	cover.color = CUSTOMER_COLORS.pick_random().darkened(0.4)
 	person.add_child(cover)
 	person.pivot_offset = Vector2(48, 216)  # leaning from the feet (Layout.PERSON_SIZE)
 	lean(person, 0.1 if going_right else -0.1)

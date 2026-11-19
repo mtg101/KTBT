@@ -1,6 +1,8 @@
 extends GdUnitTestSuite
 ## Tests for scripts/bar/kitchen.gd: the stove on its own, without a night.
 
+const DishView = preload("res://scripts/ui/dish_view.gd")
+const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Kitchen = preload("res://scripts/bar/kitchen.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 
@@ -43,4 +45,10 @@ func test_dishes_and_banchan_are_drawn_with_their_names() -> void:
 	assert_vector(dish.custom_minimum_size).is_not_equal(Vector2.ZERO)
 	var banchan: Control = auto_free(kitchen.banchan_shape())
 	assert_str(banchan.tooltip_text).contains("Banchan").contains(Kitchen.BANCHAN)
-	assert_int(banchan.get_child_count()).is_equal(3)
+	assert_int(banchan.shapes.filter(func(sh): return sh["kind"] == "ellipse").size()).is_equal(3)  # three little dishes
+	# In pixel art: painted on their colours' ramps, a darker edge round them, the same picture each time.
+	var picture: ImageTexture = DishView.paint(dish.shapes)
+	assert_object(picture).is_same(DishView.paint(dish.shapes))
+	assert_vector(Vector2(picture.get_size())).is_equal((dish.custom_minimum_size / DishView.PIXEL).ceil())
+	assert_object(dish.material).is_same(PixelLight.material("tent"))  # (lit by the hour)
+	assert_object(DishView.paint([])).is_null()

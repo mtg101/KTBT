@@ -113,7 +113,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
 | `scripts/ui/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |
 | `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
-| `scripts/ui/dish_view.gd` | A dish or drink on the table, drawn from its shapes (see `rules/dish_art.gd`) |
+| `scripts/ui/dish_view.gd` | A dish or drink on the table in pixel art, painted from its shapes (see `rules/dish_art.gd`) on their colours' ramps, lit from above, a darker edge round it, lit by the hour |
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |

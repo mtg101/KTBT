@@ -26,6 +26,13 @@ func test_the_tents_fixtures() -> void:
 	stage.add_child(dish)
 	scenery.steam(dish)
 	assert_int(dish.get_child_count()).is_equal(2)  # (two puffs)
+	var cloud: TextureRect = dish.get_child(0)
+	assert_vector(cloud.size).is_equal(Vector2(2, 2) * Scenery.PUFF_PIXEL)  # a little cloud in pixels
+	scenery._rise(0.5, cloud, Vector2(9, 12), Vector2(6, -18), 0.28)
+	assert_float(fposmod(cloud.get_global_transform().origin.x, 3.0)).is_equal_approx(0.0, 0.01)  # on the grid's lines
+	assert_float(cloud.modulate.a).is_equal_approx(0.14, 0.001)  # fading in steps
+	var board := Scenery.closed_board()
+	assert_vector(Vector2(board.get_size())).is_equal(Vector2(28, 27))  # (the CLOSED board, in pixel art)
 
 
 func test_the_stats_panel_shows_a_section_at_a_time() -> void:

@@ -99,10 +99,13 @@ func dish_shape(id: String) -> Control:
 
 ## The free banchan: three little dishes.
 func banchan_shape() -> Control:
-	var shape := Control.new()
+	var shape := DishView.new()
 	shape.tooltip_text = Text.tip("Banchan: %s (free)" % BANCHAN)
 	shape.mouse_filter = Control.MOUSE_FILTER_STOP
 	shape.custom_minimum_size = Vector2(26, 34)
-	for i in 3:
-		Draw.rect(shape, Vector2(i * 9, 25), Vector2(8, 9), Color("c8452f") if i != 1 else Color("efe9cf"))
+	var dishes: Array = []
+	for i in 3:  # three little white dishes, kimchi either side of something pale
+		dishes.append({"kind": "ellipse", "pos": Vector2(i * 9, 27), "size": Vector2(9, 6), "colour": DishArt.PLATE})
+		dishes.append({"kind": "rect", "pos": Vector2(i * 9 + 2, 25), "size": Vector2(5, 4), "colour": Color("c8452f") if i != 1 else Color("efe9cf")})
+	shape.shapes = dishes
 	return shape

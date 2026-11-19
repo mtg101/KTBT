@@ -10,8 +10,7 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 - **Real art (next): pixel art with real lighting.** The stage is pixel art now (the street, the tent, the people and the cat, lit by the hour, its words in a pixel Korean font: ART.md says how). What's left, in order:
   1. **The people, more of them:** poses that need arms of their own (a glass raised, a hand to the head, eating), different heights and builds, and props that say who someone is (a taxi driver's cap, a school uniform).
-  2. **Food and drink:** the dishes, bottles and glasses as pixel art of their own (they're shapes drawn in the grid's pixels now: `dish_view.gd`), the stove's flame and the steam with them.
-  3. **Animation and the UI's finish:** the little movements that make it feel alive (pouring, eating, the owner cooking), and the panels and desk to match the stage.
+  2. **Animation and the UI's finish:** the little movements that make it feel alive (pouring, eating, the owner cooking), and the panels and desk to match the stage.
   Throughout: every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, screenshot tests once it settles, and all of it part of the Korean cultural review before anyone else plays. Later, an idea: a portrait of each character from the image model (see **Portraits**, under Presentation).
 - **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:

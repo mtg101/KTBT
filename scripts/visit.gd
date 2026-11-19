@@ -977,18 +977,23 @@ func _show_closing_up() -> void:
 		_closed_sign.queue_free()
 	_closed_sign = Control.new()
 	_closed_sign.name = "ClosedSign"
-	_closed_sign.position = Vector2(STAGE_SIZE.x - 210, 292)
-	_closed_sign.size = Vector2(84, 80)
-	_closed_sign.pivot_offset = Vector2(42, 80)  # (it pops up from the pavement)
-	_closed_sign.rotation_degrees = -4.0
+	_closed_sign.position = Vector2(STAGE_SIZE.x - 210, 291)  # (on the grid's lines: a pixel to 3)
+	_closed_sign.size = Vector2(84, 81)
+	_closed_sign.pivot_offset = Vector2(42, 81)  # (it pops up from the pavement)
 	_closed_sign.z_index = 4
 	_closed_sign.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
 	_closed_sign.tooltip_text = Text.tip("마감 magam: closed. The owner's closing up early tonight: nobody new, and everyone here finishes at their own pace.")
 	_stage.add_child(_closed_sign)
-	for leg_x in [14.0, 64.0]:
-		_rect(_closed_sign, Vector2(leg_x, 50), Vector2(5, 30), Color("4a3524"))  # the A-frame's legs
-	_rect(_closed_sign, Vector2(0, 0), Vector2(84, 56), Color("2c2a26"))  # a little chalkboard
-	_rect(_closed_sign, Vector2(4, 4), Vector2(76, 48), Color("3d4a3f"))
+	var board := TextureRect.new()  # a little A-frame chalkboard, in pixel art (scenery.gd)
+	board.name = "Board"
+	board.texture = Scenery.closed_board()
+	board.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	board.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	board.stretch_mode = TextureRect.STRETCH_SCALE
+	board.size = _closed_sign.size
+	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PixelLight.light(board, "tent")
+	_closed_sign.add_child(board)
 	for line in [["마감", 22, 4.0], ["CLOSED", 12, 34.0]]:
 		var label := Ktv.label(str(line[0]), int(line[1]), Ktv.CREAM)
 		label.position = Vector2(0, float(line[2]))
@@ -4502,7 +4507,11 @@ func _build_stage(stage: Control) -> void:
 		bulb.position = Vector2(bulb_x, 111)
 		bulb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(bulb)
-		_rect(bulb, Vector2(-1, 0), Vector2(2, 36), Color("55536b"))  # bulb wire
+		var wire := Control.new()  # its wire, in the grid's pixels, leaning as it swings (tent_view.gd draw_wire)
+		wire.name = "Wire"
+		wire.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wire.draw.connect(TentView.draw_wire.bind(wire))
+		bulb.add_child(wire)
 		var glass: Control = Art.place(bulb, "tent/bulb", Vector2(-9, 36), "topleft", 3)  # the bulb, in pixel art (tinted by the hour: tent_view.gd)
 		if glass == null:
 			Art.drawn("tent/bulb")
@@ -4610,7 +4619,8 @@ func _build_stage(stage: Control) -> void:
 ## An empty full-stage layer for things added later (weather, the bar's touches).
 ## One of the tent's pieces in pixel art, if there's art for it (art/tents: tools/art/tent.py):
 ## drawn at at (its top-left corner, on the street's grid: each pixel 3 on screen), just in
-## front of the shapes it stands in for, which are left out. Without it, the shapes stay.
+## front of the shapes it stands in for, which go (freed: hidden, the tent's look showed them
+## again, drawn behind the art every frame). Without it, the shapes stay.
 func _pixel_piece(stage: Control, key: String, at: Vector2, shapes: Array) -> void:
 	var art := Art.place(stage, key, at, "topleft", 3)
 	if art == null:
@@ -4618,7 +4628,8 @@ func _pixel_piece(stage: Control, key: String, at: Vector2, shapes: Array) -> vo
 		return
 	stage.move_child(art, shapes[-1].get_index() + 1)
 	for shape in shapes:
-		shape.visible = false
+		stage.remove_child(shape)
+		shape.queue_free()
 
 
 func _layer(stage: Control, layer_name: String) -> Control:

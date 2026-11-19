@@ -16,6 +16,9 @@ const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 const BULB_OFF := Color("3a3546")  # a bulb switched off (closing up early)
 const BULB_GLASS := Vector2(0, 44)  # the middle of a bulb's glass, from the top of its wire
+const GRID := 3.0  # a pixel of the art, on screen
+const WIRE_LENGTH := 36.0  # a bulb's wire, from where it hangs to the glass
+const WIRE := Color("55536b")
 const CLOSING_GLOW := 0.6  # the tent's glow with one bulb off
 
 var stage_size: Vector2
@@ -330,7 +333,7 @@ func show_weather(kind: String) -> void:
 	match kind:
 		"drizzle", "rain":
 			var heavy := kind == "rain"
-			var rain := _particles("Rain", weather_back, _dot_texture(2, 16 if heavy else 12, Color(0.75, 0.82, 1.0, 0.55)))
+			var rain := _particles("Rain", weather_back, _dot_texture(3, 15 if heavy else 12, Color(0.75, 0.82, 1.0, 0.55)))
 			rain.amount = 260 if heavy else 70
 			rain.lifetime = 0.55
 			rain.direction = Vector2(0.12, 1)
@@ -338,7 +341,7 @@ func show_weather(kind: String) -> void:
 			rain.initial_velocity_min = 800.0 if heavy else 600.0
 			rain.initial_velocity_max = 950.0 if heavy else 700.0
 			if heavy:  # drips off the edge of the tarp, in front
-				var drips := _particles("Drips", weather_front, _dot_texture(2, 6, Color(0.75, 0.82, 1.0, 0.7)))
+				var drips := _particles("Drips", weather_front, _dot_texture(3, 6, Color(0.75, 0.82, 1.0, 0.7)))
 				drips.position = Vector2(w / 2, 124)
 				drips.emission_rect_extents = Vector2(w / 2 - 30, 1)
 				drips.amount = 40
@@ -348,15 +351,15 @@ func show_weather(kind: String) -> void:
 				drips.initial_velocity_max = 260.0
 				drips.gravity = Vector2(0, 900)
 		"snow":
-			var snow := _particles("Snow", weather_back, _dot_texture(4, 4, Color(1, 1, 1, 0.85)))
+			var snow := _particles("Snow", weather_back, _dot_texture(3, 3, Color(1, 1, 1, 0.85)))
 			snow.amount = 140
 			snow.lifetime = 8.0
 			snow.direction = Vector2(0.2, 1)
 			snow.spread = 25.0
 			snow.initial_velocity_min = 35.0
 			snow.initial_velocity_max = 60.0
-			snow.scale_amount_min = 0.6
-			snow.scale_amount_max = 1.3
+			snow.scale_amount_min = 1.0  # (a pixel of the grid, or two: whole pixels)
+			snow.scale_amount_max = 2.0
 			Draw.rect(weather_front, Vector2(0, 368), Vector2(w, 4), Color(0.95, 0.96, 1.0, 0.7))  # settling on the street
 		"fog":
 			for k in 4:
@@ -372,17 +375,48 @@ func show_weather(kind: String) -> void:
 		if old.is_valid():
 			old.kill()
 	sways.clear()
-	for bulb in bulbs:
-		bulb.rotation = 0.0
+	for k in bulbs.size():
+		var bulb: Control = bulbs[k]
+		var glass: CanvasItem = bulb_lights[k] if k < bulb_lights.size() else null
+		if glass != null and not glass.has_meta("rest_x"):
+			glass.set_meta("rest_x", (glass as Control).position.x)
 		var sway: Tween = bulb.create_tween().set_loops()
 		sways.append(sway)
-		sway.tween_property(bulb, "rotation_degrees", swing, 1.6 + randf()).set_trans(Tween.TRANS_SINE)
-		sway.tween_property(bulb, "rotation_degrees", -swing, 1.6 + randf()).set_trans(Tween.TRANS_SINE)
+		var out_there := 1.6 + randf()
+		sway.tween_method(swing_bulb.bind(bulb, glass), 0.0, swing, out_there / 2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		sway.tween_method(swing_bulb.bind(bulb, glass), swing, -swing, 1.6 + randf()).set_trans(Tween.TRANS_SINE)
+		sway.tween_method(swing_bulb.bind(bulb, glass), -swing, 0.0, out_there / 2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+
+## A bulb swung this far (degrees) on its wire: in pixel art it's never turned (turned pixels
+## shimmer), its glass moves over by whole pixels of the grid and its wire leans in steps of
+## a pixel down to it (bulb_wire).
+func swing_bulb(degrees: float, bulb: Control, glass: CanvasItem) -> void:
+	if not is_instance_valid(bulb):
+		return
+	var over := GRID * roundi(sin(deg_to_rad(degrees)) * WIRE_LENGTH / GRID)
+	bulb.set_meta("over", over)
+	if glass != null:
+		(glass as Control).position.x = float(glass.get_meta("rest_x", (glass as Control).position.x)) + over
+	var wire := bulb.get_node_or_null("Wire") as CanvasItem
+	if wire != null:
+		wire.queue_redraw()
+
+
+## A bulb's wire, drawn in the grid's pixels from where it hangs down to its glass, leaning as
+## the bulb swings (a pixel over at a time).
+static func draw_wire(wire: Control) -> void:
+	var over := float(wire.get_parent().get_meta("over", 0.0))
+	var rows := int(WIRE_LENGTH / GRID)
+	for row in rows:
+		var x := GRID * roundf(over * (row + 1) / rows / GRID)
+		wire.draw_rect(Rect2(x, row * GRID, GRID, GRID), WIRE)
 
 
 func _particles(node_name: String, layer: Control, texture: Texture2D) -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.name = node_name
+	p.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # (rain and snow in the grid's pixels: 3 wide, never smoothed)
 	p.texture = texture
 	p.position = Vector2(stage_size.x / 2, -20)
 	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE

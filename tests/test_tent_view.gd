@@ -90,3 +90,10 @@ func test_the_weather_falls_and_the_bulbs_swing() -> void:
 	view.show_weather("fog")
 	assert_object(view.weather_front.get_node_or_null("Fog0")).is_not_null()
 	assert_int(view.sways.size()).is_equal(1)  # (the old swing stopped, a new one started)
+	# The bulb swings by whole pixels, never turned (turned pixels shimmer).
+	var glass: Control = view.bulb_lights[0]
+	var rest: float = glass.position.x
+	view.swing_bulb(7.0, view.bulbs[0], glass)
+	assert_float(view.bulbs[0].rotation).is_equal(0.0)
+	assert_float(glass.position.x - rest).is_equal(TentView.GRID * roundi(sin(deg_to_rad(7.0)) * TentView.WIRE_LENGTH / TentView.GRID))
+	assert_float(fposmod(glass.position.x - rest, TentView.GRID)).is_equal(0.0)
