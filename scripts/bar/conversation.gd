@@ -176,6 +176,10 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 ## other for years.)
 static func known_as(guest: Variant, chat: Variant) -> String:
 	var full := str(guest.customer["name"])
+	if chat != null and "together" in guest and not guest.together.is_empty():  # (came in with someone in this chat: they know each other's names)
+		for other in chat.people:
+			if other != guest and guest.together["names"].has(str(other.customer["name"])):
+				return full
 	if chat != null and bool(guest.customer.get("regular", {}).get("founding", false)):
 		for other in chat.people:
 			if other != guest and bool(other.customer.get("regular", {}).get("founding", false)):

@@ -267,7 +267,7 @@ Reply with ONLY a JSON object with exactly these keys:
 ## otherwise send in four nurses with dark circles under their eyes).
 ## look: how the game has decided the customer looks (Looks.pick_look), including their age
 ## range; the AI invents someone who'd look like that.
-static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = [], look: Dictionary = {}) -> Array:
+static func customer_messages(day: String, time_text: String, weather: String, include_opening_line: bool = true, customer_name: String = "", gender: String = "", used_jobs: Array = [], used_looks: Array = [], look: Dictionary = {}, together: String = "") -> Array:
 	if customer_name != "":
 		var ages := "a whole number, 19 or older"
 		var seen := ""
@@ -287,7 +287,7 @@ Reply with ONLY a JSON object with exactly these keys:
 - "mood": a few words
 - "reason": why they're here tonight, in one sentence
 - "speech_style": how they talk, in a few words
-- "appearance": %s""" % [day, time_text, weather, customer_name, gender_phrase(gender), seen, ages, appearance]
+- "appearance": %s""" % [day, time_text, weather, customer_name, gender_phrase(gender), seen + ("\n\n" + together if together != "" else ""), ages, appearance]
 		if not used_jobs.is_empty():
 			details += "\n\nMake them different from tonight's other customers. Jobs they've had: %s. Pick a different job." % ", ".join(PackedStringArray(used_jobs))
 		if not used_looks.is_empty() and look.is_empty():  # with a game-decided look, not needed (and the AI copied them)

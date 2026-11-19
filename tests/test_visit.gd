@@ -2619,3 +2619,110 @@ func test_close_regulars_sit_together_wave_each_other_over_and_get_the_last_oden
 	assert_bool(a.served.has("odeng") and not a.order.has("odeng")).is_false()
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_two_people_come_in_together_sit_together_talk_and_settle_the_bill() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._arrive_together(scene._clock, "couple")
+	assert_int(scene._seats_for_next()).is_equal(2)  # (they wait for two stools)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and not scene._greeting)).override_failure_message("they never both sat down").is_true()
+	var a = scene._guests[0]
+	var b = scene._guests[1]
+	assert_int(absi(int(a.seat) - int(b.seat))).is_equal(1)  # side by side
+	assert_bool(scene._came_together(a, b)).is_true()
+	assert_bool(scene._close(a, b)).is_true()  # (a couple: close)
+	assert_str(_transcript(runner)).contains("Two people duck under the tarp together.").contains("a couple out together")
+	assert_bool(a.transcript.any(func(e): return str(e.get("action", "")).contains("came in with %s, their partner" % b.customer["name"]))).is_true()
+	assert_int(int(scene._stats.captions.get("couple", 0))).is_equal(1)  # 커플 등장! on TV
+	assert_str(scene._chat_notes(_chat_of(a, b))).contains("came in together")
+	# Talking: they get talking to each other first.
+	var spell: Dictionary = scene._counter_chats.choose_spell([a, b, ], null, null)
+	if spell["chat"] != null and bool(spell["started"]):
+		assert_bool(spell["chat"].people.has(a) and spell["chat"].people.has(b)).is_true()
+	# The bill: a fight, kawi-bawi-bo, the loser pays for both; together it's both bills.
+	a.order = ["soju"]
+	b.order = ["beer", "tteokbokki"]
+	a.together["pay"] = "fight"
+	var both: int = Orders.bill(a.order) + Orders.bill(b.order)
+	var first: int = scene._bill_for(a)
+	var second: int = scene._bill_for(b)
+	assert_int(first + second).is_equal(both)
+	assert_bool(first == 0 or second == 0).is_true()
+	assert_str(_transcript(runner)).contains("The bill fight! Kawi, bawi, bo")
+	assert_int(int(scene._stats.groups.get("paid_fight", 0))).is_equal(1)
+	assert_int(int(scene._stats.captions.get("bill_fight", 0))).is_equal(1)
+	assert_str(scene._stats.groups_text()).contains("couple 1").contains("a bill fight 1")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func _chat_of(a, b):
+	var chat := Visit.Chat.new()
+	chat.people = [a, b]
+	return chat
+
+
+func test_two_who_came_in_together_wait_for_two_stools_and_split_or_carry_the_bill() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.run_clock = false
+	# Waiting: two stools needed for the first, one for the second.
+	var group := {"kind": "colleagues", "pay": "one_pays", "names": [], "seated": 0, "settled": false, "payer": ""}
+	scene._waiting = [scene._clock, scene._clock]
+	scene._waiting_who = ["", ""]
+	scene._waiting_group = [group, group]
+	assert_int(scene._seats_for_next()).is_equal(2)
+	group["called"] = 1
+	assert_int(scene._seats_for_next()).is_equal(1)
+	scene._waiting.clear()
+	scene._waiting_who.clear()
+	scene._waiting_group.clear()
+	# One pays for both, whoever goes first: the other's bill is carried to the payer.
+	var a := Visit.Guest.new()
+	a.customer = {"name": "Kim Ji-ho"}
+	a.order = ["soju"]
+	var b := Visit.Guest.new()
+	b.customer = {"name": "Park Min-su"}
+	b.order = ["beer"]
+	var paying := {"kind": "sunbae", "pay": "one_pays", "names": ["Kim Ji-ho", "Park Min-su"], "settled": false, "payer": ""}
+	a.together = paying
+	b.together = paying
+	assert_int(scene._bill_for(b)).is_equal(0)  # (Min-su goes first: the sunbae, Ji-ho, pays)
+	assert_str(str(paying["payer"])).is_equal("Kim Ji-ho")
+	assert_int(scene._bill_for(a)).is_equal(Orders.bill(["soju"]) + Orders.bill(["beer"]))
+	assert_str(_transcript(runner)).contains("Kim Ji-ho pays for both of them.")
+	var splitting := {"kind": "couple", "pay": "split", "names": ["Kim Ji-ho", "Park Min-su"], "settled": false, "payer": ""}
+	a.together = splitting
+	b.together = splitting
+	assert_int(scene._bill_for(a)).is_equal(Orders.bill(["soju"]))
+	assert_int(scene._bill_for(b)).is_equal(Orders.bill(["beer"]))
+	assert_str(_transcript(runner)).contains("split the bill")
+	Hooks.run_clock = true
+
+
+func test_close_regulars_come_in_as_a_pair_and_new_pairs_who_both_stay_on_come_in_together_again() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.groups = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var first := _a_regular()
+	var second := _a_regular()
+	second.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
+	Game.bar["regulars"] = [first, second]
+	scene._regulars_due = [{"time": scene._clock, "id": str(first["id"])}, {"time": scene._clock + 5.0, "id": "older", "with": str(first["id"])}]
+	scene._regulars_arrive()
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and not scene._greeting)).override_failure_message("they never both sat down").is_true()
+	assert_bool(scene._came_together(scene._guests[0], scene._guests[1])).is_true()
+	assert_str(_transcript(runner)).contains("Kang Da-eun comes in with them.")
+	# At closing: they're bonded as coming in together (and close).
+	Bonds.forget(Game.bar, "older")
+	scene._bond_tonights_pairs()
+	var bond := Bonds.find(Game.bar, str(first["id"]), "older")
+	assert_bool(bool(bond.get("together", false))).is_true()
+	assert_bool(bool(bond.get("close", false))).is_true()  # (two regulars who are friends: close)
+	assert_str(str(bond["how"])).contains("came in together")
+	Hooks.groups = false
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()

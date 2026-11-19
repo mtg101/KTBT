@@ -13,6 +13,7 @@ const Plants = preload("res://scripts/rules/plants.gd")
 class Someone:
 	extends RefCounted
 	var customer := {"name": "Kim Ji-ho", "gender": "woman", "age": 34}
+	var together := {}
 	var quick_greeting := false
 	var stay_left := 60.0
 	var topic := ""
@@ -169,6 +170,16 @@ func test_strangers_are_known_by_how_they_look_until_a_names_said() -> void:
 	assert_str(Conversation.known_as(guest, chat)).is_equal("Kim Ji-ho")
 	assert_str(Conversation.last_speaker(chat.transcript)).is_equal("Kim Ji-ho")
 	assert_str(Conversation.last_speaker([{"action": "Someone comes in."}])).is_empty()
+	# Someone they came in with knows their name from the start.
+	var stranger := Someone.new()
+	stranger.customer = {"name": "Park Su-bin", "look": {}}
+	var partner := Someone.new()
+	partner.customer = {"name": "Choi Na-ra"}
+	var fresh := CounterChats.Chat.new()
+	fresh.people = [stranger, partner]
+	assert_str(Conversation.known_as(stranger, fresh)).is_not_equal("Park Su-bin")
+	stranger.together = {"names": ["Park Su-bin", "Choi Na-ra"]}
+	assert_str(Conversation.known_as(stranger, fresh)).is_equal("Park Su-bin")
 
 
 func test_a_big_moment_stays_on_their_minds_for_a_few_lines() -> void:

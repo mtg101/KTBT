@@ -105,7 +105,8 @@ var memories_failed := 0
 var threads := {}  # something coming up a regular mentioned: "opened", "asked", "closed", "dropped" (and "between": mentioned to another regular) -> times
 var who_you_know := 0  # lines given who the speaker knows here (from their side) or what they've said about themselves
 var pair_memories := {}
-var closeness := {}  # closeness paying off: "sat_by_a_friend", "waved_over", "saved_for_them", "together" -> times  # regulars remembering each other at closing: "saved", "failed" -> pairs
+var closeness := {}
+var groups := {}  # customers coming in together: kind (couple, colleagues...) -> pairs; "paid_" + how they paid -> pairs  # closeness paying off: "sat_by_a_friend", "waved_over", "saved_for_them", "together" -> times  # regulars remembering each other at closing: "saved", "failed" -> pairs
 var facts_learned := {}  # a thing that sticks learned or changed (job, family...) -> times
 var facts_heard := {}  # who heard them said: "the owner", "in a chat", "only them" -> times
 var bonds := {}  # the bar's bonds by how close (bonds.gd LEVELS) -> how many, at the night's end
@@ -378,6 +379,22 @@ func record_written_line(speaker: String, among: Array, line: String) -> void:
 ## PD's camera was following was in it).
 ## A spell of talk steered to a topic (Talk.pick_owner_topic, pick_chat_topic). chat: customers
 ## chatting, rather than the owner's conversation.
+## Two people coming in together, and what they are to each other.
+func record_group(kind: String) -> void:
+	groups[kind] = int(groups.get(kind, 0)) + 1
+
+
+## How a pair who came in together paid: "one_pays", "fight" or "split".
+func record_group_bill(how: String) -> void:
+	groups["paid_" + how] = int(groups.get("paid_" + how, 0)) + 1
+
+
+func groups_text() -> String:
+	var kinds := " · ".join(PackedStringArray(groups.keys().filter(func(k): return not str(k).begins_with("paid_")).map(func(k): return "%s %d" % [k, int(groups[k])])))
+	return "Came in together: %s · paid: one for both %d, a bill fight %d, split %d" % [kinds if kinds != "" else "nobody",
+		int(groups.get("paid_one_pays", 0)), int(groups.get("paid_fight", 0)), int(groups.get("paid_split", 0))]
+
+
 ## A thing that sticks learned about a regular (key: job, family...), and who heard it said.
 func record_fact(key: String, known_by: Array) -> void:
 	facts_learned[key] = int(facts_learned.get(key, 0)) + 1
@@ -780,6 +797,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("In tonight %d (%d%% of those served) · new regulars %d · faded away %d" % [regulars_in, percent(regulars_in, served), became_regulars, faded_regulars])
 	lines.append("Friendlier terms tonight: %d" % friendlier_moments)
 	lines.append(memory_text())
+	lines.append(groups_text())
 	lines.append("Closeness: sat by a friend %d · waved over %d · the owner saved them something %d · close friends coming in together %d" % [int(closeness.get("sat_by_a_friend", 0)),
 		int(closeness.get("waved_over", 0)), int(closeness.get("saved_for_them", 0)), int(closeness.get("together", 0))])
 	lines.append("Visits: loved %d · enjoyed %d · fine %d · didn't enjoy %d%s" % [int(verdicts.get("loved", 0)), int(verdicts.get("enjoyed", 0)), int(verdicts.get("fine", 0)), int(verdicts.get("didnt", 0)), (" · memories failed %d" % memories_failed) if memories_failed > 0 else ""])
@@ -891,7 +909,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"on_the_books": regular_pulls.size(), "founding": founding_regulars, "in_tonight": regulars_in,
 			"became": became_regulars, "faded": faded_regulars, "pulls": regular_pulls.duplicate(),
 			"verdicts": verdicts.duplicate(), "memories_failed": memories_failed, "friendlier_moments": friendlier_moments,
-			"threads": threads.duplicate(), "pair_memories": pair_memories.duplicate(), "who_you_know": who_you_know, "closeness": closeness.duplicate(), "facts_learned": facts_learned.duplicate(), "facts_heard": facts_heard.duplicate(), "bonds": bonds.duplicate(),
+			"threads": threads.duplicate(), "pair_memories": pair_memories.duplicate(), "who_you_know": who_you_know, "closeness": closeness.duplicate(), "groups": groups.duplicate(), "facts_learned": facts_learned.duplicate(), "facts_heard": facts_heard.duplicate(), "bonds": bonds.duplicate(),
 		},
 		"captions": {"shown": captions.duplicate(), "held_back": captions_held_back,
 			"reactions": {"asked": reactions_asked, "shown": reactions_shown.duplicate(), "from": moments_from.duplicate(true), "sizes": reaction_sizes.duplicate(), "none": reactions_none, "dropped": reactions_dropped, "put_off": reactions_put_off, "skipped": reactions_skipped}},

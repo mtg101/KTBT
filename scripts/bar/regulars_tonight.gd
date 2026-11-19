@@ -64,7 +64,8 @@ static func together(bar: Dictionary, due: Array, dice: RandomNumberGenerator) -
 	for first in due.duplicate():
 		for regular in all(bar):
 			var id := str(regular["id"])
-			if id == str(first["id"]) or not bool(Bonds.find(bar, str(first["id"]), id).get("close", false)):
+			var bond := Bonds.find(bar, str(first["id"]), id)
+			if id == str(first["id"]) or not (bool(bond.get("close", false)) or bool(bond.get("together", false))):
 				continue
 			var theirs: Array = due.filter(func(d): return str(d["id"]) == id)
 			var near := float(first["time"]) + dice.randf_range(2.0, TOGETHER_MINUTES)

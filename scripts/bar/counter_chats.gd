@@ -118,6 +118,12 @@ func choose_spell(guests: Array, camera: Variant = null, prefer: Variant = null)
 			free = camera.put_first(free)
 		var chat := Chat.new()
 		chat.people = [free[0], free[1]]
+		for one in free:  # (two who came in together get talking first)
+			var with: Array = one.together.get("names", []) if "together" in one else []
+			var partner: Array = free.filter(func(g): return g != one and with.has(str(g.customer["name"])))
+			if not partner.is_empty():
+				chat.people = [one, partner[0]]
+				break
 		chats.append(chat)
 		return {"chat": chat, "started": true, "joiner": null}
 	var quiet := reserved(guests)

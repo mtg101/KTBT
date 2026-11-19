@@ -13,6 +13,7 @@ class Someone:
 	var stay_left := 60.0
 	var order: Array = ["soju"]
 	var version := 0
+	var together := {}
 
 
 func test_who_can_chat() -> void:
@@ -78,3 +79,19 @@ func test_a_spell_starts_carries_on_and_ends() -> void:
 		assert_array(counter.chats).is_empty()
 	assert_object(counter.chat_of(a)).is_null()
 	assert_dict(CounterChats.new().choose_spell([])).contains_key_value("chat", null)  # (nobody to chat)
+
+
+func test_two_who_came_in_together_get_talking_first() -> void:
+	var counter := CounterChats.new()
+	var people: Array = []
+	for who in ["Kim Ji-ho", "Lee Min-jun", "Park Su-bin", "Choi Na-ra"]:
+		var one := Someone.new()
+		one.customer = {"name": who}
+		people.append(one)
+	var together := {"kind": "couple", "names": ["Park Su-bin", "Choi Na-ra"]}
+	people[2].together = together
+	people[3].together = together
+	for _try in 10:
+		counter.chats.clear()
+		var spell: Dictionary = counter.choose_spell(people)
+		assert_array(spell["chat"].people).contains_exactly_in_any_order([people[2], people[3]])

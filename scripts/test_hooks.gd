@@ -55,6 +55,8 @@ static var bar_menus := true
 static var menu_change_roll := -1.0
 ## >= 0: a fixed roll for whether someone becomes a regular (1.0 never, 0.0 whenever possible).
 static var regular_roll_override := -1.0
+## false: nobody comes in with someone (Groups: a new customer now and then, close regulars).
+static var groups := true
 ## false: no after-visit memory (the game's own verdict is used).
 static var memories := true
 ## true: write-in plant cards can be played in offline mode (where they're greyed out, since the
@@ -103,6 +105,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	prepare_customers = false
 	regular_roll_override = 1.0  # nobody becomes a regular unless a test says so
 	memories = false
+	groups = false
 	reactions = false
 	diaries = false
 	recaps = false
@@ -138,6 +141,7 @@ static func restore() -> void:
 	rain_gear = {}
 	prepare_customers = true
 	founding_regulars = true
+	groups = true
 	bar_menus = true
 	menu_change_roll = -1.0
 	regular_roll_override = -1.0

@@ -60,6 +60,15 @@ const CAPTIONS := {
 	"jjin_chin": {"words": [["찐친 등장!", "JJIN-CHIN: <REAL FRIENDS|TRUE FRIENDS|BESTIES>! ∞"], ["찐친 등장!", "{name} & {friend} ∞"], ["또 만났네", "TOGETHER AGAIN<!|…|?!> ∞"],
 		["찐친 등장!", "THE <DUO|PAIR|TAG TEAM> IS BACK ∞"]],
 		"icon": "🤝", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
+	# Coming in together
+	"couple": {"words": [["커플 등장!", "A COUPLE<?!|!|…>"], ["커플 등장!", "{name} & {friend}<?!|…> ♡"], ["데이트 중?", "ON A DATE<?|?!>"]],
+		"icon": "💕", "colour": "ff8fc0", "sound": "sparkle", "emergency": false},
+	"hoesik_escape": {"words": [["회식 탈출!", "HOESIK ESCAPEES"], ["회식 탈출!", "THEY SLIPPED OUT OF THE WORK DINNER"], ["한 잔 더!", "ONE MORE ROUND, HERE<!|…>"]],
+		"icon": "🏃", "colour": "8fb8ff", "sound": "sparkle", "emergency": false},
+	"sunbae_treat": {"words": [["선배가 쏜다!", "SUNBAE'S TREAT<!|!!>"], ["선배가 쏜다!", "THE SENIOR IS PAYING (PROBABLY)"]],
+		"icon": "🍶", "colour": "ffc46b", "sound": "sparkle", "emergency": false},
+	"bill_fight": {"words": [["계산 전쟁!", "THE BILL FIGHT<!|!!>"], ["가위바위보!", "KAWI, BAWI, BO!"], ["계산 전쟁!", "{name} vs {friend}"]],
+		"icon": "💸", "colour": "ff6b6b", "sound": "whoosh", "emergency": false},
 	# At the counter
 	"cheers": {"words": [["짠!", "JJAN! <CHEERS|BOTTOMS UP|HERE WE GO>!"], ["건배!", "GEONBAE! <CHEERS|TO TONIGHT|TO SURVIVING TODAY>!"], ["원샷!", "ONE SHOT<!|!!|, NO SIPPING!>"],
 		["짠!", "{drink} <TIME|O'CLOCK|FIRST>!"]],
@@ -424,7 +433,13 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 			return {"kind": "dawn", "fill": {}}
 		"last_orders":
 			return {"kind": "last_orders", "fill": {}}
+		"bill_fight":
+			return {"kind": "bill_fight", "fill": {"name": facts.get("name", ""), "friend": facts.get("friend", "")}}
 		"sat_down":
+			var together := str(facts.get("together", ""))  # (the second of two who came in together)
+			if together != "":
+				var kind: String = {"couple": "couple", "colleagues": "hoesik_escape", "sunbae": "sunbae_treat"}.get(together, "jjin_chin")
+				return {"kind": kind, "fill": {"name": facts.get("with", ""), "friend": facts.get("name", "")}}
 			var regular := str(facts.get("regular", ""))
 			if regular != "":
 				if str(facts.get("friend", "")) != "":
