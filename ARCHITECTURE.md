@@ -36,7 +36,8 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `rules/glossary.gd` | Korean words explained on hover (the menu, pocha words, terms of address), any Hangul too (names as they're known), and counting which are said |
 | `rules/hangul.gd` | What the game's own Hangul means (captions, reactions, stamps, days, titles, signs), romanised, for its hovers |
 | `rules/cat_rules.gd` | The cat: coats, personalities, where it goes, how it's talked about (and the moments for talking to it), and its nickname (a stray's, from the list Koreans give street cats, to suit its coat) |
-| `rules/memories.gd` | What's remembered after a visit, and the things that stick |
+| `rules/memories.gd` | What's remembered after a visit (checked); the things that stick about a person and who knows them (the owner, or whoever was in the chat); lines that contradict their family sent back; threads (something coming up, for the owner to ask about next time) |
+| `rules/bonds.gd` | Bonds: one record for every pair that matters (the owner and a regular, two regulars): how they know each other, meetings, names known each way, warmth, how close (a level), each side's memories of the other blurring into an impression; and moving a bar from before bonds into them |
 | `rules/captions.gd` | Korean TV captions (the game's own, from what happens) and TV reactions (from what's said) |
 | `rules/story.gd` | The owner's diary at 3am, "Previously on...", an episode's titles and the PD's cut (the scenes and cliffhangers they can choose, checking what they write, the cut applied to the recap), and the owner's reason for closing early |
 | `rules/ratings.gd` | The show's TV ratings (시청률) at 3am: the score from tonight's events (big moments, moods as aired, the cliffhanger, regulars, the PD's cards, happenings, luck), its bands and banners, its hover, and how the last few nights' ratings nudge how often customers arrive |

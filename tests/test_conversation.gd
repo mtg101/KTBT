@@ -21,6 +21,7 @@ class Someone:
 	var cat_moment := ""
 	var camera_moment := ""
 	var plant_moment := ""
+	var thread_moment := ""
 	var plant_card := ""
 	var pd_topic := ""
 	var pd_topic_lines := 0
@@ -240,3 +241,20 @@ func test_the_line_reacting_to_a_card_is_given_only_that() -> void:
 	var owner_given := Conversation.owner_line(night, guest, 3, false, false)
 	assert_str(str(owner_given["direction"])).contains("power has just cut out").not_contains("A little while ago")
 	assert_int(guest.pd_topic_lines).is_equal(2)
+
+
+func test_something_they_mentioned_last_time_is_asked_about_once() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	guest.thread_moment = "Last time they were in (3 nights ago), they mentioned a job interview on Monday. The owner remembers, and asks how it went (or is going)."
+	assert_str(str(Conversation.owner_line(night, guest, 3, false, false)["direction"])).not_contains("job interview")  # (the owner's to ask: not the customer's line)
+	var given: Dictionary = Conversation.owner_line(night, guest, 2, false, false)
+	assert_str(str(given["direction"])).contains("job interview")
+	assert_str(str(given["hint"])).is_equal("thread")
+	assert_str(guest.thread_moment).is_empty()  # (once)
+	assert_bool(Talk.hint_taken("thread", "So, how did the interview go?")).is_true()
+	# On the owner's first line, if it's still on their mind (19 Nov: a regular went off chatting, and was never asked).
+	guest.thread_moment = "Last time they were in, they mentioned an exam."
+	var first: Dictionary = Conversation.owner_line(night, guest, 0, false, false)
+	assert_str(str(first["direction"])).contains("an exam")
+	assert_str(guest.thread_moment).is_empty()

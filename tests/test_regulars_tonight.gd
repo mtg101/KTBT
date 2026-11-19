@@ -32,7 +32,7 @@ func test_how_a_regular_is_announced() -> void:
 	assert_str(first).contains("ducks in and takes her usual stool: she's been coming for 6 years, most Fridays.").contains("She's ")
 	assert_bool(bool(founding["introduced"])).is_true()  # (only the first time: who they are to the tent)
 	assert_str(RegularsTonight.back_text(founding, 10)).not_contains("She's ")
-	assert_int(int(RegularsTonight.facts(bar["regulars"][0], 9)["nights_ago"])).is_equal(4)
+	assert_int(int(RegularsTonight.facts(bar, bar["regulars"][0], 9)["nights_ago"])).is_equal(4)
 
 
 func test_the_nights_end_and_what_the_owner_remembers() -> void:

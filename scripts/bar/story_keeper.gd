@@ -9,6 +9,7 @@ extends RefCounted
 ## (Part 7 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
 const Story = preload("res://scripts/rules/story.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
 
 var file: FileAccess  # tonight's transcript, while it's being written
@@ -81,9 +82,9 @@ static func recap_facts(bar: Dictionary, owner_data: Dictionary, regulars: Array
 	var latest_memories: Array = []
 	if last.is_empty():
 		for regular in regulars:
-			var kept: Array = regular.get("memories", [])
+			var kept: Array = Bonds.memories_by(Bonds.with_owner(bar, str(regular.get("id", ""))), Bonds.OWNER)
 			if not kept.is_empty():
-				latest_memories.append("%s, a regular: %s" % [regular["name"], kept[-1].get("owner", "")])
+				latest_memories.append("%s, a regular: %s" % [regular["name"], kept[-1]["text"]])
 	var last_facts: Dictionary = last.get("facts", {})
 	var hangul := {str(owner_data.get("name", "")): str(owner_data.get("hangul", ""))}  # for the recap's name tags
 	for regular in regulars:

@@ -5,7 +5,6 @@ extends RefCounted
 ## come from a 100-night simulation (see PLAN.md): they settle at about ten regulars, and
 ## about three of a night's twenty customers.
 
-const Memories = preload("res://scripts/rules/memories.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 ## How a visit went (from step 2 the AI judges this from the dialogue; for now the game does,
@@ -173,7 +172,6 @@ static func new_regular(customer: Dictionary, look: Dictionary, order: Array, ni
 		"visits": 1, "first_night": night, "last_night": night, "pull": NEW_PULL,
 		"favourite_days": [day, other], "usual_hour": arrived_minutes,
 		"orders": [order.duplicate()], "usual": [],
-		"owner_knows_name": false, "knows_owner_name": false,
 		"look": look.duplicate(true),
 	}
 	for key in ["name", "hangul", "gender", "age", "job", "speech_style", "appearance"]:
@@ -234,30 +232,3 @@ static func _made_up_verdict(roll: float) -> String:
 	if roll < 0.9:
 		return "fine"
 	return "didnt"
-
-
-# --- Memories ------------------------------------------------------------------------------
-
-const RECENT_MEMORIES := 3  # visits remembered clearly; older ones blur into one impression
-const MAX_IMPRESSION := 320
-
-
-## A visit remembered (from validate_memory): the newest few kept as they are, older ones
-## blurring into one overall impression (just their first sentence, and only so much of it),
-## and the things that stick replacing what they replace. Changes the regular in place.
-static func remember(regular: Dictionary, night: int, memory: Dictionary) -> void:
-	var memories: Array = regular.get("memories", [])
-	memories.append({"night": night, "owner": str(memory.get("owner_remembers", "")), "them": str(memory.get("they_remember", ""))})
-	while memories.size() > RECENT_MEMORIES:
-		var oldest: Dictionary = memories.pop_front()
-		var gist := str(oldest["owner"]).get_slice(". ", 0).trim_suffix(".") + "."
-		var impression := (str(regular.get("impression", "")) + " " + gist).strip_edges()
-		while impression.length() > MAX_IMPRESSION and impression.contains(". "):
-			impression = impression.substr(impression.find(". ") + 2)  # the oldest bit goes first
-		regular["impression"] = impression
-	regular["memories"] = memories
-	var facts: Dictionary = regular.get("facts", {})
-	for key in Memories.STICKING:
-		if str(memory.get(key, "")) != "":
-			facts[key] = str(memory[key])
-	regular["facts"] = facts

@@ -639,6 +639,7 @@ static func moment_kind(moment: String) -> String:
 ## Words that show a line took a hint up (rough: for the stats, not a check). A kind with
 ## none (the general food moments) is never counted as taken or not.
 const HINT_TELLS := {
+	"thread": ["how did", "how was", "how'd", "did it go", "how is it going", "went"],  # (asking about something they mentioned last time)
 	"soju": ["pour", "glass", "cold"], "somaek": ["somaek", "mix", "ratio", "drop"], "beer": ["cold", "fog"],
 	"makgeolli": ["swirl", "shake", "pajeon", "rain"], "dakgalbi": ["ssam", "lettuce", "wrap"],
 	"sundae": ["salt"], "ramyeon": ["lid"], "pajeon": ["crisp", "edge", "tear"], "tteokbokki": ["spicy", "sauce", "dip"],

@@ -4,6 +4,8 @@ extends "res://tests/support/bar_test.gd"
 ## sometimes with scripted replies, so these run without Ollama, quickly and repeatably.
 
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
+const Memories = preload("res://scripts/rules/memories.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
@@ -1341,6 +1343,13 @@ func test_a_regular_already_here_doesnt_come_in_twice() -> void:
 	scene._guests[0].customer["regular_id"] = "ho-jin"  # (19 Nov: a PD's call brought him in, then his usual hour came)
 	assert_bool(scene._regular_in("ho-jin")).is_true()
 	assert_bool(scene._regulars_away().any(func(r): return str(r["id"]) == "ho-jin")).is_false()
+	# Nor someone who's been and gone tonight (19 Nov: the PD rang him back two hours after he'd paid).
+	var gone := {"id": "gone-tonight", "name": "Lee Ji-hoon", "pull": 0.5}
+	Game.bar["regulars"] = Game.bar.get("regulars", []) + [gone]
+	assert_bool(scene._regulars_away().any(func(r): return str(r["id"]) == "gone-tonight")).is_true()
+	scene._names_tonight.append("Lee Ji-hoon")
+	assert_bool(scene._regulars_away().any(func(r): return str(r["id"]) == "gone-tonight")).is_false()
+	Game.bar["regulars"].erase(gone)
 	scene._regulars_due = [{"time": scene._clock, "id": "ho-jin"}]
 	Hooks.run_clock = true
 	await get_tree().process_frame
@@ -2094,9 +2103,10 @@ func test_a_loved_visit_is_remembered_and_makes_a_regular() -> void:
 	var regulars: Array = Game.bar["regulars"]
 	assert_int(regulars.size()).is_equal(1)
 	var regular: Dictionary = regulars[0]
-	assert_str(str(regular["memories"][0]["owner"])).contains("double shift")
-	assert_str(str(regular["facts"]["job"])).is_equal("nurse at the hospital")
-	assert_str(str(regular["facts"]["family"])).contains("mum")
+	assert_str(str(Bonds.memories_by(Bonds.with_owner(Game.bar, str(regular["id"])), Bonds.OWNER)[0]["text"])).contains("double shift")
+	assert_str(str(regular["facts"]["job"]["text"])).is_equal("nurse at the hospital")
+	assert_array(regular["facts"]["job"]["known_by"]).is_equal([Bonds.OWNER])  # (said to the owner)
+	assert_str(str(regular["facts"]["family"]["text"])).contains("mum")
 	assert_bool(regular["facts"].has("home")).is_false()  # Jeju was never said
 	assert_int(int(scene._stats.verdicts.get("loved", 0))).is_equal(1)
 	# Next time, the owner's prompt remembers.
@@ -2139,19 +2149,19 @@ func test_two_regulars_get_to_know_each_other_and_then_ask() -> void:
 	chat.people = [a, b]
 	chat.transcript = [{"speaker": "Kang Da-eun", "text": "I'm Da-eun, by the way."}]
 	scene._remember_chat(chat, "I'm Da-eun, by the way.")
-	var friend: Dictionary = younger["friends"]["older"]
+	var friend: Dictionary = Bonds.find(Game.bar, str(younger["id"]), "older")
 	assert_int(int(friend["meetings"])).is_equal(1)
-	assert_bool(friend["names"]).is_true()
+	assert_bool(Bonds.knows_name(friend, str(younger["id"]))).is_true()  # (Da-eun's name was said)
 	assert_str((a.node.get_node("Tag") as Label).text).ends_with("∞")  # a friend's here too
 	scene._remember_chat(chat, "Same night again.")
-	assert_int(int(younger["friends"]["older"]["meetings"])).is_equal(1)  # once a night
+	assert_int(int(friend["meetings"])).is_equal(1)  # once a night
 	assert_str(scene._friendly_moment(a, b)).is_empty()  # not yet
 	friend["meetings"] = Visit.FRIENDLY_AFTER
 	assert_str(scene._friendly_moment(a, b)).is_equal("eonni")
 	assert_str(scene._friendly_moment(b, a)).is_empty()  # the older one doesn't ask
 	scene._make_close(a, b, "eonni")
 	assert_bool(scene._close(a, b)).is_true()
-	assert_bool(older["friends"]["choi-hye-rin-1"]["close"]).is_true()
+	assert_bool(friend["close"]).is_true()
 	assert_str(_transcript(runner)).contains("are on \"eonni\" terms now")
 	assert_int(int(scene._stats.captions.get("friendlier", 0))).is_equal(1)  # a TV caption
 	assert_str(scene._to_label("Eonni, look!", a, b, "label")).starts_with("언니 Eonni")
@@ -2468,3 +2478,51 @@ func test_the_owner_works_the_stove_and_talks_from_there() -> void:
 	assert_int(scene._stats.from_the_stove).is_greater_equal(1)
 	assert_str(scene._stats.panel_text(0, 0)).contains("The owner: at the stove")
 	scene._kitchen_part.queue.clear()
+
+
+func test_a_regular_is_asked_how_it_went_and_what_they_said_is_known_by_who_heard() -> void:
+	Hooks.memories = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var regular := _a_regular()
+	Memories.add_thread(regular, "a job interview on Monday", scene._night_number - 3)
+	Game.bar["regulars"] = [regular]
+	# Coming in: the owner has it on their mind (once), and it's counted.
+	var guest := Visit.Guest.new()
+	guest.arrived = "9:00pm"
+	var customer: Dictionary = await scene._regular_tonight(regular, guest)
+	assert_str(guest.thread_moment).contains("a job interview on Monday").contains("3 nights ago")
+	assert_int(int(Memories.open_thread(regular)["asked"])).is_equal(1)
+	assert_int(int(scene._stats.threads.get("asked", 0))).is_equal(1)
+	# Leaving: how it went (said to the owner) closes it; something new (said only in a chat) opens
+	# another, and what they said there is known only by whoever was in the chat.
+	guest.customer = customer
+	guest.first_order = ["soju"]
+	guest.arrived_minutes = int(scene._clock)
+	guest.transcript = [{"speaker": "Choi Hye-rin", "text": "The interview went well, I start next week!"}]
+	guest.chat_lines = [{"speaker": "Choi Hye-rin", "text": "Between us, my dentist appointment on Friday has me dreading it.", "heard_by": ["kang-da-eun-1"]}]
+	CannedAi.scripted = [{"owner_remembers": "She got the job.", "they_remember": "The owner cheered.", "night": "loved it", "towards_owner": "warmer",
+		"followed_up": "the interview went well", "coming_up": "a dentist appointment on Friday", "worry": "dreading the dentist"}]
+	await scene._after_visit(guest)
+	var threads: Array = regular["threads"]
+	assert_bool(bool(threads[0]["open"])).is_false()
+	assert_str(str(threads[0]["outcome"])).is_equal("the interview went well")
+	assert_str(str(Memories.open_thread(regular)["text"])).is_equal("a dentist appointment on Friday")
+	assert_array(regular["facts"]["worry"]["known_by"]).is_equal(["kang-da-eun-1"])  # (not the owner: she said it in a chat)
+	assert_bool(scene._regular_facts(regular)["facts"].has("worry")).is_false()  # (so the owner's prompt doesn't know it)
+	assert_int(int(Bonds.with_owner(Game.bar, str(regular["id"]))["warmth"])).is_equal(1)
+	assert_str(scene._stats.memory_text()).contains("heard how it went 1").contains("opened 1").contains("worry 1").contains("in a chat 1")
+
+
+func test_a_line_that_contradicts_what_they_have_said_is_sent_back() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var owner_name := str(scene._owner["name"])
+	var family := str(scene._owner["family"])
+	scene._owner["family"] = "widowed young; a grown daughter in Daejeon"
+	var offline: bool = scene._ai.offline
+	scene._ai.offline = true  # (the worn-out phrases aside)
+	assert_str(scene._validate_line({"line": "My husband's picking me up later."}, owner_name, "", [], [], {})).contains("is widowed")
+	assert_str(scene._validate_line({"line": "My husband used to sit right there."}, owner_name, "", [], [], {})).is_empty()
+	scene._ai.offline = offline
+	scene._owner["family"] = family

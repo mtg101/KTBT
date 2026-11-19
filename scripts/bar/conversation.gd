@@ -25,6 +25,7 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 	var direction := ""
 	var opener := false
 	var used_steer := false  # (this line's direction is the PD's lingering steer)
+	var thread_now := false  # (asked about something they mentioned last time, on the first line)
 	if line == 0 and guest.quick_greeting:
 		direction = "It's been busy: this is the owner's first proper word with them since taking their order."
 	elif line == 0:
@@ -34,6 +35,10 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 		if moment != "" and owner_speaks:
 			direction += " " + moment
 			opener = true
+		if owner_speaks and guest.thread_moment != "":  # (a regular often goes off chatting after this: ask now. 19 Nov: never asked)
+			direction += " " + guest.thread_moment
+			guest.thread_moment = ""
+			thread_now = true
 	elif guest.stay_left < 10.0:
 		direction = "The customer is nearly ready to leave."
 	elif guest.pd_topic_lines > 0:  # (the PD's cue card, or a card's moment lingering, for a few lines)
@@ -67,6 +72,10 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 		direction = (guest.camera_moment + " " + direction).strip_edges()
 		hint = "camera"
 		guest.camera_moment = ""  # once
+	elif line > 0 and owner_speaks and guest.thread_moment != "":  # (something they mentioned last time: asked about once)
+		direction = (guest.thread_moment + " " + direction).strip_edges()
+		hint = "thread"
+		guest.thread_moment = ""  # once
 	elif line > 0 and guest.food_moment != "":
 		direction = (guest.food_moment + " " + direction).strip_edges()
 		hint = Talk.moment_kind(guest.food_moment)
@@ -79,6 +88,8 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 		else:
 			guest.cat_moment = ""
 	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()
+	if thread_now and hint == "":
+		hint = "thread"
 	return {"direction": direction, "hint": hint, "opener": opener}
 
 

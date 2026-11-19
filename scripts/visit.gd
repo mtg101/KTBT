@@ -51,6 +51,7 @@ const Captions = preload("res://scripts/rules/captions.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
@@ -172,7 +173,8 @@ class Guest:
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	var card_turn := false  # the owner's already turned to them for the card that's just happened to them
-	var heard_from_stove := false  # told the owner's talking to them from the stove (once, till they come over)
+	var heard_from_stove := false
+	var thread_moment := ""  # something they mentioned last time, for the owner to ask about (once)  # told the owner's talking to them from the stove (once, till they come over)
 	var next_gesture := -1.0  # seconds until they next raise their glass or take a mouthful (-1: not counting yet)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
@@ -2795,9 +2797,12 @@ func _counter_chat() -> void:
 		said_by = speaker
 		lines -= 1
 		lines_said += 1
+		var heard_by: Array = chat.people.filter(func(p): return str(p.customer.get("regular_id", "")) != "").map(func(p): return str(p.customer["regular_id"]))
+		if chat.owner_in:
+			heard_by.append(Bonds.OWNER)
 		for person in chat.people:
 			person.chatted = true
-			person.chat_lines.append({"speaker": speaker, "text": line})
+			person.chat_lines.append({"speaker": speaker, "text": line, "heard_by": heard_by.filter(func(w): return w != str(person.customer.get("regular_id", "")))})
 		# Something more urgent can cut the chat short, but only once it's had a few lines.
 		if _urgent() and lines_said >= CHAT_LINES_BEFORE_INTERRUPTING:
 			break
@@ -2944,7 +2949,7 @@ func _chat_notes(chat: Chat) -> String:
 				continue
 			var note := "%s and %s have chatted here before (%d %s)" % [chat.people[i].customer["name"], chat.people[j].customer["name"],
 				int(friend.get("meetings", 1)), "time" if int(friend.get("meetings", 1)) == 1 else "times"]
-			note += ", and know each other's names." if bool(friend.get("names", false)) else ", but haven't swapped names."
+			note += ", and know each other's names." if Friendliness.knows_name(Game.bar, chat.people[i], chat.people[j]) and Friendliness.knows_name(Game.bar, chat.people[j], chat.people[i]) else ", but haven't swapped names."
 			if str(friend.get("last", "")) != "":
 				note += " The last thing said between them: \"%s\"" % friend["last"]
 			if bool(friend.get("close", false)):
@@ -2965,6 +2970,17 @@ func _to_label(line: String, speaker: Guest, listener: Guest, label: String) -> 
 ## Changes anyone in a chat can see, added up (see Guest.version).
 func _chat_version(chat: Chat) -> int:
 	return _counter_chats.version(chat)
+
+
+## What's known about someone's family, for the contradiction check: the owner's (a game fact),
+## or a regular's (everything they've said); "" for anyone else.
+func _family_of(who: String) -> String:
+	if who == str(_owner.get("name", "")):
+		return str(_owner.get("family", ""))
+	var guest := _guest_named(who)
+	if guest == null:
+		return ""
+	return str(guest.customer.get("regular", {}).get("own_facts", {}).get("family", ""))
 
 
 func _guest_named(customer_name: String) -> Guest:
@@ -4014,7 +4030,8 @@ func _regular_in(regular_id: String, waiting_too: bool = true) -> bool:
 
 ## The bar's regulars who aren't here tonight and aren't waiting to come in.
 func _regulars_away() -> Array:
-	return RegularsTonight.all(Game.bar).filter(func(r): return not _regular_in(str(r["id"])) and str(r["id"]) != _planted_regular)
+	# (Not someone who's been and gone tonight either: 19 Nov, the PD rang one back two hours after he'd paid.)
+	return RegularsTonight.all(Game.bar).filter(func(r): return not _regular_in(str(r["id"])) and str(r["id"]) != _planted_regular and not _names_tonight.has(str(r["name"])))
 
 
 ## A card's been played on the desk (see PdDesk.play): it happens, now, to whoever it's for
@@ -4228,7 +4245,7 @@ func _remembered_briefly(known: Dictionary) -> String:
 	var brief := ""
 	for key in Memories.STICKING:
 		if str(facts.get(key, "")) != "":
-			brief = "%s: %s" % [{"job": "Job", "family": "Family", "home": "From", "other": "Also"}[key], facts[key]]
+			brief = "%s: %s" % [str(Memories.FACT_LABELS[key]).capitalize(), Memories.fact_text(facts[key])]
 			break
 	if brief == "":
 		brief = str(known.get("impression", ""))
@@ -4325,6 +4342,8 @@ func _validate_line(data: Variant, speaker: String, alias: String, items: Array,
 	var problem := Talk.validate_line(data, speaker, alias, items, names, cat, address)
 	if problem == "":
 		problem = Talk.served_already(str(data["line"]), items, _kitchen_part.all_coming())
+	if problem == "":
+		problem = Memories.contradiction(str(data["line"]), speaker, _family_of(speaker))
 	if problem == "" and not _ai.offline:  # (offline, the pre-written lines repeat by design)
 		var worn := _stats.worn_out_in(str(data["line"]), names)
 		if worn != "" and _worn_strikes >= WORN_STRIKES:  # (asked twice already: better said again than the chat given up)
@@ -4948,19 +4967,25 @@ func _make_founding_regulars() -> void:
 			"visits": roundi(years * 52 * float(habit[2])), "first_night": 0, "last_night": 0,
 			"pull": Regulars.FOUNDING_PULL, "favourite_days": days.slice(0, int(habit[1])),
 			"usual_hour": randi_range(19 * 60, 23 * 60), "orders": [], "usual": usual,
-			"owner_knows_name": true, "knows_owner_name": true, "look": look, "introduced": false,
+			"look": look, "introduced": false,
 		}
 		for key in ["name", "hangul", "gender", "age", "job", "speech_style", "appearance"]:
 			regular[key] = reply.get(key, "")
 		made.append(regular)
 		taken.append(str(reply["name"]))
-	# Founding regulars have known each other for years (on first-name terms, not yet close).
+	# Founding regulars and the owner go back years (old friends, on first-name terms); the two of
+	# them have known each other for years too (first names, not yet close).
 	for regular in made:
-		for other in made:
-			if other != regular:
-				var friends: Dictionary = regular.get("friends", {})
-				friends[other["id"]] = {"meetings": 20, "names": true, "close": false, "night": -1, "name": other["name"]}
-				regular["friends"] = friends
+		var bond := Bonds.between(Game.bar, Bonds.OWNER, str(regular["id"]), "founding")
+		bond["meetings"] = int(regular["visits"])
+		Bonds.learn_name(bond, Bonds.OWNER)
+		Bonds.learn_name(bond, str(regular["id"]))
+	for i in made.size():
+		for j in range(i + 1, made.size()):
+			var bond := Bonds.between(Game.bar, str(made[i]["id"]), str(made[j]["id"]), "regulars for years")
+			bond["meetings"] = 20
+			Bonds.learn_name(bond, str(made[i]["id"]))
+			Bonds.learn_name(bond, str(made[j]["id"]))
 	Game.bar["regulars"] = made
 	Game.save()  # (they're introduced when they first come in: see _back_text)
 
@@ -4986,7 +5011,7 @@ func _plan_regulars_tonight() -> void:
 
 ## A regular's facts, for the prompts (see RegularsTonight.facts).
 func _regular_facts(regular: Dictionary) -> Dictionary:
-	return RegularsTonight.facts(regular, _night_number)
+	return RegularsTonight.facts(Game.bar, regular, _night_number)
 
 
 ## A regular comes in: not reinvented, just asked what sort of night they're having.
@@ -4997,6 +5022,12 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 	customer["look"] = Regulars.dressed_for(regular.get("look", {}), _weather_kind)
 	customer["regular"] = _regular_facts(regular)
 	customer["regular_id"] = regular["id"]
+	var thread := Memories.open_thread(regular)
+	if not thread.is_empty():  # (something they mentioned last time: the owner asks how it went)
+		guest.thread_moment = Memories.thread_note(thread, _night_number)
+		thread["asked"] = int(thread["asked"]) + 1
+		_stats.threads["asked"] = int(_stats.threads.get("asked", 0)) + 1
+		print("Threads: %s mentioned %s on night %d: the owner might ask" % [regular["name"], thread["text"], int(thread["night"])])
 	_typing_label.text = "%s is back..." % regular["name"]
 	var tonight: Dictionary = await _ai.ask_json(
 		Prompts.regular_tonight_messages(_night_day, guest.arrived, _night_weather, customer),
@@ -5046,8 +5077,6 @@ func _after_visit(guest: Guest) -> void:
 		orders.append(guest.first_order.duplicate())
 		regular["orders"] = orders.slice(-5)
 		regular["pull"] = Regulars.pull_after_visit(float(regular["pull"]), verdict, rushed)
-		if str(memory.get("towards_owner", "")) == "warmer":
-			regular["warmth"] = int(regular.get("warmth", 0)) + 1  # (for friendlier terms, in step 3)
 		_stats.regulars_in += 1
 	else:
 		var roll := Hooks.regular_roll_override if Hooks.regular_roll_override >= 0.0 else randf()
@@ -5055,18 +5084,31 @@ func _after_visit(guest: Guest) -> void:
 			return
 		regular = Regulars.new_regular(guest.customer, guest.customer.get("look", {}), guest.first_order, _night_number, _day_index(), guest.arrived_minutes, randf())
 		_regulars().append(regular)
-		if str(memory.get("towards_owner", "")) == "warmer":
-			regular["warmth"] = 1
 		var they: String = {"woman": "she'll", "man": "he'll"}.get(str(guest.customer.get("gender", "")), "they'll")
 		_narrate("%s looks like %s be back." % [guest.customer["name"], they])
 		_event("became_regular", {"gender": str(guest.customer.get("gender", "")), "name": str(guest.customer["name"])}, guest.node)
+	var bond := Bonds.between(Game.bar, Bonds.OWNER, str(regular["id"]))
+	Bonds.meet(bond, _night_number)
+	if str(memory.get("towards_owner", "")) == "warmer":
+		bond["warmth"] = int(bond.get("warmth", 0)) + 1  # (for friendlier terms)
 	if not memory.is_empty():
-		Regulars.remember(regular, _night_number, memory)
+		var changed := RegularsTonight.remember(Game.bar, regular, _night_number, memory, _heard(guest))
+		for key in changed["facts"]:
+			var fact: Dictionary = regular["facts"][key]
+			_stats.record_fact(key, fact["known_by"])
+			print("Facts: %s's %s, \"%s\" (known by %s)" % [guest.customer["name"], key, fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w))))) if not fact["known_by"].is_empty() else "only them"])
+		if changed["thread_closed"]:
+			_stats.threads["closed"] = int(_stats.threads.get("closed", 0)) + 1
+			print("Threads: %s said how it went: %s" % [guest.customer["name"], memory["followed_up"]])
+		if changed["thread_opened"]:
+			_stats.threads["opened"] = int(_stats.threads.get("opened", 0)) + 1
+			print("Threads: %s has something coming up: %s" % [guest.customer["name"], memory["coming_up"]])
+	_stats.threads["dropped"] = int(_stats.threads.get("dropped", 0)) + Memories.drop_stale(regular, _night_number)
 	# Names, once they've been said (the full name, or the given name).
 	if _name_said(str(guest.customer["name"]), said):
-		regular["owner_knows_name"] = true
+		Bonds.learn_name(bond, Bonds.OWNER)
 	if _name_said(str(_owner["name"]), said):
-		regular["knows_owner_name"] = true
+		Bonds.learn_name(bond, str(regular["id"]))
 	Game.save()
 	_count_regulars()
 
@@ -5082,8 +5124,8 @@ func _remember(guest: Guest, game_verdict: String) -> Dictionary:
 			theirs.append(str(entry["text"]))
 	var said := " ".join(theirs).to_lower()
 	var memory: Dictionary = await _ai.ask_json(
-		Prompts.memory_messages(_owner, guest.customer, guest.transcript, guest.chat_lines),
-		_validate_memory.bind(said), {"temperature": 0.4}, {"purpose": "memory", "verdict": game_verdict})
+		Prompts.memory_messages(_owner, guest.customer, guest.transcript, guest.chat_lines, str(guest.customer.get("regular", {}).get("thread", ""))),
+		_validate_memory.bind(said, _not_facts()), {"temperature": 0.4}, {"purpose": "memory", "verdict": game_verdict})
 	if _closed():  # (the bar closed while it was waiting)
 		return {}
 	if memory.is_empty():
@@ -5091,8 +5133,29 @@ func _remember(guest: Guest, game_verdict: String) -> Dictionary:
 	return memory
 
 
-func _validate_memory(data: Variant, said: String) -> String:
-	return Memories.validate_memory(data, said)
+## Where the things a customer said tonight were heard, and by whom (for who knows which facts:
+## Memories.who_heard): their talk with the owner (the owner), and each of their chat lines
+## (whoever else was in that chat: regulars by id, the owner if they'd joined in).
+func _heard(guest: Guest) -> Array:
+	var who := str(guest.customer["name"])
+	var heard: Array = [{"text": " ".join(PackedStringArray(guest.transcript.filter(func(e): return e.has("text") and str(e.get("speaker", "")) == who).map(func(e): return str(e["text"])))).to_lower(), "by": [Bonds.OWNER]}]
+	for entry in guest.chat_lines:
+		if str(entry.get("speaker", "")) == who:
+			heard.append({"text": str(entry["text"]).to_lower(), "by": entry.get("heard_by", [])})
+	return heard
+
+
+func _validate_memory(data: Variant, said: String, not_facts: Array = []) -> String:
+	return Memories.validate_memory(data, said, not_facts)
+
+
+## Words that make a "fact" not one about their life: the show (a PD's call isn't a worry of
+## theirs), and the tent's cat (not their pet). See Memories.NOT_FACTS for the rest.
+func _not_facts() -> Array:
+	var words: Array = ["pd", "the show", "camera", "producer", "episode"]
+	if not _cat.is_empty():
+		words.append(str(_cat.get("name", "")).to_lower())
+	return words
 
 
 func _name_said(full: String, said: String) -> bool:
@@ -5113,6 +5176,7 @@ func _count_regulars() -> void:
 	var counted := RegularsTonight.pulls(Game.bar)
 	_stats.regular_pulls = counted["pulls"]
 	_stats.founding_regulars = int(counted["founding"])
+	_stats.bonds = Bonds.count_by_level(Game.bar)
 
 
 ## What the owner remembers about a regular, for the hover in who's here now (see RegularsTonight).

@@ -9,14 +9,17 @@ extends RefCounted
 
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
 
-## The bar's regulars (saved with it).
+## The bar's regulars (saved with it). Any from before bonds are brought up to date first
+## (save_upgrades.gd does it as a bar opens; this catches one that turns up some other way).
 static func all(bar: Dictionary) -> Array:
 	if not bar.has("regulars"):
 		bar["regulars"] = []
+	Bonds.upgrade(bar)
 	return bar["regulars"]
 
 
@@ -49,16 +52,23 @@ static func plan(bar: Dictionary, night: int, day_index: int, cliffhanger: Dicti
 	return due
 
 
-## A regular's facts, for the prompts (see Prompts.describe_regular).
-static func facts(regular: Dictionary, night: int) -> Dictionary:
+## A regular's facts, for the prompts (see Prompts.describe_regular): theirs, and from their bond
+## with the owner (names, memories, warmth, how close), the facts the owner knows, and anything
+## they mentioned last time that the owner might ask about.
+static func facts(bar: Dictionary, regular: Dictionary, night: int) -> Dictionary:
+	var id := str(regular.get("id", ""))
+	var bond := Bonds.with_owner(bar, id)
+	var thread := Memories.open_thread(regular)
 	var known := {
 		"visits": int(regular.get("visits", 0)), "founding": bool(regular.get("founding", false)),
 		"role": regular.get("role", ""), "since": regular.get("since", ""), "habit": regular.get("habit", ""), "history": regular.get("history", ""),
 		"owner_knows": regular.get("owner_knows", ""), "knows_of_owner": regular.get("knows_of_owner", ""),
-		"usual": Regulars.usual_of(regular), "owner_knows_name": bool(regular.get("owner_knows_name", false)),
-		"knows_owner_name": bool(regular.get("knows_owner_name", false)),
-		"memories": regular.get("memories", []), "impression": regular.get("impression", ""), "facts": regular.get("facts", {}),
-		"warmth": int(regular.get("warmth", 0)),
+		"usual": Regulars.usual_of(regular), "owner_knows_name": Bonds.knows_name(bond, Bonds.OWNER),
+		"knows_owner_name": Bonds.knows_name(bond, id),
+		"memories": bond.get("memories", []).map(func(m): return {"night": int(m["night"]), "owner": str(m["by"].get(Bonds.OWNER, "")), "them": str(m["by"].get(id, ""))}),
+		"impression": Bonds.impression_of(bond, Bonds.OWNER), "facts": Memories.facts_known_by(regular, Bonds.OWNER),
+		"own_facts": Memories.facts_known_by(regular), "warmth": int(bond.get("warmth", 0)), "level": Bonds.level_word(bond) if not bond.is_empty() else "",
+		"thread": Memories.thread_note(thread, night) if not thread.is_empty() else "",
 	}
 	if int(regular.get("last_night", 0)) > 0:
 		known["nights_ago"] = night - int(regular["last_night"])
@@ -97,6 +107,7 @@ static func fade(bar: Dictionary, night: int) -> Array:
 			kept.append(regular)
 		else:
 			gone.append(str(regular["name"]))
+			Bonds.forget(bar, str(regular["id"]))  # (their bonds go with them)
 	bar["regulars"] = kept
 	return gone
 
@@ -122,7 +133,7 @@ static func remembered_text(known: Dictionary) -> String:
 	var sticking: Dictionary = known.get("facts", {})
 	for key in Memories.STICKING:
 		if str(sticking.get(key, "")) != "":
-			parts.append("%s: %s" % [{"job": "Job", "family": "Family", "home": "From", "other": "Also"}[key], sticking[key]])
+			parts.append("%s: %s" % [str(Memories.FACT_LABELS[key]).capitalize(), Memories.fact_text(sticking[key])])
 	if str(known.get("owner_knows", "")) != "" and parts.is_empty():
 		parts.append(str(known["owner_knows"]))
 	return " · ".join(parts)  # (Text.hint makes it safe to go inside the tag.)
@@ -133,3 +144,26 @@ static func name_said(full: String, said: String) -> bool:
 	var parts := full.split(" ", false)
 	var given := " ".join(parts.slice(1)) if parts.size() > 1 else full
 	return said.contains(full.to_lower()) or said.contains(given.to_lower())
+
+
+## A visit remembered (from the checked after-visit memory): each side's memory of the other in
+## their bond, the things that stick (known by whoever heard them said: heard, see
+## Memories.who_heard), and threads (how something they'd mentioned went, closing it; something
+## new coming up). Returns what changed: {"facts": [keys learned], "thread_opened", "thread_closed"}.
+static func remember(bar: Dictionary, regular: Dictionary, night: int, memory: Dictionary, heard: Array) -> Dictionary:
+	var id := str(regular["id"])
+	var bond := Bonds.between(bar, Bonds.OWNER, id)
+	Bonds.remember(bond, night, {Bonds.OWNER: str(memory.get("owner_remembers", "")), id: str(memory.get("they_remember", ""))})
+	var changed := {"facts": [], "thread_opened": false, "thread_closed": false}
+	for key in Memories.STICKING:
+		var fact := str(memory.get(key, ""))
+		if fact != "" and Memories.learn_fact(regular, key, fact, night, Memories.who_heard(fact, heard)):
+			changed["facts"].append(key)
+	var thread := Memories.open_thread(regular)
+	if not thread.is_empty() and str(memory.get("followed_up", "")) != "" and Memories.says_how_it_went(str(memory["followed_up"]), str(thread["text"])):
+		Memories.close_thread(thread, str(memory["followed_up"]), night)
+		changed["thread_closed"] = true
+	if str(memory.get("coming_up", "")) != "":
+		Memories.add_thread(regular, str(memory["coming_up"]), night)
+		changed["thread_opened"] = true
+	return changed

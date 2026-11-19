@@ -1,15 +1,16 @@
 extends RefCounted
 ## Who calls whom, and friendliness: how the owner and each customer address each other (for
-## the prompts and the checks), two regulars' record of each other (how often they've met,
-## whether they know each other's names, the last thing said), and the "can I call you
+## the prompts and the checks), two regulars' bond (bonds.gd: how often they've met, whether
+## they know each other's names, the last thing said), and the "can I call you
 ## eonni?" moment, when it's time, and marking them close. Plain functions on the bar, the
 ## owner and the tent's guests (null: the owner). The tent's scene narrates and saves.
 ## (Part 10 of splitting visit.gd, the first half: see DEVLOG.md, 16 November 2026.)
 
 const Address = preload("res://scripts/rules/address.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 
-const FRIENDLY_AFTER := 4  # meetings before two regulars might ask "can I call you eonni?"
+const FRIENDLY_AFTER := Bonds.FRIENDLY  # meetings before two regulars might ask "can I call you eonni?"
 
 
 ## Someone, as far as address goes (see Address.allowed_terms). guest null: the owner.
@@ -47,12 +48,9 @@ static func address_note(owner_data: Dictionary, guest: Variant) -> String:
 	return text
 
 
-## Two regulars' record of each other (from the first one's side), or {}.
+## Two regulars' bond (bonds.gd), or {} if they've never chatted here.
 static func friend_record(bar: Dictionary, a: Variant, b: Variant) -> Dictionary:
-	var mine := RegularsTonight.find(bar, str(a.customer.get("regular_id", "")))
-	if mine.is_empty() or str(b.customer.get("regular_id", "")) == "":
-		return {}
-	return mine.get("friends", {}).get(str(b.customer["regular_id"]), {})
+	return Bonds.find(bar, str(a.customer.get("regular_id", "")), str(b.customer.get("regular_id", "")))
 
 
 ## Whether everyone in a chat knows everyone else: close, or regulars who've chatted here
@@ -70,30 +68,29 @@ static func are_close(bar: Dictionary, a: Variant, b: Variant) -> bool:
 	return bool(friend_record(bar, a, b).get("close", false))
 
 
-## After a spell of chat: regulars who chatted remember it (once a night per pair): how many
-## times they've met, whether they know each other's names, and the last thing said.
+## Whether a knows b's name (two regulars).
+static func knows_name(bar: Dictionary, a: Variant, b: Variant) -> bool:
+	return Bonds.knows_name(friend_record(bar, a, b), str(a.customer.get("regular_id", "")))
+
+
+## After a spell of chat: regulars who chatted remember it in their bond (a meeting counted once
+## a night per pair): each learns the other's name once it's been said, and the last thing said.
 ## people: the chat's guests; transcript: what was said in it.
 static func remember_chat(bar: Dictionary, people: Array, transcript: Array, last: String, night: int) -> void:
 	var said := " ".join(PackedStringArray(transcript.filter(func(e): return e.has("text")).map(func(e): return str(e["text"])))).to_lower()
-	for a in people:
-		for b in people:
-			if a == b:
+	for i in people.size():
+		for j in range(i + 1, people.size()):
+			var a_id := str(people[i].customer.get("regular_id", ""))
+			var b_id := str(people[j].customer.get("regular_id", ""))
+			if a_id == "" or b_id == "":
 				continue
-			var mine := RegularsTonight.find(bar, str(a.customer.get("regular_id", "")))
-			var their_id := str(b.customer.get("regular_id", ""))
-			if mine.is_empty() or their_id == "":
-				continue
-			var friends: Dictionary = mine.get("friends", {})
-			var known: Dictionary = friends.get(their_id, {"meetings": 0, "names": false, "close": false, "night": -1})
-			if int(known.get("night", -1)) != night:
-				known["meetings"] = int(known.get("meetings", 0)) + 1
-				known["night"] = night
-			if RegularsTonight.name_said(str(b.customer["name"]), said):
-				known["names"] = true
-			known["name"] = str(b.customer["name"])
-			known["last"] = last
-			friends[their_id] = known
-			mine["friends"] = friends
+			var bond := Bonds.between(bar, a_id, b_id)
+			Bonds.meet(bond, night)
+			if RegularsTonight.name_said(str(people[j].customer["name"]), said):
+				Bonds.learn_name(bond, a_id)
+			if RegularsTonight.name_said(str(people[i].customer["name"]), said):
+				Bonds.learn_name(bond, b_id)
+			bond["last"] = last
 
 
 ## The "can I call you eonni?" moment, if it's time: the younger of two regulars who've met
@@ -109,15 +106,10 @@ static func friendly_moment(bar: Dictionary, owner_data: Dictionary, speaker: Va
 
 ## Two regulars are close now (the game's call, once asked): both their records say so.
 static func make_close(bar: Dictionary, a: Variant, b: Variant) -> void:
-	for pair in [[a, b], [b, a]]:
-		var mine := RegularsTonight.find(bar, str(pair[0].customer.get("regular_id", "")))
-		if mine.is_empty():
-			continue
-		var friends: Dictionary = mine.get("friends", {})
-		var known: Dictionary = friends.get(str(pair[1].customer["regular_id"]), {})
-		known["close"] = true
-		friends[str(pair[1].customer["regular_id"])] = known
-		mine["friends"] = friends
+	var a_id := str(a.customer.get("regular_id", ""))
+	var b_id := str(b.customer.get("regular_id", ""))
+	if a_id != "" and b_id != "":
+		Bonds.between(bar, a_id, b_id)["close"] = true
 
 
 ## The term a line actually used for its listener, for the bubble's header ("" if none).

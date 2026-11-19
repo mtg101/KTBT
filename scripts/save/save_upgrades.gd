@@ -3,7 +3,9 @@ extends RefCounted
 ## refactor: see DEVLOG.md). Two kinds:
 ## - upgrade: what the game fills in itself, as the bar opens (an owner from before looks gets
 ##   a look for their age; one from before owners had a fixed life gets one; a cat from before
-##   nicknames gets one, its old name kept as "former_name"): saved straight away.
+##   nicknames gets one, its old name kept as "former_name"; regulars from before bonds have
+##   their memories, names and friends moved into bonds, and their facts marked known by the
+##   owner): saved straight away.
 ## - ai_needs: what it needs the AI for, once, while the bar opens (names in Hangul, founding
 ##   regulars for a bar from before regulars, signature dishes for a menu from before them).
 ## Each upgrade happens once: what it fills in is saved, so the next time there's nothing to do.
@@ -11,10 +13,11 @@ extends RefCounted
 const Looks = preload("res://scripts/rules/looks.gd")
 const People = preload("res://scripts/rules/people.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 
 
 ## What the game fills in itself, without the AI. Returns what it filled in ([]: nothing):
-## "owner_look", "owner_life", "cat_nickname". (The game's dice, in the order they always were:
+## "owner_look", "owner_life", "cat_nickname", "bonds". (The game's dice, in the order they always were:
 ## the look first; the cat's nickname needs none.)
 static func upgrade(bar: Dictionary) -> Array:
 	var changed: Array = []
@@ -30,6 +33,8 @@ static func upgrade(bar: Dictionary) -> Array:
 		cat["name"] = CatRules.nickname_for_old_cat(cat)
 		cat["hangul"] = str(CatRules.CAT_NICKNAMES[cat["name"]]["hangul"])
 		changed.append("cat_nickname")
+	if Bonds.upgrade(bar):  # regulars from before bonds (no dice)
+		changed.append("bonds")
 	return changed
 
 

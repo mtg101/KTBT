@@ -4,6 +4,8 @@ extends GdUnitTestSuite
 ## the bar settles rather than filling up with regulars.
 
 const Regulars = preload("res://scripts/rules/regulars.gd")
+const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 
 
@@ -120,13 +122,18 @@ func test_the_bar_settles_instead_of_filling_up_with_regulars() -> void:
 
 
 func test_memories_blur_after_a_few_visits_and_facts_stick() -> void:
-	var regular := {}
+	var bar := {"regulars": [{"id": "ji-ho-1", "name": "Kim Ji-ho"}]}
+	var regular: Dictionary = bar["regulars"][0]
+	var heard := [{"text": "i'm a student from busan", "by": ["owner"]}]
 	for night in range(1, 6):
-		Regulars.remember(regular, night, {"owner_remembers": "Night %d: talked about the exam. Laughed a lot." % night, "they_remember": "Kind owner.", "job": "student" if night == 1 else "", "home": "Busan" if night == 4 else ""})
-	var memories: Array = regular["memories"]
-	assert_int(memories.size()).is_equal(Regulars.RECENT_MEMORIES)
+		RegularsTonight.remember(bar, regular, night, {"owner_remembers": "Night %d: talked about the exam. Laughed a lot." % night, "they_remember": "Kind owner.", "job": "student" if night == 1 else "", "home": "Busan" if night == 4 else ""}, heard)
+	var bond := Bonds.with_owner(bar, "ji-ho-1")
+	var memories: Array = bond["memories"]
+	assert_int(memories.size()).is_equal(Bonds.RECENT_MEMORIES)
 	assert_int(int(memories[0]["night"])).is_equal(3)  # the newest three, oldest first
-	assert_str(str(regular["impression"])).contains("Night 1: talked about the exam.")
-	assert_str(str(regular["impression"])).not_contains("Laughed")  # just the gist
-	assert_str(str(regular["facts"]["job"])).is_equal("student")  # stuck, even though not said again
-	assert_str(str(regular["facts"]["home"])).is_equal("Busan")
+	assert_str(Bonds.impression_of(bond, Bonds.OWNER)).contains("Night 1: talked about the exam.")
+	assert_str(Bonds.impression_of(bond, Bonds.OWNER)).not_contains("Laughed")  # just the gist
+	assert_str(Bonds.impression_of(bond, "ji-ho-1")).contains("Kind owner.")  # (their side too)
+	assert_str(str(regular["facts"]["job"]["text"])).is_equal("student")  # stuck, even though not said again
+	assert_array(regular["facts"]["job"]["known_by"]).is_equal(["owner"])  # (said to the owner)
+	assert_str(str(regular["facts"]["home"]["text"])).is_equal("Busan")

@@ -659,7 +659,7 @@ static func describe_regular(owner: Dictionary, customer: Dictionary, known: Dic
 	var stuck := PackedStringArray()
 	for key in Memories.STICKING:
 		if str(facts.get(key, "")) != "":
-			stuck.append("%s: %s" % [{"job": "job", "family": "family", "home": "from", "other": "and"}[key], facts[key]])
+			stuck.append("%s: %s" % [Memories.FACT_LABELS[key], Memories.fact_text(facts[key])])
 	if not stuck.is_empty():
 		text += " Things the owner knows about them: %s." % "; ".join(stuck)
 	var usual: Array = known.get("usual", [])
@@ -722,10 +722,13 @@ Reply with ONLY a JSON object with exactly these keys:
 ## visit, the few things about the customer that would stick, and how the night went for
 ## them. transcript: their conversation with the owner; chat: their lines at the counter
 ## with other customers ({"speaker", "text"}).
-static func memory_messages(owner: Dictionary, customer: Dictionary, transcript: Array, chat: Array) -> Array:
+static func memory_messages(owner: Dictionary, customer: Dictionary, transcript: Array, chat: Array, thread: String = "") -> Array:
 	var sticking := PackedStringArray()
 	for key in Memories.STICKING:
 		sticking.append("- \"%s\": %s, if they said it tonight; otherwise \"\"" % [key, Memories.STICKING[key]])
+	sticking.append("- \"coming_up\": something coming up for them that they mentioned tonight (a job interview on Monday, a first date, moving house, a hospital check-up), in a few words, if they said it; otherwise \"\"")
+	if thread != "":
+		sticking.append("- \"followed_up\": %s If they said tonight how it went (or is going), in a few words; otherwise \"\"" % thread.replace(" The owner remembers, and asks how it went (or is going).", ""))
 	var request := """%s
 
 %s

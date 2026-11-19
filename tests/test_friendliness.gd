@@ -47,7 +47,9 @@ func test_regulars_who_chat_get_friendlier() -> void:
 	assert_int(int(record["meetings"])).is_equal(Friendliness.FRIENDLY_AFTER)
 	assert_bool(Friendliness.know_each_other(bar, [older, younger])).is_true()  # (chatted before: they can tease)
 	assert_bool(Friendliness.know_each_other(bar, [older])).is_false()
-	assert_bool(bool(record["names"])).is_true()  # (her name was said)
+	assert_bool(Friendliness.knows_name(bar, older, younger)).is_true()  # (her name was said)
+	assert_bool(Friendliness.knows_name(bar, younger, older)).is_false()  # (hers wasn't)
+	assert_bool(Friendliness.friend_record(bar, younger, older) == record).is_true()  # (one bond, whichever way round)
 	assert_str(str(record["last"])).is_equal("Again!")
 	# Time for "can I call you eonni?": the younger asks the older, not the other way round.
 	assert_str(Friendliness.friendly_moment(bar, OWNER, younger, older)).is_equal("eonni")

@@ -29,6 +29,8 @@ static func problem_kind(problem: String) -> String:
 		return "food already served"
 	if p.contains("said a lot tonight"):
 		return "said too often"
+	if p.contains("keep to what they've said"):
+		return "contradicts what they've said"
 	if p.contains("never how they look"):
 		return "teasing that crossed the line"
 	if p.begins_with("the signature dish"):

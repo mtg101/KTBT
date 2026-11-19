@@ -3,6 +3,7 @@ extends GdUnitTestSuite
 ## is written from, on their own.
 
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
 
 const FOLDER := "user://test_story_keeper/"
@@ -50,7 +51,7 @@ func test_previously_on_is_written_from_the_last_diary_and_the_regulars() -> voi
 	var bar := {"name": "Golmok Pocha", "nights": 6, "cat": {"name": "Nabi"},
 		"diary": [{"text": "A quiet night.", "facts": {"people": [{"name": "Kim Ji-ho", "hangul": "김지호"}], "weather": "rain"}}]}
 	var owner_data := {"name": "Park Mi-sook", "hangul": "박미숙", "archetype": "a gruff ajumma"}
-	var regulars := [{"name": "Lee Min-jun", "hangul": "이민준"}]
+	var regulars := [{"id": "lee-min-jun-1", "name": "Lee Min-jun", "hangul": "이민준"}]
 	var dice := RandomNumberGenerator.new()
 	var facts := StoryKeeper.recap_facts(bar, owner_data, regulars, dice)
 	assert_int(int(facts["episode"])).is_equal(7)
@@ -60,6 +61,6 @@ func test_previously_on_is_written_from_the_last_diary_and_the_regulars() -> voi
 	assert_str(str(facts["cat"])).is_equal("Nabi")
 	assert_str(str(facts["teaser_example"])).is_not_empty()
 	# A bar from before diaries: each regular's latest memory instead.
-	regulars[0]["memories"] = [{"owner": "Always orders the same."}]
+	Bonds.remember(Bonds.between(bar, Bonds.OWNER, "lee-min-jun-1"), 5, {Bonds.OWNER: "Always orders the same.", "lee-min-jun-1": "Kind."})
 	bar.erase("diary")
 	assert_array(StoryKeeper.recap_facts(bar, owner_data, regulars, dice)["memories"]).is_equal(["Lee Min-jun, a regular: Always orders the same."])
