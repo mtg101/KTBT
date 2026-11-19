@@ -534,6 +534,88 @@ def phone_arm(view, bare=False):
     return s.image()
 
 
+# Something on their head (the look's "hat": looks.gd), over the hair, in their clothes' colour:
+# a baseball cap, a knitted beanie (a cold night), an older man's flat cap. Facing us, from
+# behind (seated) and from the side (walking, facing right: a brim forward).
+HATS = ("cap", "beanie", "flat_cap")
+
+
+def hat(kind, view):
+    s = Layer()
+    y = HEAD_Y
+    if view == "side":
+        if kind == "beanie":
+            s.ellipse(15.5, y + 5, 7, 6, CLOTH, rows=(0, y + 6))
+            s.rect(9, y + 5, 23, y + 7, CLOTH, 1.2)  # its turned-up cuff
+        else:
+            low = 4 if kind == "cap" else 5
+            s.ellipse(15.5, y + 5, 7, 5.5 if kind == "cap" else 4.5, CLOTH, rows=(0, y + low))
+            s.rect(9, y + low, 22, y + low + 1, CLOTH, 0.8)
+            s.rect(21, y + low, 26 if kind == "cap" else 24, y + low + 1, CLOTH, 0.65)  # the brim, forward
+        return s.image()
+    down = SEATED_DOWN if view == "back" else 0
+    if kind == "beanie":
+        s.ellipse(CX, y + 5, 7.5, 6.5, CLOTH, rows=(0, y + 6))
+        s.rect(9, y + 5, 24, y + 7, CLOTH, 1.2)  # the cuff
+        for x in range(10, 23, 3):
+            s.rect(x, y + 1, x + 1, y + 5, CLOTH, 0.85)  # its knit
+    elif kind == "cap":
+        s.ellipse(CX, y + 4, 7.5, 5, CLOTH, rows=(0, y + 5))
+        if view == "front":
+            s.rect(8, y + 4, 25, y + 6, CLOTH, 0.7)  # the brim, towards us
+            s.dot(16, y, CLOTH, 1.3)  # the button on top
+        else:
+            s.rect(13, y + 4, 19, y + 6, SKIN, 0.85)  # the gap at the back, over the strap
+            s.rect(13, y + 4, 19, y + 5, CLOTH, 0.75)
+    else:  # flat cap
+        s.ellipse(CX, y + 4, 7.5, 3.5, CLOTH, rows=(y + 1, y + 6))
+        s.rect(8, y + 5, 25, y + 6, CLOTH, 0.7)
+    return s.image(down)
+
+
+def lanyard():
+    """An ID card on a lanyard round the neck (an office's, a hospital's), facing us."""
+    s = Layer()
+    for k in range(12):  # the strap, down each side of the neck to the card
+        s.dot(13 + k // 4, TOP + k, "blue_shirt", 0.95)
+        s.dot(19 - k // 4, TOP + k, "blue_shirt", 0.85)
+    s.rect(14, TOP + 12, 19, TOP + 18, "white_shirt", 1.15)  # the card
+    s.rect(15, TOP + 13, 17, TOP + 15, "ink", 0.9)  # its photo
+    return s.image()
+
+
+# Seated at the counter, from behind, their right arm (on our right) up for a moment: a glass
+# raised to their mouth, food on its way up on chopsticks, a hand to the head (a sad or awkward
+# moment). people_art.gd takes the arm resting on the counter away first (BACK_ARM_CLEAR).
+GESTURES = {  # elbow, hand (from behind: the hand by the mouth is just beside the head)
+    "drink": ((30, TOP + 9), (25, 13)),
+    "eat": ((30, TOP + 11), (25, 15)),
+    "head": ((31, TOP - 3), (21, 3)),
+}
+
+
+def back_gesture(kind, bare=False):
+    s = Layer()
+    shoulder = (W - SHOULDER, TOP + 2)
+    elbow, hand = GESTURES[kind]
+    upper = (shoulder, elbow) if elbow[1] > shoulder[1] else (elbow, shoulder)
+    _strip(s, upper[0], upper[1], 4, CLOTH, 0.75)  # the upper arm, out to the elbow
+    s.rect(elbow[0] - 2, elbow[1] - 2, elbow[0] + 2, elbow[1] + 2, CLOTH, 0.7)  # the elbow
+    for k in range(9):  # the forearm, from the elbow to the hand
+        t = k / 8
+        x = elbow[0] + (hand[0] - elbow[0]) * t
+        y = elbow[1] + (hand[1] - elbow[1]) * t
+        s.rect(int(round(x - 2)), int(round(y - 1)), int(round(x + 2)), int(round(y + 2)), SKIN if bare and t > 0.3 else CLOTH, 0.72)
+    s.rect(hand[0] - 2, hand[1] - 1, hand[0] + 2, hand[1] + 2, SKIN, 0.9)  # the hand
+    if kind == "drink":  # a little soju glass, tipped up
+        s.rect(hand[0] - 1, hand[1] - 5, hand[0] + 2, hand[1] - 1, "white_shirt", 1.25)
+        s.rect(hand[0] - 1, hand[1] - 5, hand[0] + 2, hand[1] - 4, "white_shirt", 1.45)  # its rim catching the light
+    elif kind == "eat":  # chopsticks, up past the head
+        for k in range(4):
+            s.dot(hand[0] - 1 - k, hand[1] - 2 - k, "ink", 1.0)
+    return s.image(SEATED_DOWN)
+
+
 def side_layers():
     out = {}
     clothes = ["suit", "blazer", "trench", "padded", "hoodie", "cardigan", "scrubs", "work_jacket", "tshirt", "knit"]
@@ -575,6 +657,13 @@ def layers():
     out["front_head_old"] = head("front", old=True)
     for name in ("glasses", "tote", "briefcase"):
         out["front_%s" % name] = extra(name, "front")
+    for kind in HATS:
+        for view in ("front", "back", "side"):
+            out["%s_hat_%s" % (view, kind)] = hat(kind, view)
+    out["front_lanyard"] = lanyard()
+    for kind in GESTURES:
+        out["back_arm_%s" % kind] = back_gesture(kind)
+        out["back_arm_%s_bare" % kind] = back_gesture(kind, bare=True)
     out.update(side_layers())
     return out
 

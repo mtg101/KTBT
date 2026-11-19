@@ -1331,6 +1331,23 @@ func test_the_street_finished_and_tonights_date() -> void:
 	assert_int(int(Game.bar["first_date"])).is_equal(318)
 
 
+func test_customers_raise_their_glasses_and_eat() -> void:
+	Hooks.cat_wanders = false
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and not scene._guests[0].walk.is_running())).is_true()
+	var guest = scene._guests[0]
+	guest.served = ["soju", "tteokbokki"]
+	guest.next_gesture = 0.01
+	assert_bool(await _wait_until(func(): return scene._stats.gestures.size() > 0)).override_failure_message("nobody raised a glass or ate").is_true()
+	assert_float(guest.next_gesture).is_between(0.0, scene.GESTURE_SECONDS.y)  # (and again, in a while)
+	assert_str(scene._stats.panel_text(0, 0)).contains("glasses raised")
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
 func test_the_pixels_are_lit_by_the_hour() -> void:
 	Hooks.cat_wanders = false
 	var runner := await _open_bar()

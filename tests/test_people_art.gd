@@ -9,9 +9,9 @@ const Art = preload("res://scripts/ui/art.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 
 const OWNER := {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "clothes": "cardigan", "colour": "mint", "glasses": false,
-	"bag": "", "skin": 1, "apron": true}
+	"bag": "", "skin": 1, "apron": true, "height": "tall"}  # (tall: drawn as the layers are)
 const STUDENT := {"age_range": "20s", "hair": "long", "hair_colour": "black", "clothes": "hoodie", "colour": "charcoal", "glasses": true,
-	"bag": "backpack", "skin": 2, "apron": false}
+	"bag": "backpack", "skin": 2, "apron": false, "height": "tall"}
 
 
 func after_test() -> void:
@@ -175,3 +175,91 @@ func test_without_the_layers_people_are_drawn_as_shapes() -> void:
 	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y + PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
 	view.turn(person, true)
 	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y)
+
+
+func test_seated_from_behind_an_arm_goes_up_for_a_moment() -> void:
+	# The layers: a glass or chopsticks behind the head (by the mouth), a hand to the head over the hair.
+	var drink := PeopleArt.layers_for(STUDENT, "back", 0, "drink")
+	assert_int(drink.find("back_arm_drink")).is_less(drink.find("back_head"))
+	var head := PeopleArt.layers_for(STUDENT, "back", 0, "head")
+	assert_int(head.find("back_arm_head")).is_greater(head.find("back_hair_long"))
+	var bare := OWNER.duplicate()
+	bare["clothes"] = "tshirt"
+	assert_array(PeopleArt.layers_for(bare, "back", 0, "eat")).contains(["back_arm_eat_bare"])  # (short sleeves)
+	assert_array(PeopleArt.layers_for(STUDENT, "front", 0, "drink")).not_contains(["back_arm_drink"])  # (from behind only)
+	# The picture: the arm resting on the counter gone, the raised one there.
+	var own := PeopleArt.texture(STUDENT, "back").get_image()
+	var raised := PeopleArt.texture(STUDENT, "back", 0, "drink").get_image()
+	var low := PeopleArt.BACK_ARM_CLEAR.position + Vector2i(0, 15)
+	assert_float(own.get_pixelv(low).a).is_greater(0.0)
+	assert_float(raised.get_pixelv(low).a).is_equal(0.0)
+	assert_bool(raised.get_data() != own.get_data()).is_true()
+	# On someone seated: for a moment, then themselves again.
+	var view := PeopleView.new(RandomNumberGenerator.new())
+	var stage: Control = auto_free(Control.new())
+	add_child(stage)
+	var person := view.new_person(stage, Vector2.ZERO, Color.WHITE)
+	view.dress(person, STUDENT)
+	assert_bool(view.gesture(person, "drink")).is_false()  # (facing us: no)
+	view.turn(person, false)
+	assert_bool(view.gesture(person, "drink", 0.2)).is_true()
+	var back = person.get_node("Look/Back")
+	assert_str(back.gesture).is_equal("drink")
+	await get_tree().create_timer(0.4).timeout
+	assert_str(back.gesture).is_equal("")
+	assert_bool(view.gesture(person, "eat")).is_true()  # two or three mouthfuls
+	assert_str(back.gesture).is_equal("eat")
+	view.pose(person, "sad")  # a sad moment: a hand to the head too
+	assert_str(back.gesture).is_equal("head")
+
+
+func test_heights_builds_hats_and_a_lanyard() -> void:
+	# Shorter people come down two rows a height; their name with them.
+	var tall := PeopleArt.texture(OWNER, "front").get_image()
+	var average := OWNER.duplicate()
+	average["height"] = "average"
+	var short := OWNER.duplicate()
+	short["height"] = "short"
+	assert_bool(PeopleArt.texture(average, "front").get_image().get_pixel(16, 3 + 2).is_equal_approx(tall.get_pixel(16, 3))).is_true()
+	assert_bool(PeopleArt.texture(short, "front").get_image().get_pixel(16, 3 + 4).is_equal_approx(tall.get_pixel(16, 3))).is_true()
+	assert_int(PeopleArt.drop_rows({})).is_equal(2)  # (a look from before heights: average)
+	var view := PeopleView.new(RandomNumberGenerator.new())
+	var stage: Control = auto_free(Control.new())
+	add_child(stage)
+	var person := view.new_person(stage, Vector2.ZERO, Color.WHITE)
+	view.dress(person, short)
+	assert_float(person.get_node("Tag").position.y).is_equal(PeopleView.TAG_Y + 4 * PeopleArt.SCALE)
+	# Broad or slight: the torso a pixel wider or narrower each side, the head as it was.
+	var row := PeopleArt.BUILD_ROWS.x + 8
+	var broad := OWNER.duplicate()
+	broad["build"] = "broad"
+	var slim := OWNER.duplicate()
+	slim["build"] = "slim"
+	assert_int(_width(PeopleArt.texture(broad, "front").get_image(), row)).is_equal(_width(tall, row) + 2)
+	assert_int(_width(PeopleArt.texture(slim, "front").get_image(), row)).is_equal(_width(tall, row) - 2)
+	assert_int(_width(PeopleArt.texture(broad, "front").get_image(), 8)).is_equal(_width(tall, 8))
+	# A hat over the hair, every way round; a lanyard facing us.
+	var hatted := STUDENT.duplicate()
+	hatted["hat"] = "beanie"
+	hatted["lanyard"] = true
+	for view_name in ["front", "back"]:
+		var ids := PeopleArt.layers_for(hatted, view_name)
+		assert_int(ids.find("%s_hat_beanie" % view_name)).is_greater(ids.find("%s_hair_long" % view_name))
+	assert_array(PeopleArt.side_layers(hatted, 0)).contains(["side_hat_beanie"])
+	assert_array(PeopleArt.layers_for(hatted, "front")).contains(["front_lanyard"])
+	assert_array(PeopleArt.layers_for(hatted, "back")).not_contains(["front_lanyard"])
+	for hat in Looks.HATS:
+		for view_name in ["front", "back", "side"]:
+			assert_bool(Art.has("person/%s_hat_%s" % [view_name, hat])).is_true()
+
+
+## How wide someone is on a row of their picture (its first to last drawn pixel).
+func _width(picture: Image, row: int) -> int:
+	var first := -1
+	var last := -1
+	for x in picture.get_width():
+		if picture.get_pixel(x, row).a > 0.0:
+			if first < 0:
+				first = x
+			last = x
+	return last - first + 1

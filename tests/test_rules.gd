@@ -1345,7 +1345,15 @@ func test_the_game_picks_how_people_look() -> void:
 			assert_array(Looks.SUIT_COLOURS).contains([look["colour"]])
 		if look["colour"] in ["beige", "black", "navy", "charcoal", "white", "cream", "camel"]:
 			neutral += 1
+		assert_bool(Looks.HEIGHTS.has(look["height"])).is_true()  # how tall, how broad
+		assert_bool(Looks.BUILDS.has(look["build"])).is_true()
+		assert_bool(look["hat"] == "" or Looks.HATS.has(look["hat"])).is_true()
+		if bool(look["lanyard"]):
+			assert_array(["suit", "blazer", "scrubs"]).contains([look["clothes"]])  # (the office's ID, or the hospital's)
 	assert_int(neutral).is_greater(200)  # mostly beige and black (it's Seoul)
+	var hatted := {"age_range": "30s", "hair": "bob", "hair_colour": "black", "clothes": "suit", "colour": "navy", "height": "tall", "build": "broad", "hat": "cap", "lanyard": true}
+	assert_str(Looks.look_text(hatted)).starts_with("tall, broad-shouldered and in their thirties").contains("and a baseball cap").contains("an ID card on a lanyard")
+	assert_str(Looks.look_text({"age_range": "30s", "hair": "bob"})).starts_with("in their thirties")  # (a look from before heights: nothing said)
 
 
 func test_looks_suit_the_weather_and_the_owner() -> void:
@@ -1355,6 +1363,9 @@ func test_looks_suit_the_weather_and_the_owner() -> void:
 		var the_owner := Looks.pick_look("woman", Looks.pick_age_range(randf(), true), "", true)
 		assert_array(["suit", "blazer", "trench", "scrubs"]).not_contains([the_owner["clothes"]])
 		assert_bool(the_owner["apron"]).is_true()
+		assert_str(str(the_owner["hat"])).is_empty()  # (behind the counter, bare-headed)
+		assert_bool(the_owner["lanyard"]).is_false()
+		assert_str(str(Looks.pick_look("woman", "30s", "muggy")["hat"])).is_not_equal("beanie")
 		assert_array(["20s", "30s"]).not_contains([the_owner["age_range"]])
 		assert_str(str(Looks.pick_look("man", "20s", "")["hair"])).is_not_equal("balding")
 		assert_array(["grey", "white"]).not_contains([Looks.pick_look("woman", "20s", "")["hair_colour"]])

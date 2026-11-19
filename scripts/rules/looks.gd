@@ -64,6 +64,12 @@ const SCRUBS_COLOURS := ["navy", "mint", "sky_blue"]
 
 
 const BAGS := {"tote": "a tote bag", "briefcase": "a briefcase", "backpack": "a backpack"}
+## Something on their head (drawn over the hair: tools/art/people.py HATS).
+const HATS := {"cap": "a baseball cap", "beanie": "a knitted beanie", "flat_cap": "a flat cap"}
+## How tall they stand and how broad their shoulders are: drawn as two rows shorter or taller,
+## a pixel narrower or broader each side (people_art.gd), so a crowd isn't one person over and over.
+const HEIGHTS := {"short": "short", "average": "", "tall": "tall"}
+const BUILDS := {"slim": "slight", "average": "", "broad": "broad-shouldered"}
 
 
 const SKIN_TONES := ["f2d6bd", "e9c7a6", "ddb291", "c99c78"]
@@ -129,11 +135,23 @@ static func pick_look(gender: String, age_range: String, weather: String, owner:
 	var bag_roll := randf()
 	if not owner and bag_roll < 0.45:
 		bag = "briefcase" if wearing in ["suit", "blazer"] and bag_roll < 0.25 else ("backpack" if bag_roll < 0.2 else "tote")
-	return {
+	var look := {
 		"age_range": age_range, "hair": Text.pick_weighted(hair, randf(), ""), "hair_colour": Text.pick_weighted(colours, randf(), ""),
 		"clothes": wearing, "colour": colour, "glasses": randf() < 0.25, "bag": bag,
 		"skin": randi() % SKIN_TONES.size(), "apron": owner,
 	}
+	# (Rolled last, so the rolls above are as they were before people had heights and hats.)
+	var heights := {"short": 15, "average": 50, "tall": 35} if gender == "man" else ({"short": 35, "average": 50, "tall": 15} if gender == "woman" else {"short": 25, "average": 50, "tall": 25})
+	look["height"] = Text.pick_weighted(heights, randf(), "-")
+	look["build"] = Text.pick_weighted({"slim": 30, "average": 50, "broad": 20}, randf(), "-")
+	var hats := {"": 100}
+	if not owner:  # (behind the counter, the owner's head's bare)
+		hats["beanie"] = 30 if weather in ["cold", "snow"] else (0 if weather == "muggy" else 4)
+		hats["cap"] = 14 if age_range in ["20s", "30s"] else (6 if age_range == "40s" else 2)
+		hats["flat_cap"] = 22 if gender == "man" and older else 0
+	look["hat"] = Text.pick_weighted(hats, randf(), "-")
+	look["lanyard"] = not owner and wearing in ["suit", "blazer", "scrubs"] and randf() < 0.45  # (the office's ID, or the hospital's)
+	return look
 
 
 ## A look in words, for prompts: "in their thirties, with black hair in a bob and glasses,
@@ -142,6 +160,9 @@ static func look_text(look: Dictionary) -> String:
 	var hair_colour: String = HAIR_COLOURS.get(look.get("hair_colour", "black"), HAIR_COLOURS["black"])[1]
 	var hair_text := str(HAIR_STYLES.get(look.get("hair", "short"), HAIR_STYLES["short"])).format({"c": hair_colour})
 	var text := "%s, with %s" % [AGE_RANGES.get(look.get("age_range", "30s"), AGE_RANGES["30s"])[2], hair_text]
+	var frame: Array = [str(HEIGHTS.get(look.get("height", "average"), "")), str(BUILDS.get(look.get("build", "average"), ""))].filter(func(word): return word != "")
+	if not frame.is_empty():
+		text = "%s and %s" % [", ".join(PackedStringArray(frame)), text]
 	if bool(look.get("glasses", false)):
 		text += " and glasses"
 	var colour: String = CLOTHES_COLOURS.get(look.get("colour", "black"), CLOTHES_COLOURS["black"])[1]
@@ -152,6 +173,10 @@ static func look_text(look: Dictionary) -> String:
 		text = text.replace("wearing %s %s hospital scrubs" % [article, colour], "wearing %s hospital scrubs" % colour)
 	if bool(look.get("apron", false)):
 		text += " under an apron"
+	if HATS.has(str(look.get("hat", ""))):
+		text += " and %s" % HATS[look["hat"]]
+	if bool(look.get("lanyard", false)):
+		text += ", an ID card on a lanyard round their neck"
 	var bag := str(look.get("bag", ""))
 	if bag != "":
 		text += " and carrying %s" % BAGS.get(bag, "a bag")

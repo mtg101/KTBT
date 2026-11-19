@@ -9,7 +9,7 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 ## Stages
 
 - **Real art (next): pixel art with real lighting.** The stage is pixel art now (the street, the tent, the people and the cat, lit by the hour, its words in a pixel Korean font: ART.md says how). What's left, in order:
-  1. **The people, more of them:** poses that need arms of their own (a glass raised, a hand to the head, eating), different heights and builds, and props that say who someone is (a taxi driver's cap, a school uniform).
+  1. **The people, still to come:** facing us, arms of their own too (the owner's hand to the head, a wave, pouring a drink: with the animation, below), and props that say what someone does if the game ever decides it (it's the AI's word now: a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks).
   2. **Animation and the UI's finish:** the little movements that make it feel alive (pouring, eating, the owner cooking), and the panels and desk to match the stage.
   Throughout: every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, screenshot tests once it settles, and all of it part of the Korean cultural review before anyone else plays. Later, an idea: a portrait of each character from the image model (see **Portraits**, under Presentation).
 - **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.

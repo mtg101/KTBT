@@ -290,6 +290,9 @@ func _dress_in_pixels(person: Control, look: Dictionary, holding: String = "") -
 		picture.name = view[0]
 		outfit.add_child(picture)
 	outfit.get_node("Back").visible = false
+	var tag := person.get_node_or_null("Tag") as Control
+	if tag != null:
+		tag.position.y = TAG_Y + _drop(person)  # (a shorter person's name comes down with their head)
 	return true
 
 
@@ -300,6 +303,29 @@ func pose(person: Control, mood: String) -> void:
 		var picture := person.get_node_or_null(view)
 		if picture is PixelPerson and picture.visible:
 			picture.pose(mood)
+	if mood in ["sad", "awkward"]:  # (seated, from behind: a hand to the head too)
+		gesture(person, "head", float(PixelPerson.POSES[mood]))
+
+
+## A gesture, seated at the counter from behind (people_art.gd GESTURES): "drink" (a glass raised
+## to the mouth), "eat" (two or three mouthfuls on chopsticks) or "head" (a hand to the head),
+## for seconds. Whether they made it (not drawn in pixels, or not seated facing away: no).
+func gesture(person: Control, kind: String, seconds: float = 1.2) -> bool:
+	var back := person.get_node_or_null("Look/Back")
+	if not (back is PixelPerson) or not back.visible or not person.has_meta("look"):
+		return false
+	var posed := PeopleArt.texture(person.get_meta("look"), "back", 0, kind)
+	var own := PeopleArt.texture(person.get_meta("look"), "back")
+	if posed == null or own == null:
+		return false
+	if kind == "eat":
+		var bites: Array = []
+		for k in randi_range(2, 3):
+			bites.append_array([[posed, 0.45, "eat"], [own, 0.35, ""]])
+		back.show_steps(bites)
+	else:
+		back.show_steps([[posed, seconds, kind]])
+	return true
 
 
 ## Which way someone's facing: toward us (walking, coming in, leaving, the owner), or away
@@ -312,7 +338,12 @@ func turn(person: Control, toward_us: bool) -> void:
 		back.visible = not toward_us
 		var tag := person.get_node_or_null("Tag") as Control
 		if tag != null and back is PixelPerson:  # (seated in pixels, their head's lower: their name with it)
-			tag.position.y = TAG_Y + (0.0 if toward_us else PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
+			tag.position.y = TAG_Y + _drop(person) + (0.0 if toward_us else PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
+
+
+## How far their head comes down from the tallest (on the stage): shorter people's, in pixels.
+func _drop(person: Control) -> float:
+	return float(PeopleArt.drop_rows(person.get_meta("look", {})) * PeopleArt.SCALE) if person.get_node_or_null("Look/Front") is PixelPerson else 0.0
 
 
 func _layer_in(parent: Control, layer_name: String) -> Control:
@@ -357,9 +388,10 @@ func add_phone(person: Control) -> void:
 		var tag := person.get_node_or_null("Tag")
 		if tag != null:
 			person.move_child(tag, -1)
-	var glow := Draw.rect(person, Vector2(33, 18), Vector2(30, 30), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
+	var down := Vector2(0, _drop(person))  # (a shorter person's hand is lower)
+	var glow := Draw.rect(person, Vector2(33, 18) + down, Vector2(30, 30), Color(0.55, 0.75, 1.0, 0.18))  # the screen's light on their face
 	glow.name = "PhoneGlow"
-	var phone := Draw.rect(person, Vector2(57, 78), Vector2(12, 21), Color("1c1c24"))  # (in whole pixels of the grid's size, in the hand at the chest: people.py PHONE_HAND_FRONT)
+	var phone := Draw.rect(person, Vector2(57, 78) + down, Vector2(12, 21), Color("1c1c24"))  # (in whole pixels of the grid's size, in the hand at the chest: people.py PHONE_HAND_FRONT)
 	phone.name = "Phone"
 	var screen := Draw.rect(phone, Vector2(3, 3), Vector2(6, 15), Color(0.7, 0.85, 1.0))
 	screen.name = "Screen"

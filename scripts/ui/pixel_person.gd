@@ -37,6 +37,10 @@ var breathing := 0.0  # 0 or 1: up a pixel (for the tests)
 var lean := 0.0
 const LEAN_PIXELS := 30.0  # pixels of the grid to a radian of leaning (0.07, a tipsy sway: 2)
 var _upper: TextureRect
+var _own: Texture2D  # their picture, as they usually are (a gesture shows another for a moment)
+var _steps: Array = []  # a gesture: [picture, seconds], one after another, then their own again
+var _step_left := 0.0
+var gesture := ""  # (for the tests: the picture showing now, "" for their own)
 var _lower: TextureRect
 var _next_breath := 0.0
 var _clock := 0.0
@@ -47,6 +51,7 @@ var _clock := 0.0
 ## stride: the side view's frames to walk in (people_art.gd side_frames; [] glides with a bob).
 func _init(picture: Texture2D, rows_up: int, walks: bool = false, stride: Array = []) -> void:
 	split = rows_up
+	_own = picture
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	PixelLight.light(self, "people")  # (lit by the hour, wherever they are: pixel_light.gd; their parts share it)
 	size = picture.get_size() * GRID
@@ -79,6 +84,10 @@ func _part(picture: Texture2D, region: Rect2) -> TextureRect:
 
 func _process(delta: float) -> void:
 	_clock += delta
+	if not _steps.is_empty() or _step_left > 0.0:
+		_step_left -= delta
+		if _step_left <= 0.0:
+			_next_step()
 	if _clock >= _next_breath:
 		breathing = 1.0 if breathing == 0.0 else 0.0
 		_next_breath = _clock + (BREATH_IN if breathing == 1.0 else randf_range(BREATH_SECONDS.x, BREATH_SECONDS.y))
@@ -104,6 +113,31 @@ func _process(delta: float) -> void:
 	_walk(delta)
 	snap()
 	position += nudge
+
+
+## A gesture: other pictures for a moment (people_art.gd: a glass raised, a mouthful, a hand to
+## the head), each for its seconds ([picture, seconds, name]...), then their own again.
+func show_steps(steps: Array) -> void:
+	_steps = steps.duplicate()
+	_step_left = 0.0
+	_next_step()
+
+
+func _next_step() -> void:
+	if _steps.is_empty():
+		_show(_own)
+		gesture = ""
+		_step_left = 0.0
+		return
+	var step: Array = _steps.pop_front()
+	_show(step[0])
+	_step_left = float(step[1])
+	gesture = str(step[2]) if step.size() > 2 else ""
+
+
+func _show(picture: Texture2D) -> void:
+	for part in [_upper, _lower]:
+		(part.texture as AtlasTexture).atlas = picture
 
 
 ## How far over they're leaning, on the screen: whole pixels of the grid, three at most.
@@ -155,6 +189,7 @@ func _walk(delta: float) -> void:
 const PHONE_SIDE_X := 66.0  # walking right: the phone's left edge (the person's 96 wide), in the hand (people.py PHONE_HAND_SIDE)
 const PHONE_SIDE_Y := 57.0
 const GLOW_SIDE_X := 54.0
+const PHONE_FRONT_Y := 78.0  # facing us, the phone's top, the tallest (people_view.gd add_phone)
 
 
 func _hold_phone(holder: Control, side: bool) -> void:
@@ -172,7 +207,8 @@ func _hold_phone(holder: Control, side: bool) -> void:
 			glow.position = glow.get_meta("front_at")
 		return
 	var width := holder.size.x if holder.size.x > 0.0 else 96.0
-	phone.position = Vector2(width - PHONE_SIDE_X - phone.size.x if facing_left else PHONE_SIDE_X, PHONE_SIDE_Y)
+	var down := float(phone.get_meta("front_at").y) - PHONE_FRONT_Y  # (a shorter person's hand is lower: as far as facing us)
+	phone.position = Vector2(width - PHONE_SIDE_X - phone.size.x if facing_left else PHONE_SIDE_X, PHONE_SIDE_Y + down)
 	if glow != null:
 		glow.position = Vector2(width - GLOW_SIDE_X - glow.size.x if facing_left else GLOW_SIDE_X, glow.get_meta("front_at").y)
 

@@ -170,6 +170,7 @@ class Guest:
 	var cat_talk_done := false  # the cat's taken over their talk with the owner once tonight (only once: it's a tent bar, not a cat cafe)
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
+	var next_gesture := -1.0  # seconds until they next raise their glass or take a mouthful (-1: not counting yet)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
 	var version := 0
@@ -1194,6 +1195,7 @@ func _process(delta: float) -> void:
 		guest.stay_left -= minutes
 	if Hooks.strollers:
 		_street.tick(minutes, _clock)
+	_gestures(delta)
 	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
 		if _cat_next <= 0.0:
@@ -3076,6 +3078,29 @@ func _tipsy(guest: Guest) -> void:
 	_people_view.lean_step(sway, guest.node, -lean * 0.6, lean, _scaled(1.6)).set_trans(Tween.TRANS_SINE)
 	_people_view.lean_step(sway, guest.node, lean, -lean * 0.6, _scaled(1.8)).set_trans(Tween.TRANS_SINE)
 	guest.node.set_meta("sway", sway)
+
+
+## Now and then, everyone at the counter with something in front of them raises their glass or
+## takes a few mouthfuls (people_view.gd gesture: an arm up, seated from behind), each in their
+## own time (the scenery's dice: the game's own rolls never shift).
+const GESTURE_SECONDS := Vector2(8.0, 22.0)
+
+func _gestures(delta: float) -> void:
+	for guest in _guests:
+		if guest.served.is_empty() or not is_instance_valid(guest.node) or (guest.walk != null and guest.walk.is_running()):
+			continue
+		if guest.next_gesture < 0.0:
+			guest.next_gesture = _scenery_dice.randf_range(GESTURE_SECONDS.x, GESTURE_SECONDS.y)
+			continue
+		guest.next_gesture -= delta
+		if guest.next_gesture > 0.0:
+			continue
+		guest.next_gesture = _scenery_dice.randf_range(GESTURE_SECONDS.x, GESTURE_SECONDS.y)
+		var drinks: Array = guest.served.filter(func(id): return Menu.find(id).get("kind", "") == "drink")
+		var food: Array = guest.served.filter(func(id): return Menu.find(id).get("kind", "") == "food")
+		var kind := "drink" if food.is_empty() or (not drinks.is_empty() and _scenery_dice.randf() < 0.5) else "eat"
+		if _people_view.gesture(guest.node, kind):
+			_stats.gestures[kind] = int(_stats.gestures.get(kind, 0)) + 1
 
 
 func _drinks_had(guest: Guest) -> int:

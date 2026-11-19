@@ -229,11 +229,11 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("Diary: stamp early (game)")
 	assert_str(stats.panel_text(0, 0)).not_contains("Art:")  # (nothing recorded: nothing said)
 	stats.art = {"images": ["touch/lucky_cat"], "drawn": ["touch/lanterns", "touch/radio"], "broken": []}
-	assert_str(stats.panel_text(0, 0)).contains("Art: images 1 · drawn in code 2 · lit by the hour 0 · words in pixels 0 · poses 0\n")
+	assert_str(stats.panel_text(0, 0)).contains("Art: images 1 · drawn in code 2 · lit by the hour 0 · words in pixels 0 · poses 0 · glasses raised 0 · mouthfuls 0\n")
 	stats.art["street"] = {"lamps": 7, "stars": 18, "moon": "waxing gibbous", "road": "wet"}
 	assert_str(stats.panel_text(0, 0)).contains("Street: lamps 7 · stars 18 · moon waxing gibbous · road wet")
 	stats.art["broken"] = ["touch/plants"]
-	assert_str(stats.panel_text(0, 0)).contains("Art: images 1 · drawn in code 2 · lit by the hour 0 · words in pixels 0 · poses 0 · BROKEN touch/plants")
+	assert_str(stats.panel_text(0, 0)).contains("Art: images 1 · drawn in code 2 · lit by the hour 0 · words in pixels 0 · poses 0 · glasses raised 0 · mouthfuls 0 · BROKEN touch/plants")
 	assert_array(stats.summary({})["art"]["images"]).is_equal(["touch/lucky_cat"])
 	assert_int(int(stats.summary({})["who"]["genders"]["non-binary"])).is_equal(1)
 	assert_str(str(stats.summary({})["story"]["recap_style"])).is_equal("stormy")

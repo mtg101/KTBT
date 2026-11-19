@@ -39,6 +39,11 @@ static func ids(kind: String) -> Array:
 				layers.append("side_hair_" + hair)
 			layers.append_array(["side_head", "side_head_old", "side_glasses", "side_apron", "side_tote", "side_backpack",
 				"front_arm_phone", "front_arm_phone_bare", "side_arm_phone", "side_arm_phone_bare"])
+			for hat in Looks.HATS:  # on the head, each way round
+				layers.append_array(["front_hat_" + hat, "back_hat_" + hat, "side_hat_" + hat])
+			layers.append("front_lanyard")
+			for gesture in ["drink", "eat", "head"]:  # seated, from behind, an arm up for a moment
+				layers.append_array(["back_arm_" + gesture, "back_arm_%s_bare" % gesture])
 			for frame in 4:
 				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)

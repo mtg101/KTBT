@@ -204,6 +204,36 @@
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/back_arm_drink": {
+		"file": "people/back_arm_drink.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_arm_drink_bare": {
+		"file": "people/back_arm_drink_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_arm_eat": {
+		"file": "people/back_arm_eat.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_arm_eat_bare": {
+		"file": "people/back_arm_eat_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_arm_head": {
+		"file": "people/back_arm_head.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_arm_head_bare": {
+		"file": "people/back_arm_head_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"person/back_backpack": {
 		"file": "people/back_backpack.png",
 		"source": "drawn in code by tools/art/people.py",
@@ -316,6 +346,21 @@
 	},
 	"person/back_hairback_long": {
 		"file": "people/back_hairback_long.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hat_beanie": {
+		"file": "people/back_hat_beanie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hat_cap": {
+		"file": "people/back_hat_cap.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/back_hat_flat_cap": {
+		"file": "people/back_hat_flat_cap.png",
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
@@ -464,6 +509,21 @@
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/front_hat_beanie": {
+		"file": "people/front_hat_beanie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hat_cap": {
+		"file": "people/front_hat_cap.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_hat_flat_cap": {
+		"file": "people/front_hat_flat_cap.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"person/front_head": {
 		"file": "people/front_head.png",
 		"source": "drawn in code by tools/art/people.py",
@@ -471,6 +531,11 @@
 	},
 	"person/front_head_old": {
 		"file": "people/front_head_old.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_lanyard": {
+		"file": "people/front_lanyard.png",
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
@@ -706,6 +771,21 @@
 	},
 	"person/side_hair_two_block": {
 		"file": "people/side_hair_two_block.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_hat_beanie": {
+		"file": "people/side_hat_beanie.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_hat_cap": {
+		"file": "people/side_hat_cap.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/side_hat_flat_cap": {
+		"file": "people/side_hat_flat_cap.png",
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},

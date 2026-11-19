@@ -48,9 +48,15 @@ static func layers_for(look: Dictionary, view: String, frame: int = 0, holding: 
 	ids.append("%s_body_%s" % [view, str(look.get("clothes", "knit"))])
 	if bool(look.get("apron", false)):
 		ids.append("%s_apron" % view)
+	if view == "front" and bool(look.get("lanyard", false)):
+		ids.append("front_lanyard")
 	var bag := str(look.get("bag", ""))
 	if view == "front" and bag in ["tote", "briefcase"]:
 		ids.append("front_" + bag)
+	var short_sleeves: bool = str(look.get("clothes", "")) in ["tshirt", "scrubs"]
+	var gesture := ("back_arm_%s%s" % [holding, "_bare" if short_sleeves else ""]) if view == "back" and holding in GESTURES else ""
+	if gesture != "" and holding != "head":
+		ids.append(gesture)  # (a glass or chopsticks up to the mouth: behind the head, from behind)
 	var old: bool = str(look.get("age_range", "")) in ["60s", "70s"]
 	ids.append("front_head_old" if view == "front" and old else "%s_head" % view)
 	ids.append("%s_hair_%s" % [view, hair])
@@ -58,6 +64,10 @@ static func layers_for(look: Dictionary, view: String, frame: int = 0, holding: 
 		ids.append("front_glasses")
 	if bag == "backpack":
 		ids.append("%s_backpack" % view)
+	if Looks.HATS.has(str(look.get("hat", ""))):
+		ids.append("%s_hat_%s" % [view, look["hat"]])  # (over the hair)
+	if gesture != "" and holding == "head":
+		ids.append(gesture)  # (a hand on the head: over the hair, and the hat)
 	if view == "front" and holding == "phone":
 		ids.append("front_arm_phone_bare" if str(look.get("clothes", "")) in ["tshirt", "scrubs"] else "front_arm_phone")
 	return ids
@@ -78,6 +88,8 @@ static func side_layers(look: Dictionary, frame: int, holding: String = "") -> A
 		ids.append("side_" + bag)
 	ids.append("side_head_old" if str(look.get("age_range", "")) in ["60s", "70s"] else "side_head")
 	ids.append("side_hair_" + str(look.get("hair", "short")))
+	if Looks.HATS.has(str(look.get("hat", ""))):
+		ids.append("side_hat_" + str(look["hat"]))
 	if bool(look.get("glasses", false)):
 		ids.append("side_glasses")
 	if holding == "phone":  # (the near arm up, holding the phone in front of their face)
@@ -91,7 +103,8 @@ static func side_layers(look: Dictionary, frame: int, holding: String = "") -> A
 
 ## The person's picture (SIZE, its pixels a grid's), or null if a layer it needs isn't there.
 ## view: "front", "back" or "side" (with frame, of the stride).
-## holding: "phone" for someone on their phone (the arm it's in bent up to hold it).
+## holding: "phone" for someone on their phone (the arm it's in bent up to hold it); seated,
+## from behind, a gesture (GESTURES: a glass raised, a mouthful on chopsticks, a hand to the head).
 static func texture(look: Dictionary, view: String, frame: int = 0, holding: String = "") -> ImageTexture:
 	var key := "%s%d%s|%s" % [view, frame, holding, JSON.stringify(look, "", true)]
 	if _cache.has(key):
@@ -108,6 +121,8 @@ static func texture(look: Dictionary, view: String, frame: int = 0, holding: Str
 		var layer := Art.texture("person/" + str(id))
 		if str(id).begins_with("front_arm_phone"):
 			_clear(picture, ARM_CLEAR)  # (the arm hanging at their side goes: it's up holding the phone)
+		if str(id).begins_with("back_arm_"):
+			_clear(picture, BACK_ARM_CLEAR, BACK_ARM_OVER)  # (the arm resting on the counter goes: it's up)
 		if layer == null:
 			if str(id).contains("_body_") or str(id).ends_with("_head") or str(id).ends_with("_head_old") or str(id).contains("_legs_"):
 				complete = false  # (a body and a head it can't do without; a missing extra it can)
@@ -116,6 +131,9 @@ static func texture(look: Dictionary, view: String, frame: int = 0, holding: Str
 	if complete:
 		if str(look.get("age_range", "")) == "70s":
 			_stoop(picture, NECK_ROWS + (SEATED_DOWN if view == "back" else 0))
+		_shorten(picture, view, drop_rows(look))
+		if view != "side":
+			_build(picture, view, str(look.get("build", "average")))
 		made = ImageTexture.create_from_image(picture)
 	_cache[key] = made
 	return made
@@ -159,14 +177,76 @@ static func reset() -> void:
 ## Facing us, the arm that holds a phone, hanging (tools/art/people.py: its columns outside the
 ## torso, from the shoulder down; its hand, which reaches over the torso's edge, ARM_HAND).
 const ARM_CLEAR := Rect2i(27, 21, 2, 26)
+## Seated, from behind: their right arm (on our right), resting forward on the counter, where it
+## clears the torso (and its hand, ARM_HAND's way: the torso again, from beside it).
+const BACK_ARM_CLEAR := Rect2i(27, 24, 2, 20)
+const BACK_ARM_OVER := Rect2i(25, 24, 2, 20)
+const GESTURES := ["drink", "eat", "head"]  # (tools/art/people.py GESTURES)
 const ARM_HAND := Rect2i(25, 42, 2, 5)
 
 
-static func _clear(picture: Image, area: Rect2i) -> void:
+static func _clear(picture: Image, area: Rect2i, over_torso: Rect2i = ARM_HAND) -> void:
 	picture.fill_rect(area, Color(0, 0, 0, 0))
-	for y in range(ARM_HAND.position.y, ARM_HAND.end.y):  # (where the hand was over the torso: the torso again, from beside it)
-		for x in range(ARM_HAND.position.x, ARM_HAND.end.x):
-			picture.set_pixel(x, y, picture.get_pixel(ARM_HAND.position.x - 1, y))
+	for y in range(over_torso.position.y, over_torso.end.y):  # (where the arm was over the torso: the torso again, from beside it)
+		for x in range(over_torso.position.x, over_torso.end.x):
+			picture.set_pixel(x, y, picture.get_pixel(over_torso.position.x - 1, y))
+
+
+## How tall they are: the layers are drawn tall; an average person's two rows shorter, a short
+## one's four (the rows taken out of their legs standing, out of their back seated), so the rest
+## of them comes down that far. (A look from before heights: average.)
+const HEIGHT_DROP := {"tall": 0, "average": 2, "short": 4}
+const SHORTEN_FROM := {"front": 62, "side": 61, "back": 33}  # the rows taken out start here (legs below a long coat; the back)
+
+
+static func drop_rows(look: Dictionary) -> int:
+	return int(HEIGHT_DROP.get(str(look.get("height", "average")), 2))
+
+
+static func _shorten(picture: Image, view: String, rows: int) -> void:
+	if rows <= 0:
+		return
+	var at: int = SHORTEN_FROM.get(view, 62)
+	var above := picture.get_region(Rect2i(0, 0, SIZE.x, at))
+	picture.fill_rect(Rect2i(0, 0, SIZE.x, at + rows), Color(0, 0, 0, 0))
+	picture.blit_rect(above, Rect2i(Vector2i.ZERO, above.get_size()), Vector2i(0, rows))
+
+
+## Their build: broad, the torso and arms a pixel wider each side (a plain column of the cloth
+## either side of the middle drawn twice); slight, a pixel narrower (those columns left out).
+## The head, the legs and what's down the middle (a tie, buttons) as they were.
+const BUILD_COLUMNS := [10, 21]
+const BUILD_ROWS := Vector2i(20, 47)  # the shoulders to the hands (seated from behind, SEATED_DOWN lower)
+
+
+static func _build(picture: Image, view: String, build: String) -> void:
+	if not build in ["broad", "slim"]:
+		return
+	var down := SEATED_DOWN if view == "back" else 0
+	for y in range(BUILD_ROWS.x + down, mini(BUILD_ROWS.y + down, SIZE.y)):
+		var row: Array = []
+		for x in SIZE.x:
+			row.append(picture.get_pixel(x, y))
+		var out: Array = []
+		out.resize(SIZE.x)
+		out.fill(Color(0, 0, 0, 0))
+		var left: int = BUILD_COLUMNS[0]
+		var right: int = BUILD_COLUMNS[1]
+		for x in SIZE.x:
+			var to := x
+			if build == "broad":
+				to = x - 1 if x <= left else (x + 1 if x >= right else x)
+			else:
+				to = x + 1 if x < left else (x - 1 if x > right else x)
+				if x == left or x == right:
+					continue
+			if to >= 0 and to < SIZE.x:
+				out[to] = row[x]
+		if build == "broad":  # (the gap each side: the column beside it again)
+			out[left] = row[left]
+			out[right] = row[right]
+		for x in SIZE.x:
+			picture.set_pixel(x, y, out[x])
 
 
 ## The oldest stoop: their head and neck come down a little into their shoulders.
