@@ -72,6 +72,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
+const PixelFrame = preload("res://scripts/ui/pixel_frame.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
@@ -274,6 +275,7 @@ var _ready_dishes: Array:  # (cooked, waiting to be carried over)
 ## The owner's voice: one AI call at a time, so one conversation task at a time.
 var _owner_working := false
 var _greeting := false  # the owner's greeting someone who isn't on their stool yet
+var _greeting_regular := ""  # ...a regular's id, if it's one of them
 ## The next new customer, invented ahead while the owner was free ({"customer", "at"}: game
 ## minutes), so when someone ducks under the tarp only their order waits for the AI. {}: none.
 var _prepared := {}
@@ -441,6 +443,7 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
+	theme = PixelFrame.theme()  # (every button under the stage in a pixel frame and the pixel font)
 	if Game.autoplay != null:  # (a batch playing itself: the PD's desk is played too)
 		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
@@ -478,6 +481,7 @@ func _open_saved_bar() -> void:
 	_show_bar_name()
 	_show_look()
 	_people_view.dress(_owner_node, _owner_look())
+	_people_view.ready_gestures(_owner_node)  # (their hands' pictures made now, while the tent opens, not mid-night)
 	_owner_tag.text = _owner_label()
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
@@ -658,6 +662,7 @@ func _invent_owner() -> void:
 	_owner["look"] = look
 	People.fill_owner_life(_owner, randf())  # (anything the AI left out)
 	_people_view.dress(_owner_node, look)
+	_people_view.ready_gestures(_owner_node)
 	_owner_tag.text = _owner_label()
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
@@ -1196,6 +1201,7 @@ func _process(delta: float) -> void:
 	if Hooks.strollers:
 		_street.tick(minutes, _clock)
 	_gestures(delta)
+	_stir(delta)
 	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
 		if _cat_next <= 0.0:
@@ -1208,6 +1214,9 @@ func _process(delta: float) -> void:
 		_update_clock_label()
 		while not _regulars_due.is_empty() and _clock >= float(_regulars_due[0]["time"]):
 			var due: Dictionary = _regulars_due.pop_front()
+			if _regular_in(str(due["id"])):  # (already here, or on their way in: a PD's call brought them sooner)
+				print("Regulars: %s's already here: not coming in twice" % str(due["id"]))
+				continue
 			_arrive(float(due["time"]), str(due["id"]))
 			_skip_arrivals += 1  # a regular instead of a newcomer: the night stays as busy
 		while _clock >= _next_arrival and _next_arrival < NightRules.LAST_ARRIVAL_MINUTES:
@@ -2095,9 +2104,14 @@ func _beside(guest: Guest) -> float:
 ## away, cooked dishes go on the stove, and they exchange a first word with the owner.
 func _greet() -> void:
 	_owner_working = true
+	_owner_gesture("wave", 1.5)  # (come in, come in)
 	var turned_up: float = _waiting.pop_front()
 	var regular := _regular(str(_waiting_who.pop_front()) if not _waiting_who.is_empty() else "")
+	if not regular.is_empty() and _regular_in(str(regular["id"]), false):  # (19 Nov: Lee Ho-jin got talking to Lee Ho-jin)
+		print("Regulars: %s's already at the counter: someone new instead" % str(regular["id"]))
+		regular = {}
 	_greeting = true
+	_greeting_regular = str(regular.get("id", ""))
 	_stats.greet_waits.append(_clock - turned_up)  # how long they waited for the owner
 	var guest := Guest.new()
 	guest.quick_greeting = People.quick_greeting(_waiting.size(), _guests.size())
@@ -2132,6 +2146,7 @@ func _greet() -> void:
 	if customer.is_empty():
 		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
 		_greeting = false
+		_greeting_regular = ""
 		_task_done()
 		return
 	_names_tonight.append(str(customer["name"]))
@@ -2156,6 +2171,7 @@ func _greet() -> void:
 	_refresh_tags()
 	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
 	_greeting = false
+	_greeting_regular = ""
 	_update_info()
 	var friends_in: Array = _guests.filter(func(g): return g != guest and not regular.is_empty() and not _friend(guest, g).is_empty())
 	var sat := {"name": str(customer["name"]), "gender": str(customer.get("gender", "")), "job": str(customer.get("job", "")),
@@ -2323,6 +2339,7 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 	if guest.food_moment == "":
 		guest.food_moment = Talk.served_moment(now, randf(), randf())
 	if now.any(func(id): return Menu.find(id).get("kind", "") == "drink"):
+		_owner_gesture("pour", 1.0)  # (the bottle tipped over their glass)
 		_ambience.play("pour")
 		_ambience.play("clink", 1.0, 0.8)
 		var drink: String = str(Menu.find(now.filter(func(id): return Menu.find(id).get("kind", "") == "drink")[0]).get("name", ""))
@@ -2370,6 +2387,7 @@ func _carry_dish() -> void:
 		_carrying = false
 		return
 	_move_owner(_beside(guest))
+	_owner_gesture("carry", _scaled(0.8))  # (the bowl held out, over to them)
 	await _pause(_scaled(0.4))
 	if _stopped or not _guests.has(guest):
 		_carrying = false
@@ -2735,7 +2753,11 @@ func _counter_chat() -> void:
 			voices.append(str(_owner["name"]))
 		var first := said == "" and chat.last_speaker == ""
 		var speaker := _chat_speaker(chat, voices, first)
-		var addressee: String = chat.last_speaker if voices.has(chat.last_speaker) and chat.last_speaker != speaker else voices.filter(func(v): return v != speaker).pick_random()
+		var others: Array = voices.filter(func(v): return v != speaker)
+		if others.is_empty():  # (nobody else left to talk to: two of them with the same name, or someone gone)
+			push_warning("Chat: %s has nobody else to talk to (voices: %s): the chat ends" % [speaker, voices])
+			break
+		var addressee: String = chat.last_speaker if voices.has(chat.last_speaker) and chat.last_speaker != speaker else str(others.pick_random())
 		var line := await _chat_line(chat, speaker, addressee, first)
 		if line == "":
 			_narrate("(The conversation at the counter fizzled out: %s.)" % _ai.last_error)
@@ -3101,6 +3123,28 @@ func _gestures(delta: float) -> void:
 		var kind := "drink" if food.is_empty() or (not drinks.is_empty() and _scenery_dice.randf() < 0.5) else "eat"
 		if _people_view.gesture(guest.node, kind):
 			_stats.gestures[kind] = int(_stats.gestures.get(kind, 0)) + 1
+
+
+## The owner's hands, for a moment (people_view.gd gesture: pouring, carrying, stirring, waving),
+## counted in the stats.
+func _owner_gesture(kind: String, seconds: float) -> void:
+	if is_instance_valid(_owner_node) and _people_view.gesture(_owner_node, kind, seconds):
+		_stats.gestures[kind] = int(_stats.gestures.get(kind, 0)) + 1
+
+
+## While something's cooking and the owner's at the stove (not walking anywhere), a stir of the
+## pot every few seconds.
+const STIR_SECONDS := Vector2(3.0, 6.0)
+var _next_stir := 0.0
+
+func _stir(delta: float) -> void:
+	if _kitchen.is_empty() or not is_instance_valid(_owner_node) or absf(_owner_node.position.x - OWNER_HOME_X) > 30.0 \
+			or (_owner_tween != null and _owner_tween.is_running()):
+		return
+	_next_stir -= delta
+	if _next_stir <= 0.0:
+		_next_stir = _scenery_dice.randf_range(STIR_SECONDS.x, STIR_SECONDS.y)
+		_owner_gesture("cook", 1.5)
 
 
 func _drinks_had(guest: Guest) -> int:
@@ -3832,10 +3876,18 @@ func _chat_partner(guest: Variant) -> Variant:
 	return others[0] if not others.is_empty() else null
 
 
+## Whether a regular's at the counter (or, waiting too, waiting to come in or being greeted).
+func _regular_in(regular_id: String, waiting_too: bool = true) -> bool:
+	if regular_id == "":
+		return false
+	if _guests.any(func(g): return str(g.customer.get("regular_id", "")) == regular_id):
+		return true
+	return waiting_too and (_waiting_who.has(regular_id) or _greeting_regular == regular_id)
+
+
 ## The bar's regulars who aren't here tonight and aren't waiting to come in.
 func _regulars_away() -> Array:
-	var here: Array = _guests.map(func(g): return str(g.customer.get("regular_id", "")))
-	return RegularsTonight.all(Game.bar).filter(func(r): return not here.has(str(r["id"])) and not _waiting_who.has(str(r["id"])) and str(r["id"]) != _planted_regular)
+	return RegularsTonight.all(Game.bar).filter(func(r): return not _regular_in(str(r["id"])) and str(r["id"]) != _planted_regular)
 
 
 ## A card's been played on the desk (see PdDesk.play): it happens, now, to whoever it's for
@@ -4185,6 +4237,7 @@ func _build_ui() -> void:
 	_title_label.name = "BarName"
 	_title_label.text = "KTBT  ·  A new bar"
 	_title_label.add_theme_font_size_override("font_size", 22)
+	PixelFont.apply(_title_label, "title")
 	_title_label.add_theme_color_override("font_color", ACCENT)
 	_title_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_title_label.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -4195,6 +4248,8 @@ func _build_ui() -> void:
 	_mode_label.name = "ModeLabel"
 	_mode_label.add_theme_color_override("font_color", Color.BLACK)
 	_mode_label.add_theme_stylebox_override("normal", _badge(OWNER_TEXT))
+	_mode_label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	PixelFont.apply(_mode_label, "badge")
 	_mode_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_mode_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_mode_label.visible = false
@@ -4384,6 +4439,7 @@ func _build_ui() -> void:
 	_stats_text.selection_enabled = true
 	_stats_text.add_theme_font_size_override("normal_font_size", 15)
 	_stats_text.add_theme_font_size_override("bold_font_size", 15)
+	PixelFont.apply_headings(_stats_text)  # (HERE NOW, THE OWNER...: in pixels, as the stage)
 	_stats_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var stats_box := VBoxContainer.new()
 	stats_box.add_theme_constant_override("separation", 10)
@@ -4449,12 +4505,8 @@ func _build_ui() -> void:
 	summary_buttons.add_child(summary_leave)
 
 
-func _badge(colour: Color) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = colour
-	box.set_corner_radius_all(6)
-	box.set_content_margin_all(6)
-	return box
+func _badge(colour: Color) -> StyleBoxTexture:
+	return PixelFrame.style([colour, colour.darkened(0.35), colour.lightened(0.15), colour.darkened(0.12)], Vector2(9, 6))  # (in pixels: pixel_frame.gd)
 
 
 ## The Options panel: dropping down under the top bar's Options button, over the tent.
@@ -4464,12 +4516,7 @@ func _build_options_panel() -> VBoxContainer:
 	_options_panel.name = "OptionsPanel"
 	_options_panel.z_index = 20  # over the tent, the bubbles and the captions
 	_options_panel.visible = false
-	var style := _options_panel.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
-	style.border_color = ACCENT
-	style.set_border_width_all(2)
-	style.shadow_color = Color(0, 0, 0, 0.5)
-	style.shadow_size = 12
-	_options_panel.add_theme_stylebox_override("panel", style)
+	_options_panel.add_theme_stylebox_override("panel", PixelFrame.style([Ktv.PANEL, ACCENT, PixelFrame.PANEL[2], PixelFrame.PANEL[3]]))  # (its edge in the accent: it drops down over the tent)
 	add_child(_options_panel)
 	# Clicks go to whatever's last in the tree, whatever's drawn on top: the panel's built
 	# before the tent and the other panels, so it's moved to the end once they're all in.
@@ -4480,6 +4527,7 @@ func _build_options_panel() -> VBoxContainer:
 	var heading := Label.new()
 	heading.text = "Options"
 	heading.add_theme_font_size_override("font_size", 22)
+	PixelFont.apply(heading, "panel_title")
 	heading.add_theme_color_override("font_color", ACCENT)
 	column.add_child(heading)
 	return column
@@ -4489,11 +4537,8 @@ func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.position = pos
 	panel.size = panel_size
-	var box := StyleBoxFlat.new()
-	box.bg_color = Ktv.PANEL
-	box.set_corner_radius_all(10)
-	box.set_content_margin_all(16)
-	panel.add_theme_stylebox_override("panel", box)
+	panel.add_theme_stylebox_override("panel", PixelFrame.style(PixelFrame.PANEL))  # (a frame in pixels, as the stage: pixel_frame.gd)
+	panel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	return panel
 
 
@@ -4509,7 +4554,7 @@ func _build_stage(stage: Control) -> void:
 	city.append(_rect(stage, Vector2(0, 0), Vector2(w, 36), Color("0c0b1a")))  # the overpass
 	city.append(_rect(stage, Vector2(40, 36), Vector2(44, 344), Color("1f1e36")))  # pillars
 	city.append(_rect(stage, Vector2(w - 84, 36), Vector2(44, 344), Color("1f1e36")))
-	if _street_art.has_art():
+	if StreetArt.has_art():
 		for piece in city:
 			piece.visible = false
 	_scenery.build_neon(stage)
@@ -4685,7 +4730,7 @@ func _update_light(closing_dim: bool = false) -> void:
 	PixelLight.place_kind("people", 1.0, -stage_at)
 	PixelLight.place_kind("tarp", 1.0, -stage_at)
 	PixelLight.place_kind("street", StreetArt.SCALE, _street_art.get_global_transform().origin - stage_at)
-	var hour := int(_clock) / 60
+	var hour := floori(_clock / 60.0)
 	if _night_open and hour != _light_hour:  # (logged on the hour: how dark, under the bulbs and out in the street)
 		_light_hour = hour
 		print("Light: %s · the night %.1f steps · at the counter %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),

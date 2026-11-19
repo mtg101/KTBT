@@ -1331,6 +1331,26 @@ func test_the_street_finished_and_tonights_date() -> void:
 	assert_int(int(Game.bar["first_date"])).is_equal(318)
 
 
+func test_a_regular_already_here_doesnt_come_in_twice() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	scene._guests[0].customer["regular_id"] = "ho-jin"  # (19 Nov: a PD's call brought him in, then his usual hour came)
+	assert_bool(scene._regular_in("ho-jin")).is_true()
+	assert_bool(scene._regulars_away().any(func(r): return str(r["id"]) == "ho-jin")).is_false()
+	scene._regulars_due = [{"time": scene._clock, "id": "ho-jin"}]
+	Hooks.run_clock = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	Hooks.run_clock = false
+	assert_array(scene._regulars_due).is_empty()
+	assert_bool(scene._waiting_who.has("ho-jin")).is_false()  # not coming in again
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
 func test_customers_raise_their_glasses_and_eat() -> void:
 	Hooks.cat_wanders = false
 	Hooks.stay_minutes_override = 600
@@ -1343,6 +1363,13 @@ func test_customers_raise_their_glasses_and_eat() -> void:
 	guest.next_gesture = 0.01
 	assert_bool(await _wait_until(func(): return scene._stats.gestures.size() > 0)).override_failure_message("nobody raised a glass or ate").is_true()
 	assert_float(guest.next_gesture).is_between(0.0, scene.GESTURE_SECONDS.y)  # (and again, in a while)
+	assert_int(int(scene._stats.gestures.get("wave", 0))).is_greater(0)  # the owner waved them in...
+	assert_bool(await _wait_until(func(): return int(scene._stats.gestures.get("pour", 0)) > 0)).override_failure_message("the owner never poured").is_true()  # ...and pours
+	scene._kitchen_part.put_on(guest, ["tteokbokki"], scene._clock)  # something on the stove: a stir now and then
+	scene._owner_node.position.x = scene.OWNER_HOME_X
+	scene._next_stir = 0.0
+	scene._stir(0.1)
+	assert_int(int(scene._stats.gestures.get("cook", 0))).is_greater(0)
 	assert_str(scene._stats.panel_text(0, 0)).contains("glasses raised")
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()

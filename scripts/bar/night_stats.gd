@@ -38,7 +38,7 @@ var story := {}
 ## The art: which of the game's pieces were drawn from images, which in code, and which images
 ## wouldn't load (Art.summary(): {"images", "drawn", "broken"}, each a list of keys).
 var art := {}
-var gestures := {}  # seated customers' gestures, by kind: "drink" (a glass raised), "eat" (mouthfuls) (visit.gd _gestures)
+var gestures := {}  # gestures, by kind: customers' "drink" (a glass raised), "eat" (mouthfuls) (visit.gd _gestures); the owner's "pour", "carry", "cook", "wave"
 var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
@@ -736,7 +736,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	if not art.is_empty():
-		lines.append("Art: images %d · drawn in code %d · lit by the hour %d · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)), int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
+		lines.append("Art: images %d · drawn in code %d · lit by the hour %d · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)), int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
+			int(gestures.get("pour", 0)), int(gestures.get("carry", 0)), int(gestures.get("cook", 0)), int(gestures.get("wave", 0)),
 			(" · BROKEN %s" % ", ".join(PackedStringArray(art["broken"]))) if not art.get("broken", []).is_empty() else ""])
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():
 		var tonights: Dictionary = art["street"]

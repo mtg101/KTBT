@@ -2,6 +2,7 @@ extends Control
 ## The title screen: start a new bar, or open one you've played before.
 
 const Text = preload("res://scripts/rules/text.gd")
+const PixelFrame = preload("res://scripts/ui/pixel_frame.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const DiaryBook = preload("res://scripts/ui/diary_book.gd")
@@ -20,6 +21,7 @@ const CONFIRM_SECONDS := 4.0
 
 
 func _ready() -> void:
+	theme = PixelFrame.theme()  # (its buttons in pixel frames and the pixel font, as the bar's)
 	Game.start_music()
 	_build_ui()
 	_fill_list()

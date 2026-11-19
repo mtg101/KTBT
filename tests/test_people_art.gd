@@ -263,3 +263,27 @@ func _width(picture: Image, row: int) -> int:
 				first = x
 			last = x
 	return last - first + 1
+
+
+func test_facing_us_the_owner_pours_carries_stirs_and_waves() -> void:
+	for kind in PeopleArt.FRONT_GESTURES:
+		assert_array(PeopleArt.layers_for(OWNER, "front", 0, kind)).contains(["front_arm_" + kind])
+		assert_bool(Art.has("person/front_arm_" + kind)).is_true()
+	var own := PeopleArt.texture(OWNER, "front").get_image()
+	var pouring := PeopleArt.texture(OWNER, "front", 0, "pour").get_image()
+	var low := PeopleArt.ARM_CLEAR.position + Vector2i(0, 20)
+	assert_float(own.get_pixelv(low).a).is_greater(0.0)
+	assert_float(pouring.get_pixelv(low).a).is_equal(0.0)  # (the hanging arm taken away: it's up, pouring)
+	var view := PeopleView.new(RandomNumberGenerator.new())
+	var stage: Control = auto_free(Control.new())
+	add_child(stage)
+	var person := view.new_person(stage, Vector2.ZERO, Color.WHITE)
+	view.dress(person, OWNER)
+	var front = person.get_node("Look/Front")
+	assert_bool(view.gesture(person, "pour", 0.2)).is_true()
+	assert_str(front.gesture).is_equal("pour")
+	assert_bool(view.gesture(person, "wave", 1.0)).is_true()  # back and forth
+	assert_str(front.gesture).is_equal("wave")
+	assert_bool(view.gesture(person, "drink")).is_false()  # (a glass raised: seated, from behind)
+	view.turn(person, false)
+	assert_bool(view.gesture(person, "pour")).is_false()  # (pouring: facing us)

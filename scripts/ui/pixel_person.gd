@@ -130,7 +130,7 @@ func _next_step() -> void:
 		_step_left = 0.0
 		return
 	var step: Array = _steps.pop_front()
-	_show(step[0])
+	_show(step[0] if step[0] != null else _own)  # (null: their own picture, between frames)
 	_step_left = float(step[1])
 	gesture = str(step[2]) if step.size() > 2 else ""
 

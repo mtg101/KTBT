@@ -8,9 +8,8 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Real art (next): pixel art with real lighting.** The stage is pixel art now (the street, the tent, the people and the cat, lit by the hour, its words in a pixel Korean font: ART.md says how). What's left, in order:
-  1. **The people, still to come:** facing us, arms of their own too (the owner's hand to the head, a wave, pouring a drink: with the animation, below), and props that say what someone does if the game ever decides it (it's the AI's word now: a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks).
-  2. **Animation and the UI's finish:** the little movements that make it feel alive (pouring, eating, the owner cooking), and the panels and desk to match the stage.
+- **Real art: pixel art with real lighting (the main pass done, 19 Nov).** The stage is pixel art now (the street, the tent, the people and the cat, lit by the hour, its words in a pixel Korean font: ART.md says how). What's left, in order:
+  1. **Still to come:** props that say what someone does, if the game ever decides it (it's the AI's word now, so a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks); more of the little movements (customers clinking glasses, the cat washing itself); the title, loading and recap screens' frames in pixels too (their buttons are).
   Throughout: every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, screenshot tests once it settles, and all of it part of the Korean cultural review before anyone else plays. Later, an idea: a portrait of each character from the image model (see **Portraits**, under Presentation).
 - **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:

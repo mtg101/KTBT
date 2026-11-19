@@ -307,25 +307,48 @@ func pose(person: Control, mood: String) -> void:
 		gesture(person, "head", float(PixelPerson.POSES[mood]))
 
 
-## A gesture, seated at the counter from behind (people_art.gd GESTURES): "drink" (a glass raised
-## to the mouth), "eat" (two or three mouthfuls on chopsticks) or "head" (a hand to the head),
-## for seconds. Whether they made it (not drawn in pixels, or not seated facing away: no).
+## A gesture, an arm up for a moment, whichever way round they are. Seated at the counter from
+## behind (people_art.gd GESTURES): "drink" (a glass raised to the mouth), "eat" (two or three
+## mouthfuls on chopsticks), "head" (a hand to the head). Facing us (FRONT_GESTURES: the owner,
+## mostly): "pour" (from a green bottle), "carry" (a bowl held out), "cook" (stirring the pot, the
+## ladle up and down), "wave" (someone in), "head". For seconds (a few strokes or waves for the
+## ones that move). Whether they made it (not drawn in pixels, or not that way round: no).
 func gesture(person: Control, kind: String, seconds: float = 1.2) -> bool:
+	if not person.has_meta("look"):
+		return false
 	var back := person.get_node_or_null("Look/Back")
-	if not (back is PixelPerson) or not back.visible or not person.has_meta("look"):
+	var front := person.get_node_or_null("Look/Front")
+	var picture: Control = back if back is PixelPerson and back.visible else (front if front is PixelPerson and front.visible else null)
+	if picture == null:
 		return false
-	var posed := PeopleArt.texture(person.get_meta("look"), "back", 0, kind)
-	var own := PeopleArt.texture(person.get_meta("look"), "back")
-	if posed == null or own == null:
+	var view := "back" if picture == back else "front"
+	var frames: Array = [kind] if kind in (PeopleArt.GESTURES if view == "back" else PeopleArt.FRONT_GESTURES) else []
+	if view == "front" and kind in ["cook", "wave"]:
+		frames = [kind + "_0", kind + "_1"]
+	if frames.is_empty():
 		return false
+	var posed: Array = frames.map(func(frame): return PeopleArt.texture(person.get_meta("look"), view, 0, frame))
+	if posed.has(null):
+		return false
+	var steps: Array = []
 	if kind == "eat":
-		var bites: Array = []
 		for k in randi_range(2, 3):
-			bites.append_array([[posed, 0.45, "eat"], [own, 0.35, ""]])
-		back.show_steps(bites)
+			steps.append_array([[posed[0], 0.45, "eat"], [null, 0.35, ""]])
+	elif posed.size() == 2:  # (a stir or a wave: back and forth, for as long as it lasts)
+		for k in maxi(1, roundi(seconds / 0.5)):
+			steps.append_array([[posed[0], 0.25, kind], [posed[1], 0.25, kind]])
 	else:
-		back.show_steps([[posed, seconds, kind]])
+		steps.append([posed[0], seconds, kind])
+	picture.show_steps(steps)
 	return true
+
+
+## Makes someone's gesture pictures now (people_art.gd keeps them), facing us, so the first pour
+## or wave of the night doesn't hold a frame up while it's painted.
+func ready_gestures(person: Control) -> void:
+	if person.has_meta("look"):
+		for frame in PeopleArt.FRONT_GESTURES:
+			PeopleArt.texture(person.get_meta("look"), "front", 0, frame)
 
 
 ## Which way someone's facing: toward us (walking, coming in, leaving, the owner), or away
@@ -338,7 +361,7 @@ func turn(person: Control, toward_us: bool) -> void:
 		back.visible = not toward_us
 		var tag := person.get_node_or_null("Tag") as Control
 		if tag != null and back is PixelPerson:  # (seated in pixels, their head's lower: their name with it)
-			tag.position.y = TAG_Y + _drop(person) + (0.0 if toward_us else PeopleArt.SEATED_DOWN * PeopleArt.SCALE)
+			tag.position.y = TAG_Y + _drop(person) + (0.0 if toward_us else float(PeopleArt.SEATED_DOWN * PeopleArt.SCALE))
 
 
 ## How far their head comes down from the tallest (on the stage): shorter people's, in pixels.

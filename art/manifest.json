@@ -374,6 +374,46 @@
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"person/front_arm_carry": {
+		"file": "people/front_arm_carry.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_carry_bare": {
+		"file": "people/front_arm_carry_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_cook_0": {
+		"file": "people/front_arm_cook_0.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_cook_0_bare": {
+		"file": "people/front_arm_cook_0_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_cook_1": {
+		"file": "people/front_arm_cook_1.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_cook_1_bare": {
+		"file": "people/front_arm_cook_1_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_head": {
+		"file": "people/front_arm_head.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_head_bare": {
+		"file": "people/front_arm_head_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"person/front_arm_phone": {
 		"file": "people/front_arm_phone.png",
 		"source": "drawn in code by tools/art/people.py",
@@ -381,6 +421,36 @@
 	},
 	"person/front_arm_phone_bare": {
 		"file": "people/front_arm_phone_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_pour": {
+		"file": "people/front_arm_pour.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_pour_bare": {
+		"file": "people/front_arm_pour_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_wave_0": {
+		"file": "people/front_arm_wave_0.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_wave_0_bare": {
+		"file": "people/front_arm_wave_0_bare.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_wave_1": {
+		"file": "people/front_arm_wave_1.png",
+		"source": "drawn in code by tools/art/people.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"person/front_arm_wave_1_bare": {
+		"file": "people/front_arm_wave_1_bare.png",
 		"source": "drawn in code by tools/art/people.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},

@@ -25,9 +25,9 @@ const HAIR := 2
 const CLOTH := 3
 ## Colours that are always the same (tools/art/people.py names them, in this order): trousers,
 ## ink (eyes, shoes, glasses), a white shirt, a blue shirt, a tie, a cream top, gold buttons, the
-## apron, a strap, a tote, a backpack, a hair tie, a briefcase.
+## apron, a strap, a tote, a backpack, a hair tie, a briefcase, a green soju bottle.
 const FIXED := ["2a2a33", "1a1a20", "eef0f2", "9cc4e4", "8a2a35", "efe6d2", "f2c14a", "f5f2ea", "8a5a33", "cdb894",
-	"3a3946", "c8443a", "5a3a2a"]
+	"3a3946", "c8443a", "5a3a2a", "2f8f4e"]
 
 ## The light ramp's steps (tools/art/palette.py: LEVELS, the same sums): deep shadow to highlight.
 const LEVELS := [0.22, 0.36, 0.52, 0.72, 1.0, 1.22, 1.42]
@@ -70,6 +70,8 @@ static func layers_for(look: Dictionary, view: String, frame: int = 0, holding: 
 		ids.append(gesture)  # (a hand on the head: over the hair, and the hat)
 	if view == "front" and holding == "phone":
 		ids.append("front_arm_phone_bare" if str(look.get("clothes", "")) in ["tshirt", "scrubs"] else "front_arm_phone")
+	if view == "front" and holding in FRONT_GESTURES:  # (the owner pouring, carrying, cooking, waving...)
+		ids.append("front_arm_%s%s" % [holding, "_bare" if short_sleeves else ""])
 	return ids
 
 
@@ -119,7 +121,7 @@ static func texture(look: Dictionary, view: String, frame: int = 0, holding: Str
 	var complete := true
 	for id in layers_for(look, view, frame, holding):
 		var layer := Art.texture("person/" + str(id))
-		if str(id).begins_with("front_arm_phone"):
+		if str(id).begins_with("front_arm_"):
 			_clear(picture, ARM_CLEAR)  # (the arm hanging at their side goes: it's up holding the phone)
 		if str(id).begins_with("back_arm_"):
 			_clear(picture, BACK_ARM_CLEAR, BACK_ARM_OVER)  # (the arm resting on the counter goes: it's up)
@@ -182,6 +184,7 @@ const ARM_CLEAR := Rect2i(27, 21, 2, 26)
 const BACK_ARM_CLEAR := Rect2i(27, 24, 2, 20)
 const BACK_ARM_OVER := Rect2i(25, 24, 2, 20)
 const GESTURES := ["drink", "eat", "head"]  # (tools/art/people.py GESTURES)
+const FRONT_GESTURES := ["pour", "carry", "cook_0", "cook_1", "wave_0", "wave_1", "head"]  # facing us (tools/art/people.py FRONT_GESTURES)
 const ARM_HAND := Rect2i(25, 42, 2, 5)
 
 

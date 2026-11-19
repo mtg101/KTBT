@@ -44,6 +44,8 @@ static func ids(kind: String) -> Array:
 			layers.append("front_lanyard")
 			for gesture in ["drink", "eat", "head"]:  # seated, from behind, an arm up for a moment
 				layers.append_array(["back_arm_" + gesture, "back_arm_%s_bare" % gesture])
+			for gesture in ["pour", "carry", "cook_0", "cook_1", "wave_0", "wave_1", "head"]:  # facing us (the owner)
+				layers.append_array(["front_arm_" + gesture, "front_arm_%s_bare" % gesture])
 			for frame in 4:
 				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)

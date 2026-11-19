@@ -34,7 +34,7 @@ def fixed_colours():
 
 def fixed(name):
     return {"trousers": 0, "ink": 1, "white_shirt": 2, "blue_shirt": 3, "tie": 4, "cream": 5, "gold": 6,
-            "apron": 7, "strap": 8, "tote": 9, "backpack": 10, "hair_tie": 11, "briefcase": 12}[name]
+            "apron": 7, "strap": 8, "tote": 9, "backpack": 10, "hair_tie": 11, "briefcase": 12, "bottle": 13}[name]
 
 
 class Layer:
@@ -584,6 +584,50 @@ def lanyard():
     return s.image()
 
 
+# Facing us (the owner, mostly), the arm on our right (the one a phone's held in) doing something for a moment: pouring from a green bottle, carrying a
+# bowl, stirring a pot at the stove (two frames, the ladle up and down), waving someone in (two
+# frames), a hand to the head. people_art.gd takes the hanging arm away first (ARM_CLEAR).
+FRONT_GESTURES = {  # elbow, hand
+    "pour": ((29, TOP + 12), (22, TOP + 13)),
+    "carry": ((29, TOP + 12), (22, TOP + 15)),
+    "cook_0": ((29, TOP + 13), (23, TOP + 19)),
+    "cook_1": ((29, TOP + 12), (22, TOP + 13)),
+    "wave_0": ((30, TOP + 2), (29, TOP - 9)),
+    "wave_1": ((30, TOP + 2), (31, TOP - 7)),
+    "head": ((31, TOP - 2), (21, 3)),
+}
+
+
+def _limb(s, a, b, what, light, width=4):
+    """A straight piece of arm from a to b (x, y), width wide, as a line of little squares."""
+    steps = max(abs(b[0] - a[0]), abs(b[1] - a[1]), 1)
+    for k in range(steps + 1):
+        t = k / steps
+        x = a[0] + (b[0] - a[0]) * t
+        y = a[1] + (b[1] - a[1]) * t
+        s.rect(int(round(x - width / 2)), int(round(y - 1)), int(round(x + width / 2)), int(round(y + 2)), what, light)
+
+
+def front_gesture(kind, bare=False):
+    s = Layer()
+    shoulder = (W - SHOULDER, TOP + 2)
+    elbow, hand = FRONT_GESTURES[kind]
+    _limb(s, shoulder, elbow, CLOTH, 0.75)  # the upper arm
+    _limb(s, elbow, hand, SKIN if bare else CLOTH, 0.72)  # the forearm
+    s.rect(hand[0] - 2, hand[1] - 1, hand[0] + 2, hand[1] + 2, SKIN, 0.95)  # the hand
+    if kind == "pour":  # a green bottle, tipped down to the left, pouring
+        _limb(s, (hand[0] - 1, hand[1] - 2), (hand[0] - 7, hand[1] + 3), "bottle", 0.9, width=3)
+        s.dot(hand[0] - 8, hand[1] + 4, "bottle", 1.2)  # its neck
+    elif kind == "carry":  # a steel bowl of something red and hot, held out (steel, not white: the apron's white)
+        s.rect(hand[0] - 6, hand[1] - 3, hand[0] + 3, hand[1] - 2, "tie", 1.3)  # what's in it, heaped
+        s.rect(hand[0] - 7, hand[1] - 2, hand[0] + 4, hand[1] - 1, "blue_shirt", 1.2)  # the rim
+        s.rect(hand[0] - 6, hand[1] - 1, hand[0] + 3, hand[1] + 1, "blue_shirt", 0.85)
+        s.rect(hand[0] - 5, hand[1] + 1, hand[0] + 2, hand[1] + 2, "blue_shirt", 0.65)
+    elif kind.startswith("cook"):  # a ladle, up from the hand
+        _limb(s, (hand[0] - 1, hand[1]), (hand[0] - 4, hand[1] - 7), "strap", 0.9, width=1)
+    return s.image()
+
+
 # Seated at the counter, from behind, their right arm (on our right) up for a moment: a glass
 # raised to their mouth, food on its way up on chopsticks, a hand to the head (a sad or awkward
 # moment). people_art.gd takes the arm resting on the counter away first (BACK_ARM_CLEAR).
@@ -661,6 +705,9 @@ def layers():
         for view in ("front", "back", "side"):
             out["%s_hat_%s" % (view, kind)] = hat(kind, view)
     out["front_lanyard"] = lanyard()
+    for kind in FRONT_GESTURES:
+        out["front_arm_%s" % kind] = front_gesture(kind)
+        out["front_arm_%s_bare" % kind] = front_gesture(kind, bare=True)
     for kind in GESTURES:
         out["back_arm_%s" % kind] = back_gesture(kind)
         out["back_arm_%s_bare" % kind] = back_gesture(kind, bare=True)
