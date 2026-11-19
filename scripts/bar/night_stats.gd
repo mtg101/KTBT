@@ -163,6 +163,10 @@ var stale_redone := 0  # lines asked for again because things changed while the 
 var real_seconds := 0.0
 var seated_seconds := 0.0  # people at the counter, added up over time (for the average)
 var together_seconds := 0.0  # time with two or more at the counter (so they could chat)
+var owner_trips := {}  # why the owner went over to someone's stool -> times (pour, serve, carry, settle, moment, talk)
+var owner_stove_seconds := 0.0  # real seconds at the stove...
+var owner_front_seconds := 0.0  # ...and out along the counter
+var from_the_stove := 0  # times a customer was told the owner's talking to them from the stove
 var voice_busy_seconds := 0.0  # the owner's voice was busy (an AI conversation task)
 var waiting_on_voice_seconds := 0.0  # ...while someone was waiting for it (to be greeted, or to pay)
 
@@ -367,6 +371,18 @@ func record_written_line(speaker: String, among: Array, line: String) -> void:
 ## PD's camera was following was in it).
 ## A spell of talk steered to a topic (Talk.pick_owner_topic, pick_chat_topic). chat: customers
 ## chatting, rather than the owner's conversation.
+## The owner went over to someone's stool, and why.
+func record_owner_trip(why: String) -> void:
+	owner_trips[why] = int(owner_trips.get(why, 0)) + 1
+
+
+## Where the owner was: at the stove or out front, and their trips over.
+func owner_moves_text() -> String:
+	var trips := " · ".join(PackedStringArray(["pour", "serve", "carry", "settle", "moment", "talk"].filter(func(w): return owner_trips.has(w)).map(func(w): return "%s %d" % [w, int(owner_trips[w])])))
+	return "The owner: at the stove %d%% · out front %d%% · trips over: %s · talked from the stove %d" % [percent(owner_stove_seconds, owner_stove_seconds + owner_front_seconds),
+		percent(owner_front_seconds, owner_stove_seconds + owner_front_seconds), trips if trips != "" else "none", from_the_stove]
+
+
 ## Someone a card had just happened to, turned to first.
 func record_card_turn() -> void:
 	card_turns += 1
@@ -784,6 +800,7 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append("Sold out: %s · asked for anyway %d" % [", ".join(PackedStringArray(sold_out)), int(rejections.get("sold out", 0))])
 	lines.append("Dishes cooked %d · on the stove now %d" % [dishes_cooked, cooking])
 	lines.append("Wait for food: avg %d min, longest %d" % [roundi(average(food_waits)), roundi(longest(food_waits))])
+	lines.append(owner_moves_text())
 	lines.append("")
 	lines.append("[b]AI[/b]")
 	lines.append("Calls %d · avg %.1fs, longest %.1fs" % [ai_calls, average(ai_seconds), longest(ai_seconds)])
@@ -862,6 +879,8 @@ func summary(context: Dictionary) -> Dictionary:
 		"time": {
 			"real_seconds": real_seconds,
 			"voice_busy_percent": percent(voice_busy_seconds, real_seconds),
+			"owner_at_stove_percent": percent(owner_stove_seconds, owner_stove_seconds + owner_front_seconds),
+			"owner_trips": owner_trips.duplicate(), "from_the_stove": from_the_stove,
 			"waiting_on_voice_percent": percent(waiting_on_voice_seconds, real_seconds),
 		},
 	}

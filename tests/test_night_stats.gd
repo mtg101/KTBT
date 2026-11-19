@@ -445,3 +445,18 @@ func test_a_few_rejected_replies_are_kept_for_the_logs() -> void:
 	assert_dict(kept["food that wasn't ordered"][0]).is_equal({"for": "order", "problem": "the line mentions Dakgalbi, but that isn't in \"items\"", "reply": "{\"line\": \"Dak galbi, please 0\"}"})
 	var other: Array = kept.values().filter(func(replies): return replies[0]["for"] == "other")
 	assert_int(str(other[0][0]["reply"]).length()).is_equal(NightStats.REPLY_MOST)  # (cut short)
+
+
+func test_where_the_owner_was() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.owner_moves_text()).is_equal("The owner: at the stove 0% · out front 0% · trips over: none · talked from the stove 0")
+	stats.owner_stove_seconds = 30.0
+	stats.owner_front_seconds = 10.0
+	stats.record_owner_trip("carry")
+	stats.record_owner_trip("carry")
+	stats.record_owner_trip("pour")
+	stats.from_the_stove = 3
+	assert_str(stats.owner_moves_text()).is_equal("The owner: at the stove 75% · out front 25% · trips over: pour 1 · carry 2 · talked from the stove 3")
+	assert_str(stats.panel_text(0, 0)).contains("The owner: at the stove 75%")
+	assert_int(stats.summary({})["time"]["owner_at_stove_percent"]).is_equal(75)
+	assert_dict(stats.summary({})["time"]["owner_trips"]).is_equal({"carry": 2, "pour": 1})

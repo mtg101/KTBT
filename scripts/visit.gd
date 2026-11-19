@@ -172,6 +172,7 @@ class Guest:
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	var card_turn := false  # the owner's already turned to them for the card that's just happened to them
+	var heard_from_stove := false  # told the owner's talking to them from the stove (once, till they come over)
 	var next_gesture := -1.0  # seconds until they next raise their glass or take a mouthful (-1: not counting yet)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
@@ -1202,6 +1203,8 @@ func _process(delta: float) -> void:
 	if Hooks.strollers:
 		_street.tick(minutes, _clock)
 	_gestures(delta)
+	_count_owner(delta)
+	_place_owner()
 	_stir(delta)
 	if Hooks.cat_wanders and not _cat.is_empty():
 		_cat_next -= minutes
@@ -1305,6 +1308,7 @@ func _end_night() -> void:
 		_stats.story["cliffhanger_answered"] = true
 		_narrate("Last time's cliffhanger, answered: \"%s\" No sign of %s tonight." % [_cliffhanger["teaser"], Names.given_name(str(_cliffhanger["who"][0]))])
 	_night_open = false
+	_errands = {}
 	_move_owner(OWNER_HOME_X)
 	_fade_regulars()
 	_update_stats_panel()
@@ -1935,14 +1939,15 @@ func _task_done() -> void:
 func _attend(guest: Guest, say_so: bool) -> void:
 	if say_so and _attending != null and _attending != guest:
 		if guest.line > 0:
-			_narrate("%s turns back to %s." % [_owner_display(), guest.customer["name"]])
-			guest.transcript.append({"action": "%s comes back over after seeing to other customers." % _owner["name"]})
+			_narrate("%s turns back to %s%s." % [_owner_display(), guest.customer["name"], ", from the stove" if _at_stove() else ""])
+			guest.transcript.append({"action": ("%s turns back to you from the stove after seeing to other customers." if _at_stove() else "%s comes back over after seeing to other customers.") % _owner["name"]})
 		else:
-			_narrate("%s turns to %s." % [_owner_display(), guest.customer["name"]])
+			_narrate("%s turns to %s%s." % [_owner_display(), guest.customer["name"], ", from the stove" if _at_stove() else ""])
 	_attending = guest
 	_attention += 1
 	guest.attended = _attention
-	_move_owner(_beside(guest))
+	_place_owner()
+	_from_the_stove(guest)
 
 
 # --- Debug stats -----------------------------------------------------------------
@@ -2357,6 +2362,8 @@ func _serve(guest: Guest, items: Array, first_order: bool) -> void:
 		guest.drinks_row.add_child(_kitchen_part.banchan_shape())
 	if guest.food_moment == "":
 		guest.food_moment = Talk.served_moment(now, randf(), randf())
+	if not now.is_empty():  # (over to their stool to pour or set it down, then back: PLAN, "the owner works the stove")
+		_errand(guest, "pour" if now.any(func(id): return Menu.find(id).get("kind", "") == "drink") else "serve", _scaled(ERRAND_SECONDS))
 	if now.any(func(id): return Menu.find(id).get("kind", "") == "drink"):
 		_owner_gesture("pour", 1.0)  # (the bottle tipped over their glass)
 		_ambience.play("pour")
@@ -2405,10 +2412,11 @@ func _carry_dish() -> void:
 	if not _guests.has(guest):
 		_carrying = false
 		return
-	_move_owner(_beside(guest))
+	_errand(guest, "carry")
 	_owner_gesture("carry", _scaled(0.8))  # (the bowl held out, over to them)
 	await _pause(_scaled(0.4))
 	if _stopped or not _guests.has(guest):
+		_errand_done("carry")
 		_carrying = false
 		return
 	_add_dish(guest, id)
@@ -2425,8 +2433,7 @@ func _carry_dish() -> void:
 		"wait": _clock - float(dish["ordered"])}, guest.node)
 	guest.transcript.append({"action": "%s brings over the %s, hot from the stove. It's on the table now." % [_owner["name"], item_name]})
 	_update_info()
-	if _attending != null and _attending != guest and _guests.has(_attending):
-		_move_owner(_beside(_attending))
+	_errand_done("carry")  # (back to the stove, or to whoever they were talking to)
 	_carrying = false
 
 
@@ -2434,6 +2441,7 @@ func _carry_dish() -> void:
 ## and they leave.
 func _settle_up(guest: Guest) -> void:
 	_owner_working = true
+	_errand(guest, "settle")  # (over for the money and the goodbye)
 	_attend(guest, false)
 	await _goodbye(guest)
 	await _wait_for_reader()  # let their goodbye sink in before they go
@@ -2460,6 +2468,7 @@ func _settle_up(guest: Guest) -> void:
 	_order = guest.order.duplicate()
 	_narrate("%s pays %s and heads back out into the night." % [guest.customer["name"], Menu.format_won(bill)])
 	_goodbye_at_door(guest)
+	_errand_done("settle")
 	_ambience.play("cash")
 	_ambience.play("scrape", 0.9, 0.5)
 	_event("paid", {"name": str(guest.customer["name"]), "hangul": str(guest.customer.get("hangul", "")), "job": str(guest.customer.get("job", "")),
@@ -2744,16 +2753,17 @@ func _counter_chat() -> void:
 		return
 	if not chat.owner_in and randf() < OWNER_JOINS_CHANCE:
 		chat.owner_in = true
-		_narrate("%s leans over the counter and joins in." % _owner_display())
+		var where := "calls over from the stove" if _at_stove() else "leans over the counter"
+		_narrate("%s %s and joins in." % [_owner_display(), where])
 		_event("owner_joined", {}, _owner_node)
-		chat.transcript.append({"action": "%s, the owner, leans over the counter and joins in." % _owner["name"]})
+		chat.transcript.append({"action": "%s, the owner, %s and joins in." % [_owner["name"], where]})
 	if chat.owner_in:
 		# Talking with the owner counts as being seen to.
 		for guest in chat.people:
 			_attention += 1
 			guest.attended = _attention
 		_attending = chat.people[0]
-		_move_owner(_beside(chat.people[0]))
+		_place_owner()
 	var cat_with_them := "none" if _cat_here(null) == "none" else ("with_them" if chat.people.has(_cat_with) else "tent")
 	chat.topic = Talk.pick_chat_topic(randf(), cat_with_them, chat.topic, Friendliness.know_each_other(Game.bar, chat.people), _late())
 	if (chat.people.any(func(g): return g.cat_moment != "") or (chat.owner_in and _owner_cat_moment != "")) and not chat.cat_talk_done:
@@ -3180,7 +3190,103 @@ func _stop_swaying(person: Control) -> void:
 	_people_view.lean(person, 0.0)
 
 
+# --- Where the owner stands --------------------------------------------------------
+## Their hands first, talk second (PLAN, 19 Nov: they'd walked over to whoever they talked to,
+## every time, bouncing along the counter, and never stirred the pot): an errand takes them to a
+## stool and back (pouring or setting something down, carrying a dish, settling up, a big
+## moment worth the walk); with something on the stove they stay at it and talk from there;
+## with nothing to cook or carry, they go over to whoever they're talking to. Checked every
+## frame; they only move when where they should be changes.
+const ERRAND_ORDER := ["carry", "pour", "serve", "settle", "moment"]  # (the first that's on wins)
+const ERRAND_SECONDS := 1.2  # pouring or setting something down
+const MOMENT_SECONDS := 4.0  # over for a big moment, then back
+const MOMENTS_WORTH_THE_WALK := ["sad", "sweet", "warm"]  # (tears, a confession, a kindness: not a laugh)
+const AT_STOVE := 30.0  # stage pixels from the stove that count as at it
+var _errands := {}  # why -> {"x", "left" (real seconds, or INF till it's done), "who"}
+var _owner_heading := OWNER_HOME_X  # where they're going (or are)
+var _owner_why := "stove"  # and why
+
+
+## An errand to someone's stool: for so long, or (INF) until _errand_done.
+func _errand(guest: Guest, why: String, seconds: float = INF) -> void:
+	_errands[why] = {"x": _beside(guest), "left": seconds, "who": str(guest.customer["name"])}
+	_stats.record_owner_trip(why)
+	_place_owner()
+
+
+func _errand_done(why: String) -> void:
+	_errands.erase(why)
+	_place_owner()
+
+
+## Where the owner should be, and why: [x, why, who].
+func _owner_spot() -> Array:
+	for why in ERRAND_ORDER:
+		if _errands.has(why):
+			return [float(_errands[why]["x"]), why, str(_errands[why]["who"])]
+	if not _kitchen.is_empty():
+		return [OWNER_HOME_X, "stove", ""]
+	if _attending != null and _guests.has(_attending):
+		return [_beside(_attending), "talk", str(_attending.customer["name"])]
+	return [OWNER_HOME_X, "home", ""]
+
+
+## Talking from the stove (something's cooking, and nothing's taking them over).
+func _at_stove() -> bool:
+	return _owner_spot()[1] == "stove"
+
+
+## Whether the owner's the one talking with someone (them, or a chat they've joined).
+func _owner_with(guest: Guest) -> bool:
+	if _attending == guest:
+		return true
+	var chat := _chat_of(guest)
+	return chat != null and chat.owner_in
+
+
+func _place_owner() -> void:
+	if not is_instance_valid(_owner_node) or not _night_open or _stopped:
+		return
+	var spot := _owner_spot()
+	if absf(float(spot[0]) - _owner_heading) < 1.0:
+		_owner_why = str(spot[1])
+		return
+	if spot[1] == "talk":
+		_stats.record_owner_trip("talk")
+		if _attending != null:
+			_attending.heard_from_stove = false  # (over with them now)
+	var cooking := "" if _kitchen.is_empty() else str(Menu.find(str(_kitchen[0]["id"])).get("name", ""))
+	print("Owner: %s" % ({"stove": "back to the stove (the %s cooking)" % cooking, "home": "back to the stove (nothing on, nobody to talk to)"}.get(spot[1], "over to %s (%s)" % [spot[2], spot[1]])))
+	_owner_why = str(spot[1])
+	_move_owner(float(spot[0]))
+
+
+## Told once (till the owner comes over) that they're talking to them from the stove, so the AI
+## can work it in ("hang on, the pancake's about to catch").
+func _from_the_stove(guest: Guest) -> void:
+	if not _at_stove() or guest.heard_from_stove or _kitchen.is_empty():
+		return
+	guest.heard_from_stove = true
+	var dish := str(Menu.find(str(_kitchen[0]["id"])).get("name", "food"))
+	guest.transcript.append({"action": "%s is at the stove keeping an eye on the %s, and talks to you from there." % [_owner["name"], dish]})
+	_stats.from_the_stove += 1
+
+
+## The errands' time running down, and where the owner's been (for the night's stats).
+func _count_owner(delta: float) -> void:
+	for why in _errands.keys():
+		_errands[why]["left"] = float(_errands[why]["left"]) - delta
+		if float(_errands[why]["left"]) <= 0.0:
+			_errands.erase(why)
+	if is_instance_valid(_owner_node):
+		if absf(_owner_node.position.x - OWNER_HOME_X) <= AT_STOVE:
+			_stats.owner_stove_seconds += delta
+		else:
+			_stats.owner_front_seconds += delta
+
+
 func _move_owner(x: float) -> void:
+	_owner_heading = x
 	if _owner_tween != null and _owner_tween.is_valid():
 		_owner_tween.kill()  # wherever they were heading, this comes first
 	_owner_tween = create_tween()
@@ -3392,6 +3498,9 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 	if mood == "shock":
 		_stun_listeners(who, names)
 	if about is Control and is_instance_valid(about):
+		var guest_here: Guest = _guest_named(who) if who != str(_owner["name"]) else null
+		if guest_here != null and MOMENTS_WORTH_THE_WALK.has(mood) and _owner_with(guest_here):
+			_errand(guest_here, "moment", _scaled(MOMENT_SECONDS))  # (over for this one, then back)
 		_people_view.pose(about, mood)  # (laughing, slumped, jolted, a nod, a fidget)
 		_stats.poses += 1
 	var data: Dictionary = Captions.REACTIONS[mood]

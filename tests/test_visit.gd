@@ -2417,3 +2417,54 @@ func test_a_worn_phrase_is_let_through_after_two_tries() -> void:
 	assert_int(scene._stats.worn_let_through).is_equal(1)
 	assert_str(scene._validate_line(line, "Kim", "", [], [], {})).contains("said a lot tonight")  # (and counting again from there)
 	scene._ai.offline = offline
+
+
+func test_the_owner_works_the_stove_and_talks_from_there() -> void:
+	# 19 Nov: they walked over to whoever they talked to, every time, and never stirred the pot.
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests.all(func(g): return not g.walk.is_running()))).is_true()
+	var guest = scene._guests[0]
+	scene._errands = {}
+	scene._kitchen_part.queue.clear()
+	# Nothing to cook or carry: over to whoever they're talking to.
+	scene._attending = guest
+	scene._place_owner()
+	assert_str(scene._owner_why).is_equal("talk")
+	assert_float(scene._owner_heading).is_equal(scene._beside(guest))
+	# Something on the stove: they stay at it, and talk from there (told once, till they come over).
+	scene._kitchen_part.put_on(guest, ["tteokbokki"], scene._clock)
+	scene._place_owner()
+	assert_str(scene._owner_why).is_equal("stove")
+	assert_float(scene._owner_heading).is_equal(scene.OWNER_HOME_X)
+	guest.heard_from_stove = false
+	scene._attend(guest, false)
+	scene._attend(guest, false)
+	assert_int(guest.transcript.filter(func(e): return str(e.get("action", "")).contains("talks to you from there")).size()).is_equal(1)
+	assert_float(scene._owner_heading).is_equal(scene.OWNER_HOME_X)  # (still at the stove)
+	# Their hands first: a dish carried over, then back to the stove.
+	scene._errand(guest, "carry")
+	assert_float(scene._owner_heading).is_equal(scene._beside(guest))
+	assert_str(scene._owner_why).is_equal("carry")
+	scene._errand_done("carry")
+	assert_float(scene._owner_heading).is_equal(scene.OWNER_HOME_X)
+	# A pour is over and back in a moment; settling up outranks talk but not a dish.
+	scene._errand(scene._guests[1], "pour", 0.05)
+	assert_float(scene._owner_heading).is_equal(scene._beside(scene._guests[1]))
+	scene._count_owner(0.1)
+	scene._place_owner()
+	assert_float(scene._owner_heading).is_equal(scene.OWNER_HOME_X)
+	scene._errand(scene._guests[1], "settle")
+	scene._errand(guest, "carry")
+	assert_str(scene._owner_spot()[1]).is_equal("carry")
+	scene._errand_done("carry")
+	assert_str(scene._owner_spot()[1]).is_equal("settle")
+	scene._errand_done("settle")
+	# Counted, and in the stats.
+	assert_int(int(scene._stats.owner_trips.get("carry", 0))).is_greater_equal(2)
+	assert_int(int(scene._stats.owner_trips.get("talk", 0))).is_greater_equal(1)
+	assert_int(scene._stats.from_the_stove).is_greater_equal(1)
+	assert_str(scene._stats.panel_text(0, 0)).contains("The owner: at the stove")
+	scene._kitchen_part.queue.clear()
