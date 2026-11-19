@@ -8,11 +8,12 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
+- **Customer memory & relationships:** see **Follow-ups from the Regulars and relationships stage** below
+- **Customers coming in together:** see **Customers coming in together** below
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
   1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
   2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
-- **Customers coming in together:** a rough visit now and then (see **Every visit goes well**, under Richer play) and groups with the bill fight (see **Customers coming in together**).
+- **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
 
 ## Later ideas (not committed)
 
@@ -21,14 +22,18 @@ Grouped by type. Within each group, roughly in order of importance.
 ### Essentials (needed before anyone else plays it)
 
 - **A cultural review, before anyone else plays:** the game is made from outside Korean culture, by a developer and an AI, and the AI's picture of Korea is second-hand, from what's written in English, and leans on stereotypes. 
-- **Content boundaries (a setting):** the AI writes about late-night drinking and K-drama heartbreak, so it will sometimes drift somewhere dark or crude. A **content setting** chooses how far it may go, e.g. **Cosy** (gentle, no swearing), **Drama** (the default: PG-13 heartbreak, mild language) and **Mature** (stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. A later **Adult** setting (opt-in, for adults) can go further: adult themes, sex and crude humour between grown-ups who want it. Outside Adult, nothing sexual beyond a kiss implied off-screen. Some limits apply at every setting, Adult included: **teasing is never cover for harassment** (see CONCEPT.md, "Cheeky, not 'bants'"), no hateful slurs, no real-world politics, and themes like self-harm are never described or encouraged: if they come up, the owner responds with care. Matters more now customers chat to each other late at night (flirting and dark turns), and most of all once players can type to customers.
+- **Content boundaries (a setting):** the AI writes about late-night drinking and K-drama heartbreak, so it will sometimes drift somewhere dark or crude. A **content setting** chooses how far it may go, e.g.
+    - **Cosy** (gentle, no swearing)
+    - **Drama** (the default: PG-13 heartbreak, mild language)
+    - **Mature** (stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. 
+    - a later **Adult** setting (opt-in, for adults) can go further: adult themes, sex and crude humour between grown-ups who want it. Outside Adult, nothing sexual beyond a kiss implied off-screen. Some limits apply at every setting
+  - Adult included: **teasing is never cover for harassment** (see CONCEPT.md, "Cheeky, not 'bants'"), no hateful slurs, no real-world politics, and themes like self-harm are never described or encouraged: if they come up, the owner responds with care. Matters more now customers chat to each other late at night (flirting and dark turns), and most of all once players can type to customers.
 - **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting. Still to do:
   - **Warm the model up at the title screen:** Ollama unloads the model after it's been idle (`keep_alive`, 30 minutes), and the first reply after that can take up to a minute while it loads back into the GPU: on the loading screen, it looks stuck. The title screen could send a tiny request as it opens, so the model's ready by the time a bar's picked.
   - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes on average, and customer chats got 8–21% of lines), because one AI request runs at a time. Customer chats could run on a second voice alongside the owner's conversations: two requests at once. Ollama can serve two together (`OLLAMA_NUM_PARALLEL`), but on one GPU each is slower, so measure it on the desktop and the laptop before relying on it; the game would need two AI objects, and chats that never wait for the owner's. Steps:
     1. **Measure it first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) that times one request, then two at once, a few times each, and logs the seconds: run on the desktop and the laptop. If two at once take much less than twice as long, go on.
     2. **Then build it:** a second AI object for customer chats, chats that run while the owner talks (never waiting for her voice), the speech bubbles and transcript coping with two at once, and the stats showing each voice's share.
     (Night 28's low chat share, 10%, wasn't the voice: quiet customers left few pairs who'd chat, and 7 of 8 chances were taken. Now a chatty one can draw a quiet one in; see the DEVLOG.)
-- **Settings and accessibility:** to add to the Options panel (the ⚙ button, or Esc) and the title screen: text size, reading pauses (a checkbox for now, off; perhaps a reading speed instead), how fast time runs when the tent's quiet (`TIME_SPEEDS` in `rules/night_rules.gd`), how busy the tent gets (about twenty customers a night now; a real pojangmacha might get thirty), the voices' volume, content setting, AI backend and model (today these live in each machine's `ai_settings.cfg`), voice mode, full-screen, and the debug stats panel (F3; shown by default while we're testing). Plus accessibility options that cost little in a text-heavy game: bigger text, high contrast, and pausing between lines until the player clicks.
 - **Older saves kept up to date:** before anyone else plays (`scripts/save/save_upgrades.gd`): upgrade by the save's `version` rather than by what's missing, and fill in everything a new feature needs (a bar from before the cat still has no cat).
 - **Packaging, first-run setup and releasing:** a big part of the point is learning how to ship a Godot game.
   - **Exporting:** Godot's export templates, a Windows export preset, an icon, the game's name and version in the build, and checking the exported build runs on a clean machine (no editor, no project folder: saves and logs go to the user folder).
@@ -43,11 +48,6 @@ Grouped by type. Within each group, roughly in order of importance.
 
 ### Richer play
 
-- **Follow-ups from the 19 Nov autoplay review** (ten nights, Seongin Pocha):
-  - **Holidays on the wrong night:** Chuseok (an autumn festival, usually September) came up on a November night. Check holidays and seasonal talk in lines against tonight's date (the game knows it), and tell the AI which are near.
-
-  - **Regulars coming back:** only the two founding regulars came back; new regulars' pull averaged about 0.5. Look at whether they come back often enough to feel like regulars.
-  - **The owner's one voice:** busy 98% of the night; first drinks took 11–19 minutes on average and customer chats were 8–21% of lines. See **Speed and waiting**.
 - **Follow-ups from the Regulars and relationships stage:**
   - **Contradictions between nights:** a regular who was widowed one night had "my wife's nagging" the next. Check the things that stick catch family facts said in chats, and that prompts lean on them. (The owner's side is fixed: the owner's family and past are game facts now.)
   - **Terms of address in every line:** watch whether "most lines need none" brought it down.
@@ -56,7 +56,10 @@ Grouped by type. Within each group, roughly in order of importance.
   - **Regulars knowing each other's memories:** two regulars who chat keep how often they've met and the last thing said; a short memory of each other (like the owner's) and things that stick between them would make their friendships richer.
   - **The owner's closeness:** more for regulars to earn with the owner (the owner saving them the last of the odeng).
 - **Resume mid-night:** today, a night you quit (closing the window) before 3am isn't counted (Close the bar closes up early instead, and counts), and opening the bar again starts that night afresh at 6pm. Later, the clock, weather and night's takings could be saved, so it carries on where you left.
-- **Calendar, holidays and events:** occasions hanging off the date (`rules/seasons.gd`): Korean occasions (Seollal, Chuseok, Christmas, 11/11, when everyone gives chocolate stick snacks (known by a brand's name, so in the game it's just "11/11"), payday Fridays), **the moon** (its phase worked out from the date, about 29.5 days a cycle, drawn in the sky on clear nights with a few stars; the full moon of the eighth lunar month is Chuseok's, the harvest moon, and Seollal is the second new moon after the winter solstice, so both holidays fall out of the same sum, near enough), and one-off events (a big football match on the overpass screens, a typhoon closing the tent early). Game facts that shape who turns up, what they order and what they talk about.
+- **Calendar, holidays and events:** 
+  - occasions hanging off the date (`rules/seasons.gd`): 
+    - Korean occasions (Seollal, Chuseok, Christmas, 11/11, etc) Game facts that shape who turns up, what they order and what they talk about.
+    - whenever events are mentioned, check they are culturally correct and on/references wht correct dates
 - **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken gets a situation to make the 2am call to an ex (술김에?! on TV), and once customers come in together, the piggyback home. Alongside **Content boundaries**, since it's drunkenness played for drama.
 - **Cliffhangers the night can answer, more often:** the first two nights' recaps both ended on a question nothing in a night can answer ("other"). Watch a few more nights in the stats' HIGHLIGHTS and THE STORY; if it stays that way, steer the recap prompt toward the kinds on the list.
 - **Cliffhangers about what's said (a stage of its own):** the teasers about what someone says or does: "will she finally confess?", "will he quit?", "is the secret out?". Those need the AI to judge, after a conversation, whether it was answered (like the TV reaction check), with a check and tests for each kind.
@@ -70,18 +73,17 @@ Grouped by type. Within each group, roughly in order of importance.
   - **At the counter:** they already know each other's names, so they talk more than strangers (the customer-chat code with "close" pairs), share dishes (the sharing moments are made for them), and others can still chip in.
   - **Paying:** one pays for both, they fight over the bill (the classic tussle at the till), or they split it, decided by the game.
   - **The story:** a group as a fact in the diary and captions (커플 등장! A COUPLE?!, 회식 탈출! HOESIK ESCAPEES), and regulars who come in together.
-- **Speaking for the right person:** in a three- or four-way chat, small models are more likely to write a line for someone else, or a whole exchange. The checks that strip "Name:" and cut off second lines should know every name in the chat.
-- **Long-term relationships:** beyond the Regulars and relationships stage: arcs that play out over many nights between the owner and regulars (and between regulars), such as a regular moving away, a romance at the counter, or an old friend falling out with the owner.
-- **Player controls:** set the night's length (time runs faster when the tent's quiet, so it varies), the menu, the weather or day.
+  - **Speaking for the right person:** in a three- or four-way chat, small models are more likely to write a line for someone else, or a whole exchange. The checks that strip "Name:" and cut off second lines should know every name in the chat.
+  - **Long-term relationships:** beyond the Regulars and relationships stage: arcs that play out over many nights between the owner and regulars (and between regulars), such as a regular moving away, a romance at the counter, or an old friend falling out with the owner.
 - **Weather that changes:** today each night picks one weather at 6pm; it could change during the night (rain setting in after midnight).
 - **A better memorable line:** the night summary quotes the longest thing a customer said. The AI could pick the line instead, or the game could favour lines with drama.
 
 ### Presentation
 
-- **More art** (the main pixel-art pass is done: ART.md says how it all works): props that say what someone does, if the game ever decides it (it's the AI's word now, so a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks); more of the little movements (customers clinking glasses, the cat washing itself); the title, loading and recap screens' frames in pixels too (their buttons are); screenshot tests once it settles. Every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, and all of it part of the Korean cultural review before anyone else plays.
 - **Portraits:** a picture of each character, for the hover or the diary, beyond the stage's pixel people. The game decides how everyone looks, from facts it owns, and the AI never draws anyone directly. Two ways:
   - **Pre-generated (the likely one):** on the desktop, the local image model (FLUX.2 Klein, already set up for the street) makes portraits or parts in one fixed style, tagged by age, gender, job and so on; a human curates them, and the game ships the keepers and picks the best match. Nothing runs during play, so no GPU contention with the LLM, and it works on the laptop.
   - **Live (theoretically possible):** the image model draws each new customer from their profile as they arrive. Not planned for now: it competes with the LLM for GPU memory, takes several seconds per image, drifts off-style, can't run on the laptop, and sometimes produces something unusable.
+  - **mixed* where regular get proper live (or between nights) custom portraits created for them
 - **Ambience (sound and animation):** the tent should feel alive even when nobody's talking. Driven by facts the game owns (weather, time of night, what's cooking, how busy it is), so it always matches what's happening, and it needs no AI. The first version is built (the Atmosphere and Sound and music stages), all made in code; what's left:
   - **Ambient sound:** swap the placeholders made in code for real recordings one at a time, starting with the ones that sound most synthetic (the murmur, the pour, the cat, the cash tin), then rain, traffic and the rest. CC0 sources: Freesound (filter by licence) and Kenney's audio packs; log everything in `CREDITS.md`. Each sound is one entry in `ambience.gd`, so a recording can replace it without changing the rest.
   - **Music:** Arirang, arranged in code, is the placeholder. Later: a real recording or arrangement (a public-domain tune performed for the project, or a CC0 track), perhaps more tunes (other folk songs, or a lo-fi theme), and music from the old radio in bars that have one.
