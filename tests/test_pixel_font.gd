@@ -25,7 +25,9 @@ func test_each_use_is_a_whole_multiple_of_its_pixels() -> void:
 		assert_bool(PixelFont.SIZES.has(spec[0])).is_true()
 		assert_int(PixelFont.size_for(use) % int(PixelFont.SIZES[spec[0]]["pixels"])).is_equal(0)
 	assert_int(PixelFont.size_for("sign_hangul")).is_equal(30)  # (on the art's grid: 10 pixels, 3 each)
-	assert_int(PixelFont.size_for("name_tag")).is_equal(15)
+	assert_int(PixelFont.size_for("closed_english")).is_equal(16)
+	for use in ["name_tag", "bubble", "heading", "button", "title", "badge"]:  # (the ordinary font: only the bar's art is in pixels)
+		assert_bool(PixelFont.USES.has(use)).is_false()
 
 
 func test_a_label_and_rich_text_take_it() -> void:
@@ -37,8 +39,8 @@ func test_a_label_and_rich_text_take_it() -> void:
 	assert_int(label.get_theme_font_size("font_size")).is_equal(24)
 	var rich := RichTextLabel.new()
 	holder.add_child(rich)
-	PixelFont.apply(rich, "bubble")
-	assert_object(rich.get_theme_font("normal_font")).is_same(PixelFont.font("galmuri14"))
-	assert_object(rich.get_theme_font("bold_font")).is_same(PixelFont.font("galmuri14"))
+	PixelFont.apply(rich, "sign_english")
+	assert_object(rich.get_theme_font("normal_font")).is_same(PixelFont.font("galmuri7"))
+	assert_object(rich.get_theme_font("bold_font")).is_same(PixelFont.font("galmuri7"))
 	holder.add_child(Label.new())  # (the ordinary font: not counted)
 	assert_int(PixelFont.count_in(holder)).is_equal(2)

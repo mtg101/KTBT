@@ -2,13 +2,12 @@ extends RefCounted
 ## Words on the stage in a pixel Korean font (ART.md, "Text on the stage"): Galmuri, by Lee
 ## Minseo (fonts/galmuri, under the SIL Open Font Licence: LICENSE-ASSETS.md), Hangul and Latin
 ## drawn as pixels, at whole multiples of each size's own pixel height so they stay crisp
-## (never smoothed). The words that are part of the scene (the sign, the neon, the CLOSED
-## board) at three times, so a pixel of the word is a pixel of the art's grid; the name tags
-## and the speech bubbles at the font's own size, smaller but still crisp. Anything a size
-## hasn't got (a symbol or two) comes from the game's ordinary font. Without the font files,
-## the ordinary font, as before.
-## On the stage; and under it, the panels' headings, buttons and the bar's name (pixel_frame.gd).
-## The transcript, the stats' and the desk's long text and the TV captions keep their own fonts.
+## (never smoothed). Only the words that are part of the bar's art (the sign, the neon, the
+## CLOSED board), at two or three times, so a pixel of the word is a pixel of the art's grid.
+## Anything a size hasn't got (a symbol or two) comes from the game's ordinary font. Without the
+## font files, the ordinary font, as before.
+## Everything else (name tags, speech bubbles, TV captions, the panels, buttons, the desk and
+## the loading screens) is in the ordinary font: the pixel font looked out of place there.
 
 const FOLDER := "res://fonts/galmuri/"
 ## Each size: its file and its own pixel height (a whole multiple of that stays crisp).
@@ -25,16 +24,6 @@ const USES := {
 	"neon": ["galmuri7", 3],  # 노래방, down the pillar: on the grid
 	"closed_hangul": ["galmuri7", 3],  # 마감, on the CLOSED board: on the grid
 	"closed_english": ["galmuri7", 2],
-	"name_tag": ["galmuri14", 1],  # over people's heads
-	"cat_tag": ["galmuri11", 1],
-	"bubble_header": ["galmuri11", 1],  # who's speaking to whom
-	"bubble": ["galmuri14", 1],  # what they say
-	# Under the stage (pixel_frame.gd): the headings, the buttons and the bar's name; long text stays smooth.
-	"heading": ["galmuri14", 1],  # the panels' headings (their bold: PD CONTROLS, HERE NOW, THE OWNER...)
-	"button": ["galmuri14", 1],
-	"title": ["galmuri11", 2],  # the bar's name, top left
-	"panel_title": ["galmuri9", 2],  # a panel's own title (Options)
-	"badge": ["galmuri11", 1],  # OFFLINE MODE
 }
 
 static var _fonts := {}  # size -> FontFile (or null: not there)
@@ -90,15 +79,6 @@ static func space_lines(label: Label, use: String, line_height: int) -> void:
 	if made == null:
 		return
 	label.add_theme_constant_override("line_spacing", line_height - int(made.get_height(size_for(use))))
-
-
-## A rich text's headings (its bold) in the pixel font; the rest of it as it is.
-static func apply_headings(rich: RichTextLabel, use: String = "heading") -> void:
-	var made := font(str(USES[use][0]))
-	if made == null:
-		return
-	rich.add_theme_font_override("bold_font", made)
-	rich.add_theme_font_size_override("bold_font_size", size_for(use))
 
 
 ## How many pieces of text under this node are in the pixel font (for the night's stats).

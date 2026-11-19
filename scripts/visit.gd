@@ -444,7 +444,7 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
-	theme = PixelFrame.theme()  # (every button under the stage in a pixel frame and the pixel font)
+	theme = PixelFrame.theme()  # (every button under the stage in a pixel frame)
 	if Game.autoplay != null:  # (a batch playing itself: the PD's desk is played too)
 		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
@@ -4270,7 +4270,6 @@ func _build_ui() -> void:
 	_title_label.name = "BarName"
 	_title_label.text = "KTBT  ·  A new bar"
 	_title_label.add_theme_font_size_override("font_size", 22)
-	PixelFont.apply(_title_label, "title")
 	_title_label.add_theme_color_override("font_color", ACCENT)
 	_title_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_title_label.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -4282,7 +4281,6 @@ func _build_ui() -> void:
 	_mode_label.add_theme_color_override("font_color", Color.BLACK)
 	_mode_label.add_theme_stylebox_override("normal", _badge(OWNER_TEXT))
 	_mode_label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	PixelFont.apply(_mode_label, "badge")
 	_mode_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_mode_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	_mode_label.visible = false
@@ -4472,7 +4470,6 @@ func _build_ui() -> void:
 	_stats_text.selection_enabled = true
 	_stats_text.add_theme_font_size_override("normal_font_size", 15)
 	_stats_text.add_theme_font_size_override("bold_font_size", 15)
-	PixelFont.apply_headings(_stats_text)  # (HERE NOW, THE OWNER...: in pixels, as the stage)
 	_stats_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var stats_box := VBoxContainer.new()
 	stats_box.add_theme_constant_override("separation", 10)
@@ -4560,7 +4557,6 @@ func _build_options_panel() -> VBoxContainer:
 	var heading := Label.new()
 	heading.text = "Options"
 	heading.add_theme_font_size_override("font_size", 22)
-	PixelFont.apply(heading, "panel_title")
 	heading.add_theme_color_override("font_color", ACCENT)
 	column.add_child(heading)
 	return column

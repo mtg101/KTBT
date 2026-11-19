@@ -13,7 +13,6 @@ const Layout = preload("res://scripts/bar/layout.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelCat = preload("res://scripts/ui/pixel_cat.gd")
 const Art = preload("res://scripts/ui/art.gd")
-const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 const MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
 
@@ -138,7 +137,6 @@ func build(stage: Control) -> void:
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tag.add_theme_font_size_override("font_size", 13)
-	PixelFont.apply(tag, "cat_tag")  # (in pixels: pixel_font.gd)
 	tag.add_theme_constant_override("outline_size", 5)
 	tag.add_theme_color_override("font_outline_color", Color.BLACK)
 	node.add_child(tag)

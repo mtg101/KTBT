@@ -2,7 +2,6 @@ extends GdUnitTestSuite
 ## Tests for scripts/ui/pixel_frame.gd: the panels and buttons under the stage in pixel art.
 
 const PixelFrame = preload("res://scripts/ui/pixel_frame.gd")
-const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 
 func test_a_frame_in_whole_pixels_with_notched_corners() -> void:
@@ -18,14 +17,9 @@ func test_a_frame_in_whole_pixels_with_notched_corners() -> void:
 	assert_object(PixelFrame.style(PixelFrame.PANEL)).is_same(style)  # (made once)
 
 
-func test_the_bar_screens_buttons_are_framed_and_in_the_pixel_font() -> void:
+func test_the_bar_screens_buttons_are_framed_in_the_ordinary_font() -> void:
 	var theme := PixelFrame.theme()
 	assert_bool(theme.get_stylebox("normal", "Button") is StyleBoxTexture).is_true()
 	assert_bool(theme.get_stylebox("hover", "Button") != theme.get_stylebox("normal", "Button")).is_true()  # lit up when you're over it
-	assert_object(theme.get_font("font", "Button")).is_same(PixelFont.font("galmuri14"))
+	assert_bool(theme.has_font("font", "Button")).is_false()  # (the ordinary font: the pixel one looked out of place)
 	assert_bool(theme.get_stylebox("normal", "CheckBox") is StyleBoxEmpty).is_true()  # (tick boxes as they are)
-	var rich := RichTextLabel.new()
-	PixelFont.apply_headings(rich)
-	assert_object(rich.get_theme_font("bold_font")).is_same(PixelFont.font("galmuri14"))  # headings in pixels...
-	assert_bool(rich.has_theme_font_override("normal_font")).is_false()  # ...the long text as it is
-	rich.free()

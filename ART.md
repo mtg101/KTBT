@@ -54,8 +54,8 @@ An orange tarp is the classic; ours vary (see above). Red and blue plastic stool
 
 ## Text on the stage
 
-- **In a pixel Korean font: Galmuri** (by Lee Minseo, SIL Open Font Licence; `fonts/galmuri`, logged in LICENSE-ASSETS; `ui/pixel_font.gd`), Hangul and Latin in one family, never smoothed. Each size is crisp only at a whole multiple of its own pixel height, so: the words that are part of the scene at three times (a pixel of the word a pixel of the art's grid): the sign's Hangul (Galmuri9, 30), the 노래방 neon and the 마감 on the CLOSED board (Galmuri7, 24); the bar's name on the sign and CLOSED at twice (Galmuri7, 16: a long name has to fit the board); the name tags and the speech bubbles at the font's own size (Galmuri14 at 15, Galmuri11 at 12), smaller but easy to read. A symbol a size hasn't got (♀, ♂) comes from the ordinary font. Never drawn by a model.
-- **Only the stage:** the transcript, the panels, the PD's desk and the TV captions keep their own fonts (the captions are a TV show's, on purpose).
+- **In a pixel Korean font: Galmuri** (by Lee Minseo, SIL Open Font Licence; `fonts/galmuri`, logged in LICENSE-ASSETS; `ui/pixel_font.gd`), Hangul and Latin in one family, never smoothed. Each size is crisp only at a whole multiple of its own pixel height, so: the words that are part of the scene at three times (a pixel of the word a pixel of the art's grid): the sign's Hangul (Galmuri9, 30), the 노래방 neon and the 마감 on the CLOSED board (Galmuri7, 24); the bar's name on the sign and CLOSED at twice (Galmuri7, 16: a long name has to fit the board). A symbol a size hasn't got (♀, ♂) comes from the ordinary font. Never drawn by a model.
+- **Only the words in the bar's art** (decided 19 Nov): the pixel font looked out of place everywhere else (and its width pushed the loading screen's "step in" button off the edge), so the name tags, the speech bubbles, the TV captions, the panels, buttons, the PD's desk and the loading screens are in the ordinary font. A proper bundled font for them is on PLAN.md.
 
 ## People
 
@@ -70,7 +70,7 @@ An orange tarp is the classic; ours vary (see above). Red and blue plastic stool
 
 ## The panels (19 Nov)
 
-- **Framed in pixels, headings in the pixel font; long text stays readable** (decided 19 Nov): the panels under the stage (the transcript, the PD's desk, the stats, Options) and every button sit in frames of whole pixels of the grid, their corners notched, lit inside the top and in shadow inside the bottom (`ui/pixel_frame.gd`); buttons light up in the accent when you're over them and press in when clicked. The headings (PD CONTROLS, HERE NOW, THE OWNER), the buttons, the bar's name and the OFFLINE MODE badge are in Galmuri; the transcript and the long text of the desk and stats keep the smooth font, so they're easy to read. The title screen's buttons too.
+- **Framed in pixels, the words in the ordinary font** (decided 19 Nov): the panels under the stage (the transcript, the PD's desk, the stats, Options) and every button sit in frames of whole pixels of the grid, their corners notched, lit inside the top and in shadow inside the bottom (`ui/pixel_frame.gd`); buttons light up in the accent when you're over them and press in when clicked. The title screen's buttons too. (The headings, buttons, the bar's name and the OFFLINE MODE badge were in Galmuri for a day: out of place, so back to the ordinary font.)
 
 ## The cat
 

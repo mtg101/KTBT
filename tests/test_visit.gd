@@ -3,6 +3,7 @@ extends "res://tests/support/bar_test.gd"
 ## simulated mouse input, and check what happens. The AI is offline mode (the canned AI),
 ## sometimes with scripted replies, so these run without Ollama, quickly and repeatably.
 
+const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
@@ -1389,7 +1390,8 @@ func test_the_pixels_are_lit_by_the_hour() -> void:
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_int(int(scene._stats.art["lit"])).is_greater(3)  # (in the night's stats)
-	assert_int(int(scene._stats.art["pixel_words"])).is_greater(3)  # the sign, the neon, the name tags... in the pixel font
+	assert_int(int(scene._stats.art["pixel_words"])).is_between(3, 4)  # the sign's two lines and the neon in the pixel font (the CLOSED board too, once it's out)...
+	assert_int(PixelFont.count_in(scene._owner_node.get_node("Tag"))).is_equal(0)  # ...the name tags in the ordinary font
 
 
 func test_the_cat_wanders_by_itself() -> void:

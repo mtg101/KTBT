@@ -21,7 +21,7 @@ folk song in the public domain.
 
 | File | What | Source | Licence |
 |---|---|---|---|
-| `fonts/galmuri/Galmuri14.ttf`, `Galmuri11.ttf`, `Galmuri9.ttf`, `Galmuri7.ttf` | Galmuri, a pixel font for Hangul and Latin, by Lee Minseo (v2.40.4): the words on the stage | https://github.com/quiple/galmuri | SIL Open Font License 1.1 (`fonts/galmuri/OFL.txt`, which travels with the fonts) |
+| `fonts/galmuri/Galmuri14.ttf`, `Galmuri11.ttf`, `Galmuri9.ttf`, `Galmuri7.ttf` | Galmuri, a pixel font for Hangul and Latin, by Lee Minseo (v2.40.4): the words in the bar's art (the sign, the neon, the CLOSED board) | https://github.com/quiple/galmuri | SIL Open Font License 1.1 (`fonts/galmuri/OFL.txt`, which travels with the fonts) |
 
 ## Art (`art/`)
 

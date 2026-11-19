@@ -271,7 +271,11 @@ func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
 	var runner := scene_runner(VISIT)
 	var scene = runner.scene()
 	# Stepping in while it's loading: the suite opens once it can.
-	assert_object(runner.find_child("LoadingStepIn")).is_not_null()
+	var step_in := runner.find_child("LoadingStepIn") as Button
+	assert_object(step_in).is_not_null()
+	step_in.text = "✂  The writers are cutting episode 10…  Step in as the PD (Enter): a much longer label than it really has"
+	await await_idle_frame()
+	assert_float(step_in.get_global_rect().end.x).is_less_equal(1920.0)  # (it ran off the edge, 19 Nov)
 	scene._step_in()
 	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
 	var suite = runner.find_child("EditSuite")

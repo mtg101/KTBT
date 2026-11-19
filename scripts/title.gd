@@ -21,7 +21,7 @@ const CONFIRM_SECONDS := 4.0
 
 
 func _ready() -> void:
-	theme = PixelFrame.theme()  # (its buttons in pixel frames and the pixel font, as the bar's)
+	theme = PixelFrame.theme()  # (its buttons in pixel frames, as the bar's)
 	Game.start_music()
 	_build_ui()
 	_fill_list()

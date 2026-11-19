@@ -3,11 +3,10 @@ extends RefCounted
 ## frame of whole pixels of the grid (3 on screen), its corners notched, lit from above (a lighter
 ## row inside its top edge, a darker one inside its bottom), never smoothed; and a theme for the
 ## bar's screen that gives every button such a frame (lit up in the accent when you're over it,
-## pressed in when you click) and the pixel font (pixel_font.gd). Long text (the transcript, the
-## stats) stays in the readable font; the frames, headings and buttons are pixels.
+## pressed in when you click). The words in them stay in the ordinary font (pixel_font.gd is
+## only for the words in the bar's art).
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
-const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 
 const GRID := 3  # screen pixels to a pixel of the art
 const CELLS := 8  # a frame's picture: this many pixels square (the middle stretches)
@@ -58,7 +57,7 @@ static func style(colours: Array, padding: Vector2 = Vector2(16, 16)) -> StyleBo
 	return made
 
 
-## The bar screen's theme: every button in a pixel frame and the pixel font; tick boxes left as
+## The bar screen's theme: every button in a pixel frame; tick boxes left as
 ## they are (they're buttons too: without their own empty styles they'd get a frame).
 static func theme() -> Theme:
 	var made := Theme.new()
@@ -69,10 +68,6 @@ static func theme() -> Theme:
 	made.set_stylebox("hover_pressed", "Button", style(BUTTON_DOWN, padding))
 	made.set_stylebox("disabled", "Button", style(BUTTON_OFF, padding))
 	made.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	var font := PixelFont.font("galmuri14")
-	if font != null:
-		made.set_font("font", "Button", font)
-		made.set_font_size("font_size", "Button", PixelFont.size_for("button"))
 	for type in ["CheckBox", "CheckButton", "LinkButton"]:
 		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 			made.set_stylebox(state, type, StyleBoxEmpty.new())

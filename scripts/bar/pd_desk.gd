@@ -8,7 +8,6 @@ extends RefCounted
 ## given here as happens) and who's here; this keeps the hand, shows it, and takes the
 ## player's clicks and typing. (Part 12 of splitting visit.gd: see DEVLOG.md, 17 November 2026.)
 
-const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
@@ -92,7 +91,6 @@ func build(desk: PanelContainer) -> void:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_font_size_override("normal_font_size", 17)
 	text.add_theme_font_size_override("bold_font_size", 17)
-	PixelFont.apply_headings(text)  # (PD CONTROLS, Camera, Pinned, Plants: in pixels, as the stage)
 	text.meta_clicked.connect(_on_link)
 	box.add_child(text)
 	edit_box = VBoxContainer.new()

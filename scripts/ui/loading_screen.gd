@@ -93,6 +93,8 @@ func _ready() -> void:
 	_status.position = Vector2(0, 1010)
 	_status.size = Vector2(SIZE.x, 40)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS  # (never off the screen)
+	_status.clip_text = true
 	_status.add_theme_font_size_override("font_size", 22)
 	_status.add_theme_color_override("font_color", Color("c9c6e2"))
 	_status.text = status
@@ -502,5 +504,7 @@ func show_step_in(text: String) -> Button:
 	button.add_theme_color_override("font_color", Color("ff4f6d"))
 	button.position = Vector2(SIZE.x - 760, 950)
 	button.custom_minimum_size = Vector2(720, 48)
+	button.size = Vector2(720, 48)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  # (a long one wraps, rather than running off the screen)
 	add_child(button)
 	return button

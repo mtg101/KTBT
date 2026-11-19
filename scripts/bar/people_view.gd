@@ -12,7 +12,6 @@ const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PixelPerson = preload("res://scripts/ui/pixel_person.gd")
 const PixelShape = preload("res://scripts/ui/pixel_shape.gd")
 const Art = preload("res://scripts/ui/art.gd")
-const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const Night = preload("res://scripts/bar/night.gd")
 
 ## The colours people are drawn in before they're dressed (and the bags held over heads).
@@ -68,7 +67,6 @@ func new_person(parent: Control, pos: Vector2, colour: Color) -> Control:
 	tag.size = Vector2(300, 24)
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.add_theme_font_size_override("font_size", 15)
-	PixelFont.apply(tag, "name_tag")  # (in pixels: pixel_font.gd)
 	tag.add_theme_constant_override("outline_size", 6)
 	tag.add_theme_color_override("font_outline_color", Color.BLACK)
 	root.add_child(tag)
