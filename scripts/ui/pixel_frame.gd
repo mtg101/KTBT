@@ -1,10 +1,9 @@
 extends RefCounted
-## The panels and buttons under the stage in the stage's pixel art (ART.md, "The panels"): a
-## frame of whole pixels of the grid (3 on screen), its corners notched, lit from above (a lighter
-## row inside its top edge, a darker one inside its bottom), never smoothed; and a theme for the
-## bar's screen that gives every button such a frame (lit up in the accent when you're over it,
-## pressed in when you click). The words in them stay in the ordinary font (pixel_font.gd is
-## only for the words in the bar's art).
+## The panels under the stage in the stage's pixel art (ART.md, "The panels"): a frame of whole
+## pixels of the grid (3 on screen), its corners notched, lit from above (a lighter row inside its
+## top edge, a darker one inside its bottom), never smoothed. The words in them stay in the
+## ordinary font (pixel_font.gd is only for the words in the bar's art), and the buttons are
+## ordinary buttons (framed in pixels for a day: it felt odd).
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
@@ -14,10 +13,6 @@ const EDGE := 2  # pixels of it that are edge (the border, and the light or shad
 
 ## A panel's colours: [fill, edge, light, shadow].
 const PANEL := [Ktv.PANEL, Color("3a3760"), Color("2c2a4a"), Color("1b1a30")]
-const BUTTON := [Color("2c2a48"), Color("4a4870"), Color("3a3860"), Color("211f38")]
-const BUTTON_OVER := [Color("34325a"), Ktv.ORANGE, Color("46437a"), Color("26243f")]
-const BUTTON_DOWN := [Color("1f1d36"), Ktv.ORANGE, Color("1a1830"), Color("2c2a48")]  # (pressed in: the light below, the shadow above)
-const BUTTON_OFF := [Color("201e34"), Color("2e2c48"), Color("24223a"), Color("1c1a2e")]
 
 static var _styles := {}
 
@@ -54,21 +49,4 @@ static func style(colours: Array, padding: Vector2 = Vector2(16, 16)) -> StyleBo
 	made.content_margin_top = padding.y
 	made.content_margin_bottom = padding.y
 	_styles[key] = made
-	return made
-
-
-## The bar screen's theme: every button in a pixel frame; tick boxes left as
-## they are (they're buttons too: without their own empty styles they'd get a frame).
-static func theme() -> Theme:
-	var made := Theme.new()
-	var padding := Vector2(12, 6)
-	made.set_stylebox("normal", "Button", style(BUTTON, padding))
-	made.set_stylebox("hover", "Button", style(BUTTON_OVER, padding))
-	made.set_stylebox("pressed", "Button", style(BUTTON_DOWN, padding))
-	made.set_stylebox("hover_pressed", "Button", style(BUTTON_DOWN, padding))
-	made.set_stylebox("disabled", "Button", style(BUTTON_OFF, padding))
-	made.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	for type in ["CheckBox", "CheckButton", "LinkButton"]:
-		for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-			made.set_stylebox(state, type, StyleBoxEmpty.new())
 	return made

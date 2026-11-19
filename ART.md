@@ -70,7 +70,7 @@ An orange tarp is the classic; ours vary (see above). Red and blue plastic stool
 
 ## The panels (19 Nov)
 
-- **Framed in pixels, the words in the ordinary font** (decided 19 Nov): the panels under the stage (the transcript, the PD's desk, the stats, Options) and every button sit in frames of whole pixels of the grid, their corners notched, lit inside the top and in shadow inside the bottom (`ui/pixel_frame.gd`); buttons light up in the accent when you're over them and press in when clicked. The title screen's buttons too. (The headings, buttons, the bar's name and the OFFLINE MODE badge were in Galmuri for a day: out of place, so back to the ordinary font.)
+- **Panels framed in pixels, the words and buttons ordinary** (decided 19 Nov): the panels under the stage (the transcript, the PD's desk, the stats, Options) sit in frames of whole pixels of the grid, their corners notched, lit inside the top and in shadow inside the bottom (`ui/pixel_frame.gd`). The buttons are ordinary buttons and the words are in the ordinary font: both were in pixels for a day (framed buttons, the headings, buttons, bar's name and OFFLINE MODE badge in Galmuri), and felt out of place.
 
 ## The cat
 

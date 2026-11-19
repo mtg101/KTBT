@@ -445,7 +445,6 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
-	theme = PixelFrame.theme()  # (every button under the stage in a pixel frame)
 	if Game.autoplay != null:  # (a batch playing itself: the PD's desk is played too)
 		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
