@@ -8,9 +8,6 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 
 ## Stages
 
-- **Real art: pixel art with real lighting (the main pass done, 19 Nov).** The stage is pixel art now (the street, the tent, the people and the cat, lit by the hour, its words in a pixel Korean font: ART.md says how). What's left, in order:
-  1. **Still to come:** props that say what someone does, if the game ever decides it (it's the AI's word now, so a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks); more of the little movements (customers clinking glasses, the cat washing itself); the title, loading and recap screens' frames in pixels too (their buttons are).
-  Throughout: every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, screenshot tests once it settles, and all of it part of the Korean cultural review before anyone else plays. Later, an idea: a portrait of each character from the image model (see **Portraits**, under Presentation).
 - **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
   1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
@@ -45,6 +42,11 @@ Grouped by type. Within each group, roughly in order of importance.
     - **Being open about the AI:** the page says plainly that the characters are written by a local AI model and the game was built with AI help, as the project is.
 
 ### Richer play
+
+- **Follow-ups from the 19 Nov autoplay review** (ten nights, Seongin Pocha):
+  - **The owner never stirs the pot:** the stir only happens when the owner's at the stove while something's cooking, and with a full counter they hardly ever are (0 stirs in ten nights). When they're free and something's on, send them back to the stove for a stir.
+  - **Holidays on the wrong night:** Chuseok (an autumn festival, usually September) came up on a November night. Check holidays and seasonal talk in lines against tonight's date (the game knows it), and tell the AI which are near.
+  - **Did the card turn and the worn phrase help?** Since this review, whoever a card's just happened to gets the next turn, and a phrase said too often is let through on the third try rather than the chat given up. Check in the next batch's stats: "turned to first" and how often a text card's taken up; "let through on a third try" against the chats that fizzle.
 
 - **Follow-ups from the Night as a story stage:**
   - **TV reactions:** the bar for a caption is a 4 out of 5, and in nights 29–34 Llama answered "none" to 70 of 75 checks. The stats now show how big it rated each moment: if most land at 3, look at the prompt (what makes a 4) rather than lowering the bar, since at 3 the captions went soft.
@@ -103,6 +105,7 @@ Grouped by type. Within each group, roughly in order of importance.
 
 ### Presentation
 
+- **More art** (the main pixel-art pass is done: ART.md says how it all works): props that say what someone does, if the game ever decides it (it's the AI's word now, so a taxi driver's cap from "taxi driver" would be the AI deciding how someone looks); more of the little movements (customers clinking glasses, the cat washing itself); the title, loading and recap screens' frames in pixels too (their buttons are); screenshot tests once it settles. Every asset in `art/manifest.json` and LICENSE-ASSETS (the tests check both), nothing branded, and all of it part of the Korean cultural review before anyone else plays.
 - **Portraits:** a picture of each character, for the hover or the diary, beyond the stage's pixel people. The game decides how everyone looks, from facts it owns, and the AI never draws anyone directly. Two ways:
   - **Pre-generated (the likely one):** on the desktop, the local image model (FLUX.2 Klein, already set up for the street) makes portraits or parts in one fixed style, tagged by age, gender, job and so on; a human curates them, and the game ships the keepers and picks the best match. Nothing runs during play, so no GPU contention with the LLM, and it works on the laptop.
   - **Live (theoretically possible):** the image model draws each new customer from their profile as they arrive. Not planned for now: it competes with the LLM for GPU memory, takes several seconds per image, drifts off-style, can't run on the laptop, and sometimes produces something unusable.

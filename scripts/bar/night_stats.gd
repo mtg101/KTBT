@@ -39,6 +39,8 @@ var story := {}
 ## wouldn't load (Art.summary(): {"images", "drawn", "broken"}, each a list of keys).
 var art := {}
 var gestures := {}  # gestures, by kind: customers' "drink" (a glass raised), "eat" (mouthfuls) (visit.gd _gestures); the owner's "pour", "carry", "cook", "wave"
+var card_turns := 0  # someone a card had just happened to, turned to first (before a greeting or a chat)
+var worn_let_through := 0  # lines let through with a worn-out phrase, rather than a chat given up
 var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
@@ -365,6 +367,11 @@ func record_written_line(speaker: String, among: Array, line: String) -> void:
 ## PD's camera was following was in it).
 ## A spell of talk steered to a topic (Talk.pick_owner_topic, pick_chat_topic). chat: customers
 ## chatting, rather than the owner's conversation.
+## Someone a card had just happened to, turned to first.
+func record_card_turn() -> void:
+	card_turns += 1
+
+
 func record_topic(topic: String, chat: bool) -> void:
 	if topic == "":
 		return
@@ -678,7 +685,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Talk turned to: light %d · deep %d%s" % [mix[0], mix[1], (" · " + counts_text(topics, 8)) if not topics.is_empty() else ""])
 	lines.append("Teasing that crossed the line (dropped): %d" % int(rejections.get("teasing that crossed the line", 0)))
 	var worn := worn_out()
-	lines.append("Said too often (%d+ lines, asked for another way; %d lines sent back for it): %s" % [WORN_OUT, int(rejections.get("said too often", 0)), " · ".join(PackedStringArray(worn.map(func(p): return "\"%s\" %d" % [p, int(phrases[p])]))) if not worn.is_empty() else "(nothing yet)"])
+	lines.append("Said too often (%d+ lines, asked for another way; %d lines sent back for it, %d let through on a third try): %s" % [WORN_OUT, int(rejections.get("said too often", 0)), worn_let_through, " · ".join(PackedStringArray(worn.map(func(p): return "\"%s\" %d" % [p, int(phrases[p])]))) if not worn.is_empty() else "(nothing yet)"])
 	var ordinary := hints_text()
 	lines.append("Hints taken up: %s" % (ordinary if ordinary != "" else "(none given yet)"))
 	lines.append("Korean words said: %s" % (counts_text(korean_words, 10) if not korean_words.is_empty() else "(none yet)"))
@@ -724,7 +731,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("The edit: offered %d · you picked a spin %d%s" % [edits_offered, edited, (" (" + counts_text(edits_made) + ")") if edited > 0 else ""])
 	if written_refused > 0:
 		lines.append("Write-ins sent back by the checks: %d" % written_refused)
-	lines.append("Plants: %s" % (("played %d · " % played.size()) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d lines after" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3])]))) if not played.is_empty() else "none played tonight"))
+	lines.append("Plants: %s" % (("played %d · turned to first %d · " % [played.size(), card_turns]) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d lines after" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3])]))) if not played.is_empty() else "none played tonight"))
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])
@@ -810,7 +817,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true),
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true),
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},
@@ -829,7 +836,7 @@ func summary(context: Dictionary) -> Dictionary:
 			"owner_joins": owner_joins, "customer_joins": customer_joins,
 			"chat_chances": chat_chances, "chats_continued": chats_continued, "free_turns": free_turns,
 			"chat_percent": percent(chat_lines, owner_lines + chat_lines),
-			"worn_out": worn_out(10).map(func(p): return [p, int(phrases[p])]),
+			"worn_out": worn_out(10).map(func(p): return [p, int(phrases[p])]), "worn_let_through": worn_let_through,
 			"topics": topics.duplicate(), "topic_mix": topic_mix(), "crossed_the_line": int(rejections.get("teasing that crossed the line", 0)),
 			"hints_given": hints_given.duplicate(), "hints_taken": hints_taken.duplicate(), "korean_words": korean_words.duplicate(),
 			"openings": openings.duplicate(true), "order_situations": order_situations, "opener_situations": opener_situations,

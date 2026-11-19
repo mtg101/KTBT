@@ -308,6 +308,12 @@ func test_phrases_said_too_often_are_counted() -> void:
 	assert_str(stats.worn_out_in("Another long day, then.")).is_empty()
 	assert_str(Text.problem_kind("the line says «drown my sorrow», and that's been said a lot tonight already: say it another way")).is_equal("said too often")
 	assert_array(stats.summary({})["talk"]["worn_out"]).contains([["drown my sorrow", 3]])
+	# Asked twice and still said: let through rather than the chat given up (counted).
+	stats.worn_let_through = 1
+	assert_str(stats.panel_text(0, 0)).contains("1 let through on a third try")
+	assert_int(stats.summary({})["talk"]["worn_let_through"]).is_equal(1)
+	stats.record_card_turn()
+	assert_int(stats.summary({})["pd"]["card_turns"]).is_equal(1)
 
 
 func test_the_pds_camera_is_counted() -> void:
@@ -333,7 +339,7 @@ func test_the_pds_camera_is_counted() -> void:
 	stats.events.append({"kind": "plant_played", "card": "phone", "name": "Kim Ji-ho", "at": 1410})
 	stats.record_hint("plant_phone", "Sorry, I have to take this call.")
 	stats.record_hint("plant_phone", "Anyway.")
-	assert_str(stats.panel_text(0, 0)).contains("Plants: played 1 · phone taken up 1/2")
+	assert_str(stats.panel_text(0, 0)).contains("Plants: played 1 · turned to first 0 · phone taken up 1/2")
 	assert_array(stats.highlights()).contains(["11:30pm  plant: phone (Kim Ji-ho)"])
 	assert_array(stats.summary({})["pd"]["plants"]["phone"]).is_equal([1, 2, 1, 0])
 	# ... and whether it came up at all, in anyone's lines (the owner's too), soon after.

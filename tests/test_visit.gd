@@ -2380,3 +2380,38 @@ func test_the_autopilot_pd_plays_a_card_when_its_due() -> void:
 	assert_bool(scene._pd.played.has("phone")).is_false()
 	assert_str(_transcript(runner)).not_contains("Autopilot PD plays A phone rings")
 	assert_float(float(scene._autopilot.schedule[0]["at"])).is_greater(scene._clock)
+
+
+func test_whoever_a_card_just_happened_to_gets_the_next_turn() -> void:
+	# 19 Nov: 0 of 5 texts taken up (a newcomer arrived first, and the moment had gone).
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	var guest = scene._guests[0]
+	assert_object(scene._struck_by_card()).is_null()
+	guest.plant_moment = "Their phone's just buzzed: a text from a number that isn't in their phone."
+	guest.card_turn = false
+	assert_object(scene._struck_by_card()).is_same(guest)
+	guest.card_turn = true  # (turned to once: not again for the same card)
+	assert_object(scene._struck_by_card()).is_null()
+	scene._plant_on(guest, "text", "A text.", "a text")
+	assert_bool(guest.card_turn).is_false()  # (a new card: a new turn)
+	guest.plant_moment = ""
+
+
+func test_a_worn_phrase_is_let_through_after_two_tries() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	for i in 3:
+		scene._stats.record_line("I'm here to drown my sorrows.")
+	var offline: bool = scene._ai.offline
+	scene._ai.offline = false
+	var line := {"line": "Drowning my sorrows again, then."}
+	assert_str(scene._validate_line(line, "Kim", "", [], [], {})).contains("said a lot tonight")
+	assert_str(scene._validate_line(line, "Kim", "", [], [], {})).contains("said a lot tonight")
+	assert_str(scene._validate_line(line, "Kim", "", [], [], {})).is_empty()  # (third time: better said again than the chat given up)
+	assert_int(scene._stats.worn_let_through).is_equal(1)
+	assert_str(scene._validate_line(line, "Kim", "", [], [], {})).contains("said a lot tonight")  # (and counting again from there)
+	scene._ai.offline = offline

@@ -171,6 +171,7 @@ class Guest:
 	var cat_talk_done := false  # the cat's taken over their talk with the owner once tonight (only once: it's a tent bar, not a cat cafe)
 	var kya_done := false  # had their "Kya~!" after the first drink
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
+	var card_turn := false  # the owner's already turned to them for the card that's just happened to them
 	var next_gesture := -1.0  # seconds until they next raise their glass or take a mouthful (-1: not counting yet)
 	## Bumped whenever something they can see changes (a dish arrives, the cat comes or goes),
 	## so a line the AI wrote before it happened can be asked for again.
@@ -1820,6 +1821,15 @@ func _update_clock_label() -> void:
 ## and then, let customers chat to each other). Each starts a task that runs (with awaits)
 ## until it's done. (Carrying food over doesn't need the voice: see _carry_dish.)
 func _next_task() -> void:
+	# A card's just happened to someone (a text, a call, the ex walking past): they get the next
+	# turn, before a greeting or a chat (19 Nov: 0 of 5 texts taken up; a newcomer arrived, and by
+	# the time the owner turned back, the moment had gone).
+	var struck := _struck_by_card()
+	if struck != null:
+		struck.card_turn = true
+		_stats.record_card_turn()
+		_talk(struck)
+		return
 	if _can_greet():
 		_greet()
 		return
@@ -1890,6 +1900,15 @@ func _left_alone_longest() -> Guest:
 		if not guest.time_up() and (best == null or _neediness(guest) < _neediness(best)):
 			best = guest
 	return best
+
+
+## Someone a card's just happened to who hasn't had the owner's turn for it yet, and isn't in a
+## chat (a chat gives it them itself), or null.
+func _struck_by_card() -> Guest:
+	for guest in _guests:
+		if guest.plant_moment != "" and not guest.card_turn and not guest.time_up() and _chat_of(guest) == null:
+			return guest
+	return null
 
 
 ## How far ahead of everyone else someone a card's just happened to is, for the owner's next
@@ -4043,6 +4062,7 @@ func _plant_on(guest: Variant, card: String, moment: String, what: String) -> vo
 	guest.plant_moment = moment
 	guest.plant_card = card
 	guest.plant_happened = what
+	guest.card_turn = false
 	_plant_in(guest.transcript, guest)
 
 
@@ -4199,9 +4219,22 @@ func _validate_line(data: Variant, speaker: String, alias: String, items: Array,
 		problem = Talk.served_already(str(data["line"]), items, _kitchen_part.all_coming())
 	if problem == "" and not _ai.offline:  # (offline, the pre-written lines repeat by design)
 		var worn := _stats.worn_out_in(str(data["line"]), names)
+		if worn != "" and _worn_strikes >= WORN_STRIKES:  # (asked twice already: better said again than the chat given up)
+			print("Worn out: «%s» let through after %d tries" % [worn, _worn_strikes])
+			_stats.worn_let_through += 1
+			worn = ""
 		if worn != "":
+			_worn_strikes += 1
 			problem = "the line says «%s», and that's been said a lot tonight already: say it another way" % worn
+	if problem == "":
+		_worn_strikes = 0
 	return problem
+
+
+## A line sent back this many times for a phrase said too often lets it through the next time
+## (19 Nov: three chats fizzled out in ten nights, the AI saying «a long night» three times over).
+const WORN_STRIKES := 2
+var _worn_strikes := 0
 
 
 func _validate_cat_name(data: Variant, taken: Array) -> String:
