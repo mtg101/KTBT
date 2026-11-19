@@ -2651,8 +2651,13 @@ func test_two_people_come_in_together_sit_together_talk_and_settle_the_bill() ->
 	var both: int = Orders.bill(a.order) + Orders.bill(b.order)
 	var first: int = scene._bill_for(a)
 	var second: int = scene._bill_for(b)
-	assert_int(first + second).is_equal(both)
+	assert_int(first + second).is_equal(both)  # (whoever loses the fight: 19 Nov, on GitHub, the loser was the second to go, and paid the first one's twice)
 	assert_bool(first == 0 or second == 0).is_true()
+	for loser in 2:  # (both ways round, whoever goes first)
+		var group := {"kind": "couple", "pay": "fight", "names": [str(a.customer["name"]), str(b.customer["name"])], "settled": true, "payer": str([a, b][loser].customer["name"])}
+		a.together = group
+		b.together = group
+		assert_int(scene._bill_for(a) + scene._bill_for(b)).override_failure_message("%s paid" % group["payer"]).is_equal(both)
 	assert_str(_transcript(runner)).contains("The bill fight! Kawi, bawi, bo")
 	assert_int(int(scene._stats.groups.get("paid_fight", 0))).is_equal(1)
 	assert_int(int(scene._stats.captions.get("bill_fight", 0))).is_equal(1)

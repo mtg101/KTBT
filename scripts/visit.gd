@@ -1982,11 +1982,13 @@ func _bill_for(guest: Guest) -> int:
 		print("Together: %s and %s's bill: %s, %s pays" % [names[0], names[-1], group["pay"], names[payer]])
 	if other != null:
 		other.stay_left = minf(other.stay_left, 0.0)  # (they go together)
-	if str(group["payer"]) == str(guest.customer["name"]):  # (theirs, and the other's: still here, or carried from when they went)
+	if str(group["payer"]) == str(guest.customer["name"]):  # (theirs, and the other's: carried from when they went, or still to come)
 		group["payer_paid"] = true
-		return own + int(group.get("carried", 0)) + (Orders.bill(other.order) if other != null else 0)
+		var theirs := 0 if other == null or bool(group.get("carried_for", false)) else Orders.bill(other.order)
+		return own + int(group.get("carried", 0)) + theirs
 	if not bool(group.get("payer_paid", false)):
 		group["carried"] = int(group.get("carried", 0)) + own  # (the payer pays it as they go)
+		group["carried_for"] = true  # (19 Nov, on GitHub: counted again while they were still at the counter)
 	return 0
 
 
