@@ -6,11 +6,9 @@ Only what's left goes here. When a stage is finished, it moves out of this file 
 
 ## Stages
 
-- **Customers coming in together, the rest (next):** pairs are built (DEVLOG, 19 Nov); see **Customers coming in together** below for what's left.
-- **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
-  1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
-  2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
-- **Sound and music:** today's sound and music are placeholders made in code (the ambience and Arirang): see **Ambience** in the later ideas.
+- done basic 'customers coming in together'... not sure what's next?
+  - I think we have all the basics... and everything else is improvements?
+  - let's think on it...
 
 ## Later ideas (not committed)
 
@@ -25,7 +23,7 @@ Grouped by type. Within each group, roughly in order of importance.
       - **Mature** (the default: 15+ stronger language and heavier themes, handled with care). The setting goes into the style guide for every prompt, and the game also checks lines against it and rejects ones that cross it, the same way it rejects wrong titles. 
       - **Adult** (18+ for adults) can go further: adult themes, sex and crude humour between grown-ups who want it. 
     - Outside Adult, nothing sexual beyond a kiss implied off-screen. Some limits apply at every setting
-    - Adult included: **teasing is never cover for harassment** (see CONCEPT.md, "Cheeky, not 'bants'"), no hateful slurs, no real-world politics, and themes like self-harm are never described or encouraged: if they come up, the owner responds with care. Matters more now customers chat to each other late at night (flirting and dark turns), and most of all once players can type to customers.
+    - Adult included: **teasing is never cover for harassment** (see CONCEPT.md, Korean TV can be quite direct in the teasing, but let's keep it civil - "Cheeky, not 'bants' or worse")
 - **Speed and waiting:** each visit is 10+ AI calls, so prepare ahead instead of waiting. Still to do:
   - **Warm the model up at the title screen:** Ollama unloads the model after it's been idle (`keep_alive`, 30 minutes), and the first reply after that can take up to a minute while it loads back into the GPU: on the loading screen, it looks stuck. The title screen could send a tiny request as it opens, so the model's ready by the time a bar's picked.
   - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes on average, and customer chats got 8–21% of lines), because one AI request runs at a time. Customer chats could run on a second voice alongside the owner's conversations: two requests at once. Ollama can serve two together (`OLLAMA_NUM_PARALLEL`), but on one GPU each is slower, so measure it on the desktop and the laptop before relying on it; the game would need two AI objects, and chats that never wait for the owner's. Steps:
@@ -56,6 +54,9 @@ Grouped by type. Within each group, roughly in order of importance.
   - occasions hanging off the date (`rules/seasons.gd`): 
     - Korean occasions (Seollal, Chuseok, Christmas, 11/11, etc) Game facts that shape who turns up, what they order and what they talk about.
     - whenever events are mentioned, check they are culturally correct and on/references wht correct dates
+- **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
+  1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
+  2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
 - **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken gets a situation to make the 2am call to an ex (술김에?! on TV), and once customers come in together, the piggyback home. Alongside **Content boundaries**, since it's drunkenness played for drama.
 - **Cliffhangers the night can answer, more often:** the first two nights' recaps both ended on a question nothing in a night can answer ("other"). Watch a few more nights in the stats' HIGHLIGHTS and THE STORY; if it stays that way, steer the recap prompt toward the kinds on the list.
 - **Cliffhangers about what's said (a stage of its own):** the teasers about what someone says or does: "will she finally confess?", "will he quit?", "is the secret out?". Those need the AI to judge, after a conversation, whether it was answered (like the TV reaction check), with a check and tests for each kind.
@@ -65,8 +66,7 @@ Grouped by type. Within each group, roughly in order of importance.
 - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…), shaping how they talk: a Busan customer with the blunt, warm Gyeongsang satoori (dialect) K-dramas love, written as a flavour in fluent English (the odd "mwo-kko?"-style word, a gruffer rhythm) rather than broken English. Ties into the things that stick ("from Busan").
 - **Customers coming in together (next: see Stages):** pairs come in together now (a couple, colleagues escaping a hoesik, old school friends, a sunbae and their hoobae, two close regulars), sit side by side, talk to each other first, leave together and settle the bill (one for both, a bill fight with kawi-bawi-bo, or split). Still to do:
   - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools, or squeezing in; who pays (the bill fight with three).
-  - **Ordering for both:** one orders for the pair ("two somaek and the pajeon to share"), and the sharing moments (pouring for each other, ssam) made for them.
-  - **Arriving as one:** today the second is greeted after the first has ordered (one AI call later), so they walk in a moment apart; invent both before they duck in, so they come in side by side.
+  - **Greeted and ordering together, sometimes:** today the owner takes each one's order in turn. Now and then, the owner greets them as a pair (one welcome for both: "two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding which; and the sharing moments (pouring for each other, ssam) made for them.
   - **The story:** a pair as a fact in the diary and "Previously on…" (who came in with whom), and a new pair who both become regulars coming back together (their bond says so already).
   - **Speaking for the right person:** in a three- or four-way chat, small models are more likely to write a line for someone else, or a whole exchange. The checks that strip "Name:" and cut off second lines should know every name in the chat.
   - **The piggyback home:** with **Drinking too much**, one carrying the other out.

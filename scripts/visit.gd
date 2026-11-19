@@ -175,6 +175,7 @@ class Guest:
 	var turned_away := false  # turned away to drink in front of an elder (once a night)
 	var card_turn := false  # the owner's already turned to them for the card that's just happened to them
 	var heard_from_stove := false
+	var regular := {}  # their regular's record, if they are one (as they came in)
 	var together := {}  # came in with someone (Groups): {"kind", "pay", "names", "seated", "settled", "payer"}, the same for both
 	var thread_moment := ""  # something they mentioned last time, for the owner to ask about (once)  # told the owner's talking to them from the stove (once, till they come over)
 	var next_gesture := -1.0  # seconds until they next raise their glass or take a mouthful (-1: not counting yet)
@@ -1931,10 +1932,7 @@ func _seats_for_next() -> int:
 # --- Coming in together ------------------------------------------------------------------
 
 ## Who the second of a pair came in with, for inventing them: {"kind", "name", "gender", "age_range"}.
-func _with_whom(group: Dictionary) -> Dictionary:
-	var first_one := _guest_named(str(group["names"][0])) if not group["names"].is_empty() else null
-	if first_one == null:
-		return {"kind": str(group["kind"]), "name": "someone", "gender": "", "age_range": "30s"}
+func _with_whom(group: Dictionary, first_one: Guest) -> Dictionary:
 	return {"kind": str(group["kind"]), "name": str(first_one.customer["name"]), "gender": str(first_one.customer.get("gender", "")),
 		"age_range": str(first_one.customer.get("look", {}).get("age_range", "30s"))}
 
@@ -2035,16 +2033,14 @@ const SAVED_DISH := "odeng"  # ...the last of the odeng, from the pot
 
 ## A stool for someone coming in: a regular takes one next to a friend at the counter if they
 ## can (the closest friend first), anyone else any free one.
-func _seat_for(regular: Dictionary, group: Dictionary = {}) -> int:
+func _seat_for(regular: Dictionary, group: Dictionary = {}, with: Guest = null) -> int:
 	var free := _free_seats()
-	if not group.is_empty() and not group["names"].is_empty():  # (the second of a pair: next to the first, if there's room)
-		var first_one := _guest_named(str(group["names"][0]))
-		if first_one != null:
-			for seat in [first_one.seat + 1, first_one.seat - 1]:
-				if free.has(seat):
-					return seat
+	if with != null:  # (the second of a pair: next to the first, if there's room)
+		for seat in [with.seat + 1, with.seat - 1]:
+			if free.has(seat):
+				return seat
 		return free.pick_random()
-	if not group.is_empty():  # (the first: a stool with a free one beside it)
+	if not group.is_empty():  # (the first of a pair: a stool with a free one beside it)
 		var pairs: Array = free.filter(func(s): return free.has(s + 1) or free.has(s - 1))
 		if not pairs.is_empty():
 			return pairs.pick_random()
@@ -2345,34 +2341,80 @@ func _greet() -> void:
 	var turned_up: float = _waiting.pop_front()
 	var regular := _regular(str(_waiting_who.pop_front()) if not _waiting_who.is_empty() else "")
 	var group: Dictionary = _waiting_group.pop_front() if not _waiting_group.is_empty() else {}
-	var second: bool = not group.is_empty() and int(group.get("called", 0)) > 0 and not group["names"].is_empty()  # (the second of two who came in together)
+	# Two who came in together: the other one's off the queue too, invented before either walks
+	# in, so they come in side by side and sit down together (19 Nov: the second came in a whole
+	# order later, and was easy to miss).
+	var other_regular := {}
+	var pair := false
 	if not group.is_empty():
-		group["called"] = int(group.get("called", 0)) + 1
-	if not regular.is_empty() and _regular_in(str(regular["id"]), false):  # (19 Nov: Lee Ho-jin got talking to Lee Ho-jin)
-		print("Regulars: %s's already at the counter: someone new instead" % str(regular["id"]))
-		regular = {}
+		group["called"] = 2
+		for i in _waiting_group.size():
+			if _waiting_group[i] == group:
+				other_regular = _regular(str(_waiting_who[i]))
+				_waiting.remove_at(i)
+				_waiting_who.remove_at(i)
+				_waiting_group.remove_at(i)
+				pair = true
+				break
 	_greeting = true
 	_greeting_regular = str(regular.get("id", ""))
 	_stats.greet_waits.append(_clock - turned_up)  # how long they waited for the owner
+	_show("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
+	var first := await _comes_in(regular, group if pair else {}, null)
+	if first == null:
+		return
+	var second: Guest = null
+	if pair:
+		second = await _comes_in(other_regular, group, first)
+		if _closed():
+			return
+	var from_x := _random_offscreen_x()
+	_sits_down(first, from_x, null)
+	if second != null:
+		_sits_down(second, from_x + (-PERSON_WIDTH if from_x > SEAT_X[first.seat] else PERSON_WIDTH) * 0.8, first)  # (a step behind, the same way)
+		_narrate("%s and %s: %s." % [first.customer["name"], second.customer["name"], Groups.info(str(group["kind"]))["text"]])
+	elif not group.is_empty():
+		group["names"] = [str(first.customer["name"])]  # (the other never came in after all)
+	_greeting = false
+	_greeting_regular = ""
+	_attend(first, false)
+	await _takes_order(first, turned_up)
+	if second != null and not _closed() and _guests.has(second):
+		await _takes_order(second, turned_up)
+	if _closed():
+		return
+	# On a quiet night, a first word with the owner straight away. When it's busy, that
+	# waits until the owner has a moment.
+	if not first.quick_greeting and _guests.has(first):
+		await _converse(first, 1, false)
+	_task_done()
+
+
+## Someone at the tarp, before they sit down: a regular (known, not reinvented) or someone new
+## (the AI invents them; with: the one they came in with, for the second of a pair). Their
+## Guest, not yet seated (null if nobody came in after all, or the bar closed: the greeting's
+## finished either way).
+func _comes_in(regular: Dictionary, group: Dictionary, with: Guest) -> Guest:
+	if not regular.is_empty() and _regular_in(str(regular["id"]), false):  # (19 Nov: Lee Ho-jin got talking to Lee Ho-jin)
+		print("Regulars: %s's already at the counter: someone new instead" % str(regular["id"]))
+		regular = {}
 	var guest := Guest.new()
 	guest.quick_greeting = People.quick_greeting(_waiting.size(), _guests.size()) or not group.is_empty()  # (a pair: both seen to quickly, then they talk to each other)
 	guest.together = group
-	guest.seat = _seat_for(regular, group)
 	guest.arrived = NightRules.clock_text(int(_clock))
 	guest.arrived_minutes = int(_clock)
 	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather, "date": _date_words()}
-	_show("\n[center][color=#%s]· · ·[/color][/center]\n\n" % MUTED.to_html(false))
 	var customer := {}
 	var look := {}
 	if not regular.is_empty():
 		# A regular: they're known, so not reinvented.
-		if group.is_empty() or not second:
+		if with == null:
 			_narrate("%s. %s" % [guest.arrived, _back_text(regular)])
 		else:
 			_narrate("%s comes in with them." % regular["name"])
 		customer = await _regular_tonight(regular, guest)
 		if _closed():  # (the bar closed while it was waiting)
-			return
+			return null
 		look = customer["look"]
 		if str(regular.get("id", "")) == _planted_regular:  # (the PD rang them: they know why they're here)
 			guest.plant_moment = Plants.moment("regular_in", str(regular["name"]), "", "", str(regular.get("gender", "")))
@@ -2383,20 +2425,37 @@ func _greet() -> void:
 	else:
 		if group.is_empty():
 			_narrate("%s. Someone ducks under the tarp." % guest.arrived)
-		elif not second:
+		elif with == null:
 			_narrate("%s. Two people duck under the tarp together." % guest.arrived)
 		customer = _take_prepared() if group.is_empty() else {}  # (one invented ahead didn't come with anyone)
 		if customer.is_empty():
-			customer = await _new_customer(guest.arrived, false, _with_whom(group) if second else {})
+			customer = await _new_customer(guest.arrived, false, _with_whom(group, with) if with != null else {})
 			if _closed():  # (the bar closed while it was waiting)
-				return
+				return null
 		look = customer.get("look", {})
 	if customer.is_empty():
-		_narrate("Nobody came in after all. (%s)" % _ai.last_error)
-		_greeting = false
-		_greeting_regular = ""
-		_task_done()
-		return
+		if with == null:
+			_narrate("Nobody came in after all. (%s)" % _ai.last_error)
+			_greeting = false
+			_greeting_regular = ""
+			_task_done()
+		else:
+			_narrate("(%s's friend changes their mind at the tarp: %s.)" % [with.customer["name"], _ai.last_error])
+		return null
+	customer["look"] = look
+	guest.customer = customer
+	guest.regular = regular
+	return guest
+
+
+## Someone sits down: their stool (the second of a pair next to the first), how long they'll
+## stay (a pair leaves together), drawn walking in from from_x, and everyone told.
+func _sits_down(guest: Guest, from_x: float, with: Guest) -> void:
+	var customer := guest.customer
+	var look: Dictionary = customer.get("look", {})
+	var regular := guest.regular
+	var group := guest.together
+	guest.seat = _seat_for(regular, group, with)
 	_names_tonight.append(str(customer["name"]))
 	if not group.is_empty():
 		group["names"].append(str(customer["name"]))
@@ -2404,31 +2463,25 @@ func _greet() -> void:
 	if not _jobs_tonight.has(str(customer["job"])):
 		_jobs_tonight.append(str(customer["job"]))
 	_looks_tonight.append(str(customer["appearance"]))
-
 	# The game decides their mood for company and how long they'll stay.
 	guest.company = Hooks.company_override if Hooks.company_override != "" else People.company(randf())
 	customer["company"] = guest.company
 	var stay := Hooks.stay_minutes_override if Hooks.stay_minutes_override >= 0 else People.stay_minutes(guest.company, randf())
 	guest.stay_left = 0.0 if _last_orders else float(stay)
-	if second:
-		var first_one := _guest_named(str(group["names"][0]))
-		if first_one != null:
-			guest.stay_left = first_one.stay_left  # (they'll leave together)
-	guest.customer = customer
-	if second:
-		_came_in_together(guest, group)
+	if with != null:
+		guest.stay_left = with.stay_left  # (they'll leave together)
 	guest.color = _free_color()
 	guest.drinks_row = _drinks_rows[guest.seat]
 	guest.food_row = _food_rows[guest.seat]
-	guest.node = _people_view.new_person(_stage, Vector2(_random_offscreen_x(), CUSTOMER_Y), guest.color)
+	guest.node = _people_view.new_person(_stage, Vector2(from_x, CUSTOMER_Y), guest.color)
 	guest.node.name = "Customer%d" % guest.seat
 	_people_view.dress(guest.node, look)
 	(guest.node.get_node("Tag") as Label).text = _name_label(customer)
 	_guests.append(guest)
+	if with != null:
+		_came_in_together(guest, group)
 	_refresh_tags()
 	_ambience.play("scrape", 1.0, 1.0)  # pulling up a stool
-	_greeting = false
-	_greeting_regular = ""
 	_update_info()
 	var friends_in: Array = _guests.filter(func(g): return g != guest and not regular.is_empty() and not _friend(guest, g).is_empty())
 	var sat := {"name": str(customer["name"]), "gender": str(customer.get("gender", "")), "job": str(customer.get("job", "")),
@@ -2437,7 +2490,7 @@ func _greet() -> void:
 		"regular": "" if regular.is_empty() else ("founding" if bool(regular.get("founding", false)) else "regular"),
 		"friend": str(friends_in[0].customer["name"]) if not friends_in.is_empty() else "",
 		"visit": int(regular.get("visits", 0)) + 1, "years": str(regular.get("since", "")),
-		"together": str(group["kind"]) if second else "", "with": str(group["names"][0]) if second else ""}
+		"together": str(group["kind"]) if with != null else "", "with": str(with.customer["name"]) if with != null else ""}
 	# (The rush is about the tent, not them: its caption goes in the middle.)
 	var at_stool := Vector2(SEAT_X[guest.seat], CUSTOMER_Y - 60)  # (they're still walking to it)
 	var rushing: bool = regular.is_empty() and not _rush_shown and _guests.size() >= Captions.RUSH_SEATED
@@ -2446,13 +2499,16 @@ func _greet() -> void:
 	_waved_over(guest)
 	if regular.is_empty():  # a regular's look is known by now
 		_narrate(Text.as_sentence(str(customer["appearance"])))
-	if second:
-		_narrate("%s and %s: %s." % [group["names"][0], customer["name"], Groups.info(str(group["kind"]))["text"]])
-	_attend(guest, false)
 	_walk_in(guest)  # the owner doesn't wait for them to sit down: the AI's already on their order
 
-	# 2. They say hello and order in one line, so what they say matches what they get.
-	# The game decides who's extra hungry (two mains) or having a rough night (two drinks).
+
+## They say hello and order in one line, so what they say matches what they get, and it's
+## served. The game decides who's extra hungry (two mains) or having a rough night (two drinks),
+## and whether (and when) they'll order more later.
+func _takes_order(guest: Guest, turned_up: float) -> void:
+	var customer := guest.customer
+	var regular := guest.regular
+	_attend(guest, false)
 	_typing_label.text = "%s is looking at the menu..." % customer["name"]
 	var hungry := randf() < HUNGRY_CHANCE
 	var rough_night := randf() < ROUGH_NIGHT_CHANCE
@@ -2484,17 +2540,11 @@ func _greet() -> void:
 	_saved_for_them(guest)
 	_stats.serve_waits.append(_clock - turned_up)
 	_event("greeted", {"name": str(guest.customer["name"]), "quick": guest.quick_greeting}, _owner_node)
-
-	# 3. Will they order more partway through? The game decides how often (often not,
-	# sometimes once, rarely twice) and on which of their turns, spaced out by the rules.
-	# If they leave before a turn comes round, that order never happens.
+	# Will they order more partway through? The game decides how often (often not, sometimes
+	# once, rarely twice) and on which of their turns, spaced out by the rules. If they leave
+	# before a turn comes round, that order never happens.
 	var extra_count := Orders.extra_order_count(randf())
 	guest.extra_turns = Orders.extra_order_turns(randi_range(3, 5) + extra_count, extra_count)
-	# 4. On a quiet night, a first word with the owner straight away. When it's busy, that
-	# waits until the owner has a moment.
-	if not guest.quick_greeting:
-		await _converse(guest, 1, false)
-	_task_done()
 
 
 ## Someone new: the AI invents them, in two steps (name and gender, then the rest), to fit the

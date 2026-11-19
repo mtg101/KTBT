@@ -370,6 +370,7 @@ func test_customers_say_goodbye_and_leave_when_their_time_is_up() -> void:
 
 func test_customers_chat_to_each_other() -> void:
 	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false  # (19 Nov: the cat going out cut in, and the chat never came)
 	Hooks.company_override = "chatty"
 	Hooks.chat_chance_override = 1.0
 	var runner := await _open_bar()
@@ -2627,7 +2628,9 @@ func test_two_people_come_in_together_sit_together_talk_and_settle_the_bill() ->
 	var scene = runner.scene()
 	scene._arrive_together(scene._clock, "couple")
 	assert_int(scene._seats_for_next()).is_equal(2)  # (they wait for two stools)
-	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and not scene._greeting)).override_failure_message("they never both sat down").is_true()
+	assert_bool(await _wait_until(func(): return scene._guests.size() >= 1)).override_failure_message("nobody sat down").is_true()
+	assert_int(scene._guests.size()).is_equal(2)  # (both at once: they walk in side by side, 19 Nov)
+	assert_bool(await _wait_until(func(): return not scene._greeting)).is_true()
 	var a = scene._guests[0]
 	var b = scene._guests[1]
 	assert_int(absi(int(a.seat) - int(b.seat))).is_equal(1)  # side by side
