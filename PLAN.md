@@ -6,7 +6,20 @@ Every list item is a **bold label**, a colon, then the details.
 
 ## Next stages
 
-- **To decide:** the basics are in (the latest, pairs coming in together); everything below is an improvement. The strongest candidate is **A reason to play** (under An actual game): the game has no goal yet.
+- **Seasons and the platform ladder (next):** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
+  - **Where it starts:** a new bar's first episodes are filmed by the owner's niece or nephew (a game fact: who they are, their name, their gender), on a good phone with a live video production app. They're the PD: the player has every PD tool from the first night (cards, the camera, pins, spins, the edit suite). When the show moves up, they go with it (a junior PD at the channel, then the show's PD).
+  - **The ladder, five rungs**, each named for its platform (no time slots: the nights are sped up anyway, and the episode's edited down), with its own units and targets, from one score worked out as now (`ratings.gd`); moving up or down is announced in plain words ("your show's been picked up by a bigger channel!"). No real platform, channel or show is ever named:
+    1. **A phone stream:** the niece or nephew's uploads, on a short-video app: views and likes. The floor: the show can't go lower, so it's never off air.
+    2. **A video channel:** views and new subscribers.
+    3. **A small pay-TV channel:** today's show: 시청률 of a few percent. (Most Korean homes get pay TV through IPTV now, rather than cable, but channels like this are still called cable channels.)
+    4. **A big entertainment channel:** the tier of the biggest pay-TV channels and the general-entertainment channels (종편), home of shows like Chef & My Fridge or Knowing Bros: higher targets.
+    5. **A network:** the big over-the-air channels: the top, 15% good, 20%+ legend.
+  - **Named channels:** every booking is with a channel that has a name: the AI invents it (the game decides the rung; the AI the name, in Hangul and English, with its meaning on hover), checked against real ones (no KBS, MBC, SBS, EBS, tvN, JTBC, Mnet, TV Chosun, Channel A, MBN, ENA, nor any real app or video site) and against the bar's earlier channels. The phone stream's is the niece or nephew's own handle. Each season's announced with it ("You've been booked for a season on 달빛TV, Moonlight TV!"); staying up means renewed by the same channel, moving to another rung means a new one ("Moonlight TV didn't renew, but Hanbit Plus has picked the show up"). The bar keeps its channel history (which channel, which seasons, how they went) for the diary, "Previously on…" and the title screen. Offline, the canned names do.
+  - **Rungs change the numbers, not the tools:** the units, the targets, how the climb is announced, and small touches of flavour (the stream's view count in the top bar, the channel on the loading screen). Not the PD's means: the player can do everything from the start. (Korean TV's effects are phone-app level these days anyway.)
+  - **Seasons:** about 8 episodes (perhaps 6 on the lower rungs); the last is a finale, with a season recap built from the pins; then the verdict against the rung's targets (the season's average, with a bonus for a record night or a hit): up a rung, stay, or down one (perhaps only after two bad seasons, so luck doesn't decide it). Never below the phone stream.
+  - **Making the PD's part felt:** for climbing to feel earned, the player needs to see what their choices did: at 3am, what each card, camera follow, pin and spin added to the episode.
+  - **Later on the ladder:** notes from above each episode from the video channel up ("more romance this week": a bonus if it lands, nothing lost if not); a year-end awards night from the general-entertainment channel up (the network's 연예대상 at the top), regulars up for "best couple" or "rookie of the year".
+  - **Build in order:** seasons on today's rung (a season of 8, the finale recap, the verdict); then the ladder as numbers (the rungs, their units, targets and slots, starting on the phone stream, moving up and down, older bars placed on cable); then the PD's part made visible at 3am; then notes from above and the awards.
 
 ## Future ideas and improvements
 
@@ -41,9 +54,7 @@ Every list item is a **bold label**, a colon, then the details.
 
 ### An actual game or experience
 
-- **A reason to play:** the ratings are the score (takings aren't kept), but nothing's at stake yet: they change nothing. Something small first: a season of ten episodes where the ratings decide renewal, with a finale
 - **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
-- **ratings, seasons & platforms (never losing):** There are different levels of platforms: from basic sharing on social media, through monetized video platforms, into broadcast tv and even up to prime time. If you do well in a season ratins you move up, if you do badly you move down. But ou can always keep going on the lowest level, never being taken off air, and never losing your story and regulars. 
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
 - **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own bar; and settings like time speed and weather.
 
