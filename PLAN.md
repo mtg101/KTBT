@@ -12,7 +12,7 @@ Every list item follows the same pattern: a **bold label**, a colon, then the de
 - **The game, as the PD (next steps):** the player is the show's PD, shaping an episode around a night that runs itself (how it works now: CONCEPT.md, "The player is the show's PD" and "The PD's cards"). Still to build, in order:
   1. **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face from it, someone playing up to it, a regular asking whether they'll be in this week's episode, a confession "off the record" that isn't. Not every night: it's still mostly a tent bar.
   2. **More cards:** the owner's past walks in (near their secret, so it fits their fixed life) and the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); the PD choosing a card's variant, or typing their own ("they worked out they ___"); rare cards (and from there, the roguelike PD); and from the logs, cards that never land reworded or dropped. Later, cards players write (see **Players writing plant cards**).
-- **Bad visits and customers coming in together:** a rough visit now and then (see **Every visit goes well**, under Richer play) and groups with the bill fight (see **Customers coming in together**).
+- **Customers coming in together:** a rough visit now and then (see **Every visit goes well**, under Richer play) and groups with the bill fight (see **Customers coming in together**).
 
 ## Later ideas (not committed)
 
