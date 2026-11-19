@@ -453,3 +453,13 @@ func test_a_menu_id_written_another_way_is_still_found() -> void:
 	assert_str(Catalogue.loose_id("Gyeran Mari")).is_equal("gyeran_mari")
 	assert_str(Catalogue.loose_id("sunda")).is_empty()  # (not a dish: still turned down)
 	assert_str(Text.problem_kind("\"sunda\" isn't in the catalogue: use the ids as listed")).is_equal("menu ids")  # (not "the cat")
+
+
+func test_calling_the_owner_imo_isnt_ordering_imo_jeyuk() -> void:
+	# 19 Nov: a bar's signature "Imo Jeyuk" made every "Imo, ..." a mention of it (18 to 42 lines a night sent back).
+	assert_bool(Orders.is_term_of_address("imo")).is_true()
+	assert_bool(Orders.is_term_of_address("jeyuk")).is_false()
+	Menu.use([Menu.find("soju"), {"id": "imo_jeyuk", "name": "Imo Jeyuk", "desc": "spicy pork, the owner's way", "price": 15000, "kind": "food", "portion": "main", "color": "c0392b"}])
+	assert_str(Orders.unordered_mention("Imo, another bottle of soju please!", ["soju"])).is_empty()
+	assert_str(Orders.unordered_mention("Is the Imo Jeyuk good tonight?", ["soju"])).is_equal("Imo Jeyuk")
+	Menu.use([])

@@ -187,7 +187,7 @@ static func remember(bar: Dictionary, regular: Dictionary, night: int, memory: D
 	if not thread.is_empty() and str(memory.get("followed_up", "")) != "" and Memories.says_how_it_went(str(memory["followed_up"]), str(thread["text"])):
 		Memories.close_thread(thread, str(memory["followed_up"]), night)
 		changed["thread_closed"] = true
-	if str(memory.get("coming_up", "")) != "":
+	if Memories.is_a_thread(str(memory.get("coming_up", ""))):
 		Memories.add_thread(regular, str(memory["coming_up"]), night)
 		changed["thread_opened"] = true
 	return changed
@@ -249,7 +249,7 @@ static func remember_pair(bar: Dictionary, pair: Dictionary, night: int, memory:
 		if fact != "" and Memories.learn_fact(person, kind, fact, night, Memories.who_heard(fact, heard)):
 			changed["facts"].append([person, kind])
 		var coming := str(memory.get(side[0] + "_coming_up", ""))
-		if coming != "":
+		if Memories.is_a_thread(coming):
 			Memories.add_thread(person, coming, night, Memories.who_heard(coming, heard))
 			changed["threads"].append([person, coming])
 	return changed

@@ -237,10 +237,29 @@ const THREAD_STALE := 21  # nights: too long ago to ask about
 const THREAD_ASKS := 2  # visits the owner's had it on their mind without hearing how it went
 
 
+## What makes something a thread: an event that's coming up (an interview, a wedding, an exam,
+## moving house) or a when (tomorrow, Monday, next week). Not something over, or still going on,
+## or tonight's (19 Nov: "friend's stories to share", "heading home to think about her troubles",
+## "daughter's exams are over", "still looking for a new job").
+const THREAD_EVENTS := ["interview", "date", "wedding", "exam", "exams", "test", "trip", "moving", "move", "appointment", "check", "surgery", "operation",
+	"hospital", "birthday", "audition", "deadline", "presentation", "match", "concert", "results", "funeral", "graduation", "holiday", "visit", "flight",
+	"launch", "opening", "competition", "tournament", "recital", "hearing", "scan", "meeting", "party", "anniversary", "week", "off", "start", "starts", "starting", "leaving", "trial"]
+const THREAD_WHEN := ["tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "weekend", "next", "soon", "month", "coming", "upcoming"]
+const THREAD_NOT := ["over", "finished", "done", "still", "went", "ongoing", "tonight", "home", "already", "used"]
+
+
+## Whether something's a thread worth asking about next time (see THREAD_EVENTS).
+static func is_a_thread(text: String) -> bool:
+	var said := Array(Text.words(text))
+	if said.is_empty() or THREAD_NOT.any(func(w): return said.has(w)):
+		return false
+	return said.any(func(w): return THREAD_EVENTS.has(w) or THREAD_WHEN.has(w))
+
+
 ## Something coming up they mentioned (an interview, a date, moving house), for the owner to ask
-## about next time.
+## about next time. Only if it is one (is_a_thread).
 static func add_thread(regular: Dictionary, text: String, night: int, heard_by: Array = ["owner"]) -> void:
-	if text == "":
+	if text == "" or not is_a_thread(text):
 		return
 	var threads: Array = regular.get("threads", [])
 	threads.append({"text": text, "night": night, "asked": 0, "open": true, "outcome": "", "heard_by": heard_by.duplicate()})

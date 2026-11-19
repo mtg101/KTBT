@@ -64,7 +64,7 @@ func test_threads_for_next_time() -> void:
 	assert_str(str(Memories.open_thread(regular)["text"])).is_equal("moving house")
 	assert_int(Memories.drop_stale(regular, 8 + Memories.THREAD_STALE + 1)).is_equal(1)
 	for i in 6:
-		Memories.add_thread(regular, "thing %d" % i, 40 + i)
+		Memories.add_thread(regular, "a trip, number %d" % i, 40 + i)
 	assert_int(regular["threads"].size()).is_equal(Memories.THREADS_KEPT)
 
 
@@ -117,3 +117,14 @@ func test_two_regulars_closing_memory_is_checked() -> void:
 	Memories.add_thread(regular, "her sister's wedding", 3, ["da-eun"])
 	assert_dict(Memories.open_thread(regular)).is_empty()
 	assert_str(str(Memories.open_thread(regular, "da-eun")["text"])).is_equal("her sister's wedding")
+
+
+func test_only_something_coming_up_is_a_thread() -> void:
+	for kept in ["a job interview on Monday", "her sister's wedding next month", "moving house", "a dentist appointment on Friday", "exam tomorrow", "a week off"]:
+		assert_bool(Memories.is_a_thread(kept)).override_failure_message(kept).is_true()
+	# 19 Nov: what the AI offered that isn't.
+	for dropped in ["friend's stories to share", "heading home to think about her troubles", "daughter's exams are over", "still looking for a new job", "research project", ""]:
+		assert_bool(Memories.is_a_thread(dropped)).override_failure_message(dropped).is_false()
+	var regular := {}
+	Memories.add_thread(regular, "research project", 3)
+	assert_bool(regular.has("threads")).is_false()

@@ -44,6 +44,11 @@ func test_how_close_from_what_the_game_knows() -> void:
 	assert_str(Bonds.level_word(owner_bond)).is_equal("acquaintance")
 	owner_bond["warmth"] = 1
 	assert_str(Bonds.level_word(owner_bond)).is_equal("friendly")
+	owner_bond["warmth"] = 5
+	assert_str(Bonds.level_word(owner_bond)).is_equal("friendly")  # (warm, but only met once: 19 Nov, close after two visits)
+	owner_bond["meetings"] = Bonds.OWNER_FRIENDLY
+	assert_str(Bonds.level_word(owner_bond)).is_equal("close")  # (friendly by now, and warm)
+	owner_bond["warmth"] = 0
 	owner_bond["meetings"] = Bonds.OWNER_CLOSE
 	assert_str(Bonds.level_word(owner_bond)).is_equal("close")
 	owner_bond["meetings"] = Bonds.OLD_FRIENDS

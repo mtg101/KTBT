@@ -15,7 +15,8 @@ const OWNER := "owner"  # the owner's id in a bond
 const LEVELS := ["stranger", "acquaintance", "friendly", "close", "old friend"]
 const RECENT_MEMORIES := 3  # visits remembered clearly; older ones blur into one impression
 const MAX_IMPRESSION := 320
-## The owner and a regular: friendly after this many visits, close after this many (or warmth),
+## The owner and a regular: friendly after this many visits, close after this many (or sooner,
+## once friendly, with warmth),
 ## old friends after this many (or a founding regular).
 const OWNER_FRIENDLY := 4
 const OWNER_CLOSE := 6
@@ -131,8 +132,8 @@ static func level(bond: Dictionary) -> int:
 	if str(bond["a"]) == OWNER or str(bond["b"]) == OWNER:
 		if str(bond.get("how", "")) == "founding" or meetings >= OLD_FRIENDS:
 			return 4
-		if meetings >= OWNER_CLOSE or int(bond.get("warmth", 0)) >= OWNER_CLOSE_WARMTH:
-			return 3
+		if meetings >= OWNER_CLOSE or (meetings >= OWNER_FRIENDLY and int(bond.get("warmth", 0)) >= OWNER_CLOSE_WARMTH):
+			return 3  # (19 Nov: warmth alone made 9 regulars close in 10 nights, after two visits each: the AI says "warmer" most visits)
 		return 2 if meetings >= OWNER_FRIENDLY or int(bond.get("warmth", 0)) >= 1 else 1
 	if bool(bond.get("close", false)):
 		return 4 if meetings >= OLD_FRIENDS_CLOSE else 3

@@ -6,6 +6,7 @@ extends RefCounted
 
 const Menu = preload("res://scripts/rules/menu.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Address = preload("res://scripts/rules/address.gd")
 
 
 const MAX_ORDER_ITEMS := 4
@@ -336,6 +337,16 @@ static func with_somaek_parts(items: Array) -> Array:
 const BANCHAN_WORDS := ["kimchi", "radish", "danmuji"]
 
 
+## Whether a word is how people call someone (imo, ajumma, halmeoni...): a dish named after one
+## ("Imo Jeyuk", a bar's signature) isn't mentioned by calling the owner "Imo" (19 Nov: 18 to 42
+## lines a night sent back for it).
+static func is_term_of_address(word: String) -> bool:
+	for term in Address.TERMS.values():
+		if term["spellings"].has(word):
+			return true
+	return ["halmeoni", "halmoni", "grandma", "granny", "mom", "mum", "auntie", "aunty"].has(word)
+
+
 ## Every menu item a line mentions, in order: [{"id", "start"}], where start is the word
 ## position. Looks for the first word of each name (and, with_aliases, every alias and the
 ## menu's description), longest phrases first, so "fried rice" counts as fried rice and not
@@ -345,7 +356,7 @@ static func mentions(line: String, with_aliases: bool) -> Array:
 	var phrases: Array = []
 	for item in Menu.items():
 		var name_words := Text.words(str(item["name"]))
-		if not BANCHAN_WORDS.has(name_words[0]):  # ("kimchi" alone is the free banchan, not Kimchi-jjigae: 18 Nov)
+		if not BANCHAN_WORDS.has(name_words[0]) and not (name_words.size() > 1 and is_term_of_address(name_words[0])):  # ("kimchi" alone is the free banchan, not Kimchi-jjigae: 18 Nov; "Imo" alone is the owner, not Imo Jeyuk: 19 Nov)
 			phrases.append({"id": item["id"], "words": [name_words[0]]})
 		if name_words.size() > 1:  # (the whole name, word by word, and run together as one word: "Dakbokkeumtang")
 			phrases.append({"id": item["id"], "words": Array(name_words)})
