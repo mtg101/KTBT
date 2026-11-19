@@ -110,6 +110,7 @@ static func make_close(bar: Dictionary, a: Variant, b: Variant) -> void:
 	var b_id := str(b.customer.get("regular_id", ""))
 	if a_id != "" and b_id != "":
 		Bonds.between(bar, a_id, b_id)["close"] = true
+		Bonds.between(bar, a_id, b_id)["casual"] = true  # (they've dropped the polite speech too: 말 놓을까요?)
 
 
 ## The term a line actually used for its listener, for the bubble's header ("" if none).

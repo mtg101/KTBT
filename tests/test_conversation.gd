@@ -67,7 +67,7 @@ func test_a_chat_line_is_given_its_moments() -> void:
 	var opening := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", true, speaking, false, false, "", true, [0, 0, false], 0, false, dice)
 	assert_str(str(opening["direction"])).contains("met here before")
 	var asking := Conversation.chat_line(night, chat, "Kang Da-eun", "Choi Hye-rin", false, speaking, false, true, "eonni", false, [0, 0, false], 0, false, dice)
-	assert_str(str(asking["direction"])).contains("can they call them Eonni?")
+	assert_str(str(asking["direction"])).contains("can they call them Eonni, and talk to each other casually")
 	speaking.stunned = "Mwo?!"
 	assert_str(str(Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, false, "", false, [0, 0, false], 0, false, dice)["hint"])).is_equal("stunned")
 	# Late on, a few drinks in: now and then a table game, once a chat.

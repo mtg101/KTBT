@@ -757,6 +757,36 @@ Only what was actually said or happened tonight: nothing invented.""" % [
 	]
 
 
+## Messages asking the AI, at closing, what two regulars who chatted tonight will each remember of
+## the other, one thing each said about their own life, and anything coming up they mentioned.
+## first, second: the regulars (saved: name, age, job, gender); lines: what was said in their
+## chats tonight ({"speaker", "text"}).
+static func pair_memory_messages(first: Dictionary, second: Dictionary, lines: Array) -> Array:
+	var kinds := ", ".join(PackedStringArray(Memories.STICKING.keys().map(func(k): return "\"%s\" (%s)" % [k, Memories.STICKING[k]])))
+	var request := """Two regulars at a pojangmacha chatted at the counter tonight. The first is %s, %s, %s. The second is %s, %s, %s.
+
+What was said in their chats:
+%s
+
+People remember a chat at a bar roughly: the gist, a detail or two, how the other one came across. Not every word.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "first_remembers": what %s will remember about %s from tonight, in a sentence
+- "second_remembers": what %s will remember about %s from tonight, in a sentence
+- "first_fact_kind" and "first_fact": one thing %s said about their own life that would stick, and which kind it is: one of %s; or "" and "" if they said nothing like that
+- "second_fact_kind" and "second_fact": the same for %s
+- "first_coming_up": something coming up for %s that they mentioned (an interview, a date, moving house), in a few words, or ""
+- "second_coming_up": the same for %s
+
+Only what was actually said tonight: nothing invented, and nothing about how they seemed.""" % [
+		first["name"], first.get("age", ""), first.get("job", ""), second["name"], second.get("age", ""), second.get("job", ""),
+		transcript_text(lines), first["name"], second["name"], second["name"], first["name"], first["name"], kinds, second["name"], first["name"], second["name"]]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request.strip_edges()},
+	]
+
+
 ## Where someone stands at this tent, for a chat prompt: a first-timer, a regular, or someone
 ## who's been coming for years (and how well they know the owner).
 static func standing(person: Dictionary, owner: Dictionary) -> String:

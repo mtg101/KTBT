@@ -94,3 +94,26 @@ func test_impressions_the_show_and_the_tents_cat_are_not_facts() -> void:
 func test_how_it_went_has_to_say_something_new() -> void:
 	assert_bool(Memories.says_how_it_went("exam looming", "Exam looming")).is_false()  # (19 Nov: just the thing again)
 	assert_bool(Memories.says_how_it_went("the exam went fine", "an exam on Friday")).is_true()
+
+
+func test_two_regulars_closing_memory_is_checked() -> void:
+	var first_said := "i've just started at the bakery on the corner. my sister's wedding is next month."
+	var second_said := "seems quiet tonight, eh. i walk my dog bori every morning."
+	var data := {"first_remembers": "Second's dog sounds lovely.", "second_remembers": "First just started at a bakery.",
+		"first_fact_kind": "job", "first_fact": "works at the bakery on the corner", "second_fact_kind": "pet", "second_fact": "a dog called Bori",
+		"first_coming_up": "her sister's wedding next month", "second_coming_up": "a trip to Jeju"}
+	assert_str(Memories.validate_pair_memory(data, first_said, second_said)).is_empty()
+	assert_str(str(data["first_fact"])).is_equal("works at the bakery on the corner")
+	assert_str(str(data["second_fact"])).is_equal("a dog called Bori")
+	assert_str(str(data["first_coming_up"])).is_equal("her sister's wedding next month")
+	assert_str(str(data["second_coming_up"])).is_empty()  # (Jeju was never said)
+	var bad := {"first_remembers": "x", "second_remembers": "y", "first_fact_kind": "star sign", "first_fact": "works at the bakery", "second_fact_kind": "other", "second_fact": "seems quiet tonight"}
+	assert_str(Memories.validate_pair_memory(bad, first_said, second_said)).is_empty()
+	assert_str(str(bad["first_fact"])).is_empty()  # (no such kind)
+	assert_str(str(bad["second_fact"])).is_empty()  # (an impression of tonight)
+	assert_str(Memories.validate_pair_memory({"first_remembers": "x"}, "", "")).is_not_empty()
+	# A thread another regular heard about isn't the owner's to ask.
+	var regular := {}
+	Memories.add_thread(regular, "her sister's wedding", 3, ["da-eun"])
+	assert_dict(Memories.open_thread(regular)).is_empty()
+	assert_str(str(Memories.open_thread(regular, "da-eun")["text"])).is_equal("her sister's wedding")

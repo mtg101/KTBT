@@ -230,6 +230,7 @@ var _chats: Array:  # Chat: customer conversations going on at the counter
 	get:
 		return _counter_chats.chats
 var _names_tonight: Array = []
+var _night_chats := {}  # tonight's chats (by the chat): {"names", "lines", "owner_in"}, for regulars remembering each other at closing
 var _jobs_tonight: Array = []  # tonight's customers' jobs and looks, so newcomers are different
 var _looks_tonight: Array = []
 const VARIETY_LOOKS := 5  # how many recent looks the AI is shown
@@ -1146,6 +1147,7 @@ func _start_night() -> void:
 	_count_regulars()
 	_chats.clear()
 	_names_tonight.clear()
+	_night_chats.clear()
 	_jobs_tonight.clear()
 	_looks_tonight.clear()
 	_last_orders = false
@@ -1337,6 +1339,7 @@ func _end_night() -> void:
 	_summary_text.visible = false  # the numbers are behind the Stats button: the diary's the thing
 	_stats_button.button_pressed = false
 	_summary.visible = true
+	await _regulars_remember_each_other()
 	await _write_diary()
 	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
@@ -1883,6 +1886,63 @@ func _can_greet() -> bool:
 	return not _waiting.is_empty() and not _free_seats().is_empty() and not _last_orders and not _closing_early
 
 
+# --- Closeness paying off ---------------------------------------------------------------
+
+const SAVED_FOR_THEM := 0.35  # the chance the owner's kept something back for a close regular
+const SAVED_DISH := "odeng"  # ...the last of the odeng, from the pot
+
+
+## A stool for someone coming in: a regular takes one next to a friend at the counter if they
+## can (the closest friend first), anyone else any free one.
+func _seat_for(regular: Dictionary) -> int:
+	var free := _free_seats()
+	if not regular.is_empty():
+		var friends: Array = _guests.filter(func(g): return str(g.customer.get("regular_id", "")) != "" and Bonds.level(Bonds.find(Game.bar, str(regular["id"]), str(g.customer["regular_id"]))) >= 2)
+		friends.sort_custom(func(x, y): return Bonds.level(Bonds.find(Game.bar, str(regular["id"]), str(x.customer["regular_id"]))) > Bonds.level(Bonds.find(Game.bar, str(regular["id"]), str(y.customer["regular_id"]))))
+		for friend in friends:
+			for seat in [friend.seat - 1, friend.seat + 1]:
+				if free.has(seat):
+					_stats.closeness["sat_by_a_friend"] = int(_stats.closeness.get("sat_by_a_friend", 0)) + 1
+					print("Regulars: %s takes the stool next to %s" % [regular["name"], friend.customer["name"]])
+					return seat
+	return free.pick_random()
+
+
+## A regular coming in to a friend at the counter: the friend waves them over (no words: the
+## game's), and both their conversations know.
+func _waved_over(guest: Guest) -> void:
+	var id := str(guest.customer.get("regular_id", ""))
+	if id == "":
+		return
+	for friend in _guests:
+		var theirs := str(friend.customer.get("regular_id", ""))
+		var bond := Bonds.find(Game.bar, id, theirs)
+		if friend == guest or theirs == "" or Bonds.level(bond) < 2:
+			continue
+		var called := Names.given_name(str(guest.customer["name"])) if Bonds.knows_name(bond, theirs) else "them"
+		_narrate("%s spots %s ducking in and waves %s over." % [friend.customer["name"], guest.customer["name"], called])
+		friend.transcript.append({"action": "%s spots %s coming in and waves them over." % [friend.customer["name"], guest.customer["name"]]})
+		guest.transcript.append({"action": "%s, a friend from the counter, waves you over as you come in." % friend.customer["name"]})
+		_stats.closeness["waved_over"] = int(_stats.closeness.get("waved_over", 0)) + 1
+		return
+
+
+## A close regular's first order: now and then the owner's kept something back for them (the last
+## of the odeng), on the house: on their table, not their bill.
+func _saved_for_them(guest: Guest) -> void:
+	var id := str(guest.customer.get("regular_id", ""))
+	if id == "" or Bonds.level(Bonds.with_owner(Game.bar, id)) < 3 or Menu.find(SAVED_DISH).is_empty() or _scenery_dice.randf() >= SAVED_FOR_THEM:
+		return
+	_add_dish(guest, SAVED_DISH)
+	guest.served.append(SAVED_DISH)
+	guest.version += 1
+	var given := Names.given_name(str(guest.customer["name"]))
+	_narrate("%s slides a skewer of odeng over to %s: the last of the pot, kept back for them. On the house." % [_owner_display(), given])
+	guest.transcript.append({"action": "%s slides you a skewer of odeng, the last of the pot, kept back just for you: on the house." % _owner["name"]})
+	_stats.closeness["saved_for_them"] = int(_stats.closeness.get("saved_for_them", 0)) + 1
+	_event("saved_for_them", {"name": str(guest.customer["name"])}, guest.node)
+
+
 func _free_seats() -> Array:
 	var free := range(NightRules.SEATS)
 	for guest in _guests:
@@ -2140,7 +2200,7 @@ func _greet() -> void:
 	_stats.greet_waits.append(_clock - turned_up)  # how long they waited for the owner
 	var guest := Guest.new()
 	guest.quick_greeting = People.quick_greeting(_waiting.size(), _guests.size())
-	guest.seat = _free_seats().pick_random()
+	guest.seat = _seat_for(regular)
 	guest.arrived = NightRules.clock_text(int(_clock))
 	guest.arrived_minutes = int(_clock)
 	guest.moment = {"day": _night_day, "time": guest.arrived, "weather": _night_weather, "date": _date_words()}
@@ -2210,6 +2270,7 @@ func _greet() -> void:
 	var rushing: bool = regular.is_empty() and not _rush_shown and _guests.size() >= Captions.RUSH_SEATED
 	_event("sat_down", sat, null, Vector2(-1, -1) if rushing else at_stool)
 	_welcome_at_door(guest)
+	_waved_over(guest)
 	if regular.is_empty():  # a regular's look is known by now
 		_narrate(Text.as_sentence(str(customer["appearance"])))
 	_attend(guest, false)
@@ -2245,6 +2306,7 @@ func _greet() -> void:
 	guest.order = items.duplicate()
 	guest.first_order = items.duplicate()
 	_serve(guest, items, true)
+	_saved_for_them(guest)
 	_stats.serve_waits.append(_clock - turned_up)
 	_event("greeted", {"name": str(guest.customer["name"]), "quick": guest.quick_greeting}, _owner_node)
 
@@ -2567,6 +2629,8 @@ func _next_line(guest: Guest) -> void:
 	var given := Conversation.owner_line(_night, guest, i, _late(), Looks.wet(_weather_kind))  # (what this line's given: see Conversation)
 	var direction := str(given["direction"])
 	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
+	if not owner_speaks:
+		direction = (direction + " " + _who_you_know(guest, [])).strip_edges()  # (what they've said about themselves before)
 	if bool(given["opener"]):
 		_stats.opener_situations += 1
 	var speaker := str(_owner["name"]) if owner_speaks else str(guest.customer["name"])
@@ -2873,7 +2937,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 		_narrate(scene)
 		chat.transcript.append({"action": scene})
 		_event("table_game_offered", {"game": str(given["game"]), "name": speaker})
-	direction += " " + _chat_notes(chat) + " " + (Talk.TO_CAMERA if speaking != null and speaking.to_camera else Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close))
+	direction += " " + _chat_notes(chat) + " " + _who_you_know(speaking, chat.people) + " " + (Talk.TO_CAMERA if speaking != null and speaking.to_camera else Address.address_text(speaker, _addressee(speaking), addressee, _addressee(listening), close))
 	var address := _address(speaking, listening, close)
 	_typing_label.text = "%s is thinking..." % (_owner_display() if owner_speaks else speaker)
 	var reply := {}
@@ -2940,6 +3004,34 @@ func _served_of(guest: Guest, kind: String) -> int:
 
 
 ## What the game knows about the chatters who've met before, for the chat's prompt.
+## For a line's prompt: who the speaker knows among the others here, from their side only (the
+## owner's, or a regular's: RegularsTonight.known_of), and, for a regular, what they've said
+## about themselves before (to anyone), so they keep to it. "" if nothing. speaking: null for the
+## owner. (Counted in the night's stats.)
+func _who_you_know(speaking: Guest, others: Array) -> String:
+	var me := Bonds.OWNER if speaking == null else str(speaking.customer.get("regular_id", ""))
+	if me == "":
+		return ""
+	var who := str(_owner["name"]) if speaking == null else str(speaking.customer["name"])
+	var notes := PackedStringArray()
+	if speaking != null:
+		var own := RegularsTonight.own_facts_text(_regular(me))
+		if own != "":
+			notes.append("What %s has said about themselves before (keep to it): %s." % [who, own])
+	var known := PackedStringArray()
+	for other in others:
+		if other == speaking or str(other.customer.get("regular_id", "")) == "":
+			continue
+		var note := RegularsTonight.known_of(Game.bar, me, _regular(str(other.customer["regular_id"])))
+		if note != "":
+			known.append(note)
+	if not known.is_empty():
+		notes.append("WHO %s KNOWS HERE (only from their own side: nothing else is known): %s." % [who.to_upper(), " / ".join(known)])
+	if not notes.is_empty():
+		_stats.who_you_know += 1
+	return " ".join(notes)
+
+
 func _chat_notes(chat: Chat) -> String:
 	var notes := PackedStringArray()
 	for i in chat.people.size():
@@ -5007,6 +5099,10 @@ func _menu_pick(kind: String) -> String:
 func _plan_regulars_tonight() -> void:
 	_regulars_due.clear()
 	_regulars_due.append_array(RegularsTonight.plan(Game.bar, _night_number, _day_index(), _cliffhanger, _scenery_dice))
+	for due in _regulars_due:
+		if due.has("with"):
+			_stats.closeness["together"] = int(_stats.closeness.get("together", 0)) + 1
+			print("Regulars: %s's coming in around the same time as their friend %s" % [_regular(str(due["id"])).get("name", due["id"]), _regular(str(due["with"])).get("name", due["with"])])
 
 
 ## A regular's facts, for the prompts (see RegularsTonight.facts).
@@ -5022,6 +5118,7 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 	customer["look"] = Regulars.dressed_for(regular.get("look", {}), _weather_kind)
 	customer["regular"] = _regular_facts(regular)
 	customer["regular_id"] = regular["id"]
+	print("Carried in: %s: %s" % [regular["name"], RegularsTonight.carried_in(Game.bar, regular)])
 	var thread := Memories.open_thread(regular)
 	if not thread.is_empty():  # (something they mentioned last time: the owner asks how it went)
 		guest.thread_moment = Memories.thread_note(thread, _night_number)
@@ -5145,6 +5242,42 @@ func _heard(guest: Guest) -> Array:
 	return heard
 
 
+## At closing (so it never takes the owner's voice mid-night): each pair of regulars who chatted
+## tonight (newcomers who became regulars included) remember each other, from what was said: a
+## memory each in their bond, a fact each (known by whoever heard it), anything coming up.
+func _regulars_remember_each_other() -> void:
+	if not Hooks.memories:
+		return
+	for pair in RegularsTonight.chat_pairs(Game.bar, _night_chats.values()):
+		var a: Dictionary = pair["a"]
+		var b: Dictionary = pair["b"]
+		_typing_label.text = "%s and %s remember the night..." % [a["name"], b["name"]]
+		var memory: Dictionary = await _ai.ask_json(Prompts.pair_memory_messages(a, b, pair["lines"]),
+			_validate_pair_memory.bind(RegularsTonight.said_by(pair, a), RegularsTonight.said_by(pair, b), _not_facts()), {"temperature": 0.4},
+			{"purpose": "pair_memory", "first": str(a["name"]), "second": str(b["name"])})
+		_typing_label.text = ""
+		if _stopped or str(Game.bar.get("id", "")) == "":
+			return
+		if memory.is_empty():
+			_stats.pair_memories["failed"] = int(_stats.pair_memories.get("failed", 0)) + 1
+			continue
+		_stats.pair_memories["saved"] = int(_stats.pair_memories.get("saved", 0)) + 1
+		var changed := RegularsTonight.remember_pair(Game.bar, pair, _night_number, memory)
+		print("Regulars remember each other: %s: \"%s\" · %s: \"%s\"" % [a["name"], memory["first_remembers"], b["name"], memory["second_remembers"]])
+		for learned in changed["facts"]:
+			var fact: Dictionary = learned[0]["facts"][learned[1]]
+			_stats.record_fact(learned[1], fact["known_by"])
+			print("Facts: %s's %s, \"%s\" (known by %s, from a chat)" % [learned[0]["name"], learned[1], fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w)))))])
+		for opened in changed["threads"]:
+			_stats.threads["between"] = int(_stats.threads.get("between", 0)) + 1
+			print("Threads: %s has something coming up (said in a chat): %s" % [opened[0]["name"], opened[1]])
+	Game.save()
+
+
+func _validate_pair_memory(data: Variant, first_said: String, second_said: String, not_facts: Array) -> String:
+	return Memories.validate_pair_memory(data, first_said, second_said, not_facts)
+
+
 func _validate_memory(data: Variant, said: String, not_facts: Array = []) -> String:
 	return Memories.validate_memory(data, said, not_facts)
 
@@ -5220,6 +5353,14 @@ func _close(a: Guest, b: Guest) -> bool:
 ## After a spell of chat: regulars who chatted remember it (see Friendliness.remember_chat).
 func _remember_chat(chat: Chat, last: String) -> void:
 	Friendliness.remember_chat(Game.bar, chat.people, chat.transcript, last, _night_number)
+	var names: Array = chat.people.map(func(g): return str(g.customer["name"]))  # (kept for closing: see _regulars_remember_each_other)
+	var record: Dictionary = _night_chats.get(chat.get_instance_id(), {"names": [], "lines": [], "owner_in": false})
+	for person in names:
+		if not record["names"].has(person):
+			record["names"].append(person)
+	record["lines"] = chat.transcript.filter(func(e): return e.has("text") and e.has("speaker")).map(func(e): return {"speaker": str(e["speaker"]), "text": str(e["text"])})
+	record["owner_in"] = bool(record["owner_in"]) or chat.owner_in
+	_night_chats[chat.get_instance_id()] = record
 	_refresh_tags()
 
 

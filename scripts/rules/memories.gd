@@ -239,19 +239,19 @@ const THREAD_ASKS := 2  # visits the owner's had it on their mind without hearin
 
 ## Something coming up they mentioned (an interview, a date, moving house), for the owner to ask
 ## about next time.
-static func add_thread(regular: Dictionary, text: String, night: int) -> void:
+static func add_thread(regular: Dictionary, text: String, night: int, heard_by: Array = ["owner"]) -> void:
 	if text == "":
 		return
 	var threads: Array = regular.get("threads", [])
-	threads.append({"text": text, "night": night, "asked": 0, "open": true, "outcome": ""})
+	threads.append({"text": text, "night": night, "asked": 0, "open": true, "outcome": "", "heard_by": heard_by.duplicate()})
 	regular["threads"] = threads.slice(-THREADS_KEPT)
 
 
-## The latest thread still open, or {}.
-static func open_thread(regular: Dictionary) -> Dictionary:
+## The latest thread still open that who heard about (the owner, or a regular's id), or {}.
+static func open_thread(regular: Dictionary, who: String = "owner") -> Dictionary:
 	for i in range(regular.get("threads", []).size() - 1, -1, -1):
 		var thread: Dictionary = regular["threads"][i]
-		if bool(thread["open"]):
+		if bool(thread["open"]) and thread.get("heard_by", ["owner"]).has(who):
 			return thread
 	return {}
 
@@ -279,3 +279,36 @@ static func drop_stale(regular: Dictionary, night: int) -> int:
 			thread["dropped"] = true
 			dropped += 1
 	return dropped
+
+
+# --- Two regulars remembering each other (at closing) ----------------------------------------
+
+## What the closing call asks of two regulars who chatted tonight: for each, what they'll
+## remember of the other, one thing the other said about their own life that would stick (and
+## what kind), and anything coming up the other mentioned.
+const PAIR_FIELDS := ["first_remembers", "second_remembers"]
+
+
+## The closing memory of two regulars' chats, checked: each memory a sentence or two; each fact
+## of a kind there is, said by that person (their own lines: first_said, second_said), and not an
+## impression of tonight or about the show (not_facts); threads the same. A fact or thread that
+## doesn't pass is dropped (left empty), not rejected.
+static func validate_pair_memory(data: Variant, first_said: String, second_said: String, not_facts: Array = []) -> String:
+	var problem := Text.check_fields(data, PAIR_FIELDS)
+	if problem != "":
+		return problem
+	for key in PAIR_FIELDS:
+		var text := Text.tidy_text(data[key])
+		if text.length() > MAX_MEMORY:
+			return "\"%s\" is too long: a sentence or two" % key
+		data[key] = text
+	for side in [["first", first_said], ["second", second_said]]:
+		var kind := Text.tidy_text(data.get(side[0] + "_fact_kind", "")).to_lower()
+		var fact := sticks(str(data.get(side[0] + "_fact", "")), side[1])
+		if not STICKING.has(kind) or is_not_a_fact(fact, not_facts):
+			fact = ""
+		data[side[0] + "_fact_kind"] = kind if fact != "" else ""
+		data[side[0] + "_fact"] = fact
+		var coming := sticks(str(data.get(side[0] + "_coming_up", "")), side[1])
+		data[side[0] + "_coming_up"] = "" if is_not_a_fact(coming, not_facts) else coming
+	return ""

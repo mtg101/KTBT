@@ -48,8 +48,32 @@ static func plan(bar: Dictionary, night: int, day_index: int, cliffhanger: Dicti
 			var coming := due.any(func(d): return d["id"] == regular["id"])
 			if not coming and cliffhanger["who"].has(str(regular["name"])) and dice.randf() < Story.CLIFFHANGER_NUDGE:
 				due.append({"time": Regulars.arrival_time(int(regular.get("usual_hour", 21 * 60)), dice.randf()), "id": regular["id"]})
+	together(bar, due, dice)
 	due.sort_custom(func(a, b): return float(a["time"]) < float(b["time"]))
 	return due
+
+
+const TOGETHER_MINUTES := 20.0  # close friends coming in tonight: the second within this of the first
+const TAG_ALONG := 0.3  # the chance a close friend who wasn't coming in turns up anyway, around the same time
+
+
+## Close friends drift in around the same time (the start of coming in together): of two close
+## regulars both coming in, the later one moves to just after the earlier; one who wasn't coming
+## might tag along. Marks each moved or added one "with" their friend's id. (Dice: the scenery's.)
+static func together(bar: Dictionary, due: Array, dice: RandomNumberGenerator) -> void:
+	for first in due.duplicate():
+		for regular in all(bar):
+			var id := str(regular["id"])
+			if id == str(first["id"]) or not bool(Bonds.find(bar, str(first["id"]), id).get("close", false)):
+				continue
+			var theirs: Array = due.filter(func(d): return str(d["id"]) == id)
+			var near := float(first["time"]) + dice.randf_range(2.0, TOGETHER_MINUTES)
+			if not theirs.is_empty():
+				if float(theirs[0]["time"]) > float(first["time"]) and not theirs[0].has("with"):
+					theirs[0]["time"] = near
+					theirs[0]["with"] = str(first["id"])
+			elif dice.randf() < TAG_ALONG:
+				due.append({"time": near, "id": id, "with": str(first["id"])})
 
 
 ## A regular's facts, for the prompts (see Prompts.describe_regular): theirs, and from their bond
@@ -167,3 +191,128 @@ static func remember(bar: Dictionary, regular: Dictionary, night: int, memory: D
 		Memories.add_thread(regular, str(memory["coming_up"]), night)
 		changed["thread_opened"] = true
 	return changed
+
+
+const PAIR_MEMORIES := 4  # pairs of regulars remembered at closing, at most (the most said between them first)
+
+
+## Tonight's chats, as pairs of people who are regulars now (a newcomer who became one tonight
+## included), each with everything said in the chats they were both in ({"a", "b": regulars,
+## "lines": [{"speaker", "text"}], "heard": for each line said, who else heard it}). chats: the
+## night's ({"names", "lines", "owner_in"}). The most said between them first; at most PAIR_MEMORIES.
+static func chat_pairs(bar: Dictionary, chats: Array) -> Array:
+	var by_name := {}
+	for regular in all(bar):
+		by_name[str(regular["name"])] = regular
+	var pairs := {}
+	for chat in chats:
+		var names: Array = chat["names"].filter(func(n): return by_name.has(n))
+		for i in names.size():
+			for j in range(i + 1, names.size()):
+				var a: Dictionary = by_name[names[i]]
+				var b: Dictionary = by_name[names[j]]
+				var k := Bonds.key(str(a["id"]), str(b["id"]))
+				if not pairs.has(k):
+					pairs[k] = {"a": a, "b": b, "lines": [], "heard": []}
+				for line in chat["lines"]:
+					pairs[k]["lines"].append(line)
+					var others: Array = chat["names"].filter(func(n): return n != str(line["speaker"]) and by_name.has(n)).map(func(n): return str(by_name[n]["id"]))
+					if bool(chat.get("owner_in", false)):
+						others.append(Bonds.OWNER)
+					pairs[k]["heard"].append({"speaker": str(line["speaker"]), "text": str(line["text"]).to_lower(), "by": others})
+	var out: Array = pairs.values()
+	out.sort_custom(func(x, y): return x["lines"].size() > y["lines"].size())
+	return out.slice(0, PAIR_MEMORIES)
+
+
+## Everything one of a pair said in their chats (lower case: what their facts must come from).
+static func said_by(pair: Dictionary, regular: Dictionary) -> String:
+	return " ".join(PackedStringArray(pair["heard"].filter(func(h): return h["speaker"] == str(regular["name"])).map(func(h): return str(h["text"]))))
+
+
+## Two regulars' closing memory (checked: Memories.validate_pair_memory) kept: in their bond
+## (met tonight, each one's memory of the other), a fact each said (known by whoever heard it),
+## and anything coming up (a thread the other heard about). Returns the facts learned
+## ([[regular, key]]) and threads opened ([[regular, text]]).
+static func remember_pair(bar: Dictionary, pair: Dictionary, night: int, memory: Dictionary) -> Dictionary:
+	var a: Dictionary = pair["a"]
+	var b: Dictionary = pair["b"]
+	var bond := Bonds.between(bar, str(a["id"]), str(b["id"]))
+	Bonds.meet(bond, night)
+	Bonds.remember(bond, night, {str(a["id"]): str(memory["first_remembers"]), str(b["id"]): str(memory["second_remembers"])})
+	var changed := {"facts": [], "threads": []}
+	for side in [["first", a, b], ["second", b, a]]:
+		var person: Dictionary = side[1]
+		var heard: Array = pair["heard"].filter(func(h): return h["speaker"] == str(person["name"]))
+		var fact := str(memory.get(side[0] + "_fact", ""))
+		var kind := str(memory.get(side[0] + "_fact_kind", ""))
+		if fact != "" and Memories.learn_fact(person, kind, fact, night, Memories.who_heard(fact, heard)):
+			changed["facts"].append([person, kind])
+		var coming := str(memory.get(side[0] + "_coming_up", ""))
+		if coming != "":
+			Memories.add_thread(person, coming, night, Memories.who_heard(coming, heard))
+			changed["threads"].append([person, coming])
+	return changed
+
+
+const KNOWN_FACTS := 2  # facts about someone in a "who you know here" note, at most
+const KNOWN_MEMORY := 140  # ...and this much of the last memory of them
+
+
+## What me (the owner, or a regular's id) knows of another regular, for a line's prompt, from
+## me's side only: how close (their bond), whether me knows their name, a fact or two me heard,
+## me's last memory of them, and anything they'd mentioned to me that's coming up. "" if they've
+## never met.
+static func known_of(bar: Dictionary, me: String, other: Dictionary) -> String:
+	var other_id := str(other.get("id", ""))
+	var bond := Bonds.find(bar, me, other_id)
+	if bond.is_empty() or int(bond.get("meetings", 0)) <= 0:
+		return ""
+	var name := str(other["name"]) if Bonds.knows_name(bond, me) else "the %s (name not known)" % str(other.get("job", "regular"))
+	var parts := PackedStringArray(["%s: %s" % [name, Bonds.level_word(bond)]])
+	if bool(bond.get("casual", false)):
+		parts.append("they talk to each other casually now, like friends (no polite speech)")
+	var heard := Memories.facts_known_by(other, me)
+	var shown := PackedStringArray()
+	for key in Memories.STICKING:
+		if heard.has(key) and shown.size() < KNOWN_FACTS:
+			shown.append("%s: %s" % [Memories.FACT_LABELS[key], heard[key]])
+	if not shown.is_empty():
+		parts.append("knows " + "; ".join(shown))
+	var memories := Bonds.memories_by(bond, me)
+	if not memories.is_empty():
+		parts.append("remembers \"%s\"" % Text.shorten(str(memories[-1]["text"]), KNOWN_MEMORY))
+	var thread := Memories.open_thread(other, me)
+	if not thread.is_empty():
+		parts.append("they'd mentioned %s (it might come up)" % Text.unquote(str(thread["text"])))
+	return ", ".join(parts)
+
+
+## What someone's said about themselves before (to anyone): for their own lines, so they keep to it.
+static func own_facts_text(regular: Dictionary) -> String:
+	var said := Memories.facts_known_by(regular)
+	var shown := PackedStringArray()
+	for key in Memories.STICKING:
+		if said.has(key):
+			shown.append("%s: %s" % [Memories.FACT_LABELS[key], said[key]])
+	return "; ".join(shown)
+
+
+## What a regular brings in with them tonight (for the log, as they come in): from the owner's
+## side and theirs, and the other regulars they know.
+static func carried_in(bar: Dictionary, regular: Dictionary) -> String:
+	var id := str(regular["id"])
+	var owner_bond := Bonds.with_owner(bar, id)
+	var parts := PackedStringArray(["with the owner %s (%d memories, %d facts known%s)" % [Bonds.level_word(owner_bond), owner_bond.get("memories", []).size(),
+		Memories.facts_known_by(regular, Bonds.OWNER).size(), ", a thread to ask about" if not Memories.open_thread(regular).is_empty() else ""]])
+	var friends := PackedStringArray()
+	for other in all(bar):
+		var bond := Bonds.find(bar, id, str(other["id"]))
+		if other != regular and not bond.is_empty():
+			friends.append("%s (%s)" % [other["name"], Bonds.level_word(bond)])
+	if not friends.is_empty():
+		parts.append("knows " + ", ".join(friends))
+	var own := Memories.facts_known_by(regular).size()
+	if own > 0:
+		parts.append("%d things said about themselves" % own)
+	return " · ".join(parts)

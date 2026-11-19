@@ -183,6 +183,9 @@ func reply(request: Dictionary) -> Variant:
 			var night: String = {"loved": "loved it", "enjoyed": "enjoyed it", "fine": "it was fine", "didnt": "didn't enjoy it"}.get(str(request.get("verdict", "fine")), "it was fine")
 			return {"owner_remembers": "Quiet at first, then talked about work.", "they_remember": "The owner fussed over them, and the food was good.",
 				"job": "", "family": "", "home": "", "pet": "", "worry": "", "hope": "", "other": "", "coming_up": "", "followed_up": "", "night": night, "towards_owner": "the same"}
+		"pair_memory":
+			return {"first_remembers": "A good laugh at the counter.", "second_remembers": "Easy to talk to.", "first_fact_kind": "", "first_fact": "",
+				"second_fact_kind": "", "second_fact": "", "first_coming_up": "", "second_coming_up": ""}
 		"customer_name":
 			var picked := _customer(request.get("taken", []), str(request.get("gender", "")))
 			return {"name": picked["name"], "hangul": HANGUL.get(picked["name"], ""), "gender": picked["gender"]}

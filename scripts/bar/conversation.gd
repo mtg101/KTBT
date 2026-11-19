@@ -108,7 +108,7 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 	if first and met_before:
 		direction = "They've met here before: they pick up where they left off."
 	if moment_term != "":
-		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s?" % [speaker, addressee, moment_term.capitalize()]
+		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s, and talk to each other casually from now on, like friends?" % [speaker, addressee, moment_term.capitalize()]
 	var hint := ""
 	var game := ""
 	# Now and then, once a chat: something to share (a bite, a refill).

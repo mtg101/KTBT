@@ -2526,3 +2526,96 @@ func test_a_line_that_contradicts_what_they_have_said_is_sent_back() -> void:
 	assert_str(scene._validate_line({"line": "My husband used to sit right there."}, owner_name, "", [], [], {})).is_empty()
 	scene._ai.offline = offline
 	scene._owner["family"] = family
+
+
+func test_regulars_who_chatted_remember_each_other_at_closing() -> void:
+	Hooks.memories = true
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var first := _a_regular()
+	var second := _a_regular()
+	second.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
+	Game.bar["regulars"] = [first, second]
+	var a := Visit.Guest.new()
+	a.customer = {"name": "Choi Hye-rin", "regular_id": str(first["id"])}
+	var b := Visit.Guest.new()
+	b.customer = {"name": "Kang Da-eun", "regular_id": "older"}
+	var chat := Visit.Chat.new()
+	chat.people = [a, b]
+	chat.transcript = [{"speaker": "Choi Hye-rin", "text": "My sister's wedding is next month, I'm the one making the speech."},
+		{"speaker": "Kang Da-eun", "text": "My dog Bori would eat the wedding cake."}]
+	scene._remember_chat(chat, "My dog Bori would eat the wedding cake.")
+	scene._remember_chat(chat, "My dog Bori would eat the wedding cake.")  # (the same chat again: kept once, as it is now)
+	assert_int(scene._night_chats.size()).is_equal(1)
+	CannedAi.scripted = [{"first_remembers": "Da-eun's dog would eat the cake.", "second_remembers": "Hye-rin's making a wedding speech.",
+		"first_fact_kind": "family", "first_fact": "her sister's getting married", "second_fact_kind": "pet", "second_fact": "a dog called Bori",
+		"first_coming_up": "her sister's wedding next month", "second_coming_up": ""}]
+	await scene._regulars_remember_each_other()
+	var bond := Bonds.find(Game.bar, str(first["id"]), "older")
+	assert_str(str(Bonds.memories_by(bond, "older")[0]["text"])).contains("wedding speech")
+	assert_array(second["facts"]["pet"]["known_by"]).is_equal([str(first["id"])])
+	assert_str(str(Memories.open_thread(first, "older")["text"])).contains("wedding")
+	assert_str(scene._stats.memory_text()).contains("regulars remembered each other 1").contains("and 1 to another regular")
+
+
+func test_a_line_is_told_who_the_speaker_knows_here_from_their_side() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var first := _a_regular()
+	var second := _a_regular()
+	second.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
+	Game.bar["regulars"] = [first, second]
+	Memories.learn_fact(first, "family", "widowed last year", 2, [Bonds.OWNER])
+	var bond := Bonds.between(Game.bar, str(first["id"]), "older")
+	Bonds.meet(bond, 2)
+	Bonds.learn_name(bond, str(first["id"]))
+	var a := Visit.Guest.new()
+	a.customer = {"name": "Choi Hye-rin", "regular_id": str(first["id"])}
+	var b := Visit.Guest.new()
+	b.customer = {"name": "Kang Da-eun", "regular_id": "older"}
+	var told: String = scene._who_you_know(a, [a, b])
+	assert_str(told).contains("What Choi Hye-rin has said about themselves before (keep to it): family: widowed last year.")
+	assert_str(told).contains("WHO CHOI HYE-RIN KNOWS HERE").contains("Kang Da-eun: acquaintance")
+	assert_str(scene._who_you_know(b, [a, b])).contains("the pharmacist (name not known)")  # (her side: she never heard his name)
+	assert_str(scene._who_you_know(Visit.Guest.new(), [a, b])).is_empty()  # (someone new knows nobody)
+	assert_int(scene._stats.who_you_know).is_equal(2)
+
+
+func test_close_regulars_sit_together_wave_each_other_over_and_get_the_last_odeng() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var first := _a_regular()
+	var second := _a_regular()
+	second.merge({"id": "older", "name": "Kang Da-eun", "hangul": "강다은", "age": 33}, true)
+	Game.bar["regulars"] = [first, second]
+	var bond := Bonds.between(Game.bar, str(first["id"]), "older")
+	bond["meetings"] = 5
+	bond["close"] = true
+	Bonds.learn_name(bond, str(first["id"]))
+	Bonds.between(Game.bar, Bonds.OWNER, "older")["meetings"] = Bonds.OWNER_CLOSE  # (close with the owner too)
+	scene._arrive(scene._clock, str(first["id"]))
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1)).is_true()
+	scene._arrive(scene._clock, "older")
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2)).override_failure_message("she never sat down").is_true()
+	var a = scene._guest_named("Choi Hye-rin")
+	var b = scene._guest_named("Kang Da-eun")
+	assert_int(absi(int(a.seat) - int(b.seat))).is_equal(1)  # the stool next to her friend
+	assert_str(_transcript(runner)).contains("Choi Hye-rin spots Kang Da-eun ducking in and waves Da-eun over.")
+	assert_bool(b.transcript.any(func(e): return str(e.get("action", "")).contains("waves you over"))).is_true()
+	assert_int(int(scene._stats.closeness.get("sat_by_a_friend", 0))).is_equal(1)
+	assert_int(int(scene._stats.closeness.get("waved_over", 0))).is_equal(1)
+	# The owner's kept the last of the odeng back for a close regular (now and then): on the house.
+	var bill: int = Orders.bill(b.order)
+	for _try in 40:
+		if int(scene._stats.closeness.get("saved_for_them", 0)) > 0:
+			break
+		scene._saved_for_them(b)
+	assert_int(int(scene._stats.closeness.get("saved_for_them", 0))).is_greater_equal(1)
+	assert_bool(b.served.has("odeng")).is_true()
+	assert_int(Orders.bill(b.order)).is_equal(bill)
+	assert_str(_transcript(runner)).contains("the last of the pot, kept back for them. On the house.")
+	scene._saved_for_them(a)  # (not close with the owner: never)
+	assert_bool(a.served.has("odeng") and not a.order.has("odeng")).is_false()
+	_time_up(scene)
+	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()

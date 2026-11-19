@@ -3,6 +3,8 @@ extends GdUnitTestSuite
 
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
+const Bonds = preload("res://scripts/rules/bonds.gd")
+const Memories = preload("res://scripts/rules/memories.gd")
 
 
 func _bar() -> Dictionary:
@@ -47,3 +49,69 @@ func test_the_nights_end_and_what_the_owner_remembers() -> void:
 		.is_equal("Quiet, kind. · Talked about her mum. · Job: nurse")
 	assert_bool(RegularsTonight.name_said("Kim Ji-ho", "thanks, ji-ho!")).is_true()
 	assert_bool(RegularsTonight.name_said("Kim Ji-ho", "thanks, imo!")).is_false()
+
+
+func test_tonights_chats_as_pairs_of_regulars_remembered_at_closing() -> void:
+	var bar := {"regulars": [{"id": "ji-ho", "name": "Kim Ji-ho"}, {"id": "da-eun", "name": "Kang Da-eun"}, {"id": "min-su", "name": "Park Min-su"}]}
+	var chats := [
+		{"names": ["Kim Ji-ho", "Kang Da-eun", "Someone New"], "owner_in": false,
+			"lines": [{"speaker": "Kim Ji-ho", "text": "I've just started at the bakery."}, {"speaker": "Kang Da-eun", "text": "My dog Bori loves bread."}, {"speaker": "Someone New", "text": "Hi."}]},
+		{"names": ["Kim Ji-ho", "Park Min-su"], "owner_in": true, "lines": [{"speaker": "Park Min-su", "text": "Cheers."}]},
+	]
+	var pairs := RegularsTonight.chat_pairs(bar, chats)
+	assert_int(pairs.size()).is_equal(2)  # (someone who isn't a regular isn't remembered)
+	assert_str(str(pairs[0]["b"]["name"])).is_equal("Kang Da-eun")  # (the most said first)
+	assert_str(RegularsTonight.said_by(pairs[0], bar["regulars"][0])).is_equal("i've just started at the bakery.")
+	assert_array(pairs[1]["heard"][0]["by"]).contains(["owner"])  # (the owner had joined that one)
+	var changed := RegularsTonight.remember_pair(bar, pairs[0], 7, {"first_remembers": "Da-eun has a dog.", "second_remembers": "Ji-ho bakes now.",
+		"first_fact_kind": "job", "first_fact": "just started at the bakery", "second_fact_kind": "pet", "second_fact": "a dog called Bori",
+		"first_coming_up": "", "second_coming_up": "a trip"})
+	var bond := Bonds.find(bar, "ji-ho", "da-eun")
+	assert_int(int(bond["meetings"])).is_equal(1)
+	assert_str(str(Bonds.memories_by(bond, "ji-ho")[0]["text"])).is_equal("Da-eun has a dog.")
+	assert_array(bar["regulars"][0]["facts"]["job"]["known_by"]).is_equal(["da-eun"])  # (not the owner: she wasn't in that chat)
+	assert_int(changed["facts"].size()).is_equal(2)
+	assert_int(changed["threads"].size()).is_equal(1)
+	assert_dict(Memories.open_thread(bar["regulars"][1])).is_empty()  # (the owner never heard about it)
+
+
+func test_who_you_know_here_from_your_own_side() -> void:
+	var bar := {"regulars": [{"id": "ji-ho", "name": "Kim Ji-ho", "job": "baker"}, {"id": "da-eun", "name": "Kang Da-eun", "job": "teacher"}]}
+	var ji_ho: Dictionary = bar["regulars"][0]
+	var da_eun: Dictionary = bar["regulars"][1]
+	assert_str(RegularsTonight.known_of(bar, "ji-ho", da_eun)).is_empty()  # (never met)
+	var bond := Bonds.between(bar, "ji-ho", "da-eun")
+	Bonds.meet(bond, 1)
+	assert_str(RegularsTonight.known_of(bar, "ji-ho", da_eun)).is_equal("the teacher (name not known): acquaintance")
+	Bonds.learn_name(bond, "ji-ho")
+	Bonds.remember(bond, 1, {"ji-ho": "Da-eun's dog would eat the cake.", "da-eun": "Ji-ho bakes."})
+	Memories.learn_fact(da_eun, "pet", "a dog called Bori", 1, ["ji-ho"])
+	Memories.learn_fact(da_eun, "home", "Daegu", 1, ["owner"])  # (Ji-ho never heard this one)
+	Memories.add_thread(da_eun, "a trip to Jeju", 1, ["ji-ho"])
+	var known := RegularsTonight.known_of(bar, "ji-ho", da_eun)
+	assert_str(known).starts_with("Kang Da-eun: acquaintance").contains("pet: a dog called Bori").contains("Da-eun's dog would eat the cake").contains("a trip to Jeju")
+	assert_str(known).not_contains("Daegu")
+	assert_str(RegularsTonight.known_of(bar, "da-eun", ji_ho)).is_equal("the baker (name not known): acquaintance, remembers \"Ji-ho bakes.\"")  # (her side: not his)
+	assert_str(RegularsTonight.own_facts_text(da_eun)).is_equal("from: Daegu; pet: a dog called Bori")  # (hers, whoever heard them)
+	assert_str(RegularsTonight.carried_in(bar, da_eun)).contains("with the owner stranger").contains("knows Kim Ji-ho (acquaintance)").contains("2 things said about themselves")
+
+
+func test_close_friends_drift_in_around_the_same_time() -> void:
+	var bar := {"regulars": [{"id": "ji-ho", "name": "Kim Ji-ho"}, {"id": "da-eun", "name": "Kang Da-eun"}, {"id": "min-su", "name": "Park Min-su"}]}
+	Bonds.between(bar, "ji-ho", "da-eun")["close"] = true
+	var due := [{"time": 1200.0, "id": "ji-ho"}, {"time": 1380.0, "id": "da-eun"}, {"time": 1300.0, "id": "min-su"}]
+	RegularsTonight.together(bar, due, RandomNumberGenerator.new())
+	var da_eun: Dictionary = due.filter(func(d): return d["id"] == "da-eun")[0]
+	assert_float(float(da_eun["time"])).is_between(1200.0, 1200.0 + RegularsTonight.TOGETHER_MINUTES)  # (just after her friend)
+	assert_str(str(da_eun["with"])).is_equal("ji-ho")
+	assert_float(float(due.filter(func(d): return d["id"] == "min-su")[0]["time"])).is_equal(1300.0)  # (not close to anyone: as he was)
+	# One who wasn't coming in might tag along (now and then).
+	var tagged := 0
+	for seed_value in 40:
+		var dice := RandomNumberGenerator.new()
+		dice.seed = seed_value
+		var alone := [{"time": 1200.0, "id": "ji-ho"}]
+		RegularsTonight.together(bar, alone, dice)
+		tagged += alone.size() - 1
+		assert_bool(alone.any(func(d): return d["id"] == "min-su")).is_false()
+	assert_int(tagged).is_between(4, 24)  # (about TAG_ALONG of the time)

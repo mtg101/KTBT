@@ -56,5 +56,6 @@ func test_regulars_who_chat_get_friendlier() -> void:
 	assert_str(Friendliness.friendly_moment(bar, OWNER, older, younger)).is_empty()
 	Friendliness.make_close(bar, younger, older)
 	assert_bool(Friendliness.are_close(bar, older, younger)).is_true()
+	assert_bool(bool(Friendliness.friend_record(bar, older, younger)["casual"])).is_true()  # (and talking casually: 말 놓을까요?)
 	assert_str(Friendliness.friendly_moment(bar, OWNER, younger, older)).is_empty()  # (asked once)
 	assert_str(Friendliness.term_used(bar, OWNER, "Eonni, look at this!", younger, older)).is_equal("eonni")
