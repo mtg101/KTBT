@@ -10,6 +10,8 @@ set BAR=
 if not "%~2"=="" set BAR=--autoplay-bar=%~2
 if "%GODOT%"=="" if exist "%~dp0godot_path.txt" set /p GODOT=<"%~dp0godot_path.txt"
 if "%GODOT%"=="" goto no_godot
+echo Importing any new or changed art and fonts first...
+"%GODOT%" --headless --path "%~dp0.." --import >nul 2>&1
 echo Autoplay: %NIGHTS% nights. Each night's stats and transcript go in logs, and the batch's summary in logs\autoplay.
 "%GODOT%" --path "%~dp0.." --audio-driver Dummy -- --autoplay=%NIGHTS% %BAR%
 echo Autoplay finished: the summary's in logs\autoplay.
