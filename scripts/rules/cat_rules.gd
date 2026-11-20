@@ -151,6 +151,49 @@ static func steals(personality: String, stealable_on_table: bool, roll: float) -
 
 
 ## The moments after (see CAT_MOMENTS): for the owner, and for whoever it robbed.
+## Someone whose time's up with the cat asleep on their lap can't get up yet: they stay this
+## many game minutes more (once a visit), and the cat moves on before then.
+const LAP_KEEPS_MINUTES := 12.0
+const LAP_MOMENT := "Your time's up and you'd go now, but {cat} is fast asleep on your lap: you can't get up until {cat} does, and you say so."
+const LAP_TEXT := "{name}'s ready to go, but {cat} is fast asleep on their lap."
+
+## Eyeing someone's food and not stealing it: how likely they slip the cat a bit, by its
+## personality (a greedy one begs hardest; a grumpy one won't take it from just anyone).
+const SHARE_CHANCE := {"greedy": 0.5, "affectionate": 0.35, "curious": 0.3, "lazy": 0.2, "grumpy": 0.1}
+const SHARE_MOMENT := "You've just slipped {cat} a bit of your {dish}."
+const SHARE_MOMENT_OWNER := "{name} has just slipped {cat} a bit of their {dish} under the counter."
+const SHARE_TEXT := "{name} slips {cat} a bit of their {dish}."
+
+
+static func shares(personality: String, roll: float) -> bool:
+	return roll < float(SHARE_CHANCE.get(personality, 0.0))
+
+
+## Someone says the cat's name: now and then it answers (a Korean cat's meow: 야옹), more often
+## it couldn't care less. "answer", "ignore" or "" (nothing to see).
+const ANSWER_CHANCE := 0.2
+const IGNORE_CHANCE := 0.35
+const ANSWER_TEXT := "{cat}: 야옹 (ya-ong)."
+const IGNORE_TEXTS := ["{cat} doesn't even look up.", "{cat} flicks an ear, and that's all.", "{cat} yawns.", "{cat} turns its back on them."]
+
+
+static func hears_its_name(line: String, cat_name: String, roll: float) -> String:
+	if cat_name == "" or RegEx.create_from_string("(?i)(?<![\\w-])%s(?![\\w-])" % regex_escape(cat_name)).search(line) == null:
+		return ""
+	if roll < ANSWER_CHANCE:
+		return "answer"
+	if roll < ANSWER_CHANCE + IGNORE_CHANCE:
+		return "ignore"
+	return ""
+
+
+static func regex_escape(text: String) -> String:
+	var out := ""
+	for c in text:
+		out += ("\\" + c) if "\\^$.|?*+()[]{}".contains(c) else c
+	return out
+
+
 const THEFT_MOMENT_OWNER := "{cat} has just snatched an odeng skewer off {name}'s plate and bolted out into the street with it."
 const THEFT_MOMENT_ROBBED := "{cat} has just snatched one of their odeng skewers and bolted out into the street with it."
 

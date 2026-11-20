@@ -7,6 +7,8 @@ extends RefCounted
 ## (Part of the game's rules: tables only. See ARCHITECTURE.md.)
 
 const MEANINGS := {
+	# The cat answering to its name (rules/cat_rules.gd)
+	"야옹": "ya-ong: meow (a Korean cat's)",
 	# TV captions (rules/captions.gd)
 	"만석!": "manseok!: every seat taken",
 	"자리 없음!": "jari eopseum!: no seats",

@@ -111,3 +111,24 @@ func test_the_counters_chats_lean_towards_the_camera() -> void:
 		var started := CounterChats.new().choose_spell(others, pd)
 		assert_array(started["chat"].people).contains([others[2]])
 	assert_object(CounterChats.new().choose_spell([], pd)["chat"]).is_null()
+
+
+func test_following_the_owner() -> void:
+	var camera := PdCamera.new()
+	var ji_ho := _someone("Kim Ji-ho")
+	assert_float(camera.chat_share()).is_equal(1.0)
+	assert_object(camera.follow_owner()).is_null()
+	assert_bool(camera.on_owner).is_true()
+	assert_object(camera.subject()).is_null()  # (no customer pulled to the front: the owner's the story)
+	assert_float(camera.chat_share()).is_equal(PdCamera.OWNER_CHATS)  # customers chat among themselves less
+	assert_bool(camera.on_camera([ji_ho], true)).is_true()  # the owner's conversations are on camera...
+	assert_bool(camera.on_camera([ji_ho], false)).is_false()  # ...customers' chats without them aren't
+	assert_bool(camera.owner_notices()).is_true()  # (the first time tonight: their moment)
+	assert_bool(camera.owner_notices()).is_false()  # (once)
+	assert_str(str(camera.follow(ji_ho))).is_equal("owner")  # (turning to someone else: it was on the owner)
+	assert_bool(camera.on_owner).is_false()
+	assert_bool(camera.on_camera([ji_ho], true)).is_true()  # (Ji-ho's on camera now, the owner or not)
+	camera.follow_owner()
+	assert_str(str(camera.stop())).is_equal("owner")
+	assert_float(camera.chat_share()).is_equal(1.0)
+	assert_str(Talk.OWNER_ON_CAMERA).contains("only ever hinting at your secret")

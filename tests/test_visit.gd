@@ -2825,3 +2825,97 @@ func test_the_transcripts_toolbar_in_the_bar() -> void:
 	assert_int(int(scene._stats.transcript_use.get("talk", 0))).is_equal(1)
 	assert_str(scene._stats.panel_text(0, 0)).contains("Transcript: searched 0 (went through matches 0) · showed Talk 1, Events 0, All 0 · caught up 0 (0 new lines) · text 15")
 	scene._transcript_view.set_filter("all")
+
+
+func test_the_pds_camera_can_follow_the_owner() -> void:
+	Hooks.stay_minutes_override = 600
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var hover := scene._owner_node.get_node("Hover") as Control
+	assert_str(hover.tooltip_text).contains("the owner of").contains("Click to follow them with the camera")
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	scene._on_owner_clicked(press)
+	assert_bool(scene._camera.on_owner).is_true()
+	assert_object(scene._owner_node.get_node_or_null("CameraBadge")).is_not_null()
+	assert_str((runner.find_child("CameraRec") as Label).text).contains("(the owner)")
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("● REC %s, the owner" % scene._owner_display())  # (the desk says so too)
+	assert_str(hover.tooltip_text).contains("The camera's on them")
+	assert_str(_transcript(runner)).contains("The camera follows %s, the owner." % scene._owner_display())
+	assert_str(scene._owner_camera_moment).contains("noticed")  # (their moment, for their next line)
+	# Their next line: they notice (once).
+	var direction: String = scene._owner_on_camera("Say hello.", null)
+	assert_str(direction).contains("noticed").contains("Say hello.")
+	assert_str(scene._owner_camera_moment).is_empty()
+	assert_int(int(scene._stats.event_counts.get("owner_noticed_camera", 0))).is_equal(1)
+	# The owner's lines on camera; customers chat among themselves half as often.
+	assert_bool(scene._camera.on_camera([], true)).is_true()
+	assert_float(scene._camera.chat_share()).is_equal(PdCamera.OWNER_CHATS)
+	assert_str(scene._stats.panel_text(0, 0)).contains("On the owner: noticed yes")
+	# Clicked again, it stops; following a customer turns it off the owner.
+	scene._on_owner_clicked(press)
+	assert_bool(scene._camera.on_owner).is_false()
+	assert_object(scene._owner_node.get_node_or_null("CameraBadge")).is_null()
+	scene._on_owner_clicked(press)
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty())).is_true()
+	var guest = scene._guests[0]
+	scene._camera_on(guest)
+	assert_bool(scene._camera.on_owner).is_false()
+	assert_object(scene._owner_node.get_node_or_null("CameraBadge")).is_null()
+	assert_str(scene._owner_on_camera("Pour.", guest)).is_equal("Pour.")  # (off them: nothing added)
+
+
+func test_the_cat_on_a_lap_keeps_them_a_bit_feeds_from_a_plate_and_hears_its_name() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].line >= 2)).is_true()
+	var guest = scene._guests[0]
+	var cat_name := str(Game.bar["cat"]["name"])
+	# On their lap when their time's up: they can't get up yet (once).
+	scene._cat_spot = "lap"
+	scene._cat_with = guest
+	guest.stay_left = 0.0
+	assert_bool(scene._cat_keeps(guest)).is_true()
+	assert_float(guest.stay_left).is_greater(0.0)
+	assert_str(guest.cat_moment).contains(cat_name).contains("can't get up")
+	assert_str(_transcript(runner)).contains("%s is fast asleep on their lap" % cat_name)
+	assert_float(scene._cat_next).is_less_equal(CatRules.LAP_KEEPS_MINUTES)  # (it gets up before they have to)
+	guest.stay_left = 0.0
+	assert_bool(scene._cat_keeps(guest)).is_false()  # (once a visit)
+	# A bit from their plate.
+	guest.served.append("pajeon")
+	scene._cat_fed(guest)
+	assert_str(_transcript(runner)).contains("slips %s a bit of their" % cat_name)
+	assert_str(guest.cat_moment).contains("You've just slipped %s a bit" % cat_name)
+	assert_str(scene._owner_cat_moment).contains("under the counter")
+	assert_bool(guest.served.has("pajeon")).is_true()  # (still theirs: a bit)
+	# Its name: answered (야옹, explained on hover) or ignored, not more than once in a while.
+	scene._cat_spot = "counter"
+	var heard_before: int = int(scene._stats.event_counts.get("cat_answered", 0)) + int(scene._stats.event_counts.get("cat_ignored", 0))
+	seed(1)
+	for k in 30:
+		scene._cat_heard_at = -999.0
+		scene._cat_hears("%s, you rascal!" % cat_name, guest.transcript)
+	var heard_after: int = int(scene._stats.event_counts.get("cat_answered", 0)) + int(scene._stats.event_counts.get("cat_ignored", 0))
+	assert_int(heard_after).is_greater(heard_before)
+	assert_int(heard_after - heard_before).is_less(30)  # (mostly, nothing to see)
+	scene._cat_hears("%s!" % cat_name, guest.transcript)  # (just now: not again yet)
+	assert_int(int(scene._stats.event_counts.get("cat_answered", 0)) + int(scene._stats.event_counts.get("cat_ignored", 0))).is_equal(heard_after)
+	assert_str(scene._stats.panel_text(0, 0)).contains("The cat: ").contains("kept someone on their lap 1 · fed from a plate 1")
+	assert_str(scene._stats.panel_text(0, 0)).contains("couldn't leave: the cat asleep on their lap").contains("slipped the cat some")
+
+
+func test_the_owner_can_be_clicked_behind_the_counters_rows() -> void:
+	# Regression (20 Nov): the empty drinks and food rows on the counter, and the stove's row,
+	# caught the clicks on the owner's chest (standing beside a stool, or at the stove).
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	for row in scene._drinks_rows + scene._food_rows + [scene._kitchen_part.stove_row]:
+		assert_int((row as Control).mouse_filter).override_failure_message(str(row.name)).is_equal(Control.MOUSE_FILTER_IGNORE)
+	var area := scene._owner_node.get_node("Hover") as Control
+	assert_int(area.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)

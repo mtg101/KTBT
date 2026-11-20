@@ -652,6 +652,10 @@ func highlights() -> Array:
 				what = "the first snow of winter"
 			"cat_stole":
 				what = "the cat stole a fish cake (from %s)" % event.get("name", "someone")
+			"cat_kept":
+				what = "%s couldn't leave: the cat asleep on their lap" % event.get("name", "someone")
+			"cat_fed":
+				what = "%s slipped the cat some %s" % [event.get("name", "someone"), event.get("dish", "food")]
 			"big_moment":
 				what = "big moment, %s (%s): \"%s\"" % [event.get("mood", ""), event.get("who", ""), event.get("caption", "")]
 			"became_regular":
@@ -789,6 +793,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Table games: offered %d, taken up %d%s" % [offered, taken, (" · " + " · ".join(PackedStringArray(games.keys().map(func(g): return "%s %d/%d" % [g, int(games[g][1]), int(games[g][0])])))) if not games.is_empty() else ""])
 	lines.append("Double-takes: offered %d, taken up %d · hwaiting chorus %d · first snow %s" % [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0)),
 		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
+	if event_counts.keys().any(func(kind): return str(kind).begins_with("cat_")):
+		lines.append("The cat: moved %d · kept someone on their lap %d · fed from a plate %d · answered to its name %d, ignored it %d · stole %d" % [int(event_counts.get("cat_moved", 0)),
+			int(event_counts.get("cat_kept", 0)), int(event_counts.get("cat_fed", 0)), int(event_counts.get("cat_answered", 0)), int(event_counts.get("cat_ignored", 0)), int(event_counts.get("cat_stole", 0))])
 	lines.append("")
 	lines.append("[b]THE PD[/b]")
 	if transcript_use.has("size"):
@@ -807,6 +814,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Camera: %s" % ("followed %d · %s" % [follows.size(), " · ".join(PackedStringArray(follows.map(func(f): return "%s %s" % [f["name"], ("%d min" % int(f["minutes"])) if int(f["minutes"]) >= 0 else "(still on)"])))] if not follows.is_empty() else "not used tonight"))
 	lines.append("Lines on camera %d of %d (%d%%) · noticed the camera %d/%d" % [camera_lines_on, camera_lines, percent(camera_lines_on, camera_lines),
 		int(hints_taken.get("camera", 0)), int(hints_given.get("camera", 0))])
+	if events.any(func(e): return str(e.get("kind", "")) == "camera_on" and bool(e.get("owner", false))):
+		lines.append("On the owner: noticed %s · showed a little more of themselves %d · customers' chats half as often" % [
+			"yes" if int(event_counts.get("owner_noticed_camera", 0)) > 0 else "not yet", int(event_counts.get("owner_on_camera", 0))])
 	var played := plants()
 	for entry in written:
 		lines.append("Written (%s, for %s): «%s» · replies kept %d" % [entry["card"], entry["who"], entry["text"], (entry["lines"] as Array).size()])

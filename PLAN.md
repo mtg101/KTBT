@@ -4,12 +4,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Focus camera on owner:** can focus on customer and cat, so why not owner too!
-- **More cat:** Having seen cats in GTA VI...
-  - customers can talk to the cat (it might even reply with a korean meow sometimes, but will of course mostly ignore people :)
-  - customers can order food for the cat, or give it something from their plate
-  - the cat can also steal food of course!
-  - people can't leave if the cat is on their lap (can be commented on, eg "i'm done eating ima, but i can't leave until (cat name) gets up")
+- **token costs**
+  - just fixing little things is burning $$$
+  - portraits should wait for a new week
+  - but how to stop that burning through a week in hours for it?
 - **Portraits:** feels like a new thing that enables more fun things
   - even with basic ones they can be used for TV popups, in diary, for social media posts later
 
@@ -29,7 +27,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **The story:** who came in with whom in the diary and "Previously on…".
   - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
 - **More PD cards:** 
-  - the owner's past walks in (near their secret, so it fits their fixed life); the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); choosing a card's variant, or typing your own ("they worked out they ___"); rare cards (towards the roguelike PD); cards that never land (from the logs) reworded or dropped; later, cards players write... 
+  - more tropey cards
+    - chaebols in disguise, people transported from the Joseon period, extreme weather events, etc
+  - more write-in card types
+    - big news events, 
+    - and 2 per night
 - **Narrative:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
   - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
@@ -44,12 +46,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **My fave tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
     - repeating words: chijeu chijeu, gogi gogi gogi, etc
     - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
+    - myers briggs (and other astrology ;) 
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
-
-
-### An actual game or experience
-
-- **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
 - **social media responses:** at end of day summary, alongside diary, affects ratings
   - 0-3 a night depending on events?

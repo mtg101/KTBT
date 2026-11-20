@@ -48,6 +48,7 @@ var now: Callable  # () -> what the cards need to know right now (Plants.why_not
 var guests: Callable  # () -> everyone at the counter (Guests)
 var pair_partner: Callable  # (guest) -> who a pair's card would pair them with, or null
 var cat: Callable  # () -> the tent's cat ({} if there isn't one)
+var owner_called: Callable  # () -> the owner as the desk names them ("Kim Soon-ok (Ajumma)")
 var happens: Callable  # (card, text, aimed, what): a card's played, and the tent makes it happen
 var airs: Callable  # (k, spins, reply, lines, names, roll): the edit's spin k goes out
 var link: Callable  # (meta): a link clicked on the desk (a pinned line's "pin:N": let it go)
@@ -280,11 +281,13 @@ func refresh() -> void:
 	var t := "[color=#%s][b]%s[/b][/color]\n\n" % [Ktv.ORANGE.to_html(false), Text.hint(PD_MEANS, "PD CONTROLS")]
 	if recut != "":
 		t += "[url=edit][color=#%s][b]%s[/b][/color][/url]\n\n" % [red, _esc(recut)]
-	t += "[b]%s[/b]  " % Text.hint("Click someone at the counter, or the cat, to follow them: their story gets the airtime. Click again to stop.", "Camera")
+	t += "[b]%s[/b]  " % Text.hint("Click someone at the counter, the cat or the owner to follow them: their story gets the airtime. Click again to stop.", "Camera")
 	if camera != null and camera.on_cat:
 		var with: Variant = camera.subject()
 		t += "[color=#%s]● REC[/color] %s, the cat%s\n" % [red, _esc(cat.call().get("name", "")),
 			(", with %s" % _esc(with.customer["name"])) if with != null else ", on its own"]
+	elif camera != null and camera.on_owner:
+		t += "[color=#%s]● REC[/color] %s, the owner\n" % [red, _esc(owner_called.call() if owner_called.is_valid() else "the owner")]
 	elif camera != null and camera.following != null:
 		t += "[color=#%s]● REC[/color] %s\n" % [red, _esc(camera.following.customer["name"])]
 	else:

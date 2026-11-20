@@ -130,6 +130,7 @@ const OFFSCREEN_RIGHT_X := Layout.OFFSCREEN_RIGHT_X
 ## When the owner's free and nothing's urgent: how often customers chat to each other
 ## instead of the owner chatting to someone. Mostly it's customer and owner.
 const CHAT_CHANCE := 0.5
+const CAT_HEARS_EVERY := 10.0  # game minutes: the cat answers (or ignores) its name at most this often
 ## ...and when it's busy (People.BUSY_COUNTER or more in), when there are most people to talk to.
 const BUSY_CHAT_CHANCE := 0.75
 const JOIN_CHANCE := CounterChats.JOIN_CHANCE
@@ -170,6 +171,7 @@ class Guest:
 	var food_news := false  # something's been served since the last topic was picked
 	var food_moment := ""  # a Talk.served_moment direction for their next line, now and then after something arrives
 	var cat_moment := ""  # a CatRules.cat_moment for their next line, now and then when the cat comes to them
+	var kept_by_cat := false  # their time was up, but the cat was asleep on their lap (once a visit: CatRules.LAP_KEEPS_MINUTES)
 	var stunned := ""  # a Talk.stunned_moment for their next line, after a shock they heard
 	var camera_moment := ""  # a Talk.camera_moment for their next line: the PD's camera has just turned to them
 	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
@@ -331,6 +333,8 @@ var _dawn_shown := false  # ...and 2am feelings
 var _specials: Array = []
 var _menu_change := {}  # tonight's menu change, if there was one (MenuChanges): for the diary
 ## A CatRules.cat_moment for the owner's next line (the cat's up on the counter again...).
+var _cat_heard_at := -999.0  # (game minutes) when the cat last heard its name: once in a while (CAT_HEARS_EVERY)
+var _owner_camera_moment := ""  # a Talk.camera_moment for the owner's next line: the camera's just turned on them (once a night)
 var _owner_cat_moment: String:  # (kept by the night)
 	get:
 		return _night.owner_cat_moment
@@ -515,6 +519,7 @@ func _open_saved_bar() -> void:
 	_people_view.dress(_owner_node, _owner_look())
 	_people_view.ready_gestures(_owner_node)  # (their hands' pictures made now, while the tent opens, not mid-night)
 	_owner_tag.text = _owner_label()
+	_update_owner_hover()
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
 	_narrate("%s opens up %s again for the night." % [_owner_display(), Game.bar["name"]])
@@ -584,6 +589,7 @@ func _fill_in_hangul() -> void:
 	if changed:
 		_owner["hangul"] = Game.bar["owner"]["hangul"]
 		_owner_tag.text = _owner_label()
+		_update_owner_hover()
 		Game.save()
 
 
@@ -699,6 +705,7 @@ func _invent_owner() -> void:
 	_people_view.dress(_owner_node, look)
 	_people_view.ready_gestures(_owner_node)
 	_owner_tag.text = _owner_label()
+	_update_owner_hover()
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
 	await _name_bar()
@@ -2393,6 +2400,7 @@ func _next_task() -> void:
 	var chance := BUSY_CHAT_CHANCE if _guests.size() >= People.BUSY_COUNTER else CHAT_CHANCE
 	if Hooks.chat_chance_override >= 0.0:
 		chance = Hooks.chat_chance_override
+	chance *= _camera.chat_share()  # (the camera on the owner: the turns are theirs)
 	var lonely := _left_alone_longest()
 	if lonely != null or _chat_possible():
 		_stats.free_turns += 1  # (counted only when there's someone to talk to, not every idle frame)
@@ -2608,8 +2616,31 @@ func _free_seats() -> Array:
 func _ready_to_pay() -> Guest:
 	for guest in _guests:
 		if guest.time_up() and _kitchen_part.food_coming(guest).is_empty():
+			if _cat_keeps(guest):
+				continue
 			return guest
 	return null
+
+
+## Their time's up, but the cat's asleep on their lap: they can't get up yet (once a visit, not
+## at last orders or closing up). A little longer, a moment for their next line, and the cat
+## moves on before then. Whether it kept them.
+func _cat_keeps(guest: Guest) -> bool:
+	if _cat.is_empty() or _cat_with != guest or _cat_spot != "lap" or guest.kept_by_cat or _last_orders or _closing_early:
+		return false
+	guest.kept_by_cat = true
+	guest.stay_left = maxf(guest.stay_left, 0.0) + CatRules.LAP_KEEPS_MINUTES
+	var cat_name := str(_cat["name"])
+	var named := str(guest.customer["name"])
+	guest.cat_moment = CatRules.LAP_MOMENT.replace("{cat}", cat_name)
+	var text := CatRules.LAP_TEXT.replace("{name}", named).replace("{cat}", cat_name)
+	_narrate(text)
+	guest.transcript.append({"action": text})
+	guest.version += 1
+	_cat_next = minf(_cat_next, CatRules.LAP_KEEPS_MINUTES * 0.75)  # (it gets up before they have to)
+	_event("cat_kept", {"cat": cat_name, "name": named}, guest.node)
+	DebugLog.say("Cat", "%s keeps %s on their stool a little longer" % [cat_name, named])
+	return true
 
 
 ## Whoever's waited longest for the owner. People here to talk get seen to sooner.
@@ -3366,6 +3397,8 @@ func _next_line(guest: Guest) -> void:
 	_plant_in(guest.transcript, guest)
 	var given := Conversation.owner_line(_night, guest, i, _late(), Looks.wet(_weather_kind))  # (what this line's given: see Conversation)
 	var direction := str(given["direction"])
+	if owner_speaks:
+		direction = _owner_on_camera(direction, guest)  # (the camera's on the owner: they notice, or show a little more of themselves)
 	var hint := str(given["hint"])  # what kind of hint this line was given, for the stats
 	if not owner_speaks:
 		direction = (direction + " " + _who_you_know(guest, [])).strip_edges()  # (what they've said about themselves before)
@@ -3710,7 +3743,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	chat.transcript.append({"speaker": speaker, "text": line})
 	chat.last_speaker = speaker
 	_stats.chat_lines += 1
-	_stats.record_camera_line(_camera.on_camera(chat.people))
+	_stats.record_camera_line(_camera.on_camera(chat.people, chat.owner_in))
 	_stats.record_written_line(speaker, chat.people.map(func(g): return str(g.customer["name"])), line)
 	_stats.record_hint(hint, line, _tent_cat.tells())
 	_stats.record_line(line, names)
@@ -3722,6 +3755,7 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	else:
 		_show("[color=#%s][b]%s to %s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), _esc(to), Glossary.explain(_esc(line), names)], _said_line(speaker, line))
 	_cheer_along(guest, line, names)
+	_cat_hears(line, chat.transcript)
 	_table_game_taken(chat, guest, line)
 	_mind_your_elders(guest, addressed)
 	var listener_colour := OWNER_TEXT if addressed == null else addressed.color.lightened(0.35)
@@ -3879,6 +3913,50 @@ func _move_cat(spot: String = "") -> void:
 	# Sat by someone's food, with a fish cake on the table: a greedy cat may help itself.
 	if spot == "food" and with != null and CatRules.steals(str(_cat["personality"]), with.served.has(CatRules.STEALABLE), randf()):
 		_cat_steals(with)
+	elif spot == "food" and with != null and CatRules.shares(str(_cat["personality"]), randf()):
+		_cat_fed(with)  # (the friendly way: a bit from their plate)
+
+
+## Someone slips the cat a bit of what's on their plate (it's still theirs: a bit). A moment for
+## them and the owner (who may have something to say about feeding it).
+func _cat_fed(guest: Guest) -> void:
+	var food: Array = guest.served.filter(func(id): return Menu.find(id).get("kind", "") == "food")
+	if food.is_empty():
+		return
+	var cat_name := str(_cat["name"])
+	var named := str(guest.customer["name"])
+	var dish := str(Menu.find(str(food.pick_random())).get("name", "food"))
+	var fill := func(words: String) -> String: return words.replace("{cat}", cat_name).replace("{name}", named).replace("{dish}", dish)
+	var text: String = fill.call(CatRules.SHARE_TEXT)
+	_narrate(text)
+	guest.transcript.append({"action": text})
+	guest.version += 1
+	guest.cat_moment = fill.call(CatRules.SHARE_MOMENT)
+	_owner_cat_moment = fill.call(CatRules.SHARE_MOMENT_OWNER)
+	_event("cat_fed", {"cat": cat_name, "name": named, "dish": dish}, guest.node)
+	DebugLog.say("Cat", "%s gives %s a bit of their %s" % [named, cat_name, dish])
+
+
+## A line said: if it names the cat (and it's in the tent), now and then it answers (야옹), more
+## often it ignores them; never more than once in a while. transcript: the conversation it's in.
+func _cat_hears(line: String, transcript: Array) -> void:
+	if _cat.is_empty() or _cat_spot == "street" or _clock - _cat_heard_at < CAT_HEARS_EVERY:
+		return
+	var cat_name := str(_cat["name"])
+	var heard := CatRules.hears_its_name(line, cat_name, randf())
+	if heard == "":
+		return
+	_cat_heard_at = _clock
+	if heard == "answer":
+		_narrate(CatRules.ANSWER_TEXT.replace("{cat}", cat_name))
+		transcript.append({"action": "%s meows back." % cat_name})
+		_ambience.play("meow")
+	else:
+		var text := str(CatRules.IGNORE_TEXTS.pick_random()).replace("{cat}", cat_name)
+		_narrate(text)
+		transcript.append({"action": text})
+	_event("cat_answered" if heard == "answer" else "cat_ignored", {"cat": cat_name}, _cat_node)
+	DebugLog.say("Cat", "%s hears its name, and %s" % [cat_name, "answers" if heard == "answer" else "ignores it"])
 
 
 ## The cat grabs a fish cake skewer off someone's table and bolts into the street. It's gone
@@ -4195,7 +4273,7 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 	_stats.owner_lines += 1
 	_stats.record_line(text, [_owner["name"], guest.customer["name"]])
 	_stats.record_written_line(str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), [str(guest.customer["name"])], text)
-	_stats.record_camera_line(_camera.on_camera([guest]))
+	_stats.record_camera_line(_camera.on_camera([guest], true))  # (the owner's conversation)
 	if not owner_speaks:
 		_night_lines.append({"speaker": str(guest.customer["name"]), "text": text})
 	if not owner_speaks and guest.to_camera:  # (the PD's interview cut: straight to camera)
@@ -4205,6 +4283,7 @@ func _say(guest: Guest, owner_speaks: bool, text: String) -> void:
 		_show("[color=#%s][b]%s:[/b][/color] %s\n\n" % [colour.to_html(false), _esc(who), Glossary.explain(_esc(text), [_owner["name"], guest.customer["name"]])],
 			_said_line(str(_owner["name"]) if owner_speaks else str(guest.customer["name"]), text))
 	_cheer_along(null if owner_speaks else guest, text, [_owner["name"], guest.customer["name"]])
+	_cat_hears(text, guest.transcript)
 	# (Their node may have gone while the line was on its way, e.g. they've walked off: a freed
 	# node can't be passed as a Control, so it's null then, and the bubble skips or points nowhere.)
 	var them: Control = guest.node if is_instance_valid(guest.node) else null
@@ -4727,6 +4806,64 @@ func _on_guest_clicked(event: InputEvent, guest: Guest) -> void:
 		_camera_on(guest)
 
 
+## Clicking the owner: the camera follows them (the airtime goes to the owner: see camera.gd).
+func _on_owner_clicked(event: InputEvent) -> void:
+	if not _left_click(event) or _owner.is_empty():
+		return
+	if _camera.on_owner:
+		_camera_off("pd")
+	else:
+		_camera_on_owner()
+
+
+## The camera turns to the owner: the viewfinder on them, and the first time tonight they notice
+## (a moment for their next line, and in the conversation it's said in).
+func _camera_on_owner() -> void:
+	var previous: Variant = _camera.follow_owner()
+	_viewfinder_off(previous)
+	var named := str(_owner["name"])
+	var noticing := _camera.owner_notices()
+	if noticing:
+		_owner_camera_moment = Talk.camera_moment(named, _camera.crew)
+	PdDesk.viewfinder(_owner_node, Rect2(-4, -8, 88, 166))
+	_narrate("The camera follows %s, the owner." % _owner_display())
+	_event("camera_on", {"name": named, "owner": true, "from": _camera_name(previous), "noticing": noticing}, _owner_node)
+	DebugLog.say("Camera", "on the owner%s" % (" (they notice)" if noticing else ""))
+	_show_camera()
+
+
+## The owner's line, with the camera on them: the moment they notice it (once), or now and then
+## a little more of themselves (Talk.OWNER_ON_CAMERA). guest: who they're talking to (whose
+## conversation hears the camera turn).
+func _owner_on_camera(direction: String, guest: Guest) -> String:
+	if not _camera.on_owner:
+		_owner_camera_moment = ""
+		return direction
+	if _owner_camera_moment != "":
+		direction = (_owner_camera_moment + " " + direction).strip_edges()
+		_owner_camera_moment = ""
+		if guest != null:
+			guest.transcript.append({"action": Talk.camera_happened(str(_owner["name"]), _camera.crew)})
+		_event("owner_noticed_camera", {"name": str(_owner["name"])}, _owner_node)
+	elif randf() < PdCamera.OWNER_SHOWS:
+		direction = (direction + " " + Talk.OWNER_ON_CAMERA).strip_edges()
+		_event("owner_on_camera", {"name": str(_owner["name"])}, _owner_node)
+		DebugLog.say("Camera", "the owner shows a little more of themselves (to %s)" % (str(guest.customer["name"]) if guest != null else "the counter"))
+	return direction
+
+
+## Hovering over the owner: who they are, and what a click does.
+func _update_owner_hover() -> void:
+	var area: Control = null
+	if is_instance_valid(_owner_node):
+		area = _owner_node.get_node_or_null("Hover") as Control
+	if area == null or _owner.is_empty():
+		return
+	var text := "%s, the owner of %s" % [_owner_label(), str(Game.bar.get("name", "the tent"))]
+	text += "\n" + ("● The camera's on them: click to stop" if _camera != null and _camera.on_owner else "Click to follow them with the camera")
+	area.tooltip_text = Text.tip(text)
+
+
 ## Clicking the cat: the camera follows it (the airtime goes to whoever it's with).
 func _on_cat_clicked(event: InputEvent) -> void:
 	if not _left_click(event) or _cat.is_empty():
@@ -4768,23 +4905,33 @@ func _camera_off(why: String) -> void:
 	_viewfinder_off(was)
 	if why == "pd":
 		_narrate("The camera stops following %s." % _camera_name(was))
-	_event("camera_off", {"name": _camera_name(was), "why": why}, _cat_node if str(was) == "cat" else was.node)
+	_event("camera_off", {"name": _camera_name(was), "why": why}, _camera_node(was))
 	_show_camera()
 
 
-## A Guest's name, the cat's ("cat"), or "".
+## A Guest's name, the cat's ("cat"), the owner's ("owner"), or "".
 func _camera_name(who: Variant) -> String:
 	if who == null:
 		return ""
 	if who is String:
-		return str(_cat.get("name", "the cat"))
+		return str(_owner.get("name", "the owner")) if who == "owner" else str(_cat.get("name", "the cat"))
 	return str(who.customer["name"])
 
 
-## Takes the viewfinder off whoever it was on (a Guest, "cat", or null).
+## Whoever the camera was on, as drawn: a Guest's node, the cat's, the owner's (or null).
+func _camera_node(who: Variant) -> Control:
+	if who == null:
+		return null
+	if who is String:
+		return _owner_node if who == "owner" else _cat_node
+	return who.node if is_instance_valid(who.node) else null
+
+
+## Takes the viewfinder off whoever it was on (a Guest, "cat", "owner", or null).
 func _viewfinder_off(who: Variant) -> void:
-	if who != null:
-		PdDesk.viewfinder_off(_cat_node if who is String else who.node)
+	var node := _camera_node(who)
+	if node != null:
+		PdDesk.viewfinder_off(node)
 
 
 ## The corner's "● REC" and who, and the hovers saying what a click does.
@@ -4792,6 +4939,8 @@ func _show_camera() -> void:
 	if _pd != null:
 		if _camera.on_cat:
 			_pd.show_rec("%s (the cat)" % _cat.get("name", ""), _cat_tooltip())
+		elif _camera.on_owner:
+			_pd.show_rec("%s (the owner)" % _owner_display(), Text.tip("The show's camera is following %s, the owner. Click them to stop." % _owner_display()))
 		elif _camera.following != null:
 			var who := str(_camera.following.customer["name"])
 			_pd.show_rec(who, Text.tip("The show's camera is following %s. Click them to stop." % who))
@@ -4799,6 +4948,7 @@ func _show_camera() -> void:
 			_pd.show_rec("", "")
 	for guest in _guests:
 		_update_hover(guest)
+	_update_owner_hover()
 	_update_desk()
 	if not _cat.is_empty() and _tent_cat != null and _tent_cat.node != null:
 		_cat_node.tooltip_text = _cat_tooltip()
@@ -5212,6 +5362,7 @@ func _build_ui() -> void:
 	_pd.guests = func(): return _guests
 	_pd.pair_partner = _pair_partner
 	_pd.cat = func(): return _cat
+	_pd.owner_called = func(): return _owner_display()
 	_pd.happens = _card_happens
 	_pd.airs = _air_moment
 	_pd.camera = _camera
@@ -5634,6 +5785,13 @@ func _build_stage(stage: Control) -> void:
 	_owner_tag = _owner_node.get_node("Tag") as Label
 	_owner_tag.z_index = 3  # their head is just under the tarp: the name goes in front of it
 	_owner_node.visible = false
+	var owner_area := Control.new()  # (who they are, and a click: the camera follows them, as a customer)
+	owner_area.name = "Hover"
+	owner_area.position = Vector2(15, 0)
+	owner_area.size = Vector2(Layout.PERSON_SIZE.x - 30, Layout.PERSON_SIZE.y)
+	owner_area.mouse_filter = Control.MOUSE_FILTER_STOP
+	owner_area.gui_input.connect(_on_owner_clicked)
+	_owner_node.add_child(owner_area)
 
 	var counter: Array = [_rect(stage, Vector2(100, 250), Vector2(w - 182, 18), Color("8a5a33"))]  # counter top
 	counter.append(_rect(stage, Vector2(120, 268), Vector2(w - 222, 104), Color("5c3820")))  # counter front
@@ -5651,6 +5809,7 @@ func _build_stage(stage: Control) -> void:
 	_kitchen_part.stove_row.size = Vector2(160, 34)
 	_kitchen_part.stove_row.add_theme_constant_override("separation", 4)
 	_kitchen_part.stove_row.clip_contents = true
+	_kitchen_part.stove_row.mouse_filter = Control.MOUSE_FILTER_IGNORE  # (the row lets clicks through to the owner behind it; its dishes keep their hovers)
 	stage.add_child(_kitchen_part.stove_row)
 
 	# Each stool's place at the counter: drinks and banchan to the customer's left, food to the right.
@@ -5663,6 +5822,7 @@ func _build_stage(stage: Control) -> void:
 		drinks.alignment = BoxContainer.ALIGNMENT_END
 		drinks.add_theme_constant_override("separation", 4)
 		drinks.clip_contents = true
+		drinks.mouse_filter = Control.MOUSE_FILTER_IGNORE  # (so the owner, standing behind it, can be clicked: 20 Nov)
 		stage.add_child(drinks)
 		_drinks_rows.append(drinks)
 		var food := HBoxContainer.new()
@@ -5671,6 +5831,7 @@ func _build_stage(stage: Control) -> void:
 		food.size = Vector2(104, 34)
 		food.add_theme_constant_override("separation", 4)
 		food.clip_contents = true
+		food.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stage.add_child(food)
 		_food_rows.append(food)
 		var stool: Array = [_rect(stage, Vector2(x - 35, 312), Vector2(70, 12), Color("9a9ab0"))]  # stool (its seat a person's knee high)

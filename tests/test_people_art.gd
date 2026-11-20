@@ -315,3 +315,14 @@ func test_people_are_lit_from_above_not_from_one_side() -> void:
 		var left: float = sides[0][0] / maxf(sides[0][1], 1.0)
 		var right: float = sides[1][0] / maxf(sides[1][1], 1.0)
 		assert_float(absf(left - right)).override_failure_message("%s: left %.2f, right %.2f" % [id, left, right]).is_less(0.15)
+
+
+func test_seated_from_behind_their_legs_are_out_of_sight_not_over_the_stool() -> void:
+	# Regression (20 Nov): the lower legs were drawn down either side of the stool, over it.
+	for clothes in ["suit", "trench", "padded", "hoodie", "knit"]:
+		var image: Image = Art.texture("person/back_body_%s" % clothes).get_image()
+		if image.is_compressed():
+			image.decompress()
+		for y in range(56, image.get_height()):  # (the stool's place: below the seat)
+			for x in image.get_width():
+				assert_int(image.get_pixel(x, y).a8).override_failure_message("%s at %d,%d" % [clothes, x, y]).is_less(128)

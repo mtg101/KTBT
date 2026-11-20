@@ -19,6 +19,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
+const Hangul = preload("res://scripts/rules/hangul.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
@@ -2630,3 +2631,24 @@ func test_a_time_of_night_isnt_a_made_up_number() -> void:
 	assert_array(Text.numbers_in("It's 3 am, and at 11:30pm she left, ₩12,000 later.", true)).is_equal(["12000"])
 	assert_array(Text.numbers_in("It's 3 am", false)).is_equal(["3"])  # (the plain count still sees it)
 	assert_str(Story.validate_diary({"entry": "It's 3 am and the rain's finally letting up. Ji-ho stayed till the end, and laughed for the first time in weeks."}, {"names": ["Kim Ji-ho"], "customers": 4})).not_contains("number")
+
+
+func test_a_cat_on_a_lap_a_bit_from_a_plate_and_its_name() -> void:
+	# A bit from a plate: likelier the greedier it is; a grumpy one hardly takes it.
+	assert_bool(CatRules.shares("greedy", 0.4)).is_true()
+	assert_bool(CatRules.shares("grumpy", 0.4)).is_false()
+	for personality in CatRules.CAT_PERSONALITIES:
+		assert_bool(CatRules.SHARE_CHANCE.has(personality)).override_failure_message(personality).is_true()
+	assert_str(CatRules.SHARE_MOMENT.replace("{cat}", "Nabi").replace("{dish}", "Pajeon")).is_equal("You've just slipped Nabi a bit of your Pajeon.")
+	assert_str(CatRules.LAP_MOMENT).contains("{cat}").contains("can't get up")
+	# Its name: whole words only, any case; now and then it answers, more often it ignores them.
+	assert_str(CatRules.hears_its_name("Nabi, come here!", "Nabi", 0.1)).is_equal("answer")
+	assert_str(CatRules.hears_its_name("nabi's so lazy tonight", "Nabi", 0.3)).is_equal("ignore")
+	assert_str(CatRules.hears_its_name("Nabi, come here!", "Nabi", 0.9)).is_equal("")  # (mostly, nothing to see)
+	assert_str(CatRules.hears_its_name("Nabiya is my sister's name", "Nabi", 0.1)).is_equal("")  # (not part of a word)
+	assert_str(CatRules.hears_its_name("Nyang-i! Off the counter!", "Nyang-i", 0.1)).is_equal("answer")
+	assert_str(CatRules.hears_its_name("Nyang, no", "Nyang-i", 0.1)).is_equal("")
+	assert_str(CatRules.hears_its_name("anything", "", 0.0)).is_equal("")
+	# Its answer's Korean, explained on hover.
+	assert_str(CatRules.ANSWER_TEXT).contains("야옹")
+	assert_bool(Hangul.MEANINGS.has("야옹")).is_true()

@@ -749,6 +749,9 @@ static func says_hwaiting(line: String, names: Array = []) -> bool:
 ## The PD's camera turns to someone for the first time tonight: everyone knows they're on a
 ## show, so they notice (and play up to it, hide from it, or carry on: theirs to choose).
 const CAMERA_MOMENT := "{crew} have just turned their camera on {who}, and they've noticed."
+## The owner's line now and then while the camera's following them (PdCamera.OWNER_SHOWS):
+## the airtime's theirs.
+const OWNER_ON_CAMERA := "The show's camera is following you tonight: let a little more of yourself show than usual (an opinion, a memory of your own, how your day's been), still only ever hinting at your secret."
 const CREW := "The show's camera crew"  # (who's filming: Channels.camera_crew says, by the rung)
 
 

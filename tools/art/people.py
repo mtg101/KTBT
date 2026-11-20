@@ -131,12 +131,9 @@ def body(clothes, view):
         s.rounded(17, hem, 22, 68, "trousers", 0.85)
         s.rect(9, 68, 15, 72, "ink", 0.78)  # shoes
         s.rect(17, 68, 23, 72, "ink", 0.78)
-    else:  # seated: the seat of the trousers on the stool, the lower legs down either side
+    else:  # seated: the seat of the trousers on the stool; their legs are forward, under the
+        # counter, out of sight (20 Nov: drawn down either side of the stool, they were over it)
         s.rounded(5, WAIST, 27, WAIST + 6, "trousers", 0.8)
-        s.rounded(5, WAIST + 6, 10, 66, "trousers", 0.65)
-        s.rounded(22, WAIST + 6, 27, 66, "trousers", 0.65)
-        s.rect(4, 66, 10, 70, "ink", 0.68)
-        s.rect(22, 66, 28, 70, "ink", 0.68)
     bottom = (COAT_HEM if long_coat else WAIST) if front else WAIST + 1
     shoulder = SHOULDER - 1 if clothes == "padded" else SHOULDER
     s.rounded(shoulder, TOP + 1, W - shoulder, bottom, CLOTH)
