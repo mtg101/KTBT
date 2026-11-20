@@ -4,16 +4,21 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **The side panel, next:** The show's season so far as rows (the season page's, as it goes); a tidier Here now (the owner, the cat and the counter in one style with The show's headings).
 - **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
-  - **Reach over not aveerage over:** getting averga 1000 views in season 1 is hard due to how average work
+  - **Reach over not average over?:** getting average 1000 views in season 1 is hard due to how averages work
    - you need to reach or have 10000 views (10k subs etc) to move up
    - so you can move up in a season or two
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
   - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
   - **Tuning the ladder:** with the simulation (`test_ladder_sim.gd` prints its report: 200 shows, 8 seasons, for each kind of PD), decide the pace for a typical player. As it stands: a PD like the autopilot (nights about 9.8) gets a channel after one season nearly always, and TV one or two seasons later; a great one (12) climbs a rung a season; a steady one (7.5) finds the phone stream the hard step (22% after one season, median three); a quiet one (5) never leaves it; and no show ever drops (a season under 1,000 subscribers or 5% is rare). Perhaps the stream's target nearer the autopilot's, and the channel's and TV's floors where a bad run can reach them. Perhaps shorter seasons (6) on the lower rungs.
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
+- **Transcript UI:** needs to be easier to use
+  - search, 'catch up to latest, popup in resizeable window, etc
+- **Pixel bg lighting?:** pixel lighting didn't work on people... now the bg clashes?
+  - what does similar brightness lighting over pixel bg look like rather than c64 dithering?
+  - both people and bg using same probably gives consistency
+- **The side panel, next:** The show's season so far as rows (the season page's, as it goes); a tidier Here now (the owner, the cat and the counter in one style with The show's headings).
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   -- both sandbox mode and makes testing specific features easier
 
