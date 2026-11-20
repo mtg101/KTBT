@@ -6,8 +6,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **Portraits:** a face for everyone, from the image model; the first use the hover on a person, then TV pop-ups and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
   - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
-  - **1. The library:** a `generate_art` batch overnight (the GPU's free; no tokens while it runs) of every gender × age range × hairstyle (× glasses), from `portraits.py`'s PROMPT (black hair, a plain bright red top, flat green; each hairstyle described by its shape, not its name); `portraits.py --sheet` for the contact sheet; the user picks the keepers; into `art/portraits/` (the layer encoding), the manifest and LICENSE-ASSETS. Brows as hair (they stay dark under white hair now).
-  - **2. In the game, on the hover:** painted by `people_art.gd`'s own code (the portraits are in its layer encoding); a pure rule (`rules/portraits.gd`: a look to the best portrait, the same every time for the same person), a view that repaints it onto their ramps, shown on a person's hover; a fallback when nothing matches. Tests, counted in the night's stats ("Portraits: matched · fallback"), logged.
+  - **1. The library:** run the batch (`portraits.py --batch` has written the list; the helper's `queue_art_batch`, then `collect_art` until it's all in); pick sheets by gender and age range, the best of each three pre-picked by how cleanly it splits, so the user only overrides; the keepers into `art/portraits/` (the layer encoding), the manifest (`art.gd` knowing the portrait keys, or the art tests fail) and LICENSE-ASSETS. Brows as hair (they stay dark under white hair now).
+  - **2. In the game, on the hover:** painted by `people_art.gd`'s own code (the portraits are in its layer encoding); a pure rule (`rules/portraits.gd`: a look to the best portrait, the same every time for the same person), a view that repaints it onto their ramps, shown on a person's hover; a fallback when nothing matches; non-binary customers get the woman's or man's portrait for their hairstyle. Tests, counted in the night's stats ("Portraits: matched · fallback"), logged.
   - **Using portraits:** 
     - TV pop-ups and cut to camera
       - probably have to be able to overlay whole screen not just the bar part?
@@ -57,6 +57,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - 0-3 a night depending on events?
   - text + images: food, selfie at bar, portraits can be used, etc
   - future: pops up live during show
+  - the triple+ replay for big events
   - for thinking about: how would you make a video social media post for the end of the night?
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
@@ -67,6 +68,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
 - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
+- **More sound reactions:** korean TV is famous for it alongside the TV pops
+  - I just need to be in the mood to do sound...
 - **Voices:** characters speak their lines, a setting choosing **off**, **babble**, **system voices** or **AI voices**; the game picks each voice from facts it owns (gender, age, mood).
   - **Babble (first):** Animal Crossing-style syllables per word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous), from a few CC0 sounds. No AI, runs anywhere.
   - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.

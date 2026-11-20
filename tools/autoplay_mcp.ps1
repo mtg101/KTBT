@@ -2,7 +2,7 @@
 # and check a batch of autoplay nights (see scripts/autoplay.gd) while nobody's at the PC.
 # It can do these things and nothing else: start a batch (Godot with --autoplay, in this
 # project only), say how one's going (and whether Ollama answers), and stop one; and ask
-# ComfyUI on this PC for pictures for the art (into art\raw\); and import the project's new
+# ComfyUI on this PC for pictures for the art (into art\raw\, one at a time or a batch from a list); and import the project's new
 # or changed art and fonts (Godot's own --import, so the game and the tests see them without
 # opening the editor). No general shell, no other programs. Plain PowerShell, so nothing to install.
 #
@@ -14,6 +14,7 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot  # the project folder (this file's in tools\)
 $MostNights = 30
+$CollectAtMost = 60  # (pictures fetched in one collect_art: a batch's hundreds would outlast the app's patience)
 
 try {
 	[Console]::InputEncoding = New-Object System.Text.UTF8Encoding $false
@@ -250,7 +251,9 @@ function SavePending($items) {
 function Collect {
 	$lines = @()
 	$still = @()
+	$fetched = 0
 	foreach ($item in (Pending)) {
+		if ($fetched -ge $CollectAtMost) { $still += $item; continue }
 		$history = $null
 		try { $history = Invoke-RestMethod -Uri "$ComfyUrl/history/$($item.prompt_id)" -TimeoutSec 5 } catch { }
 		$entry = $null
@@ -269,13 +272,49 @@ function Collect {
 				ConvertTo-Json -InputObject $note | Set-Content -Path (Join-Path (RawFolder) "$base.json") -Encoding UTF8
 				$lines += "art\raw\$base.png"
 				$saved = $true
+				$fetched++
 			}
 		}
 		if (-not $saved) { $lines += "$($item.name) (seed $($item.seed)): finished without a picture (see ComfyUI's window)" }
 	}
 	SavePending $still
+	if ($lines.Count -gt 12) { $lines = @("Fetched $($lines.Count) into art\raw\ (" + (($lines | Select-Object -First 3) -join ', ') + ', ...)') }
 	if ($still.Count -gt 0) { $lines += "Still being made: $($still.Count) (collect_art fetches them)." }
 	return $lines
+}
+
+# Queues pictures in ComfyUI (it works through its own queue, with or without us): $count of
+# $prompt from $seed up (a batch skips any already in art\raw\). The pending items it queued.
+function QueueArt([string]$prompt, [string]$name, [int]$seed, [int]$count, [int]$width, [int]$height, [string]$workflowFile, [bool]$skipMade = $false) {
+	$queued_items = @()
+	for ($k = 0; $k -lt $count; $k++) {
+		if ($skipMade -and (Test-Path (Join-Path (RawFolder) "$($name)_$($seed + $k).png"))) { continue }  # (made already: a batch picks up where it left off)
+		$workflow = Get-Content -Path $workflowFile -Raw -Encoding UTF8 | ConvertFrom-Json
+		$prompted = $false
+		foreach ($node in $workflow.PSObject.Properties) {
+			$inputs = $node.Value.inputs
+			if ($null -eq $inputs) { continue }
+			$type = [string]$node.Value.class_type
+			$title = [string]$node.Value._meta.title
+			if ($type -like 'CLIPTextEncode*' -and $null -ne $inputs.PSObject.Properties['text'] -and $title -notmatch 'Negative' -and -not $prompted) {
+				$inputs.text = $prompt; $prompted = $true
+			}
+			foreach ($field in @('seed', 'noise_seed')) {
+				if ($null -ne $inputs.PSObject.Properties[$field] -and $inputs.$field -isnot [array]) { $inputs.$field = $seed + $k }
+			}
+			if ($null -ne $inputs.PSObject.Properties['width'] -and $null -ne $inputs.PSObject.Properties['height'] -and $inputs.width -isnot [array]) {
+				$inputs.width = $width; $inputs.height = $height
+			}
+			if ($type -eq 'PrimitiveInt' -and $title -eq 'Width') { $inputs.value = $width }  # (the Klein template's size boxes)
+			if ($type -eq 'PrimitiveInt' -and $title -eq 'Height') { $inputs.value = $height }
+			if ($type -eq 'SaveImage') { $inputs.filename_prefix = "ktbt/$name" }
+		}
+		if (-not $prompted) { throw 'The workflow has no prompt box (a CLIPTextEncode node) to fill in.' }
+		$body = ConvertTo-Json -InputObject ([ordered]@{ prompt = $workflow; client_id = 'ktbt-autoplay' }) -Depth 50 -Compress
+		$queued = Invoke-RestMethod -Uri "$ComfyUrl/prompt" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json' -TimeoutSec 15
+		$queued_items += [ordered]@{ prompt_id = [string]$queued.prompt_id; name = $name; seed = $seed + $k; prompt = $prompt; width = $width; height = $height }
+	}
+	return $queued_items
 }
 
 function GenerateArt($arguments) {
@@ -300,33 +339,7 @@ function GenerateArt($arguments) {
 	if ($problem -ne '') { return ToolText $problem $true }
 	$workflowFile = Join-Path $PSScriptRoot 'art\klein_api.json'
 	if (-not (Test-Path $workflowFile)) { return ToolText "No workflow: in ComfyUI, Workflow > Export (API), saved as tools\art\klein_api.json." $true }
-	$pending = @(Pending)
-	for ($k = 0; $k -lt $count; $k++) {
-		$workflow = Get-Content -Path $workflowFile -Raw -Encoding UTF8 | ConvertFrom-Json
-		$prompted = $false
-		foreach ($node in $workflow.PSObject.Properties) {
-			$inputs = $node.Value.inputs
-			if ($null -eq $inputs) { continue }
-			$type = [string]$node.Value.class_type
-			$title = [string]$node.Value._meta.title
-			if ($type -like 'CLIPTextEncode*' -and $null -ne $inputs.PSObject.Properties['text'] -and $title -notmatch 'Negative' -and -not $prompted) {
-				$inputs.text = $prompt; $prompted = $true
-			}
-			foreach ($field in @('seed', 'noise_seed')) {
-				if ($null -ne $inputs.PSObject.Properties[$field] -and $inputs.$field -isnot [array]) { $inputs.$field = $seed + $k }
-			}
-			if ($null -ne $inputs.PSObject.Properties['width'] -and $null -ne $inputs.PSObject.Properties['height'] -and $inputs.width -isnot [array]) {
-				$inputs.width = $width; $inputs.height = $height
-			}
-			if ($type -eq 'PrimitiveInt' -and $title -eq 'Width') { $inputs.value = $width }  # (the Klein template's size boxes)
-			if ($type -eq 'PrimitiveInt' -and $title -eq 'Height') { $inputs.value = $height }
-			if ($type -eq 'SaveImage') { $inputs.filename_prefix = "ktbt/$name" }
-		}
-		if (-not $prompted) { return ToolText "The workflow has no prompt box (a CLIPTextEncode node) to fill in." $true }
-		$body = ConvertTo-Json -InputObject ([ordered]@{ prompt = $workflow; client_id = 'ktbt-autoplay' }) -Depth 50 -Compress
-		$queued = Invoke-RestMethod -Uri "$ComfyUrl/prompt" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json' -TimeoutSec 15
-		$pending += [ordered]@{ prompt_id = [string]$queued.prompt_id; name = $name; seed = $seed + $k; prompt = $prompt; width = $width; height = $height }
-	}
+	$pending = @(@(Pending) + @(QueueArt $prompt $name $seed $count $width $height $workflowFile))
 	SavePending $pending
 	Note "queued $count pictures: $name"
 	$lines = @()
@@ -338,6 +351,33 @@ function GenerateArt($arguments) {
 	$left = @(Pending).Count
 	if ($left -gt 0) { $lines += "Still being made: $left (collect_art fetches them)." }
 	return ToolText ("Made with seed $seed (then +1 each):`n" + ($lines -join "`n"))
+}
+
+# A batch from a list in art\raw\ (portraits.py --batch writes one): [{name, prompt, seed, count,
+# width, height}], every picture queued in ComfyUI at once, which works through them on its own (no
+# tokens while it runs; about 10 seconds a picture). Run again, it queues only what's missing.
+function QueueArtBatch($arguments) {
+	$file = 'portrait_batch.json'
+	if ($null -ne $arguments -and [string]$arguments.file -ne '') { $file = [string]$arguments.file }
+	if ($file -notmatch '^[a-z0-9_-]{1,60}\.json$') { return ToolText 'file: a .json list in art\raw\ (lowercase, digits, - and _).' $true }
+	$path = Join-Path (RawFolder) $file
+	if (-not (Test-Path $path)) { return ToolText "No art\raw\$file: make it first (python3 tools/art/portraits.py --batch)." $true }
+	$jobs = @(ConvertFrom-Json -InputObject (Get-Content -Path $path -Raw -Encoding UTF8))  # (not piped: Windows PowerShell 5.1 would hand the whole list back as one item)
+	if ($null -ne (RunningBatch)) { return ToolText "An autoplay batch is running: Ollama has the GPU. Stop it first, or wait." $true }
+	if (@(Pending).Count -gt 0) { return ToolText "Pictures are still being made: collect_art them first (or stop_art and start again)." $true }
+	$problem = StartComfy
+	if ($problem -ne '') { return ToolText $problem $true }
+	$workflowFile = Join-Path $PSScriptRoot 'art\klein_api.json'
+	if (-not (Test-Path $workflowFile)) { return ToolText "No workflow: in ComfyUI, Workflow > Export (API), saved as tools\art\klein_api.json." $true }
+	$pending = @()
+	foreach ($job in $jobs) {
+		if ([string]$job.name -notmatch '^[a-z0-9_-]{1,60}$') { return ToolText "A job's name won't do: $($job.name)" $true }
+		$pending += @(QueueArt ([string]$job.prompt) ([string]$job.name) ([int]$job.seed) ([int]$job.count) ([int]$job.width) ([int]$job.height) $workflowFile $true)
+		SavePending $pending  # (as it goes, so a stop part-way still knows what's queued)
+	}
+	Note "queued a batch: $($pending.Count) pictures from $file"
+	$minutes = [math]::Ceiling($pending.Count * 10 / 60)
+	return ToolText "Queued $($pending.Count) pictures from art\raw\$file ($($jobs.Count) jobs; any already made skipped). ComfyUI works through them by itself: about $minutes minutes. collect_art fetches what's finished, $CollectAtMost at a time. Don't start autoplay meanwhile (it stops ComfyUI)."
 }
 
 function CollectArt {
@@ -365,7 +405,10 @@ $Tools = @(
 			seed = [ordered]@{ type = 'integer'; description = 'Optional: the seed, to make one again or vary it.' }
 			width = [ordered]@{ type = 'integer'; description = 'Pixels, 256 to 1536 in steps of 16 (default 1024).' }
 			height = [ordered]@{ type = 'integer'; description = 'Pixels, 256 to 1536 in steps of 16 (default 1024).' } } } },
-	[ordered]@{ name = 'collect_art'; description = 'Fetch any pictures generate_art was still making.'
+	[ordered]@{ name = 'queue_art_batch'; description = "Queue a whole list of KTBT art pictures in ComfyUI at once (a list in art\raw\, written by tools/art/portraits.py --batch): ComfyUI works through them by itself, with no tokens spent while it runs; collect_art fetches what's finished. Skips pictures already made, so running it again carries on. Not while an autoplay batch is running."
+		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{
+			file = [ordered]@{ type = 'string'; description = 'The list in art\raw\ (default portrait_batch.json).' } } } },
+	[ordered]@{ name = 'collect_art'; description = 'Fetch pictures generate_art or queue_art_batch was still making (up to 60 a call).'
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
 	[ordered]@{ name = 'stop_art'; description = 'Stop ComfyUI, to give the GPU back (start_autoplay does this itself).'
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
@@ -401,6 +444,7 @@ while ($true) {
 					'autoplay_status' { Status }
 					'stop_autoplay' { StopBatch }
 					'generate_art' { GenerateArt $arguments }
+					'queue_art_batch' { QueueArtBatch $arguments }
 					'collect_art' { CollectArt }
 					'stop_art' { StopArt }
 					'import_assets' {

@@ -10,6 +10,7 @@ in PROMPT below): black, red and skin are far apart, so the picture splits into 
 
     python3 tools/art/portraits.py <picture> [<picture>...] --sheet out.png [--layers folder]
         [--width 64 --height 80] [--sizes out.png]
+    python3 tools/art/portraits.py --batch      (the library's jobs, for the helper's queue_art_batch)
     python3 tools/art/portraits.py --self-test
 
 What it does, for each picture:
@@ -35,6 +36,51 @@ import palette, pixelate
 PROMPT = ("Head and shoulders portrait of a Korean {who} with {hair}, wearing a plain bright red top, facing the "
           "viewer, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, "
           "two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.")
+
+# The library (PLAN.md, Portraits): every gender x age range x hairstyle looks.gd can pick (balding only
+# from 50; non-binary customers, one in a hundred, are left to the pick rule), with and without glasses,
+# each hairstyle by its shape, not its name ("a perm" came back a plain cut). BATCH_SEEDS of each to pick from.
+HAIR_SHAPES = {
+    "long": "long straight black hair falling past the shoulders",
+    "bob": "black hair cut in a chin-length bob",
+    "ponytail": "black hair pulled back tightly into a ponytail behind the head, forehead showing",
+    "bun": "black hair pulled up into a round bun on top of the head, forehead showing",
+    "pixie": "very short cropped black hair, a pixie cut with the ears showing",
+    "perm": "very curly, tightly permed short black hair in small curls all over",
+    "short": "short neat black hair",
+    "side_part": "black hair neatly combed with a side parting",
+    "buzz": "a very short black buzz cut, close to the scalp",
+    "two_block": "black hair in a two-block cut, shaved short at the sides and longer on top, with a long fringe over the forehead",
+    "balding": "a bald top with a receding hairline and a little short black hair at the sides",
+}
+HAIRS_BY_GENDER = {"woman": ["long", "bob", "ponytail", "bun", "pixie", "perm"],
+                   "man": ["short", "side_part", "buzz", "two_block", "balding"]}
+AGES = {"20s": ("twenties", ""), "30s": ("thirties", ""), "40s": ("forties", ""),
+        "50s": ("fifties", "a few lines on {p} face"), "60s": ("sixties", "lines and wrinkles on {p} face"),
+        "70s": ("seventies", "an old, wrinkled face")}
+BATCH_SEEDS = 3
+BATCH_FIRST_SEED = 8000
+
+
+def batch_jobs():
+    """The library's jobs for the helper's queue_art_batch: [{name, prompt, seed, count, width, height}]."""
+    jobs = []
+    for gender, hairs in HAIRS_BY_GENDER.items():
+        p = "her" if gender == "woman" else "his"
+        for age, age_words in AGES.items():
+            for hair in hairs:
+                if hair == "balding" and age in ("20s", "30s", "40s"):
+                    continue
+                for glasses in (False, True):
+                    decade, face = age_words
+                    who = "%s in %s %s" % (gender, p, decade)
+                    look = HAIR_SHAPES[hair] + (", " + face.format(p=p) if face else "") + (", and thin-framed glasses" if glasses else ", and no glasses")
+                    name = "portrait_%s_%s_%s%s" % (gender[0], age, hair, "_glasses" if glasses else "")
+                    jobs.append({"name": name, "prompt": PROMPT.format(who=who, hair=look),
+                                 "seed": BATCH_FIRST_SEED + 10 * len(jobs), "count": BATCH_SEEDS,
+                                 "width": W * 12, "height": H * 12})
+    return jobs
+
 
 W, H = 64, 80  # the portrait on the grid (stage 1's pick; --width/--height to try others)
 SKIN, HAIR, CLOTH, FIXED_SLOT = 1, 2, 3, 0  # as people.py
@@ -286,9 +332,19 @@ if __name__ == "__main__":
     ap.add_argument("--sheet"); ap.add_argument("--sizes"); ap.add_argument("--layers")
     ap.add_argument("--width", type=int, default=W); ap.add_argument("--height", type=int, default=H)
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--batch", action="store_true", help="write art/raw/portrait_batch.json, the library's jobs for the helper's queue_art_batch")
     a = ap.parse_args()
     if a.self_test:
         sys.exit(0 if self_test() else 1)
+    if a.batch:
+        import json
+        jobs = batch_jobs()
+        path = os.path.join(palette.ROOT, "art", "raw", "portrait_batch.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(jobs, f, indent=1, ensure_ascii=False)
+        print("%s: %d jobs, %d pictures (about %d minutes in ComfyUI)" % (path, len(jobs), len(jobs) * BATCH_SEEDS, len(jobs) * BATCH_SEEDS * 10 // 60))
+        sys.exit(0)
     if not a.pictures or not (a.sheet or a.sizes):
         ap.error("pictures, and --sheet and/or --sizes")
     if a.sheet:
