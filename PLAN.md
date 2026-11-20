@@ -14,7 +14,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - search, 'catch up to latest, popup in resizeable window, etc
 - **Pixel bg lighting?:** pixel lighting didn't work on people... now the bg clashes?
   - what does similar brightness lighting over pixel bg look like rather than c64 dithering?
-  - both people and bg using same probably gives consistency
+  - both people and bg using same probably gives consistency?
 - **The side panel, next:** The show's season so far as rows (the season page's, as it goes); a tidier Here now (the owner, the cat and the counter in one style with The show's headings).
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   -- both sandbox mode and makes testing specific features easier
