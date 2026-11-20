@@ -166,6 +166,14 @@ const MEANINGS := {
 	"재계약!": "jaegyeyak!: signed again: renewed",
 	"위기!": "wigi!: trouble, a crisis",
 	"폐지 위기!": "pyeji wigi!: in danger of being axed (폐지: a show cancelled)",
+	"강등!": "gangdeung!: demoted, down a rung",
+	"계속!": "gyesok!: it goes on",
+	# The ladder (rules/ladder.gd)
+	"방송 준비": "bangsong junbi: getting the show ready",
+	"조회수": "johoesu: views, how many times it's been watched",
+	"구독자": "gudokja: subscribers, people following the channel",
+	"자체 최고 조회수!": "jache choego johoesu!: the show's most views ever",
+	"떡상!": "tteoksang!: it's blown up (internet slang: shooting up like a rice cake)",
 	# The diary's stamps (rules/story.gd DIARY_STAMPS) and days
 	"참 잘했어요": "cham jalhaesseoyo: very well done (a teacher's stamp on homework)",
 	"단골": "dangol: a regular",

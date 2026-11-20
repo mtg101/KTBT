@@ -2,40 +2,46 @@ extends RefCounted
 ## The show's seasons: every night is an episode, and episodes come in seasons of EPISODES. The
 ## last is the finale; at 3am after it the season's looked back on (an episode a row: its title,
 ## its ratings and its pinned line, from the diary) and the channel gives its verdict, from the
-## season's average ratings with a bonus for a new best or a hit: up a rung, stay, or down one
-## (only after two bad seasons in a row, so one unlucky season doesn't decide it). For now
-## there's one rung, today's (a late-night show on a small pay-TV channel): the verdict is
-## kept and announced, and the ladder (PLAN.md) will act on it. Kept with the bar as "show":
-## {"season", "aired" (episodes this season so far), "nights" and "ratings" (this season's),
-## "seasons" (the verdicts of the ones before)}.
+## season's average ratings with a bonus for a new best or a hit, against the rung's own targets
+## (rules/ladder.gd): up a rung, stay, or down one (only after two quiet seasons in a row, so
+## one unlucky season doesn't decide it), never below the phone stream. Kept with the bar as
+## "show": {"season", "rung" (where the show is on the ladder), "subscribers" (the online video
+## channel's total, kept if the show moves on and comes back), "aired" (episodes this season
+## so far), "nights" and "ratings" (this season's), "seasons" (the verdicts of the ones before)}.
 ## (Part of the game's rules: pure functions and the tables they use. See ARCHITECTURE.md.)
 
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 
-const EPISODES := 8
-## The verdict, from the season's score (its average ratings, plus the bonuses): today's rung's
-## targets. At UP_AT or over, up; under DOWN_BELOW, a bad season (down, if the last one was too).
-const UP_AT := 10.0
-const DOWN_BELOW := 5.0
+const EPISODES := Ladder.EPISODES
+## The season's score: its average ratings, plus these (judged against the rung's targets).
 const RECORD_BONUS := 0.5  # a new best for the show, some night this season
 const HIT_BONUS := 0.5  # a hit (double digits), some night this season
 
-## The verdict's outcomes: what each means, its stamp (Hangul: meanings in Hangul.MEANINGS).
+## The verdict's outcomes (Ladder.judge): their stamps (Hangul: meanings in Hangul.MEANINGS).
+## On the phone stream there's no contract to renew: the stream just goes on (계속!).
 const OUTCOMES := {
-	"up": {"stamp": "대박 시즌!", "words": "A hit season! Renewed for season %d, and the bigger channels have noticed."},
-	"stay": {"stamp": "재계약!", "words": "Renewed for season %d."},
-	"warned": {"stamp": "위기!", "words": "Renewed for season %d, but the channel wants more: another season like that and the show's in trouble."},
-	"down": {"stamp": "폐지 위기!", "words": "Two quiet seasons: the channel's lost patience. Season %d's the show's last chance on it."},
+	"up": {"stamp": "대박 시즌!"},
+	"top": {"stamp": "대박 시즌!"},
+	"stay": {"stamp": "재계약!"},
+	"warned": {"stamp": "위기!"},
+	"down": {"stamp": "강등!"},
 }
+const STREAM_GOES_ON_HANGUL := "계속!"
 const FINALE_HANGUL := "최종회"
 const LOOKED_BACK_HANGUL := "시즌 결산"
 const PILOT_HANGUL := "파일럿"
 
 
-## A new show: season 1, nothing aired.
-static func fresh() -> Dictionary:
-	return {"season": 1, "aired": 0, "nights": [], "ratings": [], "seasons": []}
+## A new show: season 1, nothing aired, on the rung given (a new bar's on the phone stream).
+static func fresh(rung: String = Ladder.FIRST) -> Dictionary:
+	return {"season": 1, "rung": rung, "aired": 0, "nights": [], "ratings": [], "seasons": [], "subscribers": 0}
+
+
+## Where the show is on the ladder (a show from before the ladder: network TV, where it always was).
+static func rung_of(show: Dictionary) -> String:
+	return str(show.get("rung", Ladder.OLDER))
 
 
 ## Tonight's episode: {"season", "episode" (of this season, from 1), "of", "finale"}.
@@ -58,9 +64,11 @@ static func record(show: Dictionary, night: int, rating: float) -> bool:
 
 ## The channel's verdict on a season. ratings: the season's, in order; before: every rated night
 ## before it (for a new best); past: the verdicts on the seasons before (the last one's outcome
-## decides whether a bad season is a warning or down). Returns {"season", "average", "best",
-## "record", "hit", "score", "outcome", "stamp", "words"}.
-static func verdict(season: int, ratings: Array, before: Array, past: Array) -> Dictionary:
+## decides whether a bad season is a warning or down); rung: where the show was this season
+## (its rule: Ladder.judge); subscribers: the channel's total at the season's end. Returns
+## {"season", "rung", "to" (next season's rung), "average", "best", "record", "hit", "score",
+## "views" (the average a night), "subscribers", "outcome", "stamp", "words"}.
+static func verdict(season: int, ratings: Array, before: Array, past: Array, rung: String = Ladder.OLDER, subscribers: int = 0) -> Dictionary:
 	var total := 0.0
 	var best := 0.0
 	var new_best := false
@@ -75,14 +83,59 @@ static func verdict(season: int, ratings: Array, before: Array, past: Array) -> 
 	var average := snappedf(total / ratings.size(), 0.1) if not ratings.is_empty() else 0.0
 	var hit := best >= Ratings.HIT
 	var score := snappedf(average + (RECORD_BONUS if new_best else 0.0) + (HIT_BONUS if hit else 0.0), 0.1)
-	var outcome := "stay"
-	if score >= UP_AT:
-		outcome = "up"
-	elif score < DOWN_BELOW:
-		var last := str(past[-1].get("outcome", "")) if not past.is_empty() else ""
-		outcome = "down" if last == "warned" else "warned"
-	return {"season": season, "average": average, "best": best, "record": new_best, "hit": hit, "score": score, "outcome": outcome,
-		"stamp": str(OUTCOMES[outcome]["stamp"]), "words": str(OUTCOMES[outcome]["words"]) % (season + 1)}
+	var last := ""  # (a warning only counts on the same rung)
+	if not past.is_empty() and str(past[-1].get("rung", Ladder.OLDER)) == rung:
+		last = str(past[-1].get("outcome", ""))
+	var judged := Ladder.judge(score, rung, last, ratings, subscribers)
+	var outcome := str(judged["outcome"])
+	var stamp := STREAM_GOES_ON_HANGUL if outcome == "stay" and not bool(Ladder.rung(rung)["percent"]) else str(OUTCOMES[outcome]["stamp"])  # (your own stream or channel: nothing to renew, it goes on)
+	var result := {"season": season, "rung": rung, "to": str(judged["to"]), "average": average, "best": best, "record": new_best, "hit": hit, "score": score,
+		"views": Ladder.average_views(ratings, rung), "subscribers": subscribers, "outcome": outcome, "stamp": stamp}
+	result["words"] = verdict_words(outcome, season + 1, rung, str(judged["to"]), result)
+	return result
+
+
+## The verdict in plain words: where the show's going for its next season, and why. judged: the
+## season's numbers (its "views" a night, the channel's "subscribers").
+static func verdict_words(outcome: String, next_season: int, from: String, to: String, judged: Dictionary = {}) -> String:
+	var here: Dictionary = Ladder.rung(from)
+	var there: Dictionary = Ladder.rung(to)
+	match outcome:
+		"up":
+			if here.has("up_subscribers"):
+				return "%s subscribers! The show's been picked up by %s: season %d's on it." % [Ladder.commas(int(judged.get("subscribers", 0))), there["name"], next_season]
+			if here.has("up_views"):
+				return "%s views a night! The show's got its own %s: season %d's on it." % [Ladder.commas(int(judged.get("views", 0))), there["short"], next_season]
+			return "A hit season! The show's been picked up by %s: season %d's on it." % [there["name"], next_season]
+		"top":
+			return "A hit season on %s: as big as a show gets. Renewed for season %d." % [here["name"], next_season]
+		"warned":
+			if here.has("down_subscribers"):
+				return "The channel goes on for season %d, but with only %s subscribers: end another season under %s and the show's back to %s." % [
+					next_season, Ladder.commas(int(judged.get("subscribers", 0))), Ladder.commas(int(here["down_subscribers"])), Ladder.rung(Ladder.below(from))["name"]]
+			return "Renewed for season %d, but %s wants more: another season like that and the show drops to %s." % [next_season, here["the"], Ladder.rung(Ladder.below(from))["name"]]
+		"down":
+			if here.has("down_subscribers"):
+				return "Two seasons under %s subscribers: the channel's gone quiet, and the show's back to %s for season %d." % [Ladder.commas(int(here["down_subscribers"])), there["name"], next_season]
+			return "Two quiet seasons: %s has dropped the show. Season %d's on %s." % [here["the"], next_season, there["name"]]
+	if here.has("up_views"):
+		return "The stream goes on: season %d, on %s (%s views a night this season). Average %s a night over a season and the show gets its own %s." % [
+			next_season, here["name"], Ladder.commas(int(judged.get("views", 0))), Ladder.commas(int(here["up_views"])), Ladder.rung(Ladder.above(from))["short"]]
+	if here.has("up_subscribers"):
+		return "The channel goes on: season %d, with %s of the %s subscribers it takes for %s." % [next_season, Ladder.commas(int(judged.get("subscribers", 0))),
+			Ladder.commas(int(here["up_subscribers"])), Ladder.rung(Ladder.above(from))["name"]]
+	return "Renewed for season %d on %s." % [next_season, here["name"]]
+
+
+## How a season went, in its rung's units: "averaged 640 views a night", "ended on 8,240
+## subscribers", "averaged 9.5%".
+static func season_done(judged: Dictionary) -> String:
+	var rung := str(judged.get("rung", Ladder.OLDER))
+	if Ladder.counts_subscribers(rung):
+		return "ended on %s subscribers" % Ladder.commas(int(judged.get("subscribers", 0)))
+	if not bool(Ladder.rung(rung)["percent"]):
+		return "averaged %s views a night" % Ladder.commas(int(judged.get("views", 0)))
+	return "averaged " + Ratings.percent_text(float(judged.get("average", 0.0)))
 
 
 ## The season's over: its verdict kept (with its nights and ratings), and the next one begins.
@@ -94,6 +147,7 @@ static func end_season(show: Dictionary, judged: Dictionary) -> void:
 	seasons.append(kept)
 	show["seasons"] = seasons
 	show["season"] = int(show.get("season", 1)) + 1
+	show["rung"] = str(judged.get("to", rung_of(show)))
 	show["aired"] = 0
 	show["nights"] = []
 	show["ratings"] = []
@@ -178,12 +232,18 @@ static func recap_rows(nights: Array, ratings: Array, diary: Array) -> Array:
 	return rows
 
 
-## How the verdict's decided, for its hover.
+## How the verdict's decided, for its hover: how the season went, and the rung's rule.
 static func hover(judged: Dictionary) -> String:
-	var lines := ["%s: %s" % [judged.get("stamp", ""), str(judged.get("words", ""))],
-		"The season's average ratings %.1f%%%s%s = %.1f." % [float(judged.get("average", 0.0)), (", +%.1f for a new best" % RECORD_BONUS) if bool(judged.get("record", false)) else "",
-			(", +%.1f for a hit" % HIT_BONUS) if bool(judged.get("hit", false)) else "", float(judged.get("score", 0.0))],
-		"%.0f or more is a hit season; under %.0f, a quiet one (two in a row and the channel loses patience)." % [UP_AT, DOWN_BELOW]]
+	var rung := str(judged.get("rung", Ladder.OLDER))
+	var data: Dictionary = Ladder.rung(rung)
+	var average := float(judged.get("average", 0.0))
+	var lines := ["%s: %s" % [judged.get("stamp", ""), str(judged.get("words", ""))]]
+	if bool(data["percent"]):
+		lines.append("The season's average ratings %.1f%%%s%s = %.1f." % [average, (", +%.1f for a new best" % RECORD_BONUS) if bool(judged.get("record", false)) else "",
+			(", +%.1f for a hit" % HIT_BONUS) if bool(judged.get("hit", false)) else "", float(judged.get("score", 0.0))])
+	else:  # (in its own units: a score's a great rating but a handful of views)
+		lines.append("The season %s." % season_done(judged))
+	lines.append("On %s: %s" % [data["name"], Ladder.rule(rung)])
 	return "\n".join(PackedStringArray(lines))
 
 
@@ -194,5 +254,8 @@ static func log_text(judged: Dictionary) -> String:
 		why.append("a new best")
 	if bool(judged.get("hit", false)):
 		why.append("a hit")
-	return "Season %d: average %.1f%%, best %.1f%%%s = %.1f: %s (%s)" % [int(judged.get("season", 1)), float(judged.get("average", 0.0)), float(judged.get("best", 0.0)),
-		(" (%s)" % ", ".join(why)) if not why.is_empty() else "", float(judged.get("score", 0.0)), judged.get("outcome", ""), judged.get("stamp", "")]
+	var rung := str(judged.get("rung", Ladder.OLDER))
+	var to := str(judged.get("to", rung))
+	return "Season %d: average %.1f%%, best %.1f%%%s = %.1f: %s (%s)%s" % [int(judged.get("season", 1)), float(judged.get("average", 0.0)), float(judged.get("best", 0.0)),
+		(" (%s)" % ", ".join(why)) if not why.is_empty() else "", float(judged.get("score", 0.0)), judged.get("outcome", ""), judged.get("stamp", ""),
+		(" · %s → %s" % [rung, to]) if to != rung else (" · on %s" % rung)]

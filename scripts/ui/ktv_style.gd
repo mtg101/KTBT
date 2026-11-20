@@ -50,6 +50,13 @@ static func light_ticks(toggle: CheckBox) -> void:
 	toggle.add_theme_icon_override("checked", tick_box(true))
 
 
+## Gives a choice in a group (a CheckBox in a ButtonGroup, drawn as a radio button) the light
+## tick boxes, so an unticked one shows on the dark.
+static func light_radios(toggle: CheckBox) -> void:
+	toggle.add_theme_icon_override("radio_unchecked", tick_box(false))
+	toggle.add_theme_icon_override("radio_checked", tick_box(true))
+
+
 ## A label: text in a size and colour, ignoring the mouse, with an outline if asked (in INK
 ## unless told otherwise).
 static func label(text: String, font_size: int, colour: Color, outline: int = 0, outline_colour: Color = INK) -> Label:

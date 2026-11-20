@@ -5,6 +5,7 @@ extends GdUnitTestSuite
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 
 
 func _season(ratings: Array, start_night: int = 1) -> Dictionary:
@@ -44,13 +45,13 @@ func test_the_verdict_comes_from_the_average_with_a_bonus_for_a_best_or_a_hit() 
 	assert_bool(bool(ordinary["record"])).is_false()
 	assert_bool(bool(ordinary["hit"])).is_false()
 	assert_str(str(ordinary["outcome"])).is_equal("stay")
-	assert_str(str(ordinary["words"])).is_equal("Renewed for season 2.")
+	assert_str(str(ordinary["words"])).is_equal("Renewed for season 2 on network TV.")  # (an older bar's rung: network TV)
 	# A new best some night, and a hit: both count, on top of the average.
 	var good := ShowSeasons.verdict(2, [9.0, 9.0, 9.0, 12.0, 9.0, 9.0, 9.0, 9.0], [8.0, 9.0], [ordinary])
 	assert_bool(bool(good["record"])).is_true()
 	assert_bool(bool(good["hit"])).is_true()
 	assert_float(float(good["score"])).is_equal_approx(float(good["average"]) + ShowSeasons.RECORD_BONUS + ShowSeasons.HIT_BONUS, 0.001)
-	assert_str(str(good["outcome"])).is_equal("up")
+	assert_str(str(good["outcome"])).is_equal("top")  # (on network TV, the top: a hit season)
 	assert_str(str(good["words"])).contains("season 3")
 	# The first season's first nights aren't new bests (a couple of rated nights first, as the banner).
 	var first := ShowSeasons.verdict(1, [5.0, 6.0, 9.0], [], [])
@@ -112,7 +113,7 @@ func test_the_verdicts_hangul_and_hover_explain_themselves() -> void:
 	assert_str(hover).contains("average ratings 10.0%")
 	assert_str(hover).contains("new best")
 	assert_str(hover).contains("a hit")
-	assert_str(ShowSeasons.log_text(judged)).is_equal("Season 1: average 10.0%, best 12.0% (a new best, a hit) = 11.0: up (대박 시즌!)")
+	assert_str(ShowSeasons.log_text(judged)).is_equal("Season 1: average 10.0%, best 12.0% (a new best, a hit) = 11.0: top (대박 시즌!) · on network")
 
 
 func test_episodes_are_only_ever_numbered_within_their_season() -> void:
@@ -129,3 +130,52 @@ func test_episodes_are_only_ever_numbered_within_their_season() -> void:
 	assert_str(ShowSeasons.hangul(pilot)).is_equal("파일럿")
 	assert_bool(Hangul.MEANINGS.has(ShowSeasons.PILOT_HANGUL)).is_true()
 	assert_str(ShowSeasons.tag(ShowSeasons.tonight({"season": 2, "aired": 3}))).is_equal("S2 · EP 4")
+
+
+func test_the_verdict_moves_the_show_along_the_ladder() -> void:
+	var good := [9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0]  # (over 1,000 views a night on the stream)
+	var up := ShowSeasons.verdict(1, good, [], [], "phone")
+	assert_str(str(up["outcome"])).is_equal("up")
+	assert_str(str(up["to"])).is_equal("video")
+	assert_int(int(up["views"])).is_equal(Ladder.average_views(good, "phone"))
+	assert_str(str(up["words"])).is_equal("%s views a night! The show's got its own online video channel: season 2's on it." % Ladder.commas(int(up["views"])))
+	var the_show := _season(good)
+	ShowSeasons.end_season(the_show, up)
+	assert_str(ShowSeasons.rung_of(the_show)).is_equal("video")  # (next season's on it)
+	assert_str(str(the_show["seasons"][0]["rung"])).is_equal("phone")  # (and the last one's kept where it aired)
+	# The phone stream never drops: a quiet season there just goes on (계속!), saying what it takes.
+	var quiet := [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+	var stream := ShowSeasons.verdict(1, quiet, [], [], "phone")
+	assert_str(str(stream["outcome"])).is_equal("stay")
+	assert_str(str(stream["stamp"])).is_equal(ShowSeasons.STREAM_GOES_ON_HANGUL)
+	assert_str(str(stream["words"])).starts_with("The stream goes on: season 2, on a phone stream (").contains("Average 1,000 a night over a season")
+	# The channel: its subscribers decide, up (10,000) or down (ending two seasons under 1,000).
+	var steady := [6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
+	var channel := ShowSeasons.verdict(3, steady, [], [], "video", 8240)
+	assert_str(str(channel["outcome"])).is_equal("stay")
+	assert_str(str(channel["stamp"])).is_equal(ShowSeasons.STREAM_GOES_ON_HANGUL)
+	assert_str(str(channel["words"])).is_equal("The channel goes on: season 4, with 8,240 of the 10,000 subscribers it takes for network TV.")
+	var picked := ShowSeasons.verdict(3, quiet, [], [], "video", 10400)
+	assert_str(str(picked["to"])).is_equal("network")
+	assert_str(str(picked["words"])).is_equal("10,400 subscribers! The show's been picked up by network TV: season 4's on it.")
+	var thin := ShowSeasons.verdict(3, quiet, [], [], "video", 900)
+	assert_str(str(thin["outcome"])).is_equal("warned")
+	assert_str(str(thin["words"])).is_equal("The channel goes on for season 4, but with only 900 subscribers: end another season under 1,000 and the show's back to a phone stream.")
+	var dropped := ShowSeasons.verdict(4, quiet, [], [thin], "video", 700)
+	assert_str(str(dropped["to"])).is_equal("phone")
+	assert_str(str(dropped["words"])).is_equal("Two seasons under 1,000 subscribers: the channel's gone quiet, and the show's back to a phone stream for season 5.")
+	# On TV, a warning only counts on the same rung: two quiet seasons there and back to the channel.
+	var warned := ShowSeasons.verdict(5, quiet, [], [], "network")
+	assert_str(str(warned["words"])).contains("the network wants more").contains("drops to an online video channel")
+	var down := ShowSeasons.verdict(6, quiet, [], [warned], "network")
+	assert_str(str(down["outcome"])).is_equal("down")
+	assert_str(str(down["to"])).is_equal("video")
+	assert_str(str(down["words"])).is_equal("Two quiet seasons: the network has dropped the show. Season 7's on an online video channel.")
+	assert_str(str(ShowSeasons.verdict(6, quiet, [], [{"outcome": "warned", "rung": "video"}], "network")["outcome"])).is_equal("warned")
+	# The hover: how the season went, in its own units, and the rung's rule.
+	assert_str(ShowSeasons.hover(channel)).contains("The season ended on 8,240 subscribers.").contains("On an online video channel: " + Ladder.rule("video"))
+	assert_str(ShowSeasons.hover(up)).contains("The season averaged %s views a night." % Ladder.commas(int(up["views"])))
+	assert_str(ShowSeasons.hover(stream)).contains(Ladder.rule("phone")).not_contains("can't drop")
+	assert_str(ShowSeasons.season_done(down)).starts_with("averaged ")
+	assert_bool(Hangul.MEANINGS.has(ShowSeasons.STREAM_GOES_ON_HANGUL)).is_true()
+	assert_bool(Hangul.MEANINGS.has(str(ShowSeasons.OUTCOMES["down"]["stamp"]))).is_true()

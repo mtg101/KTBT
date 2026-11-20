@@ -11,6 +11,8 @@ const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -94,7 +96,7 @@ func test_title_shows_nights_and_visits() -> void:
 	SaveStore.save_bar(bar)
 	var runner := scene_runner(TITLE)
 	assert_str((runner.find_child("Bar0") as Button).text).contains("3 nights, 1 visit")
-	assert_str((runner.find_child("Bar0") as Button).text).contains("season 2, 3 of 8 aired")  # (where the show's got to)
+	assert_str((runner.find_child("Bar0") as Button).text).contains("season 2 on a phone stream, 3 of 8 aired")  # (where the show's got to)
 
 
 func test_a_bars_diary_can_be_read_from_the_title() -> void:
@@ -161,6 +163,33 @@ func test_a_new_bar_is_named_and_saved_straight_away() -> void:
 	assert_str(str(bar["owner"]["name"])).is_equal(str(runner.scene()._owner["name"]))
 	assert_str((runner.find_child("BarName") as Label).text).contains(str(bar["name"]))
 	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("The sign over the tarp reads %s" % bar["name"])
+
+
+func test_the_pd_sets_up_a_new_show_and_the_bar_waits_for_them() -> void:
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	assert_object(runner.find_child("LoadingSetUp", true, false)).is_not_null()  # (offered on the loading screen)
+	var enter := InputEventKey.new()  # Enter opens it, as the button does
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	scene._unhandled_input(enter)
+	var setup = runner.find_child("ShowSetup", true, false)
+	assert_object(setup).override_failure_message("Enter didn't open the setup").is_not_null()
+	assert_bool((setup.find_child("Rung_phone", true, false) as CheckBox).button_pressed).is_true()  # (the game's pick: a phone stream)
+	assert_str((setup.find_child("About_video", true, false) as Label).text).is_equal(Ladder.describe("video"))
+	assert_str((setup.find_child("Rung_network", true, false) as CheckBox).text).starts_with("Network TV")
+	await _click(runner, setup.find_child("Rung_video", true, false))
+	for k in 10:  # the bar waits for the PD: nothing opens while they're in here
+		await get_tree().process_frame
+	assert_bool(scene._night_open).is_false()
+	await _click(runner, setup.find_child("SetupDone", true, false))
+	assert_bool(await _wait_until(func(): return scene._night_open)).override_failure_message("the bar never opened").is_true()
+	assert_str(ShowSeasons.rung_of(Game.bar["show"])).is_equal("video")
+	assert_str(str(SaveStore.load_bar(str(Game.bar["id"]))["show"]["rung"])).is_equal("video")  # (saved)
+	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("The PD sets up the show: it starts on an online video channel.")
+	assert_str(scene._stats.panel_text(0, 0)).contains("Setup: the show starts on video (the PD's)")
+	var beside := (runner.find_child("RatingsLabel") as Label).text  # the Korean, and the English beside it
+	assert_str(beside).starts_with("구독자 subscribers ").not_contains("+").ends_with("·  online video channel")  # (the channel's total subscribers)
 
 
 func test_a_new_bar_chooses_its_own_menu() -> void:

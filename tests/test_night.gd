@@ -12,6 +12,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -70,7 +71,7 @@ func test_customers_arrive_without_clicking() -> void:
 	assert_bool(served).override_failure_message("nobody turned up on their own").is_true()
 	assert_int(int(Game.bar["visits"])).is_greater_equal(1)
 	# The ratings so far, in the top bar, as things happen (the final one's at 3am).
-	assert_str((runner.find_child("RatingsLabel") as Label).text).starts_with("시청률 ").ends_with(" so far")
+	assert_str((runner.find_child("RatingsLabel") as Label).text).starts_with("조회수 views ").ends_with(" so far  ·  phone stream")  # (a new bar's show: a phone stream, in views)
 
 
 func test_someone_turning_up_mid_night_is_served() -> void:
@@ -93,7 +94,8 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	var summary := (runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()
 	assert_str(summary).contains("Night 1 at %s" % Game.bar["name"])
 	assert_str(summary).contains("customer")
-	assert_str(summary).contains("TV ratings %s" % Ratings.percent_text(float(scene._night_ratings["rating"])))
+	assert_str(summary).contains(Ladder.text(float(scene._night_ratings["rating"]), "phone"))  # (a new bar's on the phone stream: views and likes)
+	assert_str(summary).contains("on a phone stream")
 	assert_str(summary).contains("Season 1, episode 1 of 8")  # (the show's first season)
 	assert_bool((runner.find_child("SeasonButton") as Control).visible).is_false()  # (not a finale)
 	assert_str(_transcript(runner)).contains("pulls down the tarp")
@@ -115,17 +117,21 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_bool(Story.DIARY_STAMPS.has(str(entry["stamp"]))).is_true()
 	# The episode's TV ratings, kept with it and shown by the owner's name, with its hover.
 	assert_float(float(entry["ratings"]["rating"])).is_greater(0.0)
-	assert_str(page.ratings_text()).starts_with("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
-	assert_str((page.find_child("Ratings", true, false) as Label).tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")  # (Text.tip wraps it)
+	assert_str(str(entry["ratings"]["rung"])).is_equal("phone")  # (kept with the episode, so it's always shown in its rung's units)
+	assert_str(page.ratings_text()).starts_with(Ladder.label(float(entry["ratings"]["rating"]), "phone"))
+	assert_str((page.find_child("Ratings", true, false) as Label).tooltip_text.replace("\n", " ")).contains("johoesu").contains("phone stream")  # (Text.tip wraps it)
 	# And in the top bar, all night: so far, then tonight's (its own section in the stats too).
 	var beside := runner.find_child("RatingsLabel") as Label
-	assert_str(beside.text).is_equal("시청률 %.1f%%" % float(entry["ratings"]["rating"]))
-	assert_str(beside.tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")
-	assert_str(scene._stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: %.1f%%" % float(entry["ratings"]["rating"]))
+	assert_str(beside.text).is_equal("%s  ·  phone stream" % Ladder.label(float(entry["ratings"]["rating"]), "phone"))  # (and which rung, in English)
+	assert_str(beside.tooltip_text.replace("\n", " ")).contains("views")
+	assert_str(scene._stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: %.1f%%" % float(entry["ratings"]["rating"])).contains("Shown as: %s on a phone stream" % Ladder.text(float(entry["ratings"]["rating"]), "phone"))
 	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
 	# The header keeps to its rows, however long the title (regression: 19 Nov, a long title ran over the day).
 	var titled := entry.duplicate(true)
 	titled["title"] = {"hangul": "그늘에 피어나는 슬픔", "english": "Sadness that Blooms in the Shade, and Everything After It"}
+	titled["weather"] = "crisp and clear, a bitterly cold wind"  # (regression: 20 Nov, the weather was always cut short)
+	titled["day"] = "Wednesday"
+	titled["ratings"]["banner"] = Ladder.VIEWS_HIT_HANGUL
 	page.show_entry(titled, "Kim Sung-jin's diary")
 	await get_tree().process_frame
 	var pill := page.find_child("EpisodePill", true, false) as Control
@@ -133,8 +139,16 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_str((page.find_child("Episode", true, false) as Label).text).starts_with("S1 · EP 1 · 그늘에 피어나는 슬픔")
 	assert_float(pill.position.x + pill.size.x).is_less_equal(page.size.x - 20.0)  # (never past the page)
 	assert_float(pill.position.y + pill.size.y).is_less_equal(day.position.y)  # (above the day, not over it)
-	assert_float(day.position.x + day.size.x).is_less_equal((page.find_child("Ratings", true, false) as Control).position.x)
-	assert_float((page.find_child("Whose", true, false) as Control).position.y).is_greater_equal(day.position.y + day.size.y)
+	var day_label := day as Label
+	assert_float(day_label.get_theme_font("font").get_string_size(day_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, day_label.get_theme_font_size("font_size")).x) \
+		.override_failure_message("the weather's cut short: %s" % day_label.text).is_less_equal(day_label.size.x)
+	var whose := page.find_child("Whose", true, false) as Control
+	var ratings := page.find_child("Ratings", true, false) as Control
+	assert_float(whose.position.y).is_greater_equal(day.position.y + day.size.y)
+	assert_float(ratings.position.y).is_greater_equal(day.position.y + day.size.y)  # (beside whose diary it is, under the day)
+	assert_float(whose.position.x + whose.size.x).is_less_equal(ratings.position.x)
+	assert_float(ratings.position.x + ratings.size.x).is_less_equal(page.size.x - 20.0)
+	assert_str(page.ratings_text()).contains("떡상! blown up")  # (the banner's English beside it)
 	page.show_entry(entry, "Kim Sung-jin's diary")
 	# The numbers are behind the Stats button.
 	var numbers := runner.find_child("SummaryText") as Control
@@ -332,7 +346,7 @@ func test_the_eighth_episode_is_the_finale_and_the_season_is_looked_back_on() ->
 	assert_bool(bool(Game.bar["diary"][-1]["finale"])).is_true()
 	# Logged, counted, and in the summary.
 	assert_str(_transcript(runner)).contains("That's season 1.").contains("Season 1, looked back on: EP 1 6.0%")
-	assert_str(scene._stats.panel_text(0, 0)).contains("Season: Season 1, episode 8 of 8, the finale · the season before tonight: average 6.6%").contains("· Season 1: average")
+	assert_str(scene._stats.panel_text(0, 0)).contains("Season: Season 1, episode 8 of 8, the finale · on network · the season before tonight: average 6.6%").contains("· Season 1: average")
 	assert_str((runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()).contains(str(judged["words"]))
 	# The button beside Stats flips back to the diary, and to the season again; Stats still works.
 	var button := runner.find_child("SeasonButton") as Button
@@ -352,3 +366,84 @@ func test_the_eighth_episode_is_the_finale_and_the_season_is_looked_back_on() ->
 	assert_bool(await _wait_until(func(): return scene._night_number == 9)).is_true()
 	assert_str(_transcript(runner)).contains("Season 2, episode 1 of 8")
 	assert_bool(page.visible).is_false()
+
+
+func test_a_good_season_on_the_phone_stream_moves_the_show_up_a_rung() -> void:
+	var bar := SaveStore.new_bar("Mi-sook-ne Pocha", "Mi-sook's place", {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."})
+	bar["nights"] = 7
+	bar["show"] = {"season": 1, "rung": "phone", "aired": 7, "nights": [1, 2, 3, 4, 5, 6, 7], "ratings": [11.0, 11.5, 10.0, 12.0, 11.0, 10.5, 11.0], "seasons": []}
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_str(_transcript(runner)).contains("on a phone stream").contains("at 3am, the audience decides")
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var page = runner.find_child("SeasonPage")
+	assert_bool(await _wait_until(func(): return page.visible)).is_true()
+	var judged: Dictionary = Game.bar["show"]["seasons"][0]
+	assert_str(str(judged["outcome"])).is_equal("up")
+	assert_str(ShowSeasons.rung_of(Game.bar["show"])).is_equal("video")
+	assert_str(page.verdict_text()).contains("views a night! The show's got its own online video channel")
+	assert_str((page.find_child("SeasonSub", true, false) as Label).text).contains("A PHONE STREAM")  # (the season's numbers in its rung's units)
+	# The next night: the new season, on the video channel, said in plain words.
+	Hooks.run_clock = false
+	await _click(runner, runner.find_child("NextNightButton"))
+	assert_bool(await _wait_until(func(): return scene._night_number == 9)).is_true()
+	assert_str(_transcript(runner)).contains("Your show's been picked up by an online video channel! Season 2 starts tonight").contains("Season 2, episode 1 of 8  ·  on an online video channel")
+	assert_str(str(scene._stats.story["show"]["moved"])).contains("picked up by an online video channel")
+	assert_int(int(Game.bar["show"].get("subscribers", 0))).is_equal(0)  # (none yet: the channel's first episode is tonight)
+	assert_str(scene._stats.panel_text(0, 0)).contains("· on video · Your show's been picked up")
+
+
+func test_a_night_on_the_online_video_channel_adds_to_its_subscribers() -> void:
+	var bar := SaveStore.new_bar("Mi-sook-ne Pocha", "Mi-sook's place", {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."})
+	bar["show"]["rung"] = "video"
+	bar["show"]["subscribers"] = 1000
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).is_true()
+	var rating := float(scene._night_ratings["rating"])
+	var total := Ladder.subscribers_after(1000, rating, "video")
+	assert_int(int(Game.bar["show"]["subscribers"])).is_equal(total)  # (the channel's total: won and lost, episode by episode)
+	assert_int(int(Game.bar["diary"][-1]["ratings"]["subscribers"])).is_equal(total)  # (kept with the episode)
+	assert_str((runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()).contains(Ladder.text(rating, "video", total))
+	assert_str(runner.find_child("DiaryPage").ratings_text()).starts_with(Ladder.label(rating, "video", total))
+	assert_str((runner.find_child("RatingsLabel") as Label).text).is_equal("%s  ·  online video channel" % Ladder.label(rating, "video", total))
+	assert_int(int(SaveStore.load_bar(str(Game.bar["id"]))["show"]["subscribers"])).is_equal(total)  # (saved)
+
+
+func test_the_esc_menu_has_tabs_for_the_options_and_the_diary_and_an_action_to_close_up() -> void:
+	Hooks.run_clock = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var menu := runner.find_child("OptionsPanel") as Control
+	assert_bool(menu.visible).is_false()
+	# The top bar's just the one button; closing up is an action in the menu.
+	assert_bool(menu.is_ancestor_of(runner.find_child("LeaveButton"))).is_true()
+	assert_object(runner.find_child("DiaryButton", true, false)).is_null()
+	assert_str((runner.find_child("OptionsButton") as Button).text).contains("Menu (Esc)")
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	scene._unhandled_input(esc)
+	assert_bool(menu.visible).is_true()
+	var tabs := runner.find_child("MenuTabs") as TabContainer
+	assert_array(range(tabs.get_tab_count()).map(func(k): return tabs.get_tab_title(k))).is_equal(["⚙ Options", "📖 Diary"])  # (the options first)
+	assert_bool(tabs.is_ancestor_of(runner.find_child("SoundToggle", true, false))).is_true()
+	assert_bool(tabs.is_ancestor_of(runner.find_child("DiaryBook", true, false))).is_true()  # (the book itself, in its tab)
+	scene._unhandled_input(esc)  # Esc again: closed
+	assert_bool(menu.visible).is_false()
+	scene._open_diary()  # the diary: the menu, on its tab
+	assert_bool(menu.visible).is_true()
+	assert_int(tabs.current_tab).is_equal(scene.MENU_DIARY)
+	await _click(runner, runner.find_child("MenuClose"))
+	assert_bool(menu.visible).is_false()
+	# The ladder's rules are on the ratings' hover in the top bar: how to move on, and how it's going.
+	scene._update_ratings()
+	var hover := (runner.find_child("RatingsLabel") as Label).tooltip_text.replace("\n", " ")
+	assert_str(hover).contains("Moving on:").contains("1,000+ views a night").contains("This season:")
+	# The transcript's text at the side panel's size (it scrolled by too fast).
+	assert_int((runner.find_child("Transcript") as RichTextLabel).get_theme_font_size("normal_font_size")).is_equal(15)

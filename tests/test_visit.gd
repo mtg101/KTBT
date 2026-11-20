@@ -1887,7 +1887,8 @@ func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
 	var runner := await _open_bar()
 	var toggle := runner.find_child("SoundToggle") as CheckBox
 	assert_bool(toggle.button_pressed).is_true()
-	(runner.find_child("OptionsButton") as Button).button_pressed = true  # it's in the Options panel
+	var scene = runner.scene()
+	scene._open_menu(scene.MENU_OPTIONS)  # it's in the menu's Options tab
 	await _click(runner, toggle)
 	assert_bool(toggle.button_pressed).is_false()
 	assert_bool(Ambience.load_enabled()).is_false()  # remembered for next time
@@ -2311,12 +2312,14 @@ func test_the_diary_can_be_read_during_a_night() -> void:
 	Game.bar["diary"] = [{"night": 1, "episode": 1, "day": "Friday", "weather": "rain", "text": "The first night.", "stamp": "rain"},
 		{"night": 2, "episode": 2, "day": "Saturday", "weather": "snow", "text": "The second night. Jeong Min-ho had the tteokbokki, aigoo.", "stamp": "snow",
 			"facts": {"owner": "Park Mi-sook", "people": [{"name": "Jeong Min-ho"}]}}]
-	(runner.find_child("DiaryButton") as Button).pressed.emit()  # (top-bar buttons: see the stats test)
+	scene._open_diary()  # (the menu, on its Diary tab)
 	var book = runner.find_child("DiaryBook", true, false)
 	assert_object(book).is_not_null()
+	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_true()
+	assert_int((runner.find_child("MenuTabs") as TabContainer).current_tab).is_equal(scene.MENU_DIARY)
 	assert_int(book.showing_night()).is_equal(2)
-	scene._open_diary()  # a second click doesn't open a second book
-	assert_int(scene.get_children().filter(func(c): return c.name == "DiaryBook").size()).is_equal(1)
+	scene._open_diary()  # a second time doesn't open a second book
+	assert_int(scene.find_children("DiaryBook", "", true, false).size()).is_equal(1)
 	# Korean words have hover hints in the diary (it's read at leisure); names don't.
 	var page_text := (book.find_child("Entry", true, false) as RichTextLabel).text
 	assert_str(page_text).contains("Tteokbokki: spicy rice cakes")

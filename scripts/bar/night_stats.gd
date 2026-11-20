@@ -689,6 +689,8 @@ func ratings_lines() -> PackedStringArray:
 	var lines := PackedStringArray(["[b]RATINGS[/b]"])
 	if story.has("ratings_text"):
 		lines.append("Tonight: %s%s" % [str(story["ratings_text"]), (" · " + str(story["ratings_banner"])) if story.has("ratings_banner") else ""])
+		if story.has("ratings_shown"):  # (in its rung's units: rules/ladder.gd)
+			lines.append("Shown as: %s" % story["ratings_shown"])
 	elif not ratings_so_far.is_empty():
 		lines.append("So far: %.1f%% (%s), before luck: the final rating's at 3am" % [float(ratings_so_far["rating"]), ratings_so_far.get("band", "")])
 		for part in ratings_so_far.get("parts", []):
@@ -815,8 +817,10 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
 	if story.get("show", {}) is Dictionary and not story.get("show", {}).is_empty():  # the show's seasons (rules/show_seasons.gd)
 		var on_air: Dictionary = story["show"]
-		lines.append("Season: %s%s%s" % [on_air.get("place", "?"), (" · the season before tonight: %s" % on_air["so_far"]) if str(on_air.get("so_far", "")) != "" else "",
+		lines.append("Season: %s%s%s%s%s" % [on_air.get("place", "?"), (" · on " + str(on_air["rung"])) if on_air.has("rung") else "", (" · " + str(on_air["moved"])) if on_air.has("moved") else "", (" · the season before tonight: %s" % on_air["so_far"]) if str(on_air.get("so_far", "")) != "" else "",
 			(" · %s%s" % [on_air["verdict"], (", looked back on (%d episodes)" % int(on_air["looked_back"])) if on_air.has("looked_back") else ""]) if on_air.has("verdict") else (" · the verdict at 3am" if bool(on_air.get("finale", false)) else "")])
+	if story.get("setup", {}) is Dictionary and not story.get("setup", {}).is_empty():  # (a new bar: the PD set the show up)
+		lines.append("Setup: the show starts on %s (the PD's)" % story["setup"].get("rung", "?"))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")

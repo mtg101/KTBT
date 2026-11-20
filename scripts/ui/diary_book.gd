@@ -3,7 +3,8 @@ extends Control
 ## night, with Older and Newer to flip through (or the arrow keys), and Close (or Esc). Over a
 ## dimmed screen: from the bar's Diary button during a night, or a bar's Diary button on the
 ## title screen. Shows whatever entries it's given (SaveStore.record_diary's), so "Previously
-## on…" can open it at the night it's recapping too.
+## on…" can open it at the night it's recapping too. Or embedded (embed()): in the bar's menu,
+## its Diary tab, with no dimming and no Close (the menu's own Esc closes it).
 
 const DiaryPage = preload("res://scripts/ui/diary_page.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
@@ -17,6 +18,7 @@ var _page: Control
 var _older: Button
 var _newer: Button
 var _where: Label
+var _embedded := false
 
 
 func _init() -> void:
@@ -57,6 +59,22 @@ func _init() -> void:
 	buttons.add_child(_button("DiaryClose", "Close", close))
 
 
+## Into a tab of the bar's menu: no dimming over the screen, no Close, sized to the page and
+## its buttons, and Esc left to the menu.
+func embed() -> void:
+	_embedded = true
+	set_anchors_preset(Control.PRESET_TOP_LEFT)
+	custom_minimum_size = Vector2(800, 690)
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	z_index = 0
+	for child in get_children():
+		if child is ColorRect:
+			child.queue_free()  # (the dimming)
+	var close_button := find_child("DiaryClose", true, false)
+	if close_button != null:
+		close_button.queue_free()
+
+
 ## Opens the book at an entry (the latest, unless told which night).
 func open(entries: Array, whose: String, night: int = -1) -> void:
 	_entries = entries.duplicate()
@@ -71,7 +89,8 @@ func open(entries: Array, whose: String, night: int = -1) -> void:
 
 func close() -> void:
 	closed.emit()
-	queue_free()
+	if not _embedded:
+		queue_free()
 
 
 func showing_night() -> int:
@@ -96,6 +115,8 @@ func _show_page() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	if _embedded and (not is_visible_in_tree() or event.keycode == KEY_ESCAPE):
+		return  # (in the menu: only its own tab's arrows, and Esc is the menu's)
 	match event.keycode:
 		KEY_LEFT:
 			_flip(-1)

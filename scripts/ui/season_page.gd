@@ -6,6 +6,7 @@ extends Control
 
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
@@ -23,6 +24,7 @@ var _rows: VBoxContainer
 var _stamp: Label
 var _words: Label
 var _shown := 0
+var _rung := ""  # the rung the season aired on (its numbers in its units)
 
 
 func _init() -> void:
@@ -67,7 +69,9 @@ func _init() -> void:
 func show_season(rows: Array, judged: Dictionary, bar_name: String) -> void:
 	for child in _rows.get_children():
 		child.queue_free()
-	_sub.text = "SEASON %d, LOOKED BACK ON  ·  %s  ·  average %s" % [int(judged.get("season", 1)), bar_name, Ratings.percent_text(float(judged.get("average", 0.0)))]
+	_rung = str(judged.get("rung", Ladder.OLDER))
+	_sub.text = "SEASON %d, LOOKED BACK ON  ·  %s  ·  %s  ·  %s" % [int(judged.get("season", 1)), bar_name, str(Ladder.rung(_rung)["name"]).to_upper(),
+		ShowSeasons.season_done(judged)]
 	var best := 0.0
 	for row in rows:
 		best = maxf(best, float(row.get("rating", 0.0)))
@@ -133,7 +137,7 @@ func _row(row: Dictionary, season: int, finale: bool, best: bool) -> Control:
 	bar.size = Vector2(maxf(4.0, BAR_WIDTH * minf(rating / BAR_FULL, 1.0)), 14)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(bar)
-	var number := _clipped(Ratings.percent_text(rating), 19, colour, Vector2(number_x, 1), Vector2(64, 26))
+	var number := _clipped(Ladder.short(rating, _rung), 19, colour, Vector2(number_x, 1), Vector2(64, 26))
 	number.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	box.add_child(number)
 	var quote: Dictionary = row.get("quote", {})
@@ -148,7 +152,7 @@ func _row(row: Dictionary, season: int, finale: bool, best: bool) -> Control:
 		rule.size = Vector2(width - 8, 1)
 		rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(rule)
-	box.tooltip_text = Text.tip("Season %d, episode %d%s: %s, %s%s" % [season, int(row.get("episode", 0)), (", " + title) if title != "" else "", Ratings.percent_text(rating), Ratings.band(rating),
+	box.tooltip_text = Text.tip("Season %d, episode %d%s: %s, %s%s" % [season, int(row.get("episode", 0)), (", " + title) if title != "" else "", Ladder.text(rating, _rung), Ladder.band(rating, _rung),
 		("\n" + said) if said != "" else ""])
 	return box
 

@@ -70,7 +70,9 @@ const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 const SeasonPage = preload("res://scripts/ui/season_page.gd")
+const ShowSetup = preload("res://scripts/ui/show_setup.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
@@ -215,6 +217,11 @@ var _guests: Array = []  # Guest: whoever's on a stool
 var _camera := PdCamera.new()  # the PD's camera: who the show's following tonight (scripts/bar/camera.gd)
 const CAMERA_RED := PdDesk.CAMERA_RED  # the camera's REC (the shock caption's red)
 # The edit: the PD stepping in to cut last night's episode (see _step_in).
+## Setting up the show (ui/show_setup.gd): offered while a new bar's being made; the bar waits
+## while the PD's in there; what they chose ({"rung"}), applied once the bar's saved.
+var _setup_open := false
+var _setting_up := false
+var _setup := {}
 var _step_in_open := false  # they can, now: from the loading screen until the first customer arrives
 var _step_in_wanted := false  # ...and have (it opens as soon as it can)
 var _step_in_when := ""  # when they did: "loading", "recap" or "night" (for the stats)
@@ -399,6 +406,12 @@ var _summary_text: RichTextLabel
 # UI
 var _try_again: Button  # only shown if the owner couldn't be invented
 var _leave_button: Button
+var _menu_buttons: HBoxContainer  # in the menu: the diary, closing the bar
+var _menu_tabs: TabContainer  # in the menu: the options, the diary
+var _menu_diary: Control  # the diary's tab: the book itself (ui/diary_book.gd, embedded)
+const MENU_WIDTH := 860.0
+const MENU_OPTIONS := 0
+const MENU_DIARY := 1
 var _time_speed := NightRules.time_speed(0)  # how fast game time is running now (eases to the target)
 var _reading_toggle: CheckBox
 var _stats_panel: PanelContainer  # the side panel: who's here now, then the debug stats, in tabs
@@ -652,6 +665,7 @@ func _on_try_again_pressed() -> void:
 
 func _invent_owner() -> void:
 	_owner_working = true
+	_offer_setup()
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling a tarp...")
 	_typing_label.text = "The casting team are finding the tent's owner..."
 	var gender: String = ["woman", "man"].pick_random()
@@ -679,6 +693,7 @@ func _invent_owner() -> void:
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
 	await _name_bar()
+	_apply_setup()  # (if the PD set the show up before the bar was saved)
 	await _name_cat()
 	await _choose_look()
 	if Hooks.bar_menus:
@@ -688,6 +703,11 @@ func _invent_owner() -> void:
 	_show_look()
 	_show_cat()
 	await _frame_done  # let the tent draw before the loading screen fades
+	while _setting_up and not _closed():  # (the PD's setting the show up: it starts when they're done)
+		await get_tree().process_frame
+	_setup_open = false
+	if _closed():
+		return
 	_end_loading()
 	if Hooks.recaps:
 		_before_night["recap_by"] = "game"  # (a series opener's always the game's)
@@ -1143,7 +1163,7 @@ func _start_night() -> void:
 	_busier = Ratings.busier(Ratings.from_log(Game.bar.get("night_log", [])))
 	_night_ratings = {}
 	_stats.story["busier"] = _busier
-	_stats.story["show"] = {"place": ShowSeasons.label(_show_place), "finale": bool(_show_place["finale"]), "so_far": ShowSeasons.so_far(Game.bar["show"])}
+	_stats.story["show"] = {"place": ShowSeasons.label(_show_place), "rung": _rung(), "finale": bool(_show_place["finale"]), "so_far": ShowSeasons.so_far(Game.bar["show"])}
 	_stats.ratings_before = Ratings.from_log(Game.bar.get("night_log", []))
 	_events.happened.connect(func(_kind, _facts, _about, _spot): _update_ratings())
 	_update_ratings()
@@ -1185,9 +1205,13 @@ func _start_night() -> void:
 	_tent_cat.place()
 	_update_clock_label()
 	_start_transcript()
-	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place)])
+	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  ·  on %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place), Ladder.rung(_rung())["name"]])
+	var moved := _moved_tonight()
+	if moved != "":
+		_narrate(moved)
+		_stats.story["show"]["moved"] = moved
 	if bool(_show_place["finale"]):
-		_narrate("Tonight's the finale of season %d: at 3am, the channel decides what happens to the show." % int(_show_place["season"]))
+		_narrate("Tonight's the finale of season %d: at 3am, %s decides what happens to the show." % [int(_show_place["season"]), "the audience" if Ladder.is_floor(_rung()) else str(Ladder.rung(_rung())["the"])])
 	_narrate("%s %s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, _night_date.get("text", ""), NightRules.clock_text(NightRules.OPEN_MINUTES), Text.sentence_case(_night_weather)])
 	if _night_weather == Seasons.FIRST_SNOW:
 		_event("first_snow")
@@ -1377,8 +1401,8 @@ func _end_night() -> void:
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers"]
-	t += "[b]TV ratings %s[/b]  ·  %s\n" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]  # (the night's score: takings aren't kept)
-	t += "[color=#%s]%s[/color]" % [MUTED.to_html(false), ShowSeasons.label(_show_place)]
+	t += "[b]%s[/b]  ·  %s\n" % [Ladder.headline(float(_night_ratings["rating"]), str(_night_ratings["rung"]), int(_night_ratings.get("subscribers", -1))), _night_ratings["band"]]  # (the night's score, in its rung's units: takings aren't kept)
+	t += "[color=#%s]%s, on %s[/color]" % [MUTED.to_html(false), ShowSeasons.label(_show_place), Ladder.rung(str(_night_ratings["rung"]))["name"]]
 	if not _season_ended.is_empty():
 		t += "\n[b]%s[/b]  %s" % [Glossary.explain_hangul(_esc(str(_season_ended["stamp"]))), _esc(str(_season_ended["words"]))]  # (the stamp explains itself on hover)
 	if not line.is_empty():
@@ -1412,7 +1436,7 @@ func _end_season() -> void:
 	var the_show: Dictionary = Game.bar["show"]
 	var this_season: Array = the_show.get("nights", [])
 	var before := Ratings.from_log(Game.bar.get("night_log", []).filter(func(n): return not this_season.has(int(n.get("night", 0)))))
-	var judged := ShowSeasons.verdict(int(the_show.get("season", 1)), the_show.get("ratings", []), before, the_show.get("seasons", []))
+	var judged := ShowSeasons.verdict(int(the_show.get("season", 1)), the_show.get("ratings", []), before, the_show.get("seasons", []), ShowSeasons.rung_of(the_show), int(the_show.get("subscribers", 0)))
 	_season_ended = judged.duplicate()
 	_season_ended["nights"] = this_season.duplicate()
 	_season_ended["ratings"] = the_show.get("ratings", []).duplicate()
@@ -1437,7 +1461,7 @@ func _show_season_page() -> void:
 	var said := PackedStringArray()
 	for row in rows:
 		var quote: Dictionary = row["quote"]
-		said.append("EP %d %s%s%s" % [int(row["episode"]), Ratings.percent_text(float(row["rating"])), (" «%s»" % str(row["title"])) if str(row["title"]) != "" else "",
+		said.append("EP %d %s%s%s" % [int(row["episode"]), Ladder.short(float(row["rating"]), str(_season_ended["rung"])), (" «%s»" % str(row["title"])) if str(row["title"]) != "" else "",
 			(" \"%s\" (%s)" % [quote["text"], quote["speaker"]]) if not quote.is_empty() else ""])
 	_stats.story["show"]["looked_back"] = rows.size()
 	_show("[i][color=#%s]Season %d, looked back on: %s. %s %s[/color][/i]\n\n" % [MUTED.to_html(false), int(_season_ended["season"]), _esc(" · ".join(said)),
@@ -1459,7 +1483,7 @@ func _last_ratings_text() -> String:
 	var diary: Array = Game.bar.get("diary", [])
 	if diary.is_empty() or not diary[-1].get("ratings", {}).has("rating"):
 		return ""
-	return "RATINGS %s" % Ratings.percent_text(float(diary[-1]["ratings"]["rating"]))
+	return Ladder.card_text(float(diary[-1]["ratings"]["rating"]), str(diary[-1]["ratings"].get("rung", Ladder.OLDER)), int(diary[-1]["ratings"].get("subscribers", -1)))
 
 
 # --- The autopilot PD (an autoplay batch: see autopilot.gd) ------------------------------------
@@ -1527,6 +1551,8 @@ func _update_ratings() -> void:
 		var cards: int = _stats.plants().values().filter(func(p): return int(p[2]) > 0).size()
 		result = Ratings.score(_events.timeline, {"cards_taken_up": cards}, 0.5)
 		result["parts"] = result["parts"].filter(func(p): return not is_zero_approx(float(p[1])))
+		if Ladder.counts_subscribers(_rung()):  # (the channel's total, with tonight's so far)
+			result["subscribers"] = Ladder.subscribers_after(int(Game.bar.get("show", {}).get("subscribers", 0)), float(result["rating"]), _rung())
 		_stats.ratings_so_far = result
 		when = " so far"
 	else:
@@ -1534,11 +1560,29 @@ func _update_ratings() -> void:
 		if before.is_empty():
 			_ratings_label.visible = false
 			return
-		result = {"rating": float(before[-1]), "band": Ratings.band(float(before[-1])), "parts": []}
+		var last_rung := _last_rung()
+		result = {"rating": float(before[-1]), "band": Ladder.band(float(before[-1]), last_rung), "parts": [], "rung": last_rung,
+			"subscribers": int(Game.bar.get("diary", [{}])[-1].get("ratings", {}).get("subscribers", -1)) if not Game.bar.get("diary", []).is_empty() else -1}
 		when = " last time"
+	var rung := str(result.get("rung", _rung()))  # (on the rung it aired on)
 	_ratings_label.visible = true
-	_ratings_label.text = "%s %s%s" % [Ratings.WORD, Ratings.percent_text(float(result["rating"])), when]
-	_ratings_label.tooltip_text = Text.tip(Ratings.hover(result) + ("\nSo far tonight, before luck (what else is on): the final rating is at 3am." if when == " so far" else ""))
+	_ratings_label.text = "%s%s  ·  %s" % [Ladder.label(float(result["rating"]), rung, int(result.get("subscribers", -1))), when, Ladder.rung(rung)["short"]]  # (the Korean, and the English beside it)
+	var the_show: Dictionary = Game.bar.get("show", {})
+	var going := "\nThis season: " + Ladder.progress(rung, the_show.get("ratings", []), int(the_show.get("subscribers", 0))) if rung == _rung() else ""  # (how it's going against the rule)
+	_ratings_label.tooltip_text = Text.tip(Ladder.hover(result, rung) + going + ("\nSo far tonight, before luck (what else is on): the final numbers are at 3am." if when == " so far" else ""))
+
+
+## Where the show is on the ladder now (rules/ladder.gd).
+func _rung() -> String:
+	return ShowSeasons.rung_of(Game.bar.get("show", {}))
+
+
+## The rung last night's episode aired on (its diary entry's ratings say; before the ladder, network TV).
+func _last_rung() -> String:
+	var diary: Array = Game.bar.get("diary", [])
+	if diary.is_empty() or not diary[-1].get("ratings", {}).has("rating"):
+		return _rung()
+	return str(diary[-1]["ratings"].get("rung", Ladder.OLDER))
 
 
 ## 3am: tonight's episode gets its ratings (Ratings.score), from what happened, the PD's cards
@@ -1549,13 +1593,21 @@ func _rate_night() -> void:
 	var before := Ratings.from_log(Game.bar.get("night_log", []))
 	_night_ratings = Ratings.score(_events.timeline, {"cards_taken_up": cards}, _ratings_dice.randf())
 	var rating := float(_night_ratings["rating"])
-	_night_ratings["banner"] = Ratings.banner(rating, before)
+	var rung := _rung()
+	_night_ratings["rung"] = rung  # (shown in its rung's units, wherever it's shown later)
+	if Ladder.counts_subscribers(rung):  # (the online video channel: its subscribers grow, episode by episode)
+		var total := Ladder.subscribers_after(int(Game.bar["show"].get("subscribers", 0)), rating, rung)  # (won and lost: they go down as well as up)
+		Game.bar["show"]["subscribers"] = total
+		_night_ratings["subscribers"] = total
+	_night_ratings["band"] = Ladder.band(rating, rung)
+	_night_ratings["banner"] = Ladder.banner(rating, before, rung)
 	_night_ratings["record"] = Ratings.is_record(rating, before)
 	_stats.story["ratings"] = rating
 	_stats.story["ratings_text"] = Ratings.log_text(_night_ratings)
+	_stats.story["ratings_shown"] = "%s on %s" % [Ladder.text(rating, rung, int(_night_ratings.get("subscribers", -1))), Ladder.rung(rung)["name"]]
 	if str(_night_ratings["banner"]) != "":
 		_stats.story["ratings_banner"] = Glossary.hangul_tip(str(_night_ratings["banner"]))  # (in words: the panel has no hovers)
-	print("Ratings: night %d, %s%s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else ""])
+	print("Ratings: night %d, %s%s · %s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else "", _stats.story["ratings_shown"]])
 	_update_ratings()
 
 
@@ -1640,6 +1692,42 @@ func _validate_recap(data: Variant, facts: Dictionary) -> String:
 
 
 # --- The edit: the PD steps in -------------------------------------------------------------
+
+## A new bar: the PD can set the show up (where it starts on the ladder, for now) while the bar's
+## being made, from the loading screen's button or Enter. Never waits on them: not stepping in,
+## the game's defaults (the phone stream).
+func _offer_setup() -> void:
+	_setup_open = true
+	if _loading != null and _loading.visible:
+		var button: Button = _loading.show_step_in("📋  The PD sets up the show…  (Enter)", "LoadingSetUp")
+		button.pressed.connect(_open_setup)
+
+
+## The setup screen, over everything; the bar waits for it (see _invent_owner).
+func _open_setup() -> void:
+	if not _setup_open or _setting_up:
+		return
+	_setting_up = true
+	var screen := ShowSetup.new()
+	add_child(screen)
+	screen.open(_setup if not _setup.is_empty() else {"rung": Ladder.FIRST})
+	_setup = await screen.finished
+	_setting_up = false
+	if _closed():
+		return
+	_before_night["setup"] = {"rung": str(_setup["rung"]), "by": "pd"}
+	_show("[i][color=#%s]📋 The PD sets up the show: it starts on %s.[/color][/i]\n\n" % [CAMERA_RED.to_html(false), Ladder.rung(str(_setup["rung"]))["name"]])
+	_apply_setup()
+
+
+## What the PD chose, onto the bar once it's saved (before its first night only).
+func _apply_setup() -> void:
+	if _setup.is_empty() or not Game.bar.has("show") or int(Game.bar.get("nights", 0)) > 0:
+		return
+	Game.bar["show"]["rung"] = str(_setup["rung"])
+	Game.save()
+	print("Setup: the show starts on %s" % Ladder.rung(str(_setup["rung"]))["name"])
+
 
 ## The PD can step in and cut last night's episode, from now until the first customer
 ## arrives: said on the loading screen (and, as it plays, on "Previously on…", and on the desk).
@@ -1848,19 +1936,31 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(_recap_said)])
 
 
+## A new season's first night, after the show moved up or down a rung: said in plain words
+## ("Your show's been picked up by network TV!"), or "" if it didn't move.
+func _moved_tonight() -> String:
+	var seasons: Array = Game.bar.get("show", {}).get("seasons", [])
+	if int(_show_place["episode"]) != 1 or seasons.is_empty():
+		return ""
+	var last: Dictionary = seasons[-1]
+	var from := str(last.get("rung", Ladder.OLDER))
+	var to := str(last.get("to", from))
+	if to == from:
+		return ""
+	if Ladder.index_of(to) > Ladder.index_of(from):
+		return "Your show's been picked up by %s! Season %d starts tonight, with more people watching than ever." % [Ladder.rung(to)["name"], int(_show_place["season"])]
+	return "The show's dropped to %s. Season %d starts tonight: time to win the audience back." % [Ladder.rung(to)["name"], int(_show_place["season"])]
+
+
 ## Last night's episode in words, for cutting it: "season 1, episode 4" (from its diary entry).
 func _last_episode_words() -> String:
 	var diary: Array = Game.bar.get("diary", [])
 	return ShowSeasons.words(ShowSeasons.of(diary[-1])) if not diary.is_empty() else "last night's episode"
 
 
-## The owner's diary as a book, over everything (the night carries on behind it).
+## The owner's diary: the menu, open on its Diary tab (the book's there, a page at a time).
 func _open_diary() -> void:
-	if find_child("DiaryBook", false, false) != null:
-		return
-	var book := DiaryBook.new()
-	add_child(book)
-	book.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
+	_open_menu(MENU_DIARY)
 
 
 ## The end-of-night Stats button: the numbers instead of the diary page, and back.
@@ -1916,7 +2016,7 @@ func _autoplay_next() -> void:
 		Game.bar["autoplay"] = true  # (its own bar: marked as a test bar on the title screen)
 		Game.save()
 	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up, float(_night_ratings.get("rating", -1.0)),
-		ShowSeasons.short_label(_show_place) + ((" · " + ShowSeasons.log_text(_season_ended)) if not _season_ended.is_empty() else ""))
+		"%s · %s%s" % [ShowSeasons.short_label(_show_place), str(_night_ratings.get("rung", _rung())), (" · " + ShowSeasons.log_text(_season_ended)) if not _season_ended.is_empty() else ""])
 	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
 	auto.write_running(str(Game.bar.get("name", "")))
 	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
@@ -2385,6 +2485,10 @@ func _finish_transcript(context: Dictionary) -> void:
 ## Esc opens or closes the Options panel; 1, 2 and 3 pick the edit's spin while it's up.
 func _unhandled_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
+	if key != null and key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER) and _setup_open and not _setting_up:
+		_open_setup()
+		get_viewport().set_input_as_handled()
+		return
 	if key != null and key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER) and _step_in_open and not _editing:
 		_step_in()
 		get_viewport().set_input_as_handled()
@@ -2394,7 +2498,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		_options_button.button_pressed = not _options_button.button_pressed
+		_options_button.button_pressed = not _options_button.button_pressed  # (the menu)
 
 
 ## The panels under the tent: the transcript, the PD's desk, then the side panel (who's here
@@ -4837,8 +4941,9 @@ func _build_ui() -> void:
 	_ratings_label.visible = false
 	bar.add_child(_ratings_label)
 
-	# The settings live in an Options panel that drops down from the top bar, so they don't
-	# crowd it (see _build_options_panel; more settings will go there).
+	# The menu (Esc, or the top bar's one button) drops down over the tent: the diary, closing
+	# the bar, the ladder's rules, and the settings, so they don't crowd the top bar (see
+	# _build_options_panel; more settings will go there).
 	var opts := _build_options_panel()
 
 	_reading_toggle = CheckBox.new()
@@ -4927,24 +5032,17 @@ func _build_ui() -> void:
 	_leave_button.text = "Close the bar"
 	_leave_button.tooltip_text = Text.tip("Closes up early: nobody new comes in, whoever's here finishes at their own pace, and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)")
 	_leave_button.custom_minimum_size = Vector2(150, 40)
+	_leave_button.pressed.connect(func(): _options_button.button_pressed = false)
 	_leave_button.pressed.connect(_on_leave_pressed)
-	bar.add_child(_leave_button)
-
-	var diary := Button.new()
-	diary.name = "DiaryButton"
-	diary.text = "📖 Diary"
-	diary.tooltip_text = Text.tip("The owner's diary: every night so far, a page at a time.")
-	diary.custom_minimum_size = Vector2(130, 40)
-	diary.pressed.connect(_open_diary)
-	bar.add_child(diary)
+	_menu_buttons.add_child(_leave_button)
 
 	_options_button = Button.new()
 	_options_button.name = "OptionsButton"
-	_options_button.text = "⚙ Options"
-	_options_button.tooltip_text = Text.tip("Sound, music, speech bubbles, TV captions, reading pauses and the stats panel (Esc).")
+	_options_button.text = "☰ Menu (Esc)"
+	_options_button.tooltip_text = Text.tip("The options (sound, music, speech bubbles, TV captions, reading pauses, the stats panel), the diary, and closing the bar.")
 	_options_button.toggle_mode = true
 	_options_button.custom_minimum_size = Vector2(140, 40)
-	_options_button.toggled.connect(func(on): _options_panel.visible = on)
+	_options_button.toggled.connect(_on_menu_toggled)
 	bar.add_child(_options_button)
 
 	# The street behind it all, in pixel art, reaching above the tent (street_art.gd).
@@ -4975,9 +5073,9 @@ func _build_ui() -> void:
 	_log.meta_underlined = false  # (a line's 📌 is a link: see _pin_link)
 	_log.meta_clicked.connect(_on_transcript_link)
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log.add_theme_font_size_override("normal_font_size", 19)
-	_log.add_theme_font_size_override("bold_font_size", 19)
-	_log.add_theme_font_size_override("italics_font_size", 18)
+	_log.add_theme_font_size_override("normal_font_size", 15)  # (the side panel's size: more of the night on screen, scrolling by slower)
+	_log.add_theme_font_size_override("bold_font_size", 15)
+	_log.add_theme_font_size_override("italics_font_size", 15)
 	log_box.add_child(_log)
 	_typing_label = Label.new()
 	_typing_label.name = "Status"
@@ -5081,14 +5179,16 @@ func _badge(colour: Color) -> StyleBoxTexture:
 	return PixelFrame.style([colour, colour.darkened(0.35), colour.lightened(0.15), colour.darkened(0.12)], Vector2(9, 6))  # (in pixels: pixel_frame.gd)
 
 
-## The Options panel: dropping down under the top bar's Options button, over the tent.
-## Returns the column the settings go in.
+## The menu (Esc, or the top bar's button): a window over the bar, its actions along the top
+## (closing the bar; more to come), then tabs: the options and the diary (the book itself). (The
+## ladder's rules are on the ratings' hover in the top bar.) Returns the Options tab's column,
+## for the settings.
 func _build_options_panel() -> VBoxContainer:
-	_options_panel = _panel(Vector2(SCREEN.x - 24 - 400, 58), Vector2(400, 0))
+	_options_panel = _panel(Vector2((SCREEN.x - MENU_WIDTH) / 2, 60), Vector2(MENU_WIDTH, 0))
 	_options_panel.name = "OptionsPanel"
 	_options_panel.z_index = 20  # over the tent, the bubbles and the captions
 	_options_panel.visible = false
-	_options_panel.add_theme_stylebox_override("panel", PixelFrame.style([Ktv.PANEL, ACCENT, PixelFrame.PANEL[2], PixelFrame.PANEL[3]]))  # (its edge in the accent: it drops down over the tent)
+	_options_panel.add_theme_stylebox_override("panel", PixelFrame.style([Ktv.PANEL, ACCENT, PixelFrame.PANEL[2], PixelFrame.PANEL[3]]))  # (its edge in the accent: it's over the tent)
 	add_child(_options_panel)
 	# Clicks go to whatever's last in the tree, whatever's drawn on top: the panel's built
 	# before the tent and the other panels, so it's moved to the end once they're all in.
@@ -5096,12 +5196,56 @@ func _build_options_panel() -> VBoxContainer:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	_options_panel.add_child(column)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	column.add_child(top)
 	var heading := Label.new()
-	heading.text = "Options"
+	heading.text = "Menu"
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_theme_font_size_override("font_size", 22)
 	heading.add_theme_color_override("font_color", ACCENT)
-	column.add_child(heading)
-	return column
+	top.add_child(heading)
+	_menu_buttons = HBoxContainer.new()  # the actions (closing the bar: added in _build_ui)
+	_menu_buttons.name = "MenuButtons"
+	_menu_buttons.add_theme_constant_override("separation", 12)
+	top.add_child(_menu_buttons)
+	var close_menu := Button.new()
+	close_menu.name = "MenuClose"
+	close_menu.text = "✕ (Esc)"
+	close_menu.custom_minimum_size = Vector2(100, 40)
+	close_menu.pressed.connect(func(): _options_button.button_pressed = false)
+	top.add_child(close_menu)
+	_menu_tabs = TabContainer.new()
+	_menu_tabs.name = "MenuTabs"
+	_menu_tabs.add_theme_font_size_override("font_size", 18)
+	column.add_child(_menu_tabs)
+	var options := VBoxContainer.new()
+	options.name = "Options"
+	options.add_theme_constant_override("separation", 10)
+	_menu_tabs.add_child(options)
+	_menu_tabs.set_tab_title(MENU_OPTIONS, "⚙ Options")
+	_menu_diary = DiaryBook.new()  # the owner's diary, in its tab (opened on the latest page as the menu opens)
+	_menu_diary.embed()
+	_menu_tabs.add_child(_menu_diary)
+	_menu_tabs.set_tab_title(MENU_DIARY, "📖 Diary")
+	return options
+
+
+## The menu opens (Esc, or the top bar's button) or closes; opening, the diary's brought up to date.
+func _on_menu_toggled(on: bool) -> void:
+	_options_panel.visible = on
+	if on:
+		_menu_diary.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
+		_options_panel.reset_size()
+
+
+## Opens the menu on a tab (MENU_OPTIONS, MENU_DIARY).
+func _open_menu(tab: int) -> void:
+	_menu_tabs.current_tab = tab
+	if _options_button.button_pressed:
+		_on_menu_toggled(true)
+	else:
+		_options_button.button_pressed = true
 
 
 func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:

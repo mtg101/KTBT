@@ -10,6 +10,7 @@ const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
@@ -22,7 +23,7 @@ const PAGE := Vector2(780, 600)
 const LINE_GAP := 38.0  # the ruled lines, matched to the entry's lines
 const BODY_TOP := 150.0
 const LEFT := 80.0  # the margin
-const DAY_WIDTH := 300.0  # the day and weather, left of the ratings
+const WHOSE_WIDTH := 270.0  # whose diary it is, left of the ratings
 const PILL_MOST := PAGE.x - LEFT - 50.0  # the episode's pill, at its widest
 
 var _episode: Label
@@ -46,7 +47,7 @@ func _init() -> void:
 
 	# The header, a row each so nothing overlaps: the episode and its title in a pink pill (as
 	# wide as it needs, never past the page: a long title trimmed with "…"); the day and weather,
-	# with the ratings on the right; whose diary it is.
+	# the whole row; whose diary it is, with the ratings beside it.
 	_pill = PanelContainer.new()
 	var pill := _pill
 	pill.name = "EpisodePill"
@@ -65,18 +66,21 @@ func _init() -> void:
 	_day.clip_text = true
 	_day.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_day.position = Vector2(LEFT + 12, 64)
-	_day.size = Vector2(DAY_WIDTH, 30)
+	_day.size = Vector2(PAGE.x - 40 - (LEFT + 12), 30)  # (the whole row: the weather's never cut short)
 	add_child(_day)
 	_whose = _label(16, INK.lightened(0.3))
 	_whose.name = "Whose"
+	_whose.clip_text = true
+	_whose.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_whose.position = Vector2(LEFT + 12, 98)
+	_whose.size = Vector2(WHOSE_WIDTH, 24)
 	add_child(_whose)
-	_ratings = _label(20, PINK.darkened(0.25))
+	_ratings = _label(18, PINK.darkened(0.25))
 	_ratings.name = "Ratings"
 	_ratings.clip_text = true
 	_ratings.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_ratings.position = Vector2(LEFT + 12 + DAY_WIDTH + 10, 65)
-	_ratings.size = Vector2(PAGE.x - 40 - (LEFT + 12 + DAY_WIDTH + 10), 30)
+	_ratings.position = Vector2(LEFT + 12 + WHOSE_WIDTH + 10, 97)  # (beside whose diary it is)
+	_ratings.size = Vector2(PAGE.x - 40 - (LEFT + 12 + WHOSE_WIDTH + 10), 26)
 	_ratings.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_ratings.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
 	_ratings.visible = false
@@ -182,8 +186,9 @@ func _show_ratings(ratings: Dictionary) -> void:
 	if not _ratings.visible:
 		return
 	var banner := str(ratings.get("banner", ""))
-	_ratings.text = "%s %s%s" % [Ratings.WORD, Ratings.percent_text(float(ratings["rating"])), ("  ·  " + banner) if banner != "" else ""]
-	var tip := Ratings.hover(ratings)
+	var rung := str(ratings.get("rung", Ladder.OLDER))  # (in the units of the rung it aired on: before the ladder, network TV)
+	_ratings.text = "%s%s" % [Ladder.label(float(ratings["rating"]), rung, int(ratings.get("subscribers", -1))), ("  ·  %s %s" % [banner, Ladder.banner_english(banner)]) if banner != "" else ""]  # (the Korean, and the English beside it)
+	var tip := Ladder.hover(ratings, rung)
 	if banner != "":
 		tip = "%s: %s\n%s" % [banner, Glossary.hangul_tip(banner), tip]
 	_ratings.tooltip_text = Text.tip(tip)

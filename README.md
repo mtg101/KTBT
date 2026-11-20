@@ -6,7 +6,9 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest (19 Nov):** seasons. Every eight episodes is a season: the eighth is the finale, and at 3am after it the season's looked back on (each episode's title, ratings and pinned line) and the channel gives its verdict, from the average ratings with a bonus for a new best or a hit: a hit season, renewed, or a warning (two quiet seasons in a row and the channel loses patience). Next, the verdict moves the show up or down a ladder of platforms.
+✅ **Latest (20 Nov):** the platform ladder. A new bar's show starts as a phone stream (views and likes) and climbs (or drops) three rungs season by season: an online video channel (its total subscribers) and network TV (시청률 ratings), each expecting more than the last, never off air. The season's verdict moves it, said in plain words ("Your show's been picked up by an online video channel!"). Moving on is to absolute targets: 1,000+ views a night over a season gets a channel, 10,000 subscribers gets a TV deal; the rules, and how the season's going, are on the ratings' hover in the top bar. The menu (Esc) has tabs for the options and the diary, and closing the bar. While a new bar's being made, the PD can set up the show (Enter) and start it on any rung.
+
+**Before that (19 Nov):** seasons. Every eight episodes is a season: the eighth is the finale, and at 3am after it the season's looked back on (each episode's title, ratings and pinned line) and the channel gives its verdict, from the average ratings with a bonus for a new best or a hit: a hit season, renewed, or a warning (two quiet seasons in a row and the channel loses patience).
 
 **Before that (17 Nov):** the show's ratings (시청률). At 3am every episode gets a Korean TV rating, the share of Korea's TV homes said to be watching: a few percent is an ordinary night for a late-night cable show, double digits is a hit, 20% is legend. It comes from what happened (big moments, a mix of moods, the cliffhanger paying off, regulars' stories, the PD's cards taken up) and a little luck, it's on the diary page with a hover saying where it came from, and the last few nights' ratings make the bar a little busier or quieter (±10% at most). Before that, the edit suite, and autoplay you can start from your phone.
 
@@ -14,7 +16,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Next up:** the platform ladder: five rungs from the owner's niece or nephew's phone stream to a network, the season's verdict moving the show up or down. See [PLAN.md](PLAN.md).
+**Next up:** the ladder's people and names: the owner's niece or nephew filming the phone stream, and every channel the show's booked on named by the AI. See [PLAN.md](PLAN.md).
 
 ### What's in it so far
 
@@ -28,10 +30,10 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **The cat:** with a personality, going where it likes, and a greedy one steals fish cakes; everyone talks about it (and now and then to it) as it really is.
 - **Korean TV captions:** variety-show pop-ups with a sound sting for noteworthy moments ("짠! JJAN! CHEERS!", and "만석! FULL HOUSE!" with a flashing red light), and captions the AI writes for the big moments in conversation ("충격! SHE QUIT HER JOB?!").
 - **Look and sound:** each bar's own look (a Hangul-and-English sign, the cover's shape and colour), a sky that darkens through the night, weather, passers-by (in twos and threes, on their phones, under umbrellas, or running for it), speech bubbles, a K-TV title and loading screen; rain on the tarp, traffic, the odeng pot, and Arirang now and then. All placeholder art and sound, made in code.
-- **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and the channel judges it.
+- **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 723 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 733 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -106,6 +108,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/rules/` | The game's rules, one file per area (see [ARCHITECTURE.md](ARCHITECTURE.md)): pure functions and their tables, no scene or AI, so easy to test |
 | `scripts/rules/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |
 | `scripts/rules/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
+| `scripts/rules/ladder.gd` | The platform ladder: three rungs, a phone stream, an online video channel and network TV, each showing the night's score in its own units and judging a season against its own targets |
 | `scripts/rules/show_seasons.gd` | The show's seasons of eight episodes: the finale, the season looked back on, the channel's verdict |
 | `scripts/save/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
 | `scripts/sound/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
@@ -121,6 +124,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
 | `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
+| `scripts/ui/show_setup.gd` | Setting up the show: while a new bar's being made, the PD chooses where it starts on the ladder (more of the setup later) |
 | `scripts/ui/season_page.gd` | The season looked back on (시즌 결산), after a finale: an episode a row, and the verdict |
 
 ## AI usage

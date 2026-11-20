@@ -493,11 +493,11 @@ func _heart(radius: float) -> PackedVector2Array:
 	return points
 
 
-## The PD can step in and cut last night's episode (see visit.gd _step_in): a button along the
-## bottom, saying so. Returns it, for the tent to connect.
-func show_step_in(text: String) -> Button:
+## The PD can step in and cut last night's episode (see visit.gd _step_in), or set up a new
+## bar's show (_open_setup): a button along the bottom, saying so. Returns it, for the tent to connect.
+func show_step_in(text: String, button_name: String = "LoadingStepIn") -> Button:
 	var button := Button.new()
-	button.name = "LoadingStepIn"
+	button.name = button_name
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
 	button.add_theme_font_size_override("font_size", 22)

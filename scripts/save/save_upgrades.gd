@@ -15,11 +15,13 @@ const People = preload("res://scripts/rules/people.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Bonds = preload("res://scripts/rules/bonds.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const Ladder = preload("res://scripts/rules/ladder.gd")
 
 
 ## What the game fills in itself, without the AI. Returns what it filled in ([]: nothing):
 ## "owner_look", "owner_life", "cat_nickname", "bonds", "takings" (dropped), "show" (a bar from before
-## seasons: its first season starts with its next night). (The game's dice, in the order they always were:
+## seasons: its first season starts with its next night, on network TV, where its show always was),
+## "rung" (a bar from before the ladder, or on a rung there was for a day: on network TV). (The game's dice, in the order they always were:
 ## the look first; the cat's nickname needs none.)
 static func upgrade(bar: Dictionary) -> Array:
 	var changed: Array = []
@@ -43,8 +45,11 @@ static func upgrade(bar: Dictionary) -> Array:
 			night.erase("takings")
 		changed.append("takings")
 	if not bar.has("show"):  # a bar from before the show had seasons (19 Nov): season 1 starts next night
-		bar["show"] = ShowSeasons.fresh()
+		bar["show"] = ShowSeasons.fresh(Ladder.OLDER)
 		changed.append("show")
+	elif not bar["show"].has("rung") or Ladder.RETIRED.has(str(bar["show"]["rung"])):  # a bar from before the ladder (20 Nov), or on a rung retired the same day: network TV
+		bar["show"]["rung"] = Ladder.OLDER
+		changed.append("rung")
 	return changed
 
 
