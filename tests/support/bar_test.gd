@@ -30,7 +30,7 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	for folder in [_saves, _stats, _transcripts]:
+	for folder in [_saves, _stats, _transcripts, "user://test_debug/"]:
 		_clear_folder(folder)
 	Hooks.restore()
 	Game.bar = {}

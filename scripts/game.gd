@@ -8,6 +8,7 @@ extends Node
 ## you quit simply ends; the bar carries on with the next customer.
 
 const SaveStore = preload("res://scripts/save/save_store.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
 
 const TITLE_SCENE := "res://scenes/title.tscn"
@@ -30,11 +31,12 @@ var autoplay: Autoplay = null
 
 
 func _ready() -> void:
+	DebugLog.from_args(OS.get_cmdline_user_args())  # (-- --log-all: every note on the console too)
 	autoplay = Autoplay.from_args(OS.get_cmdline_user_args())
 	if autoplay != null:
 		OS.add_logger(autoplay.errors)  # (the batch counts the errors, for its summary)
 		AudioServer.set_bus_mute(0, true)  # (nobody's listening)
-		print("Autoplay: %d nights." % autoplay.nights)
+		DebugLog.say("Autoplay", "%d nights." % autoplay.nights)
 		autoplay.write_running()  # (so the phone helper can see it's going)
 
 
@@ -46,7 +48,7 @@ func start_autoplay(how_many: int) -> Autoplay:
 		return null
 	autoplay = Autoplay.in_game(how_many, str(bar.get("id", "")))
 	OS.add_logger(autoplay.errors)
-	print("Autoplay: %d nights, the crew running it (from the menu)." % autoplay.nights)
+	DebugLog.say("Autoplay", "%d nights, the crew running it (from the menu)." % autoplay.nights)
 	return autoplay
 
 

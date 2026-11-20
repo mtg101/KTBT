@@ -9,6 +9,7 @@ extends Node
 ## set_lamps). The bar's own dice (its id) place the stars, so a bar's sky is its own.
 
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const StreetArt = preload("res://scripts/bar/street_art.gd")
 
@@ -131,7 +132,7 @@ func tonight(day_of_year: int, weather_kind: String) -> void:
 	reflecting = weather_kind in ["drizzle", "rain"]
 	_draw_stars(true)
 	set_minutes(_minutes)
-	print("Street: %d lamps · stars %d · the moon %s%s · the road %s" % [lamps.size(), stars_shown, phase_name(moon_phase),
+	DebugLog.say("Street", "%d lamps · stars %d · the moon %s%s · the road %s" % [lamps.size(), stars_shown, phase_name(moon_phase),
 		"" if moon_shown else " (hidden)", "wet, reflecting" if reflecting else "dry"])
 
 

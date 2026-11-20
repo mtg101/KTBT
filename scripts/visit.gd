@@ -20,6 +20,7 @@ extends Control
 ## the AI owns the flavour (who the people are and what they say).
 
 const Ai = preload("res://scripts/ai/ai.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 const TentView = preload("res://scripts/bar/tent_view.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
 const Street = preload("res://scripts/bar/street.gd")
@@ -577,7 +578,7 @@ func _fill_in_hangul() -> void:
 				return  # the bar was closed while the AI was thinking
 			hangul = str(reply.get("hangul", ""))
 			if hangul == "":
-				print("No Hangul for %s: %s" % [person_name, _ai.last_error])
+				DebugLog.say("AI", "No Hangul for %s: %s" % [person_name, _ai.last_error])
 		person["hangul"] = hangul  # "" if the AI couldn't: it's left off for now
 		changed = changed or hangul != ""
 	if changed:
@@ -1188,7 +1189,7 @@ func _start_night() -> void:
 	_events.happened.connect(func(_kind, _facts, _about, _spot): _update_ratings())
 	_update_ratings()
 	if not is_equal_approx(_busier, 1.0):
-		print("Ratings: night %d is %d%% %s, from the last few nights' ratings" % [_night_number, roundi(absf(_busier - 1.0) * 100.0), "busier" if _busier > 1.0 else "quieter"])
+		DebugLog.say("Ratings", "night %d is %d%% %s, from the last few nights' ratings" % [_night_number, roundi(absf(_busier - 1.0) * 100.0), "busier" if _busier > 1.0 else "quieter"])
 	if not _cliffhanger.is_empty():
 		_stats.story["cliffhanger"] = "%s (%s)" % [_cliffhanger["kind"], ", ".join(PackedStringArray(_cliffhanger["who"].map(func(p): return Names.given_name(str(p)))))]
 	_before_night = {}
@@ -1335,7 +1336,7 @@ func _regulars_arrive() -> void:
 	while not _regulars_due.is_empty() and _clock >= float(_regulars_due[0]["time"]):
 		var due: Dictionary = _regulars_due.pop_front()
 		if _regular_in(str(due["id"])):  # (already here, or on their way in: a PD's call brought them sooner)
-			print("Regulars: %s's already here: not coming in twice" % str(due["id"]))
+			DebugLog.say("Regulars", "%s's already here: not coming in twice" % str(due["id"]))
 			continue
 		var partner: Array = _regulars_due.filter(func(d): return str(d.get("with", "")) == str(due["id"])) if Hooks.groups else []
 		if not partner.is_empty() and not _regular_in(str(partner[0]["id"])):  # (close friends coming in together)
@@ -1353,7 +1354,7 @@ func _regulars_arrive() -> void:
 func _arrive_together(when: float, kind: String, regular_ids: Array = ["", ""]) -> void:
 	var group := {"kind": kind, "pay": Groups.pay_style(kind, randf()), "names": [], "seated": 0, "settled": false, "payer": ""}
 	_stats.record_group(kind)
-	print("Together: two people coming in together (%s; they'll pay: %s)" % [kind, group["pay"]])
+	DebugLog.say("Together", "two people coming in together (%s; they'll pay: %s)" % [kind, group["pay"]])
 	for id in regular_ids:
 		_arrive(when, str(id), group)
 
@@ -1466,7 +1467,7 @@ func _end_season() -> void:
 	ShowSeasons.end_season(the_show, judged)
 	_stats.story["show"]["verdict"] = ShowSeasons.log_text(judged)
 	_stats.story["show"]["verdict_words"] = str(judged["words"])
-	print("Season: %s" % ShowSeasons.log_text(judged))
+	DebugLog.say("Season", "%s" % ShowSeasons.log_text(judged))
 	_narrate("That's season %d. %s" % [int(judged["season"]), str(judged["words"])])
 
 
@@ -1697,7 +1698,7 @@ func _rate_night() -> void:
 	_stats.story["ratings_shown"] = "%s on %s" % [Ladder.text(rating, rung, int(_night_ratings.get("subscribers", -1))), Ladder.rung(rung)["name"]]
 	if str(_night_ratings["banner"]) != "":
 		_stats.story["ratings_banner"] = Glossary.hangul_tip(str(_night_ratings["banner"]))  # (in words: the panel has no hovers)
-	print("Ratings: night %d, %s%s · %s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else "", _stats.story["ratings_shown"]])
+	DebugLog.say("Ratings", "night %d, %s%s · %s" % [_night_number, Ratings.log_text(_night_ratings), (" · " + str(_night_ratings["banner"])) if str(_night_ratings["banner"]) != "" else "", _stats.story["ratings_shown"]])
 	_update_ratings()
 
 
@@ -1818,7 +1819,7 @@ func _cast_relative() -> void:
 		Glossary.remember(str(reply["hangul"]), "%s %s: the owner's %s, who films the show" % [reply["hangul"], reply["name"], relation])
 	_narrate("Behind the camera: %s, %s's %s, filming on %s phone as @%s." % [reply["name"], Names.given_name(str(_owner.get("name", ""))), relation,
 		"her" if relation == "niece" else "his", reply["handle"]])
-	print("Crew: %s, the owner's %s (@%s, by the %s)" % [reply["name"], relation, reply["handle"], by])
+	DebugLog.say("Crew", "%s, the owner's %s (@%s, by the %s)" % [reply["name"], relation, reply["handle"], by])
 	Game.save()
 
 
@@ -1853,7 +1854,7 @@ func _book_channel() -> void:
 	Channels.book(the_show, rung, channel, int(the_show.get("season", 1)))
 	_remember_channels()
 	_before_night["booked"] = {"channel": Channels.full_name(the_show["channel"]), "rung": rung, "by": by}
-	print("Booked: %s on %s (by the %s)" % [Channels.full_name(the_show["channel"]), rung, by])
+	DebugLog.say("Booked", "%s on %s (by the %s)" % [Channels.full_name(the_show["channel"]), rung, by])
 	Game.save()
 
 
@@ -1907,7 +1908,7 @@ func _apply_setup() -> void:
 		return
 	Game.bar["show"]["rung"] = str(_setup["rung"])
 	Game.save()
-	print("Setup: the show starts on %s" % Ladder.rung(str(_setup["rung"]))["name"])
+	DebugLog.say("Setup", "the show starts on %s" % Ladder.rung(str(_setup["rung"]))["name"])
 
 
 ## The PD can step in and cut last night's episode, from now until the first customer
@@ -2081,7 +2082,7 @@ func _draft_titles(entry: Dictionary) -> void:
 		titles = reply.get("titles", [])
 		dropped = reply.get("dropped_hangul", [])
 		if not dropped.is_empty():  # (Korean that wasn't: those titles go out in English only)
-			print("Titles: dropped Korean that isn't words the game knows: %s" % ", ".join(PackedStringArray(dropped)))
+			DebugLog.say("Titles", "dropped Korean that isn't words the game knows: %s" % ", ".join(PackedStringArray(dropped)))
 	var by := "ai" if not titles.is_empty() else "game"
 	if titles.is_empty():
 		titles = Story.stitched_titles(facts)
@@ -2223,7 +2224,7 @@ func _autoplay_next() -> void:
 	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
 	if auto.from_command_line:
 		auto.write_running(str(Game.bar.get("name", "")))
-	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
+	DebugLog.say("Autoplay", "night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
 	if auto.finished():
 		if auto.quits_when_done():
 			Game.quit()
@@ -2300,7 +2301,7 @@ func _on_crew_start(nights: int) -> void:
 	var when := NightRules.clock_text(int(_clock)) if _night_open else "after night %d" % _night_number
 	_stats.crew_run = {"from": auto.started_from(), "nights": auto.nights, "night": auto.progress_text(), "took_over": when}
 	_show("[i][color=#%s](The crew take over for %d night%s, %s.)[/color][/i]\n\n" % [MUTED.to_html(false), auto.nights, "" if auto.nights == 1 else "s", ("at " + when) if _night_open else when])
-	print("Crew: the crew run it for %d nights, from %s (night %d)." % [auto.nights, when, _night_number])
+	DebugLog.say("Autoplay", "the crew run it for %d nights, from %s (night %d)." % [auto.nights, when, _night_number])
 	if _night_open:  # the PD's desk is theirs for the rest of tonight: what's left of the hand, from now
 		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 		_autopilot.plan(_pd.hand.filter(func(card): return not _pd.played.has(card)), _clock)
@@ -2320,7 +2321,7 @@ func _on_crew_stop(how: String) -> void:
 	if how == CrewControls.STOP_AFTER and tonight_to_finish:
 		auto.stop_by_hand("stopped by hand, after night %d" % _night_number)
 		_stats.crew_run["stopped"] = "after tonight (asked at %s)" % NightRules.clock_text(int(_clock))
-		print("Crew: stopping after tonight (asked at %s, night %d)." % [NightRules.clock_text(int(_clock)), _night_number])
+		DebugLog.say("Autoplay", "the crew stop after tonight (asked at %s, night %d)." % [NightRules.clock_text(int(_clock)), _night_number])
 		_update_crew()
 		return
 	if _night_open:
@@ -2344,7 +2345,7 @@ func _crew_hand_back(auto) -> void:
 			_stats.crew_run["stopped"] = why
 		_stats.crew_run["handed_back"] = NightRules.clock_text(int(_clock)) if _night_open else "after night %d" % _night_number
 	_show("[i][color=#%s](The crew hand the bar back: %s.)[/color][/i]\n\n" % [MUTED.to_html(false), _esc(why)])
-	print("Crew: handed back (%s, %d of %d nights played). Summary: %s" % [why, auto.played.size(), auto.nights, ProjectSettings.globalize_path(path)])
+	DebugLog.say("Autoplay", "the crew hand the bar back (%s, %d of %d nights played). Summary: %s" % [why, auto.played.size(), auto.nights, ProjectSettings.globalize_path(path)])
 	Game.end_autoplay()
 	_autopilot = null
 	_crew_between_nights = false
@@ -2448,7 +2449,7 @@ func _came_in_together(guest: Guest, group: Dictionary) -> void:
 	if first_one != null:
 		first_one.transcript.append({"action": "%s came in with %s, their %s." % [first_one.customer["name"], guest.customer["name"], Groups.is_to(kind)]})
 	_night_groups.append({"kind": kind, "names": group["names"].duplicate()})
-	print("Together: %s and %s are in (%s)" % [group["names"][0], guest.customer["name"], kind])
+	DebugLog.say("Together", "%s and %s are in (%s)" % [group["names"][0], guest.customer["name"], kind])
 
 
 ## What someone pays as they leave: their own bill, or, for two who came in together, both
@@ -2482,7 +2483,7 @@ func _bill_for(guest: Guest) -> int:
 			_narrate("%s pays for both of them." % names[payer])
 		group["payer"] = str(names[payer])
 		_stats.record_group_bill(str(group["pay"]))
-		print("Together: %s and %s's bill: %s, %s pays" % [names[0], names[-1], group["pay"], names[payer]])
+		DebugLog.say("Together", "%s and %s's bill: %s, %s pays" % [names[0], names[-1], group["pay"], names[payer]])
 	if other != null:
 		other.stay_left = minf(other.stay_left, 0.0)  # (they go together)
 	if str(group["payer"]) == str(guest.customer["name"]):  # (theirs, and the other's: carried from when they went, or still to come)
@@ -2520,7 +2521,7 @@ func _bond_tonights_pairs() -> void:
 		bond["together"] = true
 		if bool(Groups.info(str(pair["kind"])).get("close", false)):
 			bond["close"] = true
-		print("Together: %s and %s, both regulars, come in together now" % [pair["names"][0], pair["names"][1]])
+		DebugLog.say("Together", "%s and %s, both regulars, come in together now" % [pair["names"][0], pair["names"][1]])
 
 
 func _regular_named(who: String) -> Dictionary:
@@ -2556,7 +2557,7 @@ func _seat_for(regular: Dictionary, group: Dictionary = {}, with: Guest = null) 
 			for seat in [friend.seat - 1, friend.seat + 1]:
 				if free.has(seat):
 					_stats.closeness["sat_by_a_friend"] = int(_stats.closeness.get("sat_by_a_friend", 0)) + 1
-					print("Regulars: %s takes the stool next to %s" % [regular["name"], friend.customer["name"]])
+					DebugLog.say("Regulars", "%s takes the stool next to %s" % [regular["name"], friend.customer["name"]])
 					return seat
 	return free.pick_random()
 
@@ -2703,7 +2704,7 @@ func _save_stats(finished: bool) -> void:
 	}
 	var path := _stats.save(context, str(Game.bar.get("id", "bar")), _night_number)
 	if path != "" and Hooks.print_paths:
-		print("Night stats saved: ", ProjectSettings.globalize_path(path))
+		DebugLog.say("Night stats saved", ProjectSettings.globalize_path(path))
 	_finish_transcript(context)
 
 
@@ -2746,7 +2747,7 @@ func _redraw_transcript() -> void:
 
 ## The transcript's toolbar used (transcript_view.gd): counted in the stats, and logged.
 func _on_transcript_used(what: String, detail: String) -> void:
-	print("Transcript: %s %s" % [what.replace("_", " "), detail])
+	DebugLog.say("Transcript", "%s %s" % [what.replace("_", " "), detail])
 	if _stats != null:
 		_stats.note_transcript(what, detail)
 
@@ -2793,8 +2794,11 @@ func _start_transcript() -> void:
 			"on" if _reading_toggle.button_pressed else "off", "; autoplay, " + Game.autoplay.progress_text() if Game.autoplay != null else ""],
 	])
 	_recap_said = ""
+	var debug_path := DebugLog.start_night(str(Game.bar.get("id", "bar")), _night_number)  # (tonight's notes: debug_log.gd)
 	if path != "" and Hooks.print_paths:
-		print("Night transcript: ", ProjectSettings.globalize_path(path))
+		DebugLog.say("Night transcript", ProjectSettings.globalize_path(path))
+	if debug_path != "" and Hooks.print_paths:
+		DebugLog.say("Debug log", ProjectSettings.globalize_path(debug_path))
 
 
 ## The end of the night (or the bar closed early): how it ended, and the night's stats.
@@ -2904,7 +2908,7 @@ func _greet() -> void:
 ## finished either way).
 func _comes_in(regular: Dictionary, group: Dictionary, with: Guest) -> Guest:
 	if not regular.is_empty() and _regular_in(str(regular["id"]), false):  # (19 Nov: Lee Ho-jin got talking to Lee Ho-jin)
-		print("Regulars: %s's already at the counter: someone new instead" % str(regular["id"]))
+		DebugLog.say("Regulars", "%s's already at the counter: someone new instead" % str(regular["id"]))
 		regular = {}
 	var guest := Guest.new()
 	guest.quick_greeting = People.quick_greeting(_waiting.size(), _guests.size()) or not group.is_empty()  # (a pair: both seen to quickly, then they talk to each other)
@@ -4103,8 +4107,6 @@ func _place_owner() -> void:
 		_stats.record_owner_trip("talk")
 		if _attending != null:
 			_attending.heard_from_stove = false  # (over with them now)
-	var cooking := "" if _kitchen.is_empty() else str(Menu.find(str(_kitchen[0]["id"])).get("name", ""))
-	print("Owner: %s" % ({"stove": "back to the stove (the %s cooking)" % cooking, "home": "back to the stove (nothing on, nobody to talk to)"}.get(spot[1], "over to %s (%s)" % [spot[2], spot[1]])))
 	_owner_why = str(spot[1])
 	_move_owner(float(spot[0]))
 
@@ -5180,7 +5182,7 @@ func _validate_line(data: Variant, speaker: String, alias: String, items: Array,
 	if problem == "" and not _ai.offline:  # (offline, the pre-written lines repeat by design)
 		var worn := _stats.worn_out_in(str(data["line"]), names)
 		if worn != "" and _worn_strikes >= WORN_STRIKES:  # (asked twice already: better said again than the chat given up)
-			print("Worn out: «%s» let through after %d tries" % [worn, _worn_strikes])
+			DebugLog.say("Worn out", "«%s» let through after %d tries" % [worn, _worn_strikes])
 			_stats.worn_let_through += 1
 			worn = ""
 		if worn != "":
@@ -5772,7 +5774,7 @@ func _update_light(closing_dim: bool = false) -> void:
 			under = PixelLight.light_at(Vector2(bulb.x, 250))
 		var far_end := PixelLight.light_at(Vector2(120, 250))
 		_stats.art["pools"] = maxf(float(_stats.art.get("pools", 0.0)), under - far_end)
-		print("Light: %s · the night %.1f steps · at the counter %.1f · under a bulb %.1f · the counter's end %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),
+		DebugLog.say("Light", "%s · the night %.1f steps · at the counter %.1f · under a bulb %.1f · the counter's end %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),
 			PixelLight.ambient_steps, PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, 250)), under, far_end, PixelLight.light_at(Vector2(80, 360), "people"),
 			PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, -40), "street")])
 
@@ -5893,7 +5895,7 @@ func _plan_regulars_tonight() -> void:
 	for due in _regulars_due:
 		if due.has("with"):
 			_stats.closeness["together"] = int(_stats.closeness.get("together", 0)) + 1
-			print("Regulars: %s's coming in around the same time as their friend %s" % [_regular(str(due["id"])).get("name", due["id"]), _regular(str(due["with"])).get("name", due["with"])])
+			DebugLog.say("Regulars", "%s's coming in around the same time as their friend %s" % [_regular(str(due["id"])).get("name", due["id"]), _regular(str(due["with"])).get("name", due["with"])])
 
 
 ## A regular's facts, for the prompts (see RegularsTonight.facts).
@@ -5909,13 +5911,13 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 	customer["look"] = Regulars.dressed_for(regular.get("look", {}), _weather_kind)
 	customer["regular"] = _regular_facts(regular)
 	customer["regular_id"] = regular["id"]
-	print("Carried in: %s: %s" % [regular["name"], RegularsTonight.carried_in(Game.bar, regular)])
+	DebugLog.say("Carried in", "%s: %s" % [regular["name"], RegularsTonight.carried_in(Game.bar, regular)])
 	var thread := Memories.open_thread(regular)
 	if not thread.is_empty():  # (something they mentioned last time: the owner asks how it went)
 		guest.thread_moment = Memories.thread_note(thread, _night_number)
 		thread["asked"] = int(thread["asked"]) + 1
 		_stats.threads["asked"] = int(_stats.threads.get("asked", 0)) + 1
-		print("Threads: %s mentioned %s on night %d: the owner might ask" % [regular["name"], thread["text"], int(thread["night"])])
+		DebugLog.say("Threads", "%s mentioned %s on night %d: the owner might ask" % [regular["name"], thread["text"], int(thread["night"])])
 	_typing_label.text = "%s is back..." % regular["name"]
 	var tonight: Dictionary = await _ai.ask_json(
 		Prompts.regular_tonight_messages(_night_day, guest.arrived, _night_weather, customer),
@@ -5984,13 +5986,13 @@ func _after_visit(guest: Guest) -> void:
 		for key in changed["facts"]:
 			var fact: Dictionary = regular["facts"][key]
 			_stats.record_fact(key, fact["known_by"])
-			print("Facts: %s's %s, \"%s\" (known by %s)" % [guest.customer["name"], key, fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w))))) if not fact["known_by"].is_empty() else "only them"])
+			DebugLog.say("Facts", "%s's %s, \"%s\" (known by %s)" % [guest.customer["name"], key, fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w))))) if not fact["known_by"].is_empty() else "only them"])
 		if changed["thread_closed"]:
 			_stats.threads["closed"] = int(_stats.threads.get("closed", 0)) + 1
-			print("Threads: %s said how it went: %s" % [guest.customer["name"], memory["followed_up"]])
+			DebugLog.say("Threads", "%s said how it went: %s" % [guest.customer["name"], memory["followed_up"]])
 		if changed["thread_opened"]:
 			_stats.threads["opened"] = int(_stats.threads.get("opened", 0)) + 1
-			print("Threads: %s has something coming up: %s" % [guest.customer["name"], memory["coming_up"]])
+			DebugLog.say("Threads", "%s has something coming up: %s" % [guest.customer["name"], memory["coming_up"]])
 	_stats.threads["dropped"] = int(_stats.threads.get("dropped", 0)) + Memories.drop_stale(regular, _night_number)
 	# Names, once they've been said (the full name, or the given name).
 	if _name_said(str(guest.customer["name"]), said):
@@ -6055,14 +6057,14 @@ func _regulars_remember_each_other() -> void:
 			continue
 		_stats.pair_memories["saved"] = int(_stats.pair_memories.get("saved", 0)) + 1
 		var changed := RegularsTonight.remember_pair(Game.bar, pair, _night_number, memory)
-		print("Regulars remember each other: %s: \"%s\" · %s: \"%s\"" % [a["name"], memory["first_remembers"], b["name"], memory["second_remembers"]])
+		DebugLog.say("Regulars remember each other", "%s: \"%s\" · %s: \"%s\"" % [a["name"], memory["first_remembers"], b["name"], memory["second_remembers"]])
 		for learned in changed["facts"]:
 			var fact: Dictionary = learned[0]["facts"][learned[1]]
 			_stats.record_fact(learned[1], fact["known_by"])
-			print("Facts: %s's %s, \"%s\" (known by %s, from a chat)" % [learned[0]["name"], learned[1], fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w)))))])
+			DebugLog.say("Facts", "%s's %s, \"%s\" (known by %s, from a chat)" % [learned[0]["name"], learned[1], fact["text"], ", ".join(PackedStringArray(fact["known_by"].map(func(w): return "the owner" if w == Bonds.OWNER else str(_regular(str(w)).get("name", w)))))])
 		for opened in changed["threads"]:
 			_stats.threads["between"] = int(_stats.threads.get("between", 0)) + 1
-			print("Threads: %s has something coming up (said in a chat): %s" % [opened[0]["name"], opened[1]])
+			DebugLog.say("Threads", "%s has something coming up (said in a chat): %s" % [opened[0]["name"], opened[1]])
 	Game.save()
 
 

@@ -13,6 +13,7 @@ const CannedAi = preload("res://scripts/ai/canned_ai.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 
 # --- Time and chance ----------------------------------------------------------------------
 ## >= 0 scales every pause and the clock (0.01 runs a visit in a blink).
@@ -117,6 +118,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
 	transcript_folder = transcripts
+	DebugLog.folder = "user://test_debug/"
 	print_paths = false
 	SaveStore.folder = saves
 	NightStats.folder = stats
@@ -160,6 +162,7 @@ static func restore() -> void:
 	captions = true
 	caption_pacing = true
 	transcript_folder = ""
+	DebugLog.folder = ""
 	print_paths = true
 	SaveStore.folder = "user://saves/"
 	NightStats.folder = ""

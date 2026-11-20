@@ -4,22 +4,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Terminal log levels:** only for some things... 
-  - time useful for checking things are ticking along in the background while watching Netflix...
-  - other things... just a distraction
-  - we could go and spend lots of tokens making a full logging system with levels...
-    - but won't sombody think of the tokens!
-    - vibe coding makes it very easy to do everything really well, just because the agents will relentlessly create you a perfect logging system
-    - but really this is just me learning to vibe code!
-    - I don't need CSOC levels of logging...
-  - so just keep logging to updating like once an hour
-    - unless the AI find these logs useful
-  - or direct opposite!
-    - if popouts are hard, and were just a debug hack anyway
-    - does the debug log have this stuff?
-    - or do we already save transcripts in a txt file for me to search?
-
-
+- **Focus camera on owner:** can focus on customer and cat, so why not owner too!
+- **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
 
@@ -27,29 +13,30 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Richer play
 
-- **Focus camera on owner:** can focus on customers and cat, owner makes sense too
-- **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
 - **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
 - **Personal tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
   - repeating words: chijeu chijeu, gogi gogi gogi, etc
   - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
+  - probably all similar updates so wait until I've got a list not just a few items before asking for it
 - **Customers coming in together, the rest:**
   - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
   - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
   - **The story:** who came in with whom in the diary and "Previously on…".
   - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
-- **The game, as the PD (next steps):** 
-  - **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
+- **PD next steps:** 
   - **More cards:** the owner's past walks in (near their secret, so it fits their fixed life); the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); choosing a card's variant, or typing your own ("they worked out they ___"); rare cards (towards the roguelike PD); cards that never land (from the logs) reworded or dropped; later, cards players write.
+  - **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
 - **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken makes the 2am call to an ex (술김에?! on TV), and one of a pair piggybacks the other home. Drunkenness played for drama, so alongside **Content boundaries**.
-- **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
-- **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
-- **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
+- **Narrative:** these seem related...?
+  - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
+  - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
+  - **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
 - **Regulars book:** 
   - a page per bar (from the title screen and a button in the bar), a card per regular: their look drawn small, name in Hangul and English, their role, closeness as soju cups 🍶 filling up, how often they come ("most Fridays", "hasn't been in for a while"), visits, first and last, their usual, the things that stuck, each side's latest memory, the regulars they know. A first piece of the journal.
   - can have local AI generated portraits (see above)
-- **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
-- **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
+- **Types of people:** 
+  - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
+  - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
 - **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
 - **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
@@ -64,8 +51,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
 - **social media responses:** at end of day summary, alongside diary, affects ratings (future: popsup live during show)
-- **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own bar; and settings like time speed and weather.
-- **A first night for someone new:** a guided first episode, the producer explaining one control per beat (the desk, cards, pins, spins, the edit suite).
 
 
 ### Presentation
@@ -103,6 +88,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Pretending to release it
 
+- **A first night for someone new:** a guided first episode, the producer explaining one control per beat (the desk, cards, pins, spins, the edit suite).
 - **Packaging, first-run setup and releasing:** a big part of the point is learning to ship a Godot game.
   - **Exporting:** export templates, a Windows preset, an icon, the name and version in the build, and a check that it runs on a clean machine (saves and logs in the user folder).
   - **Can we include the local AI models as part of the install?**  or we have to explain it in docs with fallback modes
