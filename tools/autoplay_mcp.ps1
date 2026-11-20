@@ -271,6 +271,7 @@ function Collect {
 				Invoke-WebRequest -Uri "$ComfyUrl/view?$query" -OutFile $path -UseBasicParsing -TimeoutSec 30
 				$note = [ordered]@{ model = 'FLUX.2 Klein 4B (fp8), Apache 2.0'; workflow = 'tools/art/klein_api.json'; prompt = $item.prompt
 					seed = $item.seed; width = $item.width; height = $item.height; made = (Get-Date -Format 's') }
+				if ([string]$item.reference -ne '') { $note.workflow = 'tools/art/klein_edit_api.json'; $note.reference = [string]$item.reference }
 				ConvertTo-Json -InputObject $note | Set-Content -Path (Join-Path (RawFolder) "$base.json") -Encoding UTF8
 				$lines += "art\raw\$base.png"
 				$saved = $true
@@ -287,8 +288,14 @@ function Collect {
 
 # Queues pictures in ComfyUI (it works through its own queue, with or without us): $count of
 # $prompt from $seed up (a batch skips any already in art\raw\). The pending items it queued.
-function QueueArt([string]$prompt, [string]$name, [int]$seed, [int]$count, [int]$width, [int]$height, [string]$workflowFile, [bool]$skipMade = $false) {
+function QueueArt([string]$prompt, [string]$name, [int]$seed, [int]$count, [int]$width, [int]$height, [string]$workflowFile, [bool]$skipMade = $false, [string]$reference = '') {
 	$queued_items = @()
+	$refName = ''
+	if ($reference -ne '') {  # (redrawing a picture: it goes into ComfyUI's input folder, and the edit workflow's Load Image takes it)
+		$workflowFile = Join-Path $PSScriptRoot 'art\klein_edit_api.json'
+		$refName = "ktbt_$reference"
+		Copy-Item -Path (Join-Path (RawFolder) $reference) -Destination (Join-Path (ComfyFolder) "ComfyUI\input\$refName") -Force
+	}
 	for ($k = 0; $k -lt $count; $k++) {
 		if ($skipMade -and (Test-Path (Join-Path (RawFolder) "$($name)_$($seed + $k).png"))) { continue }  # (made already: a batch picks up where it left off)
 		$workflow = Get-Content -Path $workflowFile -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -310,13 +317,24 @@ function QueueArt([string]$prompt, [string]$name, [int]$seed, [int]$count, [int]
 			if ($type -eq 'PrimitiveInt' -and $title -eq 'Width') { $inputs.value = $width }  # (the Klein template's size boxes)
 			if ($type -eq 'PrimitiveInt' -and $title -eq 'Height') { $inputs.value = $height }
 			if ($type -eq 'SaveImage') { $inputs.filename_prefix = "ktbt/$name" }
+			if ($type -eq 'LoadImage' -and $refName -ne '') { $inputs.image = $refName }
 		}
 		if (-not $prompted) { throw 'The workflow has no prompt box (a CLIPTextEncode node) to fill in.' }
 		$body = ConvertTo-Json -InputObject ([ordered]@{ prompt = $workflow; client_id = 'ktbt-autoplay' }) -Depth 50 -Compress
 		$queued = Invoke-RestMethod -Uri "$ComfyUrl/prompt" -Method Post -Body ([Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json' -TimeoutSec 15
-		$queued_items += [ordered]@{ prompt_id = [string]$queued.prompt_id; name = $name; seed = $seed + $k; prompt = $prompt; width = $width; height = $height }
+		$queued_items += [ordered]@{ prompt_id = [string]$queued.prompt_id; name = $name; seed = $seed + $k; prompt = $prompt; width = $width; height = $height; reference = $reference }
 	}
 	return $queued_items
+}
+
+# Why a reference picture won't do ('' if it will): a .png in art\raw\, and the edit workflow there.
+function ReferenceProblem([string]$reference) {
+	if ($reference -eq '') { return '' }
+	if ($reference -notmatch '^[a-z0-9_-]{1,80}\.png$') { return 'reference: a .png in art\raw\ (lowercase, digits, - and _).' }
+	if (-not (Test-Path (Join-Path (RawFolder) $reference))) { return "No art\raw\$($reference)." }
+	if (-not (Test-Path (Join-Path $PSScriptRoot 'art\klein_edit_api.json'))) { return "No edit workflow: in ComfyUI, the Klein 4B image-edit template, Workflow > Export (API), saved as tools\art\klein_edit_api.json." }
+	if ($null -eq (ComfyFolder)) { return "Can't find ComfyUI: put its folder on one line in tools\comfyui_path.txt." }
+	return ''
 }
 
 function GenerateArt($arguments) {
@@ -336,12 +354,16 @@ function GenerateArt($arguments) {
 	}
 	$seed = Get-Random -Minimum 1 -Maximum 2000000000
 	if ($null -ne $arguments.seed) { $seed = [int]$arguments.seed }
+	$reference = ''
+	if ($null -ne $arguments.reference) { $reference = [string]$arguments.reference }
+	$problem = ReferenceProblem $reference
+	if ($problem -ne '') { return ToolText $problem $true }
 	if ($null -ne (RunningBatch)) { return ToolText "An autoplay batch is running: Ollama has the GPU. Stop it first, or wait." $true }
 	$problem = StartComfy
 	if ($problem -ne '') { return ToolText $problem $true }
 	$workflowFile = Join-Path $PSScriptRoot 'art\klein_api.json'
 	if (-not (Test-Path $workflowFile)) { return ToolText "No workflow: in ComfyUI, Workflow > Export (API), saved as tools\art\klein_api.json." $true }
-	$pending = @(@(Pending) + @(QueueArt $prompt $name $seed $count $width $height $workflowFile))
+	$pending = @(@(Pending) + @(QueueArt $prompt $name $seed $count $width $height $workflowFile $false $reference))
 	SavePending $pending
 	Note "queued $count pictures: $name"
 	$lines = @()
@@ -375,7 +397,10 @@ function QueueArtBatch($arguments) {
 	$pending = @()
 	foreach ($job in $jobs) {
 		if ([string]$job.name -notmatch '^[a-z0-9_-]{1,60}$') { return ToolText "A job's name won't do: $($job.name)" $true }
-		$pending += @(QueueArt ([string]$job.prompt) ([string]$job.name) ([int]$job.seed) ([int]$job.count) ([int]$job.width) ([int]$job.height) $workflowFile $true)
+		$reference = [string]$job.reference
+		$problem = ReferenceProblem $reference
+		if ($problem -ne '') { return ToolText "$($job.name): $problem" $true }
+		$pending += @(QueueArt ([string]$job.prompt) ([string]$job.name) ([int]$job.seed) ([int]$job.count) ([int]$job.width) ([int]$job.height) $workflowFile $true $reference)
 		SavePending $pending  # (as it goes, so a stop part-way still knows what's queued)
 	}
 	Note "queued a batch: $($pending.Count) pictures from $file"
@@ -407,7 +432,8 @@ $Tools = @(
 			count = [ordered]@{ type = 'integer'; minimum = 1; maximum = $MostPictures; description = 'How many (default 1), each with the next seed.' }
 			seed = [ordered]@{ type = 'integer'; description = 'Optional: the seed, to make one again or vary it.' }
 			width = [ordered]@{ type = 'integer'; description = 'Pixels, 256 to 1536 in steps of 16 (default 1024).' }
-			height = [ordered]@{ type = 'integer'; description = 'Pixels, 256 to 1536 in steps of 16 (default 1024).' } } } },
+			height = [ordered]@{ type = 'integer'; description = 'Pixels, 256 to 1536 in steps of 16 (default 1024).' }
+			reference = [ordered]@{ type = 'string'; description = 'Optional: a picture in art\raw\ (e.g. portrait_w_20s_long_8000.png) to redraw, with the Klein edit workflow; the prompt says what to change (width and height then follow the picture).' } } } },
 	[ordered]@{ name = 'queue_art_batch'; description = "Queue a whole list of KTBT art pictures in ComfyUI at once (a list in art\raw\, written by tools/art/portraits.py --batch): ComfyUI works through them by itself, with no tokens spent while it runs; collect_art fetches what's finished. Skips pictures already made, so running it again carries on. Not while an autoplay batch is running."
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{
 			file = [ordered]@{ type = 'string'; description = 'The list in art\raw\ (default portrait_batch.json).' } } } },
