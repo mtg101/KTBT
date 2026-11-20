@@ -539,7 +539,12 @@ func test_stats_count_a_visit() -> void:
 	# The panel refreshes twice a second, so give it a moment to catch up.
 	var panel := runner.find_child("StatsText") as RichTextLabel
 	assert_str(panel.get_parsed_text()).contains("HERE NOW").not_contains("Arrived")  # (one section at a time: who's here first)
-	await _click(runner, runner.find_child("StatsTab_PEOPLE", true, false))
+	await _click(runner, runner.find_child("PanelTab_STATS", true, false))
+	var sections := runner.find_child("StatsSection", true, false) as OptionButton  # (the sections, from a dropdown)
+	for k in sections.item_count:
+		if str(sections.get_item_metadata(k)) == "PEOPLE":
+			sections.select(k)
+			sections.item_selected.emit(k)
 	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Arrived 1"), 3000)).override_failure_message(panel.get_parsed_text()).is_true()
 	assert_str(panel.get_parsed_text()).not_contains("HIGHLIGHTS")
 
@@ -1564,7 +1569,7 @@ func test_waiting_for_the_owner_and_for_drinks_are_counted_separately() -> void:
 	assert_int(scene._stats.serve_waits.size()).is_equal(1)
 	assert_float(float(scene._stats.serve_waits[0])).is_greater_equal(float(scene._stats.greet_waits[0]))
 	var panel := runner.find_child("StatsText") as RichTextLabel
-	await _click(runner, runner.find_child("StatsTab_ALL", true, false))  # (everything at once)
+	scene._stats_view.show_section("ALL")  # (everything at once)
 	assert_bool(await _wait_until(func(): return panel.get_parsed_text().contains("Wait for first drinks") and panel.get_parsed_text().contains("HIGHLIGHTS"), 3000)).is_true()
 
 
@@ -1887,8 +1892,7 @@ func test_sound_is_on_by_default_can_be_turned_off_and_has_a_volume() -> void:
 	var runner := await _open_bar()
 	var toggle := runner.find_child("SoundToggle") as CheckBox
 	assert_bool(toggle.button_pressed).is_true()
-	var scene = runner.scene()
-	scene._open_menu(scene.MENU_OPTIONS)  # it's in the menu's Options tab
+	(runner.find_child("OptionsButton") as Button).button_pressed = true  # it's in the menu's options
 	await _click(runner, toggle)
 	assert_bool(toggle.button_pressed).is_false()
 	assert_bool(Ambience.load_enabled()).is_false()  # remembered for next time
@@ -2312,14 +2316,12 @@ func test_the_diary_can_be_read_during_a_night() -> void:
 	Game.bar["diary"] = [{"night": 1, "episode": 1, "day": "Friday", "weather": "rain", "text": "The first night.", "stamp": "rain"},
 		{"night": 2, "episode": 2, "day": "Saturday", "weather": "snow", "text": "The second night. Jeong Min-ho had the tteokbokki, aigoo.", "stamp": "snow",
 			"facts": {"owner": "Park Mi-sook", "people": [{"name": "Jeong Min-ho"}]}}]
-	scene._open_diary()  # (the menu, on its Diary tab)
+	await _click(runner, runner.find_child("PanelTab_DIARY", true, false))  # (the side panel's Diary tab: the book, full size)
 	var book = runner.find_child("DiaryBook", true, false)
 	assert_object(book).is_not_null()
-	assert_bool((runner.find_child("OptionsPanel") as Control).visible).is_true()
-	assert_int((runner.find_child("MenuTabs") as TabContainer).current_tab).is_equal(scene.MENU_DIARY)
 	assert_int(book.showing_night()).is_equal(2)
 	scene._open_diary()  # a second time doesn't open a second book
-	assert_int(scene.find_children("DiaryBook", "", true, false).size()).is_equal(1)
+	assert_int(scene.get_children().filter(func(c): return c.name == "DiaryBook").size()).is_equal(1)
 	# Korean words have hover hints in the diary (it's read at leisure); names don't.
 	var page_text := (book.find_child("Entry", true, false) as RichTextLabel).text
 	assert_str(page_text).contains("Tteokbokki: spicy rice cakes")

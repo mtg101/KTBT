@@ -408,11 +408,8 @@ var _summary_text: RichTextLabel
 var _try_again: Button  # only shown if the owner couldn't be invented
 var _leave_button: Button
 var _menu_buttons: HBoxContainer  # in the menu: the diary, closing the bar
-var _menu_tabs: TabContainer  # in the menu: the options, the diary
-var _menu_diary: Control  # the diary's tab: the book itself (ui/diary_book.gd, embedded)
-const MENU_WIDTH := 860.0
-const MENU_OPTIONS := 0
-const MENU_DIARY := 1
+const MENU_WIDTH := 600.0
+var _ratings_result := {}  # the top bar's numbers, as last worked out (for the side panel's The show)
 var _time_speed := NightRules.time_speed(0)  # how fast game time is running now (eases to the target)
 var _reading_toggle: CheckBox
 var _stats_panel: PanelContainer  # the side panel: who's here now, then the debug stats, in tabs
@@ -1578,10 +1575,75 @@ func _update_ratings() -> void:
 	_ratings_label.visible = true
 	_ratings_label.text = "%s%s  ·  %s" % [Ladder.label(float(result["rating"]), rung, int(result.get("subscribers", -1))), when, Ladder.rung(rung)["short"]]  # (the Korean, and the English beside it)
 	var the_show: Dictionary = Game.bar.get("show", {})
-	var going := "\nThis season: " + Ladder.progress(rung, the_show.get("ratings", []), int(the_show.get("subscribers", 0))) if rung == _rung() else ""  # (how it's going against the rule)
-	if rung == _rung() and str(the_show.get("channel", {}).get("rung", "")) == rung:
-		going = "\nOn air: %s Behind the camera: %s." % [Channels.hover(the_show["channel"]), Channels.camera_crew(the_show).trim_suffix(",")] + going
-	_ratings_label.tooltip_text = Text.tip(Ladder.hover(result, rung) + going + ("\nSo far tonight, before luck (what else is on): the final numbers are at 3am." if when == " so far" else ""))
+	_ratings_result = result.duplicate()
+	_ratings_result["rung"] = rung
+	_ratings_result["when"] = when
+	# The hover's a short summary; a click opens the whole story (the side panel's The show tab).
+	var short := PackedStringArray(["%s%s, %s" % [Ladder.text(float(result["rating"]), rung, int(result.get("subscribers", -1))), when, _on_air_text() if rung == _rung() else "on " + str(Ladder.rung(rung)["name"])]])
+	if rung == _rung():
+		short.append("To move on: %s %s" % [Ladder.rule(rung), Ladder.progress(rung, the_show.get("ratings", []), int(the_show.get("subscribers", 0)))])
+	short.append("Click for the whole story.")
+	_ratings_label.tooltip_text = Text.tip("\n".join(short))
+
+
+## The side panel's The show tab, opened (a click on the top bar's numbers).
+func _show_the_show() -> void:
+	if _stats_view == null:
+		_update_stats_panel()
+	_stats_view.show_tab(StatsPanel.SHOW)
+
+
+## The side panel's The show: who films it, where it goes out, how it's doing and what moves it
+## on, the last few episodes, and the channels it's been on. A heading each.
+func _show_text() -> String:
+	var the_show: Dictionary = Game.bar.get("show", {})
+	if the_show.is_empty():
+		return ""
+	var rung := ShowSeasons.rung_of(the_show)
+	var head := func(title: String) -> String: return "[color=#%s][b]%s[/b][/color]" % [ACCENT.to_html(false), title]
+	var lines := PackedStringArray()
+	var relative: Dictionary = the_show.get("pd", {})
+	lines.append(head.call("BEHIND THE CAMERA"))
+	if not relative.is_empty():
+		lines.append("%s%s, the owner's %s %s" % [(str(relative.get("hangul", "")) + " ") if str(relative.get("hangul", "")) != "" else "", relative["name"], relative.get("relation", "niece"),
+			"♀" if str(relative.get("relation", "")) == "niece" else "♂"])
+		lines.append("The show's PD. On the phone stream, it's their own: @%s." % relative.get("handle", ""))
+	lines.append("Filming now: %s." % Channels.camera_crew(the_show).trim_suffix(","))
+	lines.append("")
+	lines.append(head.call("ON AIR"))
+	lines.append("%s, %s" % [ShowSeasons.label(ShowSeasons.tonight(the_show)) if _show_place.is_empty() else ShowSeasons.label(_show_place), _on_air_text()])
+	var channel: Dictionary = the_show.get("channel", {})
+	if str(channel.get("rung", "")) == rung:
+		lines.append(Channels.hover(channel))
+	lines.append(str(Ladder.rung(rung)["about"]))
+	lines.append("")
+	lines.append(head.call("MOVING ON"))
+	lines.append(Ladder.rule(rung))
+	lines.append("This season: " + Ladder.progress(rung, the_show.get("ratings", []), int(the_show.get("subscribers", 0))))
+	if not _ratings_result.is_empty():
+		var result_rung := str(_ratings_result.get("rung", rung))
+		lines.append("")
+		lines.append(head.call("TONIGHT" if str(_ratings_result.get("when", "")) != " last time" else "LAST TIME"))
+		lines.append("%s%s: %s" % [Ladder.text(float(_ratings_result["rating"]), result_rung, int(_ratings_result.get("subscribers", -1))), _ratings_result.get("when", ""),
+			Ladder.band(float(_ratings_result["rating"]), result_rung)])
+		for part in _ratings_result.get("parts", []):
+			lines.append("  %s%.1f  %s" % ["+" if float(part[1]) >= 0.0 else "", float(part[1]), part[0]])
+		if str(_ratings_result.get("when", "")) == " so far":
+			lines.append("[color=#%s]So far, before luck (what else is on): the final numbers are at 3am.[/color]" % MUTED.to_html(false))
+	var episodes: Array = Game.bar.get("diary", []).filter(func(e): return e.get("ratings", {}).has("rating")).slice(-5)
+	if not episodes.is_empty():
+		lines.append("")
+		lines.append(head.call("THE LAST EPISODES"))
+		for entry in episodes:
+			var ratings: Dictionary = entry["ratings"]
+			lines.append("%s  %s" % [ShowSeasons.tag(ShowSeasons.of(entry)), Ladder.text(float(ratings["rating"]), str(ratings.get("rung", Ladder.OLDER)), int(ratings.get("subscribers", -1)))])
+	var history: Array = the_show.get("channels", [])
+	if not history.is_empty():
+		lines.append("")
+		lines.append(head.call("WHERE IT'S BEEN"))
+		for each in history:
+			lines.append("From season %d: %s, %s" % [int(each.get("from_season", 1)), Channels.full_name(each), Ladder.rung(str(each.get("rung", "")))["short"]])
+	return Glossary.explain_hangul("\n".join(lines))
 
 
 ## Where the show is on the ladder now (rules/ladder.gd).
@@ -2056,9 +2118,14 @@ func _last_episode_words() -> String:
 	return ShowSeasons.words(ShowSeasons.of(diary[-1])) if not diary.is_empty() else "last night's episode"
 
 
-## The owner's diary: the menu, open on its Diary tab (the book's there, a page at a time).
+## The owner's diary as a book, full size over everything (the night carries on behind it): the
+## side panel's Diary tab opens it.
 func _open_diary() -> void:
-	_open_menu(MENU_DIARY)
+	if find_child("DiaryBook", false, false) != null:
+		return
+	var book := DiaryBook.new()
+	add_child(book)
+	book.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
 
 
 ## The end-of-night Stats button: the numbers instead of the diary page, and back.
@@ -2469,7 +2536,8 @@ func _count_time(delta: float) -> void:
 func _update_stats_panel() -> void:
 	if _stats_view == null:
 		_stats_view = StatsPanel.new(_stats_text, _stats_tabs, ACCENT, MUTED)
-	_stats_view.refresh(_stats, _guests.size(), _kitchen.size() + _ready_dishes.size(), _night_number, _here_text)
+		_stats_view.on_diary = _open_diary
+	_stats_view.refresh(_stats, _guests.size(), _kitchen.size() + _ready_dishes.size(), _night_number, _here_text, _show_text())
 
 
 ## Writes tonight's log (stats/ in the user data folder).
@@ -5040,7 +5108,11 @@ func _build_ui() -> void:
 	_ratings_label = Label.new()
 	_ratings_label.name = "RatingsLabel"
 	_ratings_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_ratings_label.mouse_filter = Control.MOUSE_FILTER_STOP  # (for its hover)
+	_ratings_label.mouse_filter = Control.MOUSE_FILTER_STOP  # (for its hover, and a click: the side panel's The show)
+	_ratings_label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_ratings_label.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_show_the_show())
 	_ratings_label.visible = false
 	bar.add_child(_ratings_label)
 
@@ -5142,7 +5214,7 @@ func _build_ui() -> void:
 	_options_button = Button.new()
 	_options_button.name = "OptionsButton"
 	_options_button.text = "☰ Menu (Esc)"
-	_options_button.tooltip_text = Text.tip("The options (sound, music, speech bubbles, TV captions, reading pauses, the stats panel), the diary, and closing the bar.")
+	_options_button.tooltip_text = Text.tip("The options (sound, music, speech bubbles, TV captions, reading pauses, the stats panel) and closing the bar.")
 	_options_button.toggle_mode = true
 	_options_button.custom_minimum_size = Vector2(140, 40)
 	_options_button.toggled.connect(_on_menu_toggled)
@@ -5283,9 +5355,8 @@ func _badge(colour: Color) -> StyleBoxTexture:
 
 
 ## The menu (Esc, or the top bar's button): a window over the bar, its actions along the top
-## (closing the bar; more to come), then tabs: the options and the diary (the book itself). (The
-## ladder's rules are on the ratings' hover in the top bar.) Returns the Options tab's column,
-## for the settings.
+## (closing the bar; more to come), then the options. (The diary and the show are in the side
+## panel's tabs.) Returns the Options column, for the settings.
 func _build_options_panel() -> VBoxContainer:
 	_options_panel = _panel(Vector2((SCREEN.x - MENU_WIDTH) / 2, 60), Vector2(MENU_WIDTH, 0))
 	_options_panel.name = "OptionsPanel"
@@ -5318,38 +5389,23 @@ func _build_options_panel() -> VBoxContainer:
 	close_menu.custom_minimum_size = Vector2(100, 40)
 	close_menu.pressed.connect(func(): _options_button.button_pressed = false)
 	top.add_child(close_menu)
-	_menu_tabs = TabContainer.new()
-	_menu_tabs.name = "MenuTabs"
-	_menu_tabs.add_theme_font_size_override("font_size", 18)
-	column.add_child(_menu_tabs)
+	var settings := Label.new()
+	settings.text = "⚙ Options"
+	settings.add_theme_font_size_override("font_size", 20)
+	settings.add_theme_color_override("font_color", ACCENT)
+	column.add_child(settings)
 	var options := VBoxContainer.new()
 	options.name = "Options"
 	options.add_theme_constant_override("separation", 10)
-	_menu_tabs.add_child(options)
-	_menu_tabs.set_tab_title(MENU_OPTIONS, "⚙ Options")
-	_menu_diary = DiaryBook.new()  # the owner's diary, in its tab (opened on the latest page as the menu opens)
-	_menu_diary.embed()
-	_menu_tabs.add_child(_menu_diary)
-	_menu_tabs.set_tab_title(MENU_DIARY, "📖 Diary")
+	column.add_child(options)
 	return options
 
 
-## The menu opens (Esc, or the top bar's button) or closes; opening, the diary's brought up to date.
+## The menu opens (Esc, or the top bar's button) or closes.
 func _on_menu_toggled(on: bool) -> void:
 	_options_panel.visible = on
 	if on:
-		_menu_diary.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
 		_options_panel.reset_size()
-
-
-
-## Opens the menu on a tab (MENU_OPTIONS, MENU_DIARY).
-func _open_menu(tab: int) -> void:
-	_menu_tabs.current_tab = tab
-	if _options_button.button_pressed:
-		_on_menu_toggled(true)
-	else:
-		_options_button.button_pressed = true
 
 
 func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:

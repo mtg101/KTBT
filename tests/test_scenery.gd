@@ -35,21 +35,36 @@ func test_the_tents_fixtures() -> void:
 	assert_vector(Vector2(board.get_size())).is_equal(Vector2(28, 27))  # (the CLOSED board, in pixel art)
 
 
-func test_the_stats_panel_shows_a_section_at_a_time() -> void:
+func test_the_side_panel_has_four_tabs_and_the_stats_a_section_at_a_time() -> void:
 	var text: RichTextLabel = auto_free(RichTextLabel.new())
 	text.bbcode_enabled = true
 	var tabs: HFlowContainer = auto_free(HFlowContainer.new())
 	var panel := StatsPanel.new(text, tabs, Color.WHITE, Color.GRAY)
+	var diary_opened := [0]
+	panel.on_diary = func(): diary_opened[0] += 1
 	var stats := NightStats.new()
 	stats.events = [{"kind": "cheered_on", "at": 21 * 60 + 58}]
-	panel.refresh(stats, 0, 0, 3, "[b]THE OWNER[/b]\nPark Mi-sook, 58")
+	panel.refresh(stats, 0, 0, 3, "[b]THE OWNER[/b]\nPark Mi-sook, 58", "[b]BEHIND THE CAMERA[/b]\nKim Ji-woo, the owner's niece")
+	assert_array(tabs.get_children().filter(func(c): return c is Button and not c is OptionButton).map(func(b): return (b as Button).text)).is_equal(["Here now", "📺 The show", "📖 Diary", "Stats"])
 	# It opens on who's here now (the tent's own text), not the stats.
 	assert_str(text.get_parsed_text()).contains("HERE NOW").contains("Night 3").contains("Park Mi-sook").not_contains("HIGHLIGHTS")
-	var highlights := tabs.get_node("StatsTab_HIGHLIGHTS") as Button
-	highlights.pressed.emit()  # (as clicking it does)
-	assert_str(text.get_parsed_text()).contains("HIGHLIGHTS").contains("hwaiting chorus").not_contains("PEOPLE").not_contains("Park Mi-sook")
-	var all := tabs.get_node("StatsTab_ALL") as Button
-	all.pressed.emit()  # (as clicking it does)
-	assert_str(panel.tab).is_equal("ALL")
+	(tabs.get_node("PanelTab_THE_SHOW") as Button).pressed.emit()  # (as clicking it does)
+	assert_str(text.get_parsed_text()).contains("THE SHOW").contains("Kim Ji-woo, the owner's niece")
+	(tabs.get_node("PanelTab_DIARY") as Button).pressed.emit()  # the diary pops up; the tab stays where it was
+	assert_int(diary_opened[0]).is_equal(1)
+	assert_str(panel.tab).is_equal(StatsPanel.SHOW)
+	# The stats: every section, from a dropdown, Highlights first and All at the end.
+	var sections := tabs.get_node("StatsSection") as OptionButton
+	assert_bool(sections.visible).is_false()
+	(tabs.get_node("PanelTab_STATS") as Button).pressed.emit()
+	assert_bool(sections.visible).is_true()
+	assert_str(sections.get_item_text(0)).starts_with("Highlights")  # (with how many tonight)
+	assert_str(sections.get_item_text(sections.item_count - 1)).is_equal("All")
+	assert_str(text.get_parsed_text()).contains("STATS (debug)").contains("HIGHLIGHTS").contains("hwaiting chorus").not_contains("PEOPLE")
+	sections.select(sections.item_count - 1)
+	sections.item_selected.emit(sections.item_count - 1)  # (as picking it does)
+	assert_str(panel.section).is_equal("ALL")
 	assert_str(text.get_parsed_text()).contains("PEOPLE").contains("HIGHLIGHTS")
-	assert_bool(all.button_pressed).is_true()
+	panel.show_section("PEOPLE")
+	assert_str(text.get_parsed_text()).contains("PEOPLE").not_contains("hwaiting chorus")
+	assert_str(sections.get_item_text(sections.selected)).is_equal("People")

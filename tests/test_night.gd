@@ -421,35 +421,40 @@ func test_a_night_on_the_online_video_channel_adds_to_its_subscribers() -> void:
 	assert_int(int(SaveStore.load_bar(str(Game.bar["id"]))["show"]["subscribers"])).is_equal(total)  # (saved)
 
 
-func test_the_esc_menu_has_tabs_for_the_options_and_the_diary_and_an_action_to_close_up() -> void:
+func test_the_side_panel_has_the_show_and_the_diary_and_the_esc_menu_the_options() -> void:
 	Hooks.run_clock = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	var menu := runner.find_child("OptionsPanel") as Control
 	assert_bool(menu.visible).is_false()
-	# The top bar's just the one button; closing up is an action in the menu.
+	# The Esc menu: closing up, and the options (no tabs: the diary and the show are in the side panel).
 	assert_bool(menu.is_ancestor_of(runner.find_child("LeaveButton"))).is_true()
-	assert_object(runner.find_child("DiaryButton", true, false)).is_null()
+	assert_bool(menu.is_ancestor_of(runner.find_child("SoundToggle", true, false))).is_true()
+	assert_object(runner.find_child("MenuTabs", true, false)).is_null()
 	assert_str((runner.find_child("OptionsButton") as Button).text).contains("Menu (Esc)")
 	var esc := InputEventKey.new()
 	esc.keycode = KEY_ESCAPE
 	esc.pressed = true
 	scene._unhandled_input(esc)
 	assert_bool(menu.visible).is_true()
-	var tabs := runner.find_child("MenuTabs") as TabContainer
-	assert_array(range(tabs.get_tab_count()).map(func(k): return tabs.get_tab_title(k))).is_equal(["⚙ Options", "📖 Diary"])  # (the options first)
-	assert_bool(tabs.is_ancestor_of(runner.find_child("SoundToggle", true, false))).is_true()
-	assert_bool(tabs.is_ancestor_of(runner.find_child("DiaryBook", true, false))).is_true()  # (the book itself, in its tab)
 	scene._unhandled_input(esc)  # Esc again: closed
 	assert_bool(menu.visible).is_false()
-	scene._open_diary()  # the diary: the menu, on its tab
-	assert_bool(menu.visible).is_true()
-	assert_int(tabs.current_tab).is_equal(scene.MENU_DIARY)
-	await _click(runner, runner.find_child("MenuClose"))
-	assert_bool(menu.visible).is_false()
-	# The ladder's rules are on the ratings' hover in the top bar: how to move on, and how it's going.
+	# The top bar's numbers: a short hover, and a click opens the whole story in the side panel's The show.
 	scene._update_ratings()
-	var hover := (runner.find_child("RatingsLabel") as Label).tooltip_text.replace("\n", " ")
-	assert_str(hover).contains("Moving on:").contains("1,000+ views a night").contains("This season:")
+	var numbers := runner.find_child("RatingsLabel") as Label
+	var hover := numbers.tooltip_text.replace("\n", " ")
+	assert_str(hover).contains("To move on:").contains("1,000+ views a night").contains("Click for the whole story.").not_contains("johoesu")
+	var click := InputEventMouseButton.new()  # (a click on a label: _click is for buttons)
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	numbers.gui_input.emit(click)
+	var side := runner.find_child("StatsText") as RichTextLabel
+	assert_str(scene._stats_view.tab).is_equal("THE SHOW")
+	var relative: Dictionary = Game.bar["show"]["pd"]
+	assert_str(side.get_parsed_text()).contains("BEHIND THE CAMERA").contains(str(relative["name"])).contains("@" + str(relative["handle"]))  # (the niece or nephew, easy to see)
+	assert_str(side.get_parsed_text()).contains("ON AIR").contains("MOVING ON").contains(Ladder.rule("phone")).contains("This season:").contains("TONIGHT").contains("WHERE IT'S BEEN")
+	# The diary: the side panel's tab pops the book up, full size.
+	await _click(runner, runner.find_child("PanelTab_DIARY", true, false))
+	assert_object(runner.find_child("DiaryBook", true, false)).is_not_null()
 	# The transcript's text at the side panel's size (it scrolled by too fast).
 	assert_int((runner.find_child("Transcript") as RichTextLabel).get_theme_font_size("normal_font_size")).is_equal(15)
