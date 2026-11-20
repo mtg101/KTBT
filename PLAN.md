@@ -5,9 +5,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 ## Next stages
 
 - **Focus camera on owner:** can focus on customer and cat, so why not owner too!
-- **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
-- **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
-  - good for both sandbox mode and makes testing specific features easier
+- **More cat:** Having seen cats in GTA VI...
+  - customers can talk to the cat (it might even reply with a korean meow sometimes, but will of course mostly ignore people :)
+  - customers can order food for the cat, or give it something from their plate
+  - the cat can also steal food of course!
+  - people can't leave if the cat is on their lap (can be commented on, eg "i'm done eating ima, but i can't leave until (cat name) gets up")
 - **Portraits:** feels like a new thing that enables more fun things
   - even with basic ones they can be used for TV popups, in diary, for social media posts later
 
@@ -16,37 +18,33 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Richer play
 
-- **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
-- **Personal tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
-  - repeating words: chijeu chijeu, gogi gogi gogi, etc
-  - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
-  - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **Customers coming in together, the rest:**
-  - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
-  - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
-  - **The story:** who came in with whom in the diary and "Previously on…".
-  - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
-- **PD next steps:** 
-  - **More cards:** the owner's past walks in (near their secret, so it fits their fixed life); the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); choosing a card's variant, or typing your own ("they worked out they ___"); rare cards (towards the roguelike PD); cards that never land (from the logs) reworded or dropped; later, cards players write.
-  - **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
-- **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken makes the 2am call to an ex (술김에?! on TV), and one of a pair piggybacks the other home. Drunkenness played for drama, so alongside **Content boundaries**.
-- **Narrative:** these seem related...?
-  - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
-  - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
-  - **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
-- **Regulars book:** 
-  - a page per bar (from the title screen and a button in the bar), a card per regular: their look drawn small, name in Hangul and English, their role, closeness as soju cups 🍶 filling up, how often they come ("most Fridays", "hasn't been in for a while"), visits, first and last, their usual, the things that stuck, each side's latest memory, the regulars they know. A first piece of the journal.
-  - can have local AI generated portraits (see above)
-- **Types of people:** 
-  - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
-  - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
-- **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
-- **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
+- **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
   - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
-  - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
+- **Finishing basic of Customers coming in together:**
+  - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
+  - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
+  - **The story:** who came in with whom in the diary and "Previously on…".
+  - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
+- **More PD cards:** 
+  - the owner's past walks in (near their secret, so it fits their fixed life); the cat brings something in; an **overheard** write-in (someone at the counter overhears what you write); choosing a card's variant, or typing your own ("they worked out they ___"); rare cards (towards the roguelike PD); cards that never land (from the logs) reworded or dropped; later, cards players write... 
+- **Narrative:**
+  - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
+  - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
+  - **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
+  - **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken makes the 2am call to an ex (술김에?! on TV), and one of a pair piggybacks the other home. Drunkenness played for drama, so alongside 
+  - **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
+  - **Types of people:** 
+    - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
+    - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
+  - **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
+  - **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
+  - **My fave tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
+    - repeating words: chijeu chijeu, gogi gogi gogi, etc
+    - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
+    - probably all similar updates so wait until I've got a list not just a few items before asking for it
 
 
 ### An actual game or experience
@@ -58,7 +56,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - text + images: food, selfie at bar, portraits can be used, etc
   - future: pops up live during show
   - for thinking about: how would you make a video social media post for the end of the night?
-
+- **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
+  - good for both sandbox mode and makes testing specific features easier
+- **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
+  - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
 
 ### Presentation
 
