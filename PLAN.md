@@ -8,6 +8,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **More cat:** customers ordering something for it, a night out on a curious streak, a cat that only likes certain people. Game events, like the rest of it.
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
+- **Portraits:** feels like a new thing that enables more fun things
+  - even with basic ones they can be used for TV popups, in diary, for social media posts later
+
 
 ## Future ideas and improvements
 
@@ -50,7 +53,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
-- **social media responses:** at end of day summary, alongside diary, affects ratings (future: popsup live during show)
+- **social media responses:** at end of day summary, alongside diary, affects ratings
+  - 0-3 a night depending on events?
+  - text + images: food, selfie at bar, portraits can be used, etc
+  - future: pops up live during show
+  - for thinking about: how would you make a video social media post for the end of the night?
 
 
 ### Presentation
@@ -62,17 +69,13 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - **Pre-generated:** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
     - **Mixed (probably the right balance):** regulars get their own portrait made between nights.
     - **Live:** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
-- **Ambience (sound and animation):** 
-  - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
-  - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
+- **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
+- **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
 - **Voices:** characters speak their lines, a setting choosing **off**, **babble**, **system voices** or **AI voices**; the game picks each voice from facts it owns (gender, age, mood).
   - **Babble (first):** Animal Crossing-style syllables per word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous), from a few CC0 sounds. No AI, runs anywhere.
   - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.
   - **AI voices:** a local text-to-speech service beside Ollama, on the CPU so it doesn't fight the LLM: **Kokoro** (82M, Apache-2.0, good quality) or **Piper** (fast, GPL-3.0 engine, voices with their own licences). Check first how they say Korean names and words.
-- **Is there a better layout for transcript/events?:** it just scrolls past...
-  - colums? events vs text vs bg info?
-    - would that help?
-  - need to ask AI for ideas I guess!   
+
 
 ### Technical
 
