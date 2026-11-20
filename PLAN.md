@@ -4,7 +4,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- the left side of customers * owners head look weird
+- **the left side of customers / owners head look weird:**
   - lighting issue?
   - doesn't affect passers by
 - **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
