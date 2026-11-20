@@ -1,6 +1,6 @@
 """The tent's fittings and the bars' touches in pixel art, drawn in code (ART.md: small and
 exact things in code). Each is drawn in base colours with how lit each pixel is, then put on
-its colours' light ramps with a dithered step (as tent.py), at the size the stage draws it
+its colours' light ramps in clean steps (as tent.py: no dither), at the size the stage draws it
 (a pixel to 3 on screen). Used by tent.py.
 """
 import numpy as np
@@ -37,9 +37,9 @@ class Sprite:
     def clear(self, x0, y0, x1, y1):
         self.mask[max(0, y0):y1, max(0, x0):x1] = False
 
-    def image(self, dither=0.9):
-        """In the palette's ramps; dither 0 for clean steps (small things, people: a dither's
-        checks are noise at their size)."""
+    def image(self, dither=0.0):
+        """In the palette's ramps, in clean steps (a dither's checks were noise, and clashed
+        with the people's clean steps: 20 Nov)."""
         yy, xx = np.mgrid[0:self.h, 0:self.w]
         return ramped(self.base, steps(self.light, yy, xx, dither), self.mask)
 

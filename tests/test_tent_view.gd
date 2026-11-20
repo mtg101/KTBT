@@ -7,6 +7,7 @@ const BarLook = preload("res://scripts/rules/bar_look.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
 const STAGE := Vector2(1872, 380)
 
@@ -97,3 +98,28 @@ func test_the_weather_falls_and_the_bulbs_swing() -> void:
 	assert_float(view.bulbs[0].rotation).is_equal(0.0)
 	assert_float(glass.position.x - rest).is_equal(TentView.GRID * roundi(sin(deg_to_rad(7.0)) * TentView.WIRE_LENGTH / TentView.GRID))
 	assert_float(fposmod(glass.position.x - rest, TentView.GRID)).is_equal(0.0)
+
+
+func test_the_tents_art_is_in_clean_steps_with_the_light_left_to_the_game() -> void:
+	# 20 Nov: the tent's art had a 4x4 dither between its light's steps (the C64 look), clashing
+	# with the people's clean steps; and the bulbs' glow drawn into the tarp and the counter. Now
+	# clean steps (no lone pixel between two the same, as a dither leaves), and the glow's the
+	# light's (pixel_light.gd's pool round each bulb), so the counter's top is the same all along.
+	for key in ["tent/counter", "tarp/orange_classic", "tarp/blue_stripes_awning", "tarp/red_stripes_peaked"]:
+		var image: Image = Art.texture(key).get_image()
+		if image.is_compressed():
+			image.decompress()
+		var lone := 0
+		for y in image.get_height():
+			for x in range(1, image.get_width() - 1):
+				var here := image.get_pixel(x, y)
+				var left := image.get_pixel(x - 1, y)
+				var right := image.get_pixel(x + 1, y)
+				if here.a > 0.5 and left.a > 0.5 and right.a > 0.5 and left.is_equal_approx(right) and not here.is_equal_approx(left):
+					lone += 1
+		assert_int(lone).override_failure_message("%s: %d dithered pixels" % [key, lone]).is_less(5)
+	var counter: Image = Art.texture("tent/counter").get_image()
+	if counter.is_compressed():
+		counter.decompress()
+	var row := 3  # (the counter's top)
+	assert_bool(counter.get_pixel(20, row).is_equal_approx(counter.get_pixel(384, row))).is_true()  # no glow drawn under the far bulb (at 1251 on the stage: the counter starts at 99, a pixel to 3)

@@ -257,6 +257,11 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("Street: lamps 7 · stars 18 · moon waxing gibbous · road wet")
 	stats.art["broken"] = ["touch/plants"]
 	assert_str(stats.panel_text(0, 0)).contains("Art: images 1 · drawn in code 2 · lit by the hour 0 · words in pixels 0 · poses 0 · glasses raised 0 · mouthfuls 0 · the owner: poured 0, carried 0, stirred 0, waved 0 · BROKEN touch/plants")
+	stats.art["broken"] = []
+	stats.art["lit"] = 40
+	stats.art["pools"] = 0.84  # (the brightest a bulb's pool was over the counter's far end: pixel_light.gd)
+	assert_str(stats.panel_text(0, 0)).contains("lit by the hour 40 (a bulb's pool +0.8 steps over the counter's end) · words in pixels 0")
+	stats.art["broken"] = ["touch/plants"]
 	assert_array(stats.summary({})["art"]["images"]).is_equal(["touch/lucky_cat"])
 	assert_int(int(stats.summary({})["who"]["genders"]["non-binary"])).is_equal(1)
 	assert_str(str(stats.summary({})["story"]["recap_style"])).is_equal("stormy")

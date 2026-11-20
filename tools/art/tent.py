@@ -1,7 +1,8 @@
 """The tent's tarp in pixel art, drawn in code (ART.md: small and exact things in code, big and
 varied ones from the model). The counter, the stools, the fittings, signs and touches (fittings.py); and one image for each tarp colour and shape the game offers
-(rules/bar_look.gd's BAR_TARPS and TENT_SHAPES), lit from inside by the bulbs, in the palette's
-light ramps with a dithered step between them, onto the street's pixel grid (each pixel 3 on
+(rules/bar_look.gd's BAR_TARPS and TENT_SHAPES), shaded for its shape only, in
+clean steps of the palette's light ramps (no dither, and no bulbs' glow drawn in: the game's
+light does that, the same as on the people: ART.md, 20 Nov), onto the street's pixel grid (each pixel 3 on
 screen), the same outline as the stage's code tarp (tent_view.gd tent_shape), so everything
 hung from it still lines up.
 
@@ -19,7 +20,6 @@ STAGE_W = 1872  # the tent's stage (visit.gd STAGE_SIZE.x), drawn at a third: on
 GRID = 3
 ROWS = 46  # the image's height in grid pixels: the stage's top 138, down past the scallops
 EAVE = 112  # the cover's front edge, on the stage
-BULBS = [620.0, 1250.0]  # where the bulbs hang (visit.gd), lighting the tarp from beneath
 SOURCE = "drawn in code by tools/art/tent.py"
 LICENCE = "CC BY-SA 4.0 (this project)"
 
@@ -97,8 +97,9 @@ def draw(tarp, shape):
 
 
 def lit(base):
-    """Lit from inside: brighter towards the front edge and round the bulbs; each pixel on its
-    own colour's ramp, the step dithered; and a dark line along the top, pixel art's way."""
+    """Shaded for its shape: brighter towards the front edge (the bulbs are under it, below the
+    eave), the back in shade, in clean steps on each colour's own ramp; and a dark line along
+    the top, pixel art's way. The glow round each bulb is the game's light (pixel_light.gd)."""
     arr = np.asarray(base).copy()
     h, w = arr.shape[:2]
     yy, xx = np.mgrid[0:h, 0:w]
@@ -107,12 +108,7 @@ def lit(base):
     span = np.maximum(EAVE / GRID - top, 1)
     depth = np.clip((yy - top[None, :]) / span[None, :], 0, 1.3)
     light = 0.55 + 0.35 * depth
-    for bx in BULBS:
-        dist = np.hypot(xx - bx / GRID, (yy - EAVE / GRID) * 1.6)
-        light += 0.45 * np.clip(1 - dist / 140, 0, 1) ** 1.3
-    bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0 - 0.5
-    t = np.interp(light, [0.15, 0.3, 0.45, 0.62, 0.85, 1.15, 1.5], range(7))
-    step = np.clip(np.floor(t + 0.5 + bayer[yy % 4, xx % 4] * 0.9), 0, 6).astype(int)
+    step = steps(light, yy, xx)
     edge = filled & ~np.roll(filled, 1, axis=0)  # the top line
     edge[0] = filled[0]
     step[edge] = 1
@@ -130,8 +126,9 @@ COUNTER_TOP = 18  # its top's depth on the stage, then the front
 
 
 def counter():
-    """The counter, wood, lit from the bulbs above: the top brighter, the front's planks darker
-    further down, a bright line along the top's edge."""
+    """The counter, wood, lit from above: the top brighter, the front's planks each a step of
+    their own, darker further down, a bright line along the top's edge (the bulbs' pools of
+    light on it are the game's: pixel_light.gd)."""
     x0, y0, x1, y1 = COUNTER
     w, h = (x1 - x0) // GRID, (y1 - y0) // GRID
     top_rows = COUNTER_TOP // GRID
@@ -139,9 +136,8 @@ def counter():
     base[:top_rows] = palette.hexc("8a5a33")
     base[top_rows:] = palette.hexc("5c3820")
     yy, xx = np.mgrid[0:h, 0:w]
-    light = np.where(yy < top_rows, 0.95, 0.85 - 0.35 * (yy - top_rows) / max(h - top_rows, 1))
-    for bx in BULBS:
-        light = light + 0.35 * np.clip(1 - np.abs(xx - (bx - x0) / GRID) / 120, 0, 1) ** 1.5 * (yy < top_rows + 8)
+    plank = np.maximum(yy - top_rows - 1, 0) // 9  # (which plank: their lines every 9 rows)
+    light = np.where(yy < top_rows, 0.95, 0.85 - 0.12 * plank)
     step = steps(light, yy, xx)
     step[0] = 5  # the top's front edge catching the light
     step[top_rows] = 1  # the shadow under the top's lip
@@ -163,7 +159,7 @@ def stool(colour):
     base = np.zeros((h, w, 3), int)
     base[:] = palette.hexc(colour)
     yy, xx = np.mgrid[0:h, 0:w]
-    light = np.where(yy < 3, 1.05, 0.6 + 0.02 * (yy - 3))
+    light = np.where(yy < 3, 1.05, 0.68)
     step = steps(light, yy, xx)
     step[0] = 5  # the seat's top, lit
     step[3] = 1  # the shadow under the seat
@@ -173,8 +169,10 @@ def stool(colour):
     return ramped(base, step, mask)
 
 
-def steps(light, yy, xx, dither=0.9):
-    """Each pixel's step on its ramp, from the light, dithered between steps (4x4 Bayer; 0: none)."""
+def steps(light, yy, xx, dither=0.0):
+    """Each pixel's step on its ramp, from the light: clean steps (20 Nov: a 4x4 Bayer dither
+    between them before, the C64 look, which clashed with the people's clean steps and the
+    game's smooth light; dither > 0 brings it back, for a test)."""
     bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16.0 - 0.5
     t = np.interp(light, [0.15, 0.3, 0.45, 0.62, 0.85, 1.15, 1.5], range(7))
     return np.clip(np.floor(t + 0.5 + bayer[yy % 4, xx % 4] * dither), 0, 6).astype(int)

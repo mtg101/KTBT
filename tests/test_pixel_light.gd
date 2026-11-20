@@ -92,3 +92,19 @@ func test_each_kind_shares_one_material() -> void:
 	holder.add_child(Control.new())
 	assert_int(PixelLight.count_lit(holder)).is_equal(1)
 	assert_str(PixelLight.material("tent").shader.code).contains("shader_type canvas_item")
+
+
+func test_each_bulb_lights_a_pool_close_round_it() -> void:
+	# (20 Nov: the glow round a bulb was drawn into the tarp and the counter; now it's the
+	# light's, so it lights whoever's under it too, and goes when the bulb does.)
+	PixelLight.set_lamps([])
+	PixelLight.set_night(24 * 60, "", BULBS, [PixelLight.BULB_STEPS, PixelLight.BULB_STEPS])
+	var bulb := Vector4(621, 155, PixelLight.BULB_STEPS, PixelLight.BULB_REACH)
+	var under := PixelLight.bulb_light(bulb, Vector2(621, 250))
+	var reach_only := PixelLight.BULB_STEPS * (1.0 - 95.0 / PixelLight.BULB_REACH)
+	assert_float(under).is_greater(reach_only + 0.4)  # brighter close by than the long reach alone
+	assert_float(PixelLight.bulb_light(bulb, Vector2(621 + PixelLight.POOL_REACH + 200, 155))).is_equal_approx(
+		PixelLight.BULB_STEPS * (1.0 - (PixelLight.POOL_REACH + 200) / PixelLight.BULB_REACH), 0.001)  # (past the pool, just the reach)
+	assert_float(PixelLight.bulb_light(Vector4(621, 155, 0.0, PixelLight.BULB_REACH), Vector2(621, 250))).is_equal(0.0)  # off: no pool
+	assert_float(PixelLight.light_at(Vector2(621, 60), "tarp")).is_greater(PixelLight.light_at(Vector2(936, 60), "tarp"))  # the tarp glows round the bulb
+	assert_str(PixelLight.SHADER).contains("pool_steps")

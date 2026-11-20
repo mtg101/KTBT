@@ -5619,8 +5619,16 @@ func _update_light(closing_dim: bool = false) -> void:
 	var hour := floori(_clock / 60.0)
 	if _night_open and hour != _light_hour:  # (logged on the hour: how dark, under the bulbs and out in the street)
 		_light_hour = hour
-		print("Light: %s · the night %.1f steps · at the counter %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),
-			PixelLight.ambient_steps, PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, 250)), PixelLight.light_at(Vector2(80, 360), "people"),
+		# Under the first bulb (on the counter below it) against the counter's far end: its pool of
+		# light (pixel_light.gd), the brightest it's been tonight in the stats.
+		var under := PixelLight.ambient_steps
+		if not PixelLight.bulbs.is_empty():
+			var bulb: Vector4 = PixelLight.bulbs[0]
+			under = PixelLight.light_at(Vector2(bulb.x, 250))
+		var far_end := PixelLight.light_at(Vector2(120, 250))
+		_stats.art["pools"] = maxf(float(_stats.art.get("pools", 0.0)), under - far_end)
+		print("Light: %s · the night %.1f steps · at the counter %.1f · under a bulb %.1f · the counter's end %.1f · out front %.1f · the street %.1f" % [NightRules.clock_text(hour * 60),
+			PixelLight.ambient_steps, PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, 250)), under, far_end, PixelLight.light_at(Vector2(80, 360), "people"),
 			PixelLight.light_at(Vector2(STAGE_SIZE.x / 2, -40), "street")])
 
 

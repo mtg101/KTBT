@@ -4,15 +4,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **the left side of customers / owners head look weird:**
-  - lighting issue?
-  - doesn't affect passers by
-- **Pixel bg lighting?:** pixel lighting didn't work on people... now the bg clashes?
-  - what does similar brightness lighting over pixel bg look like rather than c64 dithering?
-  - both people and bg using same probably gives consistency?
 - **Transcript UI:** needs to be easier to use
   - search, 'catch up to latest, popup in resizeable window, etc
-- **The side panel, next:** The show's season so far as rows (the season page's, as it goes); a tidier Here now (the owner, the cat and the counter in one style with The show's headings).
 - **Terminal log levels:** now it's just lighting times and owner movement
   - time very useful, owner... nto so much
   - but it's only those two things!
@@ -21,11 +14,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Autoplay mode safeguards:** clicking to close bar is end of the run
   - and it doesn't say anywhere it's in auto mod
   - probably needs a 'are you shure' for any clicking when it's in auto mode for testing
-- **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
-  - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
-  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
-  - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
-  - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
+
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
 
@@ -57,7 +46,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
 - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
 - **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
-- **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
+- **Seasons and the platform ladder:** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
+  - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
+  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
+  - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
+  - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
+  - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
 
 
 ### An actual game or experience

@@ -2,8 +2,8 @@
 coats (scripts/rules/cat_rules.gd CAT_COATS) in each pose: asleep, curled up (by the stove, on
 a lap), sitting up (on the counter, at someone's feet, staring at their food), and the four
 frames of its walk (prowling, padding off into the street). Side on, facing right (the game
-mirrors it to face left), 24 x 14 pixels on the grid, its feet on the bottom row. Lit from the
-upper left on its coat's light ramp (tools/art/palette.py), a darker edge all round so it reads
+mirrors it to face left), 24 x 14 pixels on the grid, its feet on the bottom row. Lit from above
+(the bulbs over the counter) on its coat's light ramp (tools/art/palette.py), a darker edge all round so it reads
 on a dark floor; a tabby's stripes, a calico's patches.
 
     python3 tools/art/cat.py               (all of them, into art/cats/, the manifest and LICENSE-ASSETS)
@@ -48,8 +48,8 @@ class Cat:
     def dot(self, x, y, colour=None, light=None):
         if 0 <= x < W and 0 <= y < H:
             self.colour[y, x] = colour or self.coat
-            # Lit from the upper left: lighter up top and to the left.
-            self.light[y, x] = light if light is not None else 1.12 - 0.035 * y - 0.012 * x
+            # Lit from above: lighter up top, the same either way it faces (it's mirrored).
+            self.light[y, x] = light if light is not None else 0.98 - 0.035 * y
 
     def ellipse(self, cx, cy, rx, ry, colour=None, light_add=0.0):
         for y in range(H):

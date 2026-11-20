@@ -7,8 +7,10 @@ extends RefCounted
 ## with the tarp's pattern behind them), so the light fades evenly and moves with whoever's in it.
 ## How far a pixel moves is the light where it is, in steps: the night's own (AMBIENT: dusk at
 ## 6pm, darkest after midnight, a little less towards dawn) plus the bulbs' (each lights what's
-## round it, fading out with distance; the tarp holds their light in, so the street behind
-## hardly feels them) plus the street's own lamps' (the sodium lamps under the overpass, the
+## round it, fading out with distance, and brightest in a pool close round it (the glow round a
+## bulb on the tarp, the counter and whoever's under it: drawn into the tent's art until 20 Nov,
+## now the light's, so the people and the tent are lit alike); the tarp holds their light in,
+## so the street behind hardly feels them) plus the street's own lamps' (the sodium lamps under the overpass, the
 ## neon: they light whatever's round them, the street, the tent's outside, people out front).
 ## Under the bulbs the tent looks as drawn; out by its ends and in the street it's the night's.
 ## What glows by itself (a lit window, the neon, a bulb that's on) keeps its own light; the
@@ -25,6 +27,8 @@ const AMBIENT := [[18 * 60, -0.4], [19 * 60 + 30, -0.9], [21 * 60, -1.4], [24 * 
 const WEATHER := {"fog": 0.2, "rain": -0.2, "drizzle": -0.1, "snow": 0.2}  # (fog and snow throw the light about)
 const BULB_STEPS := 1.25  # a bulb that's on, at the bulb (falling off to nothing at BULB_REACH)
 const BULB_REACH := 1000.0  # stage pixels
+const POOL_STEPS := 0.8  # ...and brighter close round it: this much more at the bulb,
+const POOL_REACH := 450.0  # falling off (squared) to nothing this far away
 const BRIGHTEST := 0.25  # nothing lit more than this above how it's drawn
 const MAX_BULBS := 4
 ## Each kind of art: how much the bulbs light it (the tarp keeps their light off the street; the
@@ -50,6 +54,9 @@ uniform float self_lit = 1.0;  // whether what's bright and coloured keeps its o
 uniform vec4 bulbs[4];  // x, y (on the stage), strength in steps, reach
 uniform vec4 lamps[8];  // the street's: the same, lighting every kind
 uniform float brightest = 0.25;
+uniform float bulb_steps = 1.25;  // a bulb that's on: its pool is in proportion
+uniform float pool_steps = 0.8;
+uniform float pool_reach = 450.0;
 uniform float down_value = 0.72;
 uniform float up_value = 0.35;
 uniform float blue_hue = 0.64;
@@ -113,7 +120,9 @@ void fragment() {
 	for (int i = 0; i < 4; i++) {
 		vec4 b = bulbs[i];
 		if (b.z > 0.0 && b.w > 0.0) {
-			light += b.z * clamp(1.0 - distance(stage_at, b.xy) / b.w, 0.0, 1.0);
+			float d = distance(stage_at, b.xy);
+			float pool = clamp(1.0 - d / pool_reach, 0.0, 1.0);
+			light += b.z * clamp(1.0 - d / b.w, 0.0, 1.0) + b.z / bulb_steps * pool_steps * pool * pool;
 		}
 	}
 	float lamp_light = 0.0;
@@ -153,9 +162,9 @@ static func material(kind: String) -> ShaderMaterial:
 		made.set_shader_parameter("lit_by_bulbs", float(KINDS.get(kind, 1.0)))
 		made.set_shader_parameter("self_lit", 0.0 if kind in NOT_SELF_LIT else 1.0)
 		made.set_shader_parameter("lamps", _packed(lamps, MAX_LAMPS))
-		for name in ["brightest", "down_value", "up_value", "blue_hue", "warm_hue"]:
+		for name in ["brightest", "down_value", "up_value", "blue_hue", "warm_hue", "pool_steps", "pool_reach", "bulb_steps"]:
 			made.set_shader_parameter(name, float({"brightest": BRIGHTEST, "down_value": DOWN_VALUE, "up_value": UP_VALUE,
-				"blue_hue": BLUE_HUE, "warm_hue": WARM_HUE}[name]))
+				"blue_hue": BLUE_HUE, "warm_hue": WARM_HUE, "pool_steps": POOL_STEPS, "pool_reach": POOL_REACH, "bulb_steps": BULB_STEPS}[name]))
 		_materials[kind] = made
 	return _materials[kind]
 
@@ -243,12 +252,20 @@ static func light_at(spot: Vector2, kind: String = "tent") -> float:
 	var from_bulbs := 0.0
 	for bulb: Vector4 in bulbs:
 		if bulb.z > 0.0 and bulb.w > 0.0:
-			from_bulbs += bulb.z * clampf(1.0 - spot.distance_to(Vector2(bulb.x, bulb.y)) / bulb.w, 0.0, 1.0)
+			from_bulbs += bulb_light(bulb, spot)
 	var from_lamps := 0.0
 	for lamp: Vector4 in lamps:
 		if lamp.z > 0.0 and lamp.w > 0.0:
 			from_lamps += lamp.z * clampf(1.0 - spot.distance_to(Vector2(lamp.x, lamp.y)) / lamp.w, 0.0, 1.0)
 	return minf(ambient_steps + float(KINDS.get(kind, 1.0)) * from_bulbs + from_lamps, BRIGHTEST)
+
+
+## One bulb's light at a spot, in steps (as the shader works it out): its long reach, fading out
+## with distance, and its pool close round it (in proportion to how bright it is: none when off).
+static func bulb_light(bulb: Vector4, spot: Vector2) -> float:
+	var d := spot.distance_to(Vector2(bulb.x, bulb.y))
+	var pool := clampf(1.0 - d / POOL_REACH, 0.0, 1.0)
+	return bulb.z * clampf(1.0 - d / bulb.w, 0.0, 1.0) + bulb.z / BULB_STEPS * POOL_STEPS * pool * pool
 
 
 ## A colour moved along its ramp as the shader does: a blend between the whole steps either

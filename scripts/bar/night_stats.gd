@@ -808,7 +808,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"])
 	if not art.is_empty():
-		lines.append("Art: images %d · drawn in code %d · lit by the hour %d · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)), int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
+		lines.append("Art: images %d · drawn in code %d · lit by the hour %d%s · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)),
+			(" (a bulb's pool +%.1f steps over the counter's end)" % float(art["pools"])) if art.has("pools") else "", int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
 			int(gestures.get("pour", 0)), int(gestures.get("carry", 0)), int(gestures.get("cook", 0)), int(gestures.get("wave", 0)),
 			(" · BROKEN %s" % ", ".join(PackedStringArray(art["broken"]))) if not art.get("broken", []).is_empty() else ""])
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():

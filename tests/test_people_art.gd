@@ -287,3 +287,31 @@ func test_facing_us_the_owner_pours_carries_stirs_and_waves() -> void:
 	assert_bool(view.gesture(person, "drink")).is_false()  # (a glass raised: seated, from behind)
 	view.turn(person, false)
 	assert_bool(view.gesture(person, "pour")).is_false()  # (pouring: facing us)
+
+
+func test_people_are_lit_from_above_not_from_one_side() -> void:
+	# Regression (20 Nov): the layers were lit from the upper left, and with the ramp's few steps
+	# that drew a hard bright stripe down the left of every head at the counter (the owner's too).
+	# Facing us or from behind, a head, hair or body is as lit on the left as on the right.
+	var ids: Array = []
+	for view in ["front", "back"]:
+		ids.append("%s_head" % view)
+		for clothes in ["suit", "blazer", "trench", "padded", "hoodie", "cardigan", "scrubs", "work_jacket", "tshirt", "knit"]:
+			ids.append("%s_body_%s" % [view, clothes])
+		for style in ["long", "bob", "ponytail", "bun", "pixie", "perm", "short", "side_part", "buzz", "two_block", "balding"]:
+			ids.append("%s_hair_%s" % [view, style])
+	for id in ids:
+		var image: Image = Art.texture("person/" + str(id)).get_image()
+		if image.is_compressed():
+			image.decompress()
+		var sides := [[0.0, 0], [0.0, 0]]  # left, right: the steps added up, how many
+		for y in image.get_height():
+			for x in image.get_width():
+				var pixel := image.get_pixel(x, y)
+				if pixel.a8 >= 128:
+					var side: Array = sides[0 if x < image.get_width() / 2 else 1]
+					side[0] += roundi(pixel.r8 / 36.0)
+					side[1] += 1
+		var left: float = sides[0][0] / maxf(sides[0][1], 1.0)
+		var right: float = sides[1][0] / maxf(sides[1][1], 1.0)
+		assert_float(absf(left - right)).override_failure_message("%s: left %.2f, right %.2f" % [id, left, right]).is_less(0.15)
