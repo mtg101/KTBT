@@ -103,7 +103,7 @@ static func score(events: Array, context: Dictionary = {}, roll: float = 0.5) ->
 	_add(parts, "%d new %s" % [new_regulars, "regular" if new_regulars == 1 else "regulars"], minf(new_regulars * NEW_REGULAR, NEW_REGULARS_MOST))
 	_add(parts, "%d on closer terms" % friendlier, minf(friendlier * FRIENDLIER, FRIENDLIER_MOST))
 	var cards := int(context.get("cards_taken_up", 0))
-	_add(parts, "%d of the PD's %s taken up" % [cards, "card" if cards == 1 else "cards"], minf(cards * CARD_TAKEN_UP, CARDS_MOST))
+	_add(parts, "%d of the PD's cards taken up" % cards, minf(cards * CARD_TAKEN_UP, CARDS_MOST))
 	for kind in happened:
 		_add(parts, HAPPENING_WORDS[kind], HAPPENINGS[kind])
 	parts.sort_custom(func(a, b): return float(a[1]) > float(b[1]))

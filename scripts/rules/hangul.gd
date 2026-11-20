@@ -260,3 +260,41 @@ const MEANINGS := {
 	"조심히 가세요!": "josimhi gaseyo!: get home safe (polite)",
 	"조심히 가!": "josimhi ga!: get home safe (casual: for an old friend)",
 }
+
+
+## The Korean an episode title can be made of (rules/story.gd korean_title_problem): the AI's
+## titles are checked against it, word by word, because the local model sometimes writes
+## Hangul that isn't Korean at all (할로하세실, 20 Nov). Real, everyday words a drama title
+## uses, each "romanised: what it means". The prompt lists them (ai/prompts.gd title_messages).
+const TITLE_WORDS := {
+	"밤": "bam: night", "새벽": "saebyeok: the small hours", "하루": "haru: a day", "오늘": "oneul: today, tonight",
+	"어제": "eoje: yesterday", "내일": "naeil: tomorrow", "그날": "geunal: that day", "마지막": "majimak: the last",
+	"첫": "cheot: first", "다시": "dasi: again", "또": "tto: again, once more", "그리고": "geurigo: and then",
+	"비밀": "bimil: a secret", "눈물": "nunmul: tears", "웃음": "useum: laughter", "미소": "miso: a smile",
+	"한숨": "hansum: a sigh", "추억": "chueok: memories", "꿈": "kkum: a dream", "소원": "sowon: a wish",
+	"약속": "yaksok: a promise", "고백": "gobaek: a confession", "거짓말": "geojitmal: a lie", "진심": "jinsim: sincerity, what you really mean",
+	"오해": "ohae: a misunderstanding", "화해": "hwahae: making up", "위로": "wiro: comfort", "용기": "yonggi: courage",
+	"걱정": "geokjeong: worry", "행복": "haengbok: happiness", "슬픔": "seulpeum: sadness", "기쁨": "gippeum: joy",
+	"외로움": "oeroum: loneliness", "기다림": "gidarim: waiting", "결심": "gyeolsim: resolve", "스트레스": "seuteureseu: stress",
+	"마음": "maeum: the heart", "사랑": "sarang: love", "첫사랑": "cheotsarang: first love", "이별": "ibyeol: parting",
+	"만남": "mannam: a meeting", "재회": "jaehoe: a reunion", "인생": "insaeng: life", "청춘": "cheongchun: youth",
+	"운명": "unmyeong: fate", "우연": "uyeon: chance", "행운": "haengun: luck", "위기": "wigi: a crisis",
+	"반전": "banjeon: a twist", "대박": "daebak: a jackpot, amazing", "무게": "muge: weight", "그림자": "geurimja: a shadow",
+	"이야기": "iyagi: a story", "노래": "norae: a song", "손님": "sonnim: a customer", "단골": "dangol: a regular",
+	"친구": "chingu: a friend", "우리": "uri: us, our", "사람": "saram: a person, people", "가족": "gajok: family",
+	"엄마": "eomma: mum", "아빠": "appa: dad", "선배": "seonbae: a senior (at work or school)", "후배": "hubae: a junior",
+	"이모": "imo: auntie", "삼촌": "samchon: uncle", "사장님": "sajangnim: the boss", "고양이": "goyangi: a cat",
+	"포차": "pocha: a tent bar", "포장마차": "pojangmacha: a tent bar", "소주": "soju: soju", "한잔": "hanjan: a drink",
+	"안주": "anju: food to go with drinks", "국물": "gungmul: broth", "라면": "ramyeon: instant noodles", "건배": "geonbae: cheers",
+	"짠": "jjan: cheers! (the clink)", "혼술": "honsul: drinking alone", "막차": "makcha: the last train or bus", "퇴근": "toegeun: leaving work",
+	"회식": "hoesik: a work dinner", "야근": "yageun: working late", "월급": "wolgeup: a month's pay", "집": "jip: home",
+	"길": "gil: the road, the way", "골목": "golmok: an alley", "불빛": "bulbit: lights", "별": "byeol: a star",
+	"달": "dal: the moon", "눈": "nun: snow", "첫눈": "cheonnun: the first snow", "비": "bi: rain",
+	"바람": "baram: wind", "겨울": "gyeoul: winter", "가을": "gaeul: autumn", "봄": "bom: spring", "여름": "yeoreum: summer",
+	"따뜻한": "ttatteuthan: warm", "차가운": "chagaun: cold", "쓸쓸한": "sseulsseulhan: lonely, forlorn", "짠한": "jjanhan: bittersweet, touching",
+	"수상한": "susanghan: suspicious", "조용한": "joyonghan: quiet", "뜨거운": "tteugeoun: hot, passionate", "긴": "gin: long",
+	"오는": "oneun: falling (snow, rain), coming", "내리는": "naerineun: falling", "돌아온": "doraon: who came back", "남은": "nameun: left over, remaining",
+	"잃어버린": "ireobeorin: lost", "훈훈": "hunhun: heart-warming", "짠하다": "jjanhada: heart-rending",
+}
+## What can end a title word (a particle: 밤의, 친구와), tried longest first.
+const TITLE_ENDINGS := ["에서", "으로", "이랑", "처럼", "까지", "하고", "의", "와", "과", "은", "는", "이", "가", "을", "를", "에", "도", "로", "만", "랑"]

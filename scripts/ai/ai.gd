@@ -89,7 +89,9 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 		return await _ask_canned(validator, request, problems)
 	last_error = ""
 	var convo := messages.duplicate()
-	for attempt in int(request.get("tries", max_attempts)):
+	var tries := int(request.get("tries", max_attempts))
+	var stopped := 0  # replies Ollama gave up on part-way (see below)
+	for attempt in tries:
 		var reply: Array
 		if simulate_unreachable:
 			await _frame
@@ -97,6 +99,17 @@ func _ask(messages: Array, validator: Callable, options: Dictionary, request: Di
 		else:
 			_client.chat(convo, true, options)
 			reply = await _client.finished
+		if not reply[0] and OllamaClient.stopped_mid_reply(str(reply[1])) and stopped + 1 < tries:
+			# Ollama's there, but gave up on this reply (stuck repeating itself, say): a bad
+			# reply like any other, asked for again afresh (there's nothing to correct). Only
+			# if every try goes that way is it treated as Ollama not answering.
+			stopped += 1
+			var stopped_why := "Ollama stopped the reply part-way (%s)" % str(reply[1])
+			problems.append(stopped_why)
+			rejected.emit(str(request.get("purpose", "")), stopped_why, "")
+			last_error = "the AI's reply was rejected %d times (last time because %s)" % [attempt + 1, stopped_why]
+			convo = messages.duplicate()
+			continue
 		if not reply[0]:
 			# Ollama didn't answer at all: retrying straight away won't help.
 			if _auto_fallback:

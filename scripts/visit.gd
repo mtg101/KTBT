@@ -1709,7 +1709,12 @@ func _write_diary() -> void:
 		"ratings": _night_ratings.duplicate(true),
 		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]), "finale": bool(_show_place["finale"])}
 	SaveStore.record_diary(Game.bar, entry)
-	_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
+	if _season_ended.is_empty():
+		_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
+	else:  # a finale: the season page comes next, and needs its title for the last row
+		await _draft_titles(Game.bar["diary"][-1])
+		if _closed():
+			return
 	Game.save()
 	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
 	_stats.story["diary_stamp"] = str(entry["stamp"])
@@ -2047,12 +2052,18 @@ func _ensure_titles() -> void:
 func _draft_titles(entry: Dictionary) -> void:
 	var facts: Dictionary = entry.get("facts", {})
 	var titles: Array = []
+	var dropped: Array = []  # Korean the AI wrote that isn't Korean the game knows (Story.korean_title_problem)
 	if Hooks.titles:
 		var reply: Dictionary = await _ai.ask_json(Prompts.title_messages(facts), Story.validate_titles.bind(facts), {"temperature": 0.9},
 			{"purpose": "titles", "facts": facts, "tries": 2})
 		titles = reply.get("titles", [])
+		dropped = reply.get("dropped_hangul", [])
+		if not dropped.is_empty():  # (Korean that wasn't: those titles go out in English only)
+			print("Titles: dropped Korean that isn't words the game knows: %s" % ", ".join(PackedStringArray(dropped)))
+	var by := "ai" if not titles.is_empty() else "game"
 	if titles.is_empty():
 		titles = Story.stitched_titles(facts)
+	_stats.story["titles"] = {"titles": titles.map(func(t): return Story.title_text(t)), "by": by, "dropped_hangul": dropped.duplicate()}
 	for title in titles:
 		if str(title.get("hangul", "")) != "":
 			Glossary.remember(str(title["hangul"]), "%s: %s" % [title["hangul"], title["english"]])

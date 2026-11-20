@@ -84,6 +84,15 @@ func test_the_ratings_have_their_own_section() -> void:
 	assert_float(float(data["story"]["ratings"])).is_equal_approx(6.4, 0.001)
 
 
+func test_who_filmed_it_and_the_titles_drafted_are_in_the_story() -> void:
+	var stats := NightStats.new()
+	stats.story["show"] = {"place": "Season 2, episode 1 of 8", "finale": false, "so_far": "", "on_air": "on an online video channel (나이트서브, Night Subs)", "crew": "The channel's camera"}
+	assert_str(stats.panel_text(0, 0)).contains("· filmed by the channel's camera")  # (mid-sentence: no capital, 20 Nov)
+	assert_str(stats.panel_text(0, 0)).not_contains("Titles:")
+	stats.story["titles"] = {"titles": ["The Blind Date Disaster", "추억의 밤 · A Night of Memories", "Somaek and Secrets"], "by": "ai", "dropped_hangul": ["할로하세실"]}
+	assert_str(stats.panel_text(0, 0)).contains("Titles: The Blind Date Disaster | 추억의 밤 · A Night of Memories | Somaek and Secrets (by the ai) · Korean dropped, not words the game knows: 할로하세실")
+
+
 func test_the_shows_season_is_in_the_story() -> void:
 	var stats := NightStats.new()
 	assert_str(stats.panel_text(0, 0)).not_contains("Season:")

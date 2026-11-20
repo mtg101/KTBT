@@ -945,6 +945,27 @@ func test_an_episode_gets_titles() -> void:
 			assert_str(Glossary.hangul_tip(str(title["hangul"]))).is_not_empty()
 
 
+func test_a_titles_korean_is_made_of_korean_the_game_knows() -> void:
+	# The local model sometimes writes Hangul that isn't Korean (할로하세실, 20 Nov): a title's
+	# Korean has to be words the game knows (with a particle on the end), or the first names of
+	# people who were there. Anything else is dropped, and the title goes out in English only.
+	var facts := {"owner": "Park Mi-sook", "people": [{"name": "Park Min-ji", "hangul": "박민지"}, {"name": "Lee Ji-ho", "hangul": "이지호"}]}
+	for real in ["추억의 밤", "짠한 밤", "하루의 그림자", "스트레스의 무게", "민지와 지호", "첫눈 오는 밤!", "대박…"]:
+		assert_str(Story.korean_title_problem(real, facts)).override_failure_message("%s should be fine" % real).is_empty()
+	for junk in ["할로하세실", "번쏕낰번주", "안주약사려울", "호소원읿요", "철수와 영희"]:  # (철수, 영희: nobody who was there)
+		assert_str(Story.korean_title_problem(junk, facts)).override_failure_message("%s should be caught" % junk).is_not_empty()
+	assert_str(Story.korean_title_problem("밤의 할로하세실", facts)).is_equal("할로하세실")  # (the word that isn't)
+	var drafted := {"titles": [{"hangul": "할로하세실", "english": "The Blind Date Disaster"}, {"hangul": "추억의 밤", "english": "A Night of Memories"}, {"hangul": "", "english": "Somaek and Secrets"}]}
+	assert_str(Story.validate_titles(drafted, facts)).is_empty()  # (not a rejection: the English is good)
+	assert_str(Story.title_text(drafted["titles"][0])).is_equal("The Blind Date Disaster")
+	assert_str(Story.title_text(drafted["titles"][1])).is_equal("추억의 밤 · A Night of Memories")
+	assert_array(drafted["dropped_hangul"]).is_equal(["할로하세실"])  # (for the logs and stats)
+	# Every word explains itself (the prompt lists them all), and the prompt tells the AI.
+	for word in Story.Hangul.TITLE_WORDS:
+		assert_str(str(Story.Hangul.TITLE_WORDS[word])).contains(": ")
+	assert_str(str(Prompts.title_messages(facts)[1]["content"])).contains("추억").contains("only of these words")
+
+
 func test_the_cliffhangers_the_pd_can_choose() -> void:
 	var facts := {"owner": "Park Mi-sook", "cat": "Nabi", "missing": ["Hwang Tae-oh"], "new_regulars": ["Lee Da-eun"],
 		"moments": [{"who": "Kim Ji-ho", "mood": "sad"}, {"who": "Park Mi-sook", "mood": "warm"}], "cat_thefts": ["Kim Ji-ho"]}

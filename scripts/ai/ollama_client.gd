@@ -76,6 +76,13 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 	_done(true, str(data["message"].get("content", "")))
 
 
+## Whether a failed request's message says Ollama was there but gave up on this one reply (an
+## HTTP 5xx: "prediction aborted, token repeat limit reached" when the model got stuck
+## repeating itself), rather than not being there at all. Worth asking again, afresh.
+static func stopped_mid_reply(error: String) -> bool:
+	return error.begins_with("Ollama said no (HTTP 5")
+
+
 func _done(ok: bool, text: String) -> void:
 	if ok:
 		chat_completed.emit(text)

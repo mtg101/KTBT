@@ -55,6 +55,8 @@ func test_the_cliffhanger_regulars_and_happenings_add_to_it() -> void:
 	var parts: Array = Ratings.score([{"kind": "cliffhanger_answered", "at": 1200}, _moment("funny")])["parts"]
 	assert_str(str(parts[0][0])).is_equal("last time's cliffhanger came true")
 	assert_str(str(parts[1][0])).is_equal("1 big moment")
+	# (one card reads right too: "1 of the PD's cards", 20 Nov)
+	assert_str(str(Ratings.score([], {"cards_taken_up": 1})["parts"][0][0])).is_equal("1 of the PD's cards taken up")
 
 
 func test_luck_moves_it_a_little_and_it_never_hits_nothing() -> void:

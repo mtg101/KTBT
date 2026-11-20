@@ -869,11 +869,11 @@ static func title_messages(facts: Dictionary) -> Array:
 %s
 
 Give the episode three titles to choose from, the way Korean dramas and variety shows title their episodes: short, a little dramatic or playful, about what happened to these people (first names are fine), each different in feel.
-Korean is welcome, as TV mixes the two: a title can be Korean with its English meaning ("짠한 밤" and "A Bittersweet Night"), or English only.
+Korean is welcome, as TV mixes the two: a title can be Korean with its English meaning ("짠한 밤" and "A Bittersweet Night"), or English only. The Korean must be made only of these words (a particle such as 의, 와 or 는 on the end is fine), and the first names, in Hangul, of people who were there: %s. If you can't say it with those, leave "hangul" as "".
 
 Only what's above: no other names, nothing invented.
 
-Reply with ONLY a JSON object: {"titles": [{"hangul": "Korean, in Hangul, or \"\"", "english": "the title in English, at most %d characters"}, ...three]}""" % [_episode_words(facts), diary_facts_text(facts), Story.TITLE_MOST]
+Reply with ONLY a JSON object: {"titles": [{"hangul": "Korean, in Hangul, or \"\"", "english": "the title in English, at most %d characters"}, ...three]}""" % [_episode_words(facts), diary_facts_text(facts), " ".join(PackedStringArray(Story.Hangul.TITLE_WORDS.keys())), Story.TITLE_MOST]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},

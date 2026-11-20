@@ -318,6 +318,11 @@ func test_the_eighth_episode_is_the_finale_and_the_season_is_looked_back_on() ->
 	assert_bool(await _wait_until(func(): return page.visible)).override_failure_message("the season was never looked back on").is_true()
 	assert_bool((runner.find_child("DiaryPage") as Control).visible).is_false()
 	assert_int(page.rows_shown()).is_equal(8)
+	# The finale's row has its title too (regression: 20 Nov, its titles were drafted only after the page).
+	var finale_title := Story.title_text(Game.bar["diary"][-1].get("title", {}))
+	assert_str(finale_title).is_not_empty()
+	var looked_back := _transcript(runner)
+	assert_str(looked_back.substr(looked_back.find("EP 8 "), 20 + finale_title.length())).contains("«%s»" % finale_title)
 	# Nothing runs off its row, however long the line pinned (regression: 19 Nov, a long line ran off the page).
 	var long_line := {"speaker": "Choi Woo-jin", "text": "But it's not just about perfection, is it, Samchon? Today I had to deal with a department head who doesn't understand what I'm trying to do, and an email that made everything worse."}
 	page.show_season([{"episode": 1, "night": 1, "title": "스트레스의 무게 · The Weight of Stress and Everything That Comes With It", "rating": 5.5, "quote": long_line},

@@ -11,6 +11,7 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
+const Hangul = preload("res://scripts/rules/hangul.gd")
 
 
 ## Each night is an episode; at 3am the owner writes it up in their diary, from facts the game
@@ -640,6 +641,38 @@ static func title_text(title: Dictionary) -> String:
 	return ("%s · %s" % [hangul, english]) if hangul != "" else english
 
 
+## What's wrong with a title's Korean: "" if every word is one the game knows (Hangul.TITLE_WORDS,
+## maybe with a particle on the end: 추억의 밤), or a name of someone who was there (their Hangul,
+## or their given name in it: 민지와 지호); otherwise the first word that isn't. The local model
+## sometimes writes Hangul that isn't Korean (할로하세실, 20 Nov), which nothing else would catch.
+static func korean_title_problem(hangul: String, facts: Dictionary) -> String:
+	var names: Array = []
+	for person in facts.get("people", []):
+		var full := str(person.get("hangul", ""))
+		if full.length() >= 2:
+			names.append(full)
+			if full.length() == 3:
+				names.append(full.substr(1))  # (the given name: 박민지 → 민지)
+	for word in hangul.split(" ", false):
+		var bare := word.strip_edges()
+		while bare != "" and "!?…~.,·".contains(bare[-1]):
+			bare = bare.left(-1)
+		if bare == "" or _title_word(bare, names):
+			continue
+		var stem_known := false
+		for ending in Hangul.TITLE_ENDINGS:
+			if bare.length() > ending.length() and bare.ends_with(ending) and _title_word(bare.left(-ending.length()), names):
+				stem_known = true
+				break
+		if not stem_known:
+			return bare
+	return ""
+
+
+static func _title_word(word: String, names: Array) -> bool:
+	return Hangul.TITLE_WORDS.has(word) or names.has(word)
+
+
 ## Whether text is Hangul (and spaces and a little punctuation) only.
 static func _all_hangul(text: String) -> bool:
 	for k in text.length():
@@ -669,6 +702,13 @@ static func validate_titles(data: Variant, facts: Dictionary) -> String:
 			return "a title's English should be a few words, %d characters at most (\"%s\")" % [TITLE_MOST, english]
 		if hangul != "" and (not _all_hangul(hangul) or hangul.length() > TITLE_HANGUL_MOST):
 			return "a title's \"hangul\" should be Korean only, %d characters at most, or \"\" (\"%s\")" % [TITLE_HANGUL_MOST, hangul]
+		if hangul != "" and korean_title_problem(hangul, facts) != "":
+			# (not Korean the game knows: the English title's still good, so it goes out
+			# English only, and the Korean's noted for the logs and stats)
+			if not data.has("dropped_hangul"):
+				data["dropped_hangul"] = []
+			data["dropped_hangul"].append(hangul)
+			hangul = ""
 		var problem := _typed_problem(english)
 		if problem != "":
 			return "a title %s (\"%s\")" % [problem, english]

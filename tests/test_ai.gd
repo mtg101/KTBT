@@ -121,3 +121,38 @@ func test_auto_mode_falls_back_to_canned_for_the_rest_of_the_session() -> void:
 	await ai.ask_json(MESSAGES, takes_any_reply, {}, {"purpose": "line", "owner_speaks": true, "first": true, "last": false, "title": "Imo"})
 	assert_int(made[1].asked.size()).is_equal(1)  # Ollama isn't asked again
 	assert_array(reasons).has_size(1)
+
+
+const STOPPED := "Ollama said no (HTTP 500): prediction aborted, token repeat limit reached"
+
+
+func test_a_reply_ollama_stopped_part_way_is_asked_for_again_afresh() -> void:
+	# Ollama's there but gave up on one reply (the model stuck repeating itself): like a bad
+	# reply, it's asked for again (not the end of the AI for the night, as it was).
+	var made := _ai_with([[false, STOPPED], [true, "{\"x\": 2}"]])
+	var ai: Ai = made[0]
+	ai._auto_fallback = true
+	var reply: Dictionary = await ai.ask_json(MESSAGES, _wants_two, {}, {"purpose": "line"})
+	assert_int(int(reply["x"])).is_equal(2)
+	assert_bool(ai.offline).is_false()
+	var asked: Array = made[1].asked
+	assert_int(asked.size()).is_equal(2)
+	assert_array(asked[1]).is_equal(MESSAGES)  # afresh: there's nothing to correct
+	assert_str(str(_answers[0][2][0])).contains("stopped the reply part-way")
+	assert_str(str(_rejected[0][1])).contains("token repeat limit")
+
+
+func test_ollama_stopping_every_try_still_goes_offline_in_auto_mode() -> void:
+	var made := _ai_with([[false, STOPPED], [false, STOPPED], [false, STOPPED]])
+	var ai: Ai = made[0]
+	ai._auto_fallback = true
+	var takes_any_reply := func(data: Variant) -> String: return "" if typeof(data) == TYPE_DICTIONARY else "not an object"
+	var reply: Dictionary = await ai.ask_json(MESSAGES, takes_any_reply, {}, {"purpose": "line", "owner_speaks": true, "first": true, "last": false, "title": "Imo"})
+	assert_int(made[1].asked.size()).is_equal(ai.max_attempts)
+	assert_bool(ai.offline).is_true()  # (something's properly wrong: the canned AI takes over)
+	assert_dict(reply).is_not_empty()
+	assert_bool(_stopped("Can't reach Ollama")).is_false()
+
+
+func _stopped(error: String) -> bool:
+	return preload("res://scripts/ai/ollama_client.gd").stopped_mid_reply(error)
