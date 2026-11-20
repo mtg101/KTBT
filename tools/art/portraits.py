@@ -11,6 +11,7 @@ in PROMPT below): black, red and skin are far apart, so the picture splits into 
     python3 tools/art/portraits.py <picture> [<picture>...] --sheet out.png [--layers folder]
         [--width 64 --height 80] [--sizes out.png]
     python3 tools/art/portraits.py --batch      (the library's jobs, for the helper's queue_art_batch)
+    python3 tools/art/portraits.py --reactions  (the reaction faces' jobs: every kept portrait in every TV mood)
     python3 tools/art/portraits.py --pick art/raw/portrait_pick   (pick sheets, and art/raw/portrait_picks.json)
     python3 tools/art/portraits.py --keep       (the picks into art/portraits/, the manifest and LICENSE-ASSETS)
     python3 tools/art/portraits.py --self-test
@@ -81,6 +82,39 @@ def batch_jobs():
                     jobs.append({"name": name, "prompt": PROMPT.format(who=who, hair=look),
                                  "seed": BATCH_FIRST_SEED + 10 * len(jobs), "count": BATCH_SEEDS,
                                  "width": W * 12, "height": H * 12})
+    return jobs
+
+
+# The reaction faces (PLAN.md, TV pop-ups): each kept portrait redrawn by Klein's edit workflow with
+# the expression of each TV mood (rules/captions.gd REACTIONS), everything else kept.
+REACT_PROMPT = ("Same person, same face, same hair, same glasses if any, same red top, same flat green background, "
+                "same framing and the same flat cel-shaded illustration style. Change only the facial expression: {face}.")
+MOOD_FACES = {
+    "shock": "wide-eyed with shock, eyebrows raised high, mouth dropped open",
+    "sad": "sad, eyes glistening with tears, a tear on one cheek, mouth turned down",
+    "sweet": "shy and flustered, pink blushing cheeks, a small bashful smile, eyes glancing aside",
+    "warm": "deeply touched, a soft warm smile, eyes a little teary",
+    "funny": "laughing hard, eyes squeezed shut, mouth wide open",
+    "awkward": "awkward, a stiff forced smile, eyes glancing sideways, a bead of sweat on the forehead",
+    "roast": "caught out and indignant, frowning, cheeks puffed out, pouting",
+}
+REACT_SEEDS = 2
+REACT_FIRST_SEED = 20000
+
+
+def reaction_jobs():
+    """Every kept portrait (portrait_picks.json) in every mood: jobs for the helper's queue_art_batch, each
+    with its reference picture."""
+    import json
+    picks = json.load(open(os.path.join(palette.ROOT, "art", "raw", "portrait_picks.json"), encoding="utf-8"))
+    jobs = []
+    for name, seed in sorted(picks.items()):
+        if seed is None:
+            continue
+        for mood, face in MOOD_FACES.items():
+            jobs.append({"name": "react_%s_%s" % (name.replace("portrait_", ""), mood), "prompt": REACT_PROMPT.format(face=face),
+                         "seed": REACT_FIRST_SEED + 10 * len(jobs), "count": REACT_SEEDS, "width": W * 12, "height": H * 12,
+                         "reference": "%s_%d.png" % (name, seed)})
     return jobs
 
 
@@ -445,6 +479,7 @@ if __name__ == "__main__":
     ap.add_argument("--pick", metavar="FOLDER", help="pick sheets of the batch's pictures into FOLDER, and art/raw/portrait_picks.json")
     ap.add_argument("--only", help="with --pick or --keep: just these groups (w_20s,m_70s...), so a run fits in a shell call")
     ap.add_argument("--keep", action="store_true", help="the picks (portrait_picks.json) into art/portraits/, the manifest and LICENSE-ASSETS")
+    ap.add_argument("--reactions", action="store_true", help="write art/raw/reaction_batch.json: every kept portrait in every TV mood, for queue_art_batch")
     ap.add_argument("--batch", action="store_true", help="write art/raw/portrait_batch.json, the library's jobs for the helper's queue_art_batch")
     a = ap.parse_args()
     if a.self_test:
@@ -455,14 +490,14 @@ if __name__ == "__main__":
     if a.keep:
         keep(a.only.split(",") if a.only else None)
         sys.exit(0)
-    if a.batch:
+    if a.batch or a.reactions:
         import json
-        jobs = batch_jobs()
-        path = os.path.join(palette.ROOT, "art", "raw", "portrait_batch.json")
+        jobs = reaction_jobs() if a.reactions else batch_jobs()
+        path = os.path.join(palette.ROOT, "art", "raw", "reaction_batch.json" if a.reactions else "portrait_batch.json")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(jobs, f, indent=1, ensure_ascii=False)
-        print("%s: %d jobs, %d pictures (about %d minutes in ComfyUI)" % (path, len(jobs), len(jobs) * BATCH_SEEDS, len(jobs) * BATCH_SEEDS * 10 // 60))
+        print("%s: %d jobs, %d pictures (about %d minutes in ComfyUI)" % (path, len(jobs), sum(j["count"] for j in jobs), sum(j["count"] for j in jobs) * 6 // 60))
         sys.exit(0)
     if not a.pictures or not (a.sheet or a.sizes):
         ap.error("pictures, and --sheet and/or --sizes")

@@ -14,10 +14,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - expressions: the library's faces are calm (passport-photo neutral); a pop-up wants shocked, laughing, crying, fuming
       - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
         - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
-        - how: Klein 4B (distilled, the model we have) edits from a reference picture; ComfyUI's template "Flux.2 [Klein] 4B Distilled: Image Edit", exported as API to `tools/art/klein_edit_api.json`; the helper's jobs take a `reference` (the kept neutral picture, copied into ComfyUI's input folder); the prompt keeps everything (face, hair, glasses, red top, green, framing, style) and changes only the expression, so `portraits.py` splits it as before
-        - first a try by hand in ComfyUI on one or two portraits (does it keep the person?), then a few through the helper, then the batch: 126 × 7 moods × 2 seeds, about 1,800 pictures, a couple of hours
-        - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the neutral one (a different person is the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix
-        - after the neutral picks are kept (they're the references)
+        - made overnight 20 Nov (`art/raw/react_*`, 1,764 pictures: every kept portrait in every mood, two seeds each): collect them all (`collect_art`, 60 a call)
+        - the split, before picking: tears, a blush and the whites of the eyes their own colours (fixed colours, as the people's `FIXED`), or sad loses its tears, sweet its blush (muddy brown now) and shock its eyes
+        - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix
       - variety-show graphics on top, maybe: sweat drop, anger marks, a burst behind, zoom and shake, the caption
   - show at end of night with reference to diary, or in own popout... or does diary include like... polaroids attached to it?
     
