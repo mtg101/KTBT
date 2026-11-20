@@ -25,7 +25,11 @@ const STAY_LEFT := 20.0  # game minutes someone needs left for a card picked for
 ## What a PD is, on the desk's title's hover.
 const PD_MEANS := "PD: the producer-director, who makes a Korean TV show: picks whose story the camera follows, and sets things up to see what happens. That's you: the tent runs itself, and nothing you do here pauses it."
 
+## The desk while the crew run it (an autoplay batch): its clicks are theirs, not the player's.
+const CREW_HAS_IT := "The crew are at the desk (Let the crew run it): stop them from the menu to play it yourself."
+
 var night: Night  # tonight (its stats)
+var crew_running := false  # the crew have the desk (autoplay): a click does nothing; the crew play it in code (play, air_edit)
 var camera: PdCamera  # who the show's following (a new one each night)
 
 # Tonight's hand.
@@ -138,7 +142,7 @@ func build(desk: PanelContainer) -> void:
 
 ## A link clicked on the desk: the tent handles it (a pinned line's: let it go).
 func _on_link(meta: Variant) -> void:
-	if link.is_valid():
+	if link.is_valid() and not crew_running:
 		link.call(meta)
 
 
@@ -207,8 +211,11 @@ func write_from(card: String, guest: Variant) -> String:
 	return Plants.gendered(from.replace("{what}", what_for(card)), str(guest.customer.get("gender", "")) if guest != null else "")
 
 
-## A card clicked: a write-in opens the box first (see written); any other's played.
+## A card clicked: a write-in opens the box first (see written); any other's played. Not while
+## the crew have the desk.
 func press(card: String) -> void:
+	if crew_running:
+		return
 	if Plants.is_write(card):
 		open_writing(card)
 		return
@@ -319,7 +326,7 @@ func _refresh_cards() -> void:
 		if why == "" and ["someone", "pair"].has(str(Plants.CARDS[card]["for"])) and target(card).is_empty():
 			why = "Nobody at the counter with time left for it."
 		button.text = "%s%s" % [Plants.CARDS[card]["title"], "  (played)" if done else ""]  # (its tag says what kind)
-		button.disabled = done or why != ""
+		button.disabled = done or why != "" or crew_running
 		var tip := str(Plants.KINDS[Plants.kind_of(card)]["about"]) + "\n" + str(Plants.CARDS[card]["about"])
 		var tag := button.get_node_or_null("Kind") as Label
 		if tag != null:
@@ -334,6 +341,8 @@ func _refresh_cards() -> void:
 			var from := write_from(card, aimed[0] if not aimed.is_empty() else null)
 			if from != "":
 				tip += "\n(" + from + ")"
+		if crew_running and not done:
+			tip += "\n" + CREW_HAS_IT
 		button.tooltip_text = Text.tip(tip)
 
 
@@ -469,7 +478,10 @@ func offer_edit(spins: Array, reply: Dictionary, lines: Array, names: Array, rol
 		button.add_theme_font_size_override("font_size", 15)
 		button.add_theme_color_override("font_color", Color(str(data["colour"])))
 		button.tooltip_text = Text.tip("%s%s: %s" % ["The AI's pick, " if k == 0 else "", str(spin["mood"]), data["means"]])
-		button.pressed.connect(air_edit.bind(k))
+		button.pressed.connect(func():
+			if not crew_running:
+				air_edit(k))
+		button.disabled = crew_running
 		edit_buttons.add_child(button)
 	edit_box.visible = true
 	if scroll != null:

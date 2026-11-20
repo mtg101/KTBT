@@ -488,3 +488,13 @@ func test_where_the_owner_was() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("The owner: at the stove 75%")
 	assert_int(stats.summary({})["time"]["owner_at_stove_percent"]).is_equal(75)
 	assert_dict(stats.summary({})["time"]["owner_trips"]).is_equal({"carry": 2, "pour": 1})
+
+
+func test_the_crew_running_it_is_in_the_stats() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).not_contains("The crew ran it")  # (a player's night: nothing said)
+	stats.crew_run = {"from": "the menu", "nights": 5, "night": "night 2 of 5", "took_over": "10:40pm", "stopped": "taken over at 11:50pm", "handed_back": "11:50pm"}
+	assert_str(stats.panel_text(0, 0)).contains("The crew ran it (from the menu): night 2 of 5 · took over at 10:40pm · stopped: taken over at 11:50pm · handed back at 11:50pm")
+	stats.crew_run = {"from": "the command line", "nights": 10, "night": "night 3 of 10"}
+	assert_str(stats.panel_text(0, 0)).contains("The crew ran it (from the command line): night 3 of 10\n")
+	assert_str(str(stats.summary({})["pd"]["crew"]["night"])).is_equal("night 3 of 10")

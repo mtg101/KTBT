@@ -2,7 +2,12 @@ extends RefCounted
 ## Autoplay: a batch of nights that play themselves, with the real AI, while nobody's watching,
 ## so a test run can be ten nights rather than one (tools/autoplay.bat). Started from the
 ## command line: `-- --autoplay=10` (how many nights), and `--autoplay-bar=<id>` to carry on a
-## bar rather than start a new one (to test regulars over many nights). Each night is logged as
+## bar rather than start a new one (to test regulars over many nights); or in the game, from the
+## menu: "Let the crew run it", for so many nights, on the bar that's open (visit.gd, the crew:
+## the PD's desk and the next night are the crew's, the controls that would upset the run
+## locked, and a Stop that either finishes tonight or hands the night over there and then).
+## From the command line it quits when it's done; started in the game, or stopped by hand, it
+## hands the bar back instead. Each night is logged as
 ## usual (its stats and transcript); after each, the batch's own summary file is written again
 ## (nights played, how long each took, the AI's rejections and give-ups, any errors), so a batch
 ## that's stopped early still has one. It stops after its nights, or at the end of a night when
@@ -17,6 +22,9 @@ const PAUSE_SECONDS := 8.0
 const RUNNING_FILE := "running.json"
 ## Errors kept word for word in the summary (the rest are only counted).
 const ERRORS_KEPT := 10
+## Started in the game: how many nights it offers (the command line's as many as it likes).
+const MENU_NIGHTS := 5
+const MOST_NIGHTS := 30
 
 ## Where the summaries go (tests set their own): beside the night logs, in autoplay/.
 static var folder := ""
@@ -26,6 +34,8 @@ var bar_id := ""  # the bar to carry on ("": a new one, autoplay's own)
 var begun := false  # the title screen's opened the bar
 var played: Array = []  # each night: {"night", "minutes", "customers", "offline", "rejected", "gave_up", "errors", "ratings" (-1: none), "season" ("": none)}
 var stop_reason := ""  # why it stopped early ("" if it didn't)
+var by_hand := false  # stopped by the player (the menu's Stop), not by itself
+var from_command_line := false  # (or started in the game, from the menu)
 var pause_seconds := PAUSE_SECONDS
 var errors := Errors.new()
 var _started := ""
@@ -79,7 +89,16 @@ static func from_args(args: PackedStringArray) -> Variant:
 			carry_on = arg.trim_prefix("--autoplay-bar=")
 	if how_many <= 0:
 		return null
-	return new(how_many, carry_on)
+	var batch = new(how_many, carry_on)
+	batch.from_command_line = true
+	return batch
+
+
+## Started in the game (the menu's "Let the crew run it"), on the bar that's open.
+static func in_game(how_many: int, bar: String) -> Variant:
+	var batch = new(clampi(how_many, 1, MOST_NIGHTS), bar)
+	batch.begun = true  # (the bar's open already)
+	return batch
 
 
 ## A night's done (logged and written up): note it. ratings: its TV ratings (Ratings.score), or -1;
@@ -98,8 +117,27 @@ func stop(reason: String) -> void:
 		stop_reason = reason
 
 
+## Stopped by the player (the reason kept, as stop's): after tonight, or there and then.
+func stop_by_hand(reason: String) -> void:
+	if stop_reason == "":
+		stop_reason = reason
+		by_hand = true
+
+
 func finished() -> bool:
 	return played.size() >= nights or stop_reason != ""
+
+
+## Whether the game quits when it's done: only a batch from the command line that ran its
+## course (or the AI stopped), not one started in the game or stopped by hand (the bar's handed
+## back to the player).
+func quits_when_done() -> bool:
+	return from_command_line and not by_hand
+
+
+## Where it was started, in a few words (the stats, the log, the summary).
+func started_from() -> String:
+	return "the command line" if from_command_line else "the menu"
 
 
 ## Which night of the batch this is, for the night's log ("night 3 of 10").
@@ -108,7 +146,7 @@ func progress_text() -> String:
 
 
 func summary_text(bar_name: String) -> String:
-	var lines := ["KTBT autoplay: %s" % bar_name, "Started %s. %d of %d nights played%s." % [_started, played.size(), nights,
+	var lines := ["KTBT autoplay: %s" % bar_name, "Started %s, from %s. %d of %d nights played%s." % [_started, started_from(), played.size(), nights,
 		"" if not finished() else (", stopped early: " + stop_reason if stop_reason != "" else ", all done")], ""]
 	var minutes := 0.0
 	for night in played:

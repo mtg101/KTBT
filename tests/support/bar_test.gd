@@ -34,7 +34,7 @@ func after_test() -> void:
 		_clear_folder(folder)
 	Hooks.restore()
 	Game.bar = {}
-	Game.autoplay = null  # (an autoplay test that failed part way: never left on)
+	Game.end_autoplay()  # (an autoplay test that failed part way: never left on)
 	Game.change_scenes = true
 	Game.requested_scene = ""
 

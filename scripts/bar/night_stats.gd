@@ -47,6 +47,10 @@ var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
 var ratings_so_far := {}
 ## The autopilot PD's night, in an autoplay batch (Autopilot.counts): {} when a player's at the desk.
 var autopilot := {}
+## The crew running it (autoplay: visit.gd, "Let the crew run it"), tonight: {"from" (the menu or
+## the command line), "nights", "night" ("night 3 of 10"), "took_over" (a time, if they took over
+## part-way through), "stopped" (how, if they were), "handed_back" (when)}; {} when they weren't.
+var crew_run := {}
 var ratings_before: Array = []
 var arrived := 0
 var served := 0  # paid and left
@@ -765,6 +769,11 @@ func panel_text(seated: int, cooking: int) -> String:
 		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
 	lines.append("")
 	lines.append("[b]THE PD[/b]")
+	if not crew_run.is_empty():
+		lines.append("The crew ran it (from %s): %s%s%s%s" % [str(crew_run.get("from", "?")), str(crew_run.get("night", "")),
+			(" · took over at %s" % crew_run["took_over"]) if crew_run.has("took_over") else "",
+			(" · stopped: %s" % crew_run["stopped"]) if crew_run.has("stopped") else "",
+			(" · handed back %s" % (("at " + str(crew_run["handed_back"])) if not str(crew_run["handed_back"]).begins_with("after") else str(crew_run["handed_back"]))) if crew_run.has("handed_back") else ""])
 	if not autopilot.is_empty():
 		lines.append("Autopilot PD (an autoplay batch): cards played %d · camera moves %d · pinned %d · spins picked %d · stepped in: %s" % [int(autopilot.get("cards", 0)),
 			int(autopilot.get("camera", 0)), int(autopilot.get("pins", 0)), int(autopilot.get("spins", 0)), str(autopilot.get("stepped_in", "")) if str(autopilot.get("stepped_in", "")) != "" else "no"])
@@ -901,7 +910,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true),
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true), "crew": crew_run.duplicate(true),
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},

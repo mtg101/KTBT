@@ -84,3 +84,13 @@ func test_the_cut_picks_from_whats_there_and_never_writes_its_own() -> void:
 			assert_int(int(scene)).is_between(0, 4)
 			assert_int(scenes.count(scene)).is_equal(1)
 	assert_int(int(pilot.cut_choices(0, 0, 0)["title"])).is_equal(-1)  # (no titles drafted: it leaves the title)
+
+
+func test_taking_over_part_way_through_a_night_plays_whats_left_from_now() -> void:
+	var pilot := Autopilot.new("a night taken over")
+	pilot.plan(["phone", "rain", "cue_card"], 23 * 60 + 30)  # (the crew take over at 11:30pm)
+	for planned in pilot.schedule:
+		assert_float(float(planned["at"])).is_greater(23 * 60 + 30)  # never in the past (they'd all go at once)
+		assert_float(float(planned["at"])).is_less(Autopilot.GIVE_UP_AT)
+	pilot.plan(["phone"], 26 * 60 + 30)  # (as late as 2:30am)
+	assert_float(float(pilot.schedule[0]["at"])).is_between(26 * 60 + 30, Autopilot.GIVE_UP_AT)

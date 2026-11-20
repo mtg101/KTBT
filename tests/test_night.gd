@@ -276,6 +276,7 @@ func test_autoplay_plays_its_nights_then_stops() -> void:
 	Autoplay.folder = TEST_AUTOPLAY
 	var batch := Autoplay.new(2)
 	batch.pause_seconds = 0.0
+	batch.from_command_line = true  # (as tools/autoplay.bat starts it: it quits when it's done)
 	Game.autoplay = batch
 	var first := await _open_bar()
 	# After the first night, it opens the saved bar again, as the next day does ("Previously on…").

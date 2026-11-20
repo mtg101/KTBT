@@ -38,6 +38,29 @@ func _ready() -> void:
 		autoplay.write_running()  # (so the phone helper can see it's going)
 
 
+## The crew run it (the menu: autoplay started in the game) for so many nights, on the open bar.
+## Not on the phone helper's list (no running file: its Stop ends the game's process, and this
+## is someone's game, not a test batch). Null if a batch is going already.
+func start_autoplay(how_many: int) -> Autoplay:
+	if autoplay != null or bar.is_empty():
+		return null
+	autoplay = Autoplay.in_game(how_many, str(bar.get("id", "")))
+	OS.add_logger(autoplay.errors)
+	print("Autoplay: %d nights, the crew running it (from the menu)." % autoplay.nights)
+	return autoplay
+
+
+## The batch is over and the bar's the player's again (started in the game, or stopped by hand).
+func end_autoplay() -> void:
+	if autoplay == null:
+		return
+	OS.remove_logger(autoplay.errors)
+	if autoplay.from_command_line:
+		Autoplay.clear_running()
+		AudioServer.set_bus_mute(0, false)  # (someone's here now)
+	autoplay = null
+
+
 ## Starts the music if it isn't going yet (the title screen and the bar both ask).
 func start_music() -> Music:
 	if music == null:

@@ -14,6 +14,7 @@ const PdCamera = preload("res://scripts/bar/camera.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Autopilot = preload("res://scripts/bar/autopilot.gd")
+const Autoplay = preload("res://scripts/autoplay.gd")
 const Ai = preload("res://scripts/ai/ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
@@ -2744,3 +2745,61 @@ func test_close_regulars_come_in_as_a_pair_and_new_pairs_who_both_stay_on_come_i
 	Hooks.groups = false
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
+
+
+func test_the_crew_run_it_from_the_menu_locked_until_its_stopped_and_handed_back() -> void:
+	Autoplay.folder = "user://test_crew_visit/"
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var badge: Button = runner.find_child("CrewBadge", true, false)
+	assert_bool(badge.visible).is_false()  # (nobody's running it: no badge)
+	scene._options_button.button_pressed = true  # the menu
+	assert_bool((runner.find_child("CrewStart", true, false) as Button).disabled).is_false()  # (the night's open: they can take over)
+	assert_str((runner.find_child("CrewLabel", true, false) as Label).text).contains("Let the crew run it")
+	scene._on_crew_start(2)
+	assert_object(Game.autoplay).is_not_null()
+	assert_bool(Game.autoplay.from_command_line).is_false()
+	assert_bool(scene._options_button.button_pressed).is_false()  # (the menu closes)
+	# The badge, and what's locked while they're running it.
+	assert_bool(badge.visible).is_true()
+	assert_str(badge.text).contains("CREW RUNNING").contains("NIGHT 1 OF 2")
+	assert_object(scene._autopilot).is_not_null()  # (the desk's theirs: what's left of tonight's hand, from now)
+	for planned in scene._autopilot.schedule:
+		assert_float(float(planned["at"])).is_greater(scene._clock)
+	assert_bool(scene._pd.crew_running).is_true()
+	assert_bool(scene._leave_button.visible).is_false()
+	assert_bool(scene._reading_toggle.disabled).is_true()
+	var card := str(scene._pd.hand[0])
+	scene._pd.press(card)  # (a click on a card: nothing)
+	assert_bool(scene._pd.played.has(card)).is_false()
+	assert_str(_transcript(runner)).contains("(The crew take over for 2 nights, at ")
+	assert_str(scene._stats.panel_text(0, 0)).contains("The crew ran it (from the menu): night 1 of 2 · took over at ")
+	# Closing the bar asks how to stop them; keeping going changes nothing.
+	scene._on_leave_pressed()
+	assert_bool((runner.find_child("CrewStopDialog", true, false) as AcceptDialog).visible).is_true()
+	scene._crew.choose(&"")
+	assert_object(Game.autoplay).is_not_null()
+	assert_bool(scene._closing_early).is_false()
+	# After tonight: still running, its last night.
+	scene._crew.choose(&"after_tonight")
+	assert_object(Game.autoplay).is_not_null()
+	assert_str(badge.text).contains("LAST NIGHT")
+	# Now: tonight's the player's from here.
+	var auto = Game.autoplay
+	scene._crew.choose(&"now")
+	assert_object(Game.autoplay).is_null()
+	assert_bool(badge.visible).is_false()
+	assert_object(scene._autopilot).is_null()
+	assert_bool(scene._pd.crew_running).is_false()
+	assert_bool(scene._leave_button.visible).is_true()
+	assert_bool(scene._reading_toggle.disabled).is_false()
+	assert_str(_transcript(runner)).contains("(The crew hand the bar back: stopped by hand, after night")
+	assert_str(scene._stats.panel_text(0, 0)).contains(" · stopped: taken over at ").contains(" · handed back at ")
+	assert_int(auto.played.size()).is_equal(0)
+	var summaries := DirAccess.get_files_at(Autoplay.folder)
+	assert_int(summaries.size()).is_equal(1)
+	assert_str(FileAccess.get_file_as_string(Autoplay.folder + summaries[0])).contains("from the menu. 0 of 2 nights played, stopped early: stopped by hand")
+	assert_bool(FileAccess.file_exists(Autoplay.running_path())).is_false()  # (not the phone helper's: no running file)
+	for file_name in summaries:
+		DirAccess.remove_absolute(Autoplay.folder + file_name)
+	Autoplay.folder = ""

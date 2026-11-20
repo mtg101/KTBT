@@ -43,11 +43,14 @@ func _init(seed_text: String = "") -> void:
 	dice.seed = hash("autopilot " + seed_text)
 
 
-## The night's opening: when to play each card in the hand, spread over the evening.
+## The night's opening: when to play each card in the hand, spread over the evening (or, when
+## the crew take over part-way through a night, over what's left of it: never in the past).
 func plan(hand: Array, now_minutes: float) -> void:
 	schedule = []
+	var earliest := maxi(FIRST_CARD, ceili(now_minutes) + 5)
+	var latest := maxi(LAST_CARD, mini(earliest + 60, GIVE_UP_AT - 1))
 	for card in hand:
-		schedule.append({"card": str(card), "at": float(dice.randi_range(FIRST_CARD, LAST_CARD))})
+		schedule.append({"card": str(card), "at": float(dice.randi_range(earliest, latest))})
 	schedule.sort_custom(func(a, b): return float(a["at"]) < float(b["at"]))
 	camera_next = maxf(now_minutes, FIRST_CARD - 30) + dice.randf_range(0.0, CAMERA_EVERY)
 

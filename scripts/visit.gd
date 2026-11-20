@@ -31,6 +31,7 @@ const CaptionsOnScreen = preload("res://scripts/bar/captions_on_screen.gd")
 const PdDesk = preload("res://scripts/bar/pd_desk.gd")
 const EditSuite = preload("res://scripts/ui/edit_suite.gd")
 const Autopilot = preload("res://scripts/bar/autopilot.gd")
+const CrewControls = preload("res://scripts/ui/crew_controls.gd")
 const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
@@ -421,6 +422,11 @@ var _moment_label: Label
 var _mode_label: Label
 ## The autopilot PD (an autoplay batch only: see autopilot.gd), or null: a player's at the desk.
 var _autopilot: Autopilot = null
+var _crew: CrewControls  # "Let the crew run it" (autoplay in the game): the top bar's badge, the menu's row, Stop's question
+var _summary_leave: Button  # the summary page's "Close the bar" (hidden while the crew are running it)
+var _crew_between_nights := false  # the crew's pause on the summary page, before they open the next night
+var _writing_up := false  # the owner's writing tonight up (the summary page's buttons wait)
+var _night_written := false  # tonight's over and written up (the diary, the stats): the crew can take over from the summary page
 var _ratings_label: Label  # 시청률: tonight's so far, the final at 3am, or last time's (see _update_ratings)
 var _title_label: Label
 var _log: RichTextLabel
@@ -484,6 +490,7 @@ func _ready() -> void:
 	_music = Game.start_music()
 	_build_ui()
 	_build_loading()
+	_update_crew()
 	_ai.offline_started.connect(_on_offline_started)
 	_ai.answered.connect(_on_ai_answered)
 	_ai.rejected.connect(_on_ai_rejected)
@@ -932,6 +939,9 @@ func _show_bar_name() -> void:
 ## free, otherwise once they've finished what they're doing (an AI call can't be stopped
 ## halfway).
 func _on_leave_pressed() -> void:
+	if Game.autoplay != null:  # (the crew are running it: stop them first, which asks how)
+		_crew.ask_stop()
+		return
 	if _stopped or _closing_early:
 		return
 	if _night_open:
@@ -1128,6 +1138,8 @@ func _start_night() -> void:
 	_night_visits = 0
 	_night_lines = []
 	_stats = NightStats.new()
+	if Game.autoplay != null:  # (a night the crew open: in its stats)
+		_stats.crew_run = {"from": Game.autoplay.started_from(), "nights": Game.autoplay.nights, "night": Game.autoplay.progress_text()}
 	_camera = PdCamera.new()
 	_camera.crew = Channels.camera_crew(Game.bar.get("show", {}))  # (who's filming: the niece or nephew, on the phone stream)
 	_camera.cat = _tent_cat
@@ -1202,6 +1214,7 @@ func _start_night() -> void:
 	_attending = null
 	_owner_stunned = ""
 	_night_open = true
+	_night_written = false
 	_update_desk()  # (open now: the desk offers the edit again, until the first customer)
 	_next_arrival = _clock + NightRules.next_arrival_gap(int(_clock), randf(), _busier)
 	_show_weather(NightRules.weather_kind(_night_weather))
@@ -1426,6 +1439,7 @@ func _end_night() -> void:
 		_show_season_page()
 	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
+	_night_written = true
 	if Game.autoplay != null:
 		_autoplay_next()
 	if _closing_early:  # (written up: the button's for leaving again)
@@ -1688,6 +1702,7 @@ func _rate_night() -> void:
 ## 3am: the owner writes tonight up in their diary (the AI, from the facts the game picks, or
 ## the game itself if it can't), shown as the end-of-night page and kept with the bar.
 func _write_diary() -> void:
+	_writing_up = true
 	for button in _summary_buttons:
 		button.disabled = true
 	var facts := _diary_facts()
@@ -1720,8 +1735,9 @@ func _write_diary() -> void:
 	_stats.story["diary_stamp"] = str(entry["stamp"])
 	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
 	_show("[i][color=#%s]%s's diary, %s: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], ShowSeasons.words(_show_place), _esc(text)])
+	_writing_up = false
 	for button in _summary_buttons:
-		button.disabled = false
+		button.disabled = Game.autoplay != null  # (the crew open the next night, while they're running it)
 
 
 func _validate_diary(data: Variant, facts: Dictionary) -> String:
@@ -1899,8 +1915,12 @@ func _offer_step_in() -> void:
 	_step_in_wanted = false
 	_step_in_when = ""
 	if _loading != null and _loading.visible:
-		var button: Button = _loading.show_step_in("✂  The writers are cutting %s…  Step in as the PD (Enter)" % _last_episode_words())
-		button.pressed.connect(_step_in)
+		var crew := Game.autoplay != null
+		var button: Button = _loading.show_step_in(("✂  The writers are cutting %s…  (the crew decide whether to step in)" if crew else "✂  The writers are cutting %s…  Step in as the PD (Enter)") % _last_episode_words())
+		button.disabled = crew
+		button.pressed.connect(func():
+			if Game.autoplay == null:
+				_step_in())
 	if _autopilot != null and _autopilot.steps_in():
 		_autopilot.counts["stepped_in"] = "yes"
 		_step_in.call_deferred()
@@ -2199,20 +2219,137 @@ func _autoplay_next() -> void:
 	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up, float(_night_ratings.get("rating", -1.0)),
 		"%s · %s%s" % [ShowSeasons.short_label(_show_place), str(_night_ratings.get("rung", _rung())), (" · " + ShowSeasons.log_text(_season_ended)) if not _season_ended.is_empty() else ""])
 	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
-	auto.write_running(str(Game.bar.get("name", "")))
+	if auto.from_command_line:
+		auto.write_running(str(Game.bar.get("name", "")))
 	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
 	if auto.finished():
-		Game.quit()
+		if auto.quits_when_done():
+			Game.quit()
+		else:
+			_crew_hand_back(auto)  # (started in the game, or stopped by hand: the bar's the player's again)
 		return
+	_autoplay_open_next(auto)
+
+
+## After the summary page's pause, the crew open the next night (as coming back the next day).
+func _autoplay_open_next(auto) -> void:
+	_crew_between_nights = true
+	_update_crew()
 	if auto.pause_seconds > 0.0:
 		await get_tree().create_timer(auto.pause_seconds).timeout
+	_crew_between_nights = false
 	if _closed() or Game.autoplay != auto:
 		return
 	if not Game.open_bar(str(Game.bar.get("id", ""))):
 		_on_next_night_pressed()  # (the save won't load: carry straight on instead)
 
 
+# --- Let the crew run it (autoplay in the game: autoplay.gd, crew_controls.gd) ---------------
+
+## Whether the crew can take over now: while a night's open (not closing up), or once it's
+## written up, on the summary page; and why not, if not.
+func _crew_can_start() -> String:
+	if Game.autoplay != null:
+		return "The crew are running it already."
+	if _night_open and not _closing_early and not _stopped:
+		return ""
+	if _summary != null and _summary.visible and _night_written and not _night_open:
+		return ""
+	return "Once the night's open, or once it's written up."
+
+
+## The crew's badge, menu row and the controls they'd lock, as things are now.
+func _update_crew() -> void:
+	if _crew == null or _crew.badge == null:
+		return
+	var auto = Game.autoplay
+	var running: bool = auto != null
+	var why := _crew_can_start()
+	_crew.show_state(running, auto.progress_text() if running else "", running and auto.stop_reason != "", why == "", why)
+	_leave_button.visible = not running  # (Stop's in the same menu, and asks)
+	if _summary_leave != null:
+		_summary_leave.visible = not running
+	if not _summary_buttons.is_empty():
+		var next_night: Button = _summary_buttons[0]
+		if running:
+			next_night.disabled = true
+			next_night.text = "The crew open the next night…" if _crew_between_nights else "The crew are running it"
+		elif next_night.text != "Open for another night":
+			next_night.text = "Open for another night"
+			next_night.disabled = _writing_up
+	_reading_toggle.disabled = running
+	if _pd != null and _pd.crew_running != running:
+		_pd.crew_running = running
+		if running:
+			_pd.close_writing()
+		_pd.refresh()
+
+
+## The menu's Start: the crew take over for so many nights, from now (tonight, if it's open, is
+## the first; on the summary page, the next).
+func _on_crew_start(nights: int) -> void:
+	if _crew_can_start() != "":
+		return
+	var auto = Game.start_autoplay(nights)
+	if auto == null:
+		return
+	_options_button.button_pressed = false
+	var when := NightRules.clock_text(int(_clock)) if _night_open else "after night %d" % _night_number
+	_stats.crew_run = {"from": auto.started_from(), "nights": auto.nights, "night": auto.progress_text(), "took_over": when}
+	_show("[i][color=#%s](The crew take over for %d night%s, %s.)[/color][/i]\n\n" % [MUTED.to_html(false), auto.nights, "" if auto.nights == 1 else "s", ("at " + when) if _night_open else when])
+	print("Crew: the crew run it for %d nights, from %s (night %d)." % [auto.nights, when, _night_number])
+	if _night_open:  # the PD's desk is theirs for the rest of tonight: what's left of the hand, from now
+		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
+		_autopilot.plan(_pd.hand.filter(func(card): return not _pd.played.has(card)), _clock)
+		_update_crew()
+	else:  # tonight's written up: they open the next one
+		_update_crew()
+		_autoplay_open_next(auto)
+
+
+## Stop's question answered: after tonight (the night played out and written up, then the bar
+## back; at once if tonight's done already), or now (tonight's the player's from here).
+func _on_crew_stop(how: String) -> void:
+	var auto = Game.autoplay
+	if auto == null:
+		return
+	var tonight_to_finish: bool = (_night_open or not _night_written) and not _crew_between_nights
+	if how == CrewControls.STOP_AFTER and tonight_to_finish:
+		auto.stop_by_hand("stopped by hand, after night %d" % _night_number)
+		_stats.crew_run["stopped"] = "after tonight (asked at %s)" % NightRules.clock_text(int(_clock))
+		print("Crew: stopping after tonight (asked at %s, night %d)." % [NightRules.clock_text(int(_clock)), _night_number])
+		_update_crew()
+		return
+	if _night_open:
+		auto.stop_by_hand("taken over by hand at %s, night %d" % [NightRules.clock_text(int(_clock)), _night_number])
+		_stats.crew_run["stopped"] = "taken over at %s" % NightRules.clock_text(int(_clock))
+	else:
+		auto.stop_by_hand("stopped by hand after night %d" % _night_number)
+		_stats.crew_run["stopped"] = "by hand, between nights"
+	_crew_hand_back(auto)
+
+
+## The crew hand the bar back (their nights done, or stopped): the run's summary written, the
+## controls the player's again, and tonight's desk theirs from here.
+func _crew_hand_back(auto) -> void:
+	if Game.autoplay != auto:
+		return
+	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
+	var why: String = auto.stop_reason if auto.stop_reason != "" else "all %d nights done" % auto.nights
+	if _stats != null:
+		if not _stats.crew_run.has("stopped"):
+			_stats.crew_run["stopped"] = why
+		_stats.crew_run["handed_back"] = NightRules.clock_text(int(_clock)) if _night_open else "after night %d" % _night_number
+	_show("[i][color=#%s](The crew hand the bar back: %s.)[/color][/i]\n\n" % [MUTED.to_html(false), _esc(why)])
+	print("Crew: handed back (%s, %d of %d nights played). Summary: %s" % [why, auto.played.size(), auto.nights, ProjectSettings.globalize_path(path)])
+	Game.end_autoplay()
+	_autopilot = null
+	_crew_between_nights = false
+	_update_crew()
+
+
 func _update_clock_label() -> void:
+	_update_crew()
 	if _night_number == 0:
 		return
 	_moment_label.text = "Night %d  ·  %s  ·  %s %s  ·  %s  ·  %s" % [_night_number, ShowSeasons.short_label(_show_place), _night_day, _short_date(), NightRules.clock_text(int(_clock)), _night_weather]
@@ -2671,11 +2808,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_open_setup()
 		get_viewport().set_input_as_handled()
 		return
-	if key != null and key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER) and _step_in_open and not _editing:
+	if key != null and key.pressed and not key.echo and (key.keycode == KEY_ENTER or key.keycode == KEY_KP_ENTER) and _step_in_open and not _editing and Game.autoplay == null:
 		_step_in()
 		get_viewport().set_input_as_handled()
 		return
-	if key != null and key.pressed and not key.echo and _pd != null and _pd.edit_up() and key.keycode >= KEY_1 and key.keycode <= KEY_3:
+	if key != null and key.pressed and not key.echo and _pd != null and _pd.edit_up() and key.keycode >= KEY_1 and key.keycode <= KEY_3 and Game.autoplay == null:
 		_pd.air_edit(key.keycode - KEY_1)
 		get_viewport().set_input_as_handled()
 		return
@@ -5231,6 +5368,15 @@ func _build_ui() -> void:
 	_options_button.toggled.connect(_on_menu_toggled)
 	bar.add_child(_options_button)
 
+	# "Let the crew run it" (autoplay in the game): a badge on the top bar while they are, and its
+	# row at the top of the menu (crew_controls.gd).
+	_crew = CrewControls.new()
+	_crew.name = "Crew"
+	add_child(_crew)
+	_crew.build(bar, _options_panel.get_child(0), _badge(Ktv.MINT))
+	_crew.start_asked.connect(_on_crew_start)
+	_crew.stop_chosen.connect(_on_crew_stop)
+
 	# The street behind it all, in pixel art, reaching above the tent (street_art.gd).
 	_street_art = StreetArt.new()
 	_street_art.position = Vector2((SCREEN.x - STAGE_SIZE.x) / 2, 60)
@@ -5257,7 +5403,9 @@ func _build_ui() -> void:
 	_log.scroll_following = true
 	_log.selection_enabled = true
 	_log.meta_underlined = false  # (a line's 📌 is a link: see _pin_link)
-	_log.meta_clicked.connect(_on_transcript_link)
+	_log.meta_clicked.connect(func(meta):
+		if Game.autoplay == null:  # (pinning and stepping in are the crew's while they're running it)
+			_on_transcript_link(meta))
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log.add_theme_font_size_override("normal_font_size", 15)  # (the side panel's size: more of the night on screen, scrolling by slower)
 	_log.add_theme_font_size_override("bold_font_size", 15)
@@ -5353,12 +5501,12 @@ func _build_ui() -> void:
 	summary_buttons.add_child(_season_button)
 	summary_buttons.add_child(next_night)
 	_summary_buttons = [next_night]
-	var summary_leave := Button.new()
-	summary_leave.name = "SummaryLeaveButton"
-	summary_leave.text = "Close the bar"
-	summary_leave.custom_minimum_size = Vector2(200, 48)
-	summary_leave.pressed.connect(_on_leave_pressed)
-	summary_buttons.add_child(summary_leave)
+	_summary_leave = Button.new()
+	_summary_leave.name = "SummaryLeaveButton"
+	_summary_leave.text = "Close the bar"
+	_summary_leave.custom_minimum_size = Vector2(200, 48)
+	_summary_leave.pressed.connect(_on_leave_pressed)
+	summary_buttons.add_child(_summary_leave)
 
 
 func _badge(colour: Color) -> StyleBoxTexture:
@@ -5416,6 +5564,7 @@ func _build_options_panel() -> VBoxContainer:
 func _on_menu_toggled(on: bool) -> void:
 	_options_panel.visible = on
 	if on:
+		_update_crew()  # (whether the crew can take over now)
 		_options_panel.reset_size()
 
 
