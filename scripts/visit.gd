@@ -32,6 +32,7 @@ const PdDesk = preload("res://scripts/bar/pd_desk.gd")
 const EditSuite = preload("res://scripts/ui/edit_suite.gd")
 const Autopilot = preload("res://scripts/bar/autopilot.gd")
 const CrewControls = preload("res://scripts/ui/crew_controls.gd")
+const TranscriptView = preload("res://scripts/ui/transcript_view.gd")
 const CaptionReel = preload("res://scripts/ui/caption_reel.gd")
 const StoryKeeper = preload("res://scripts/bar/story_keeper.gd")
 const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
@@ -231,7 +232,6 @@ var _editing := false  # the edit suite's open
 var _recap_screen: Control  # "Previously on…", while it's playing
 var _writers_recap := {}  # last night's recap as the writers cut it (the PD's cut is made from it)
 var _said: Array = []  # the lines said, as said: {"id", "speaker", "text", "at", "night"} (a line's 📌 pins it: see _said_line)
-var _chunks: Array = []  # the transcript as shown, chunk by chunk ({"text", "pin": a line said, or -1}), to draw it again when a pin changes
 var _pd: PdDesk  # the PD's desk: tonight's hand, the writing box, the edit, the REC corner (scripts/bar/pd_desk.gd)
 var _planted_regular := ""  # the regular the PD rang tonight, until they're in (their id)
 var _lights_out := 0.0  # real seconds left of the lights being out (the lights-flicker card)
@@ -429,7 +429,8 @@ var _writing_up := false  # the owner's writing tonight up (the summary page's b
 var _night_written := false  # tonight's over and written up (the diary, the stats): the crew can take over from the summary page
 var _ratings_label: Label  # 시청률: tonight's so far, the final at 3am, or last time's (see _update_ratings)
 var _title_label: Label
-var _log: RichTextLabel
+var _log: RichTextLabel  # the transcript's lines (_transcript_view's)
+var _transcript_view: TranscriptView  # the transcript on screen: its toolbar (search, All/Talk/Events, size, Compact) and catching up to the latest
 var _typing_label: Label
 var _here_text := ""  # who's here now, for the side panel's first tab (see _update_info)
 var _desk_panel: PanelContainer  # the PD's desk: the camera (and the plant cards, to come)
@@ -1138,6 +1139,7 @@ func _start_night() -> void:
 	_night_visits = 0
 	_night_lines = []
 	_stats = NightStats.new()
+	_stats.transcript_use = {"size": _transcript_view.font_size, "compact": _transcript_view.compact}  # (how it's set as the night opens)
 	if Game.autoplay != null:  # (a night the crew open: in its stats)
 		_stats.crew_run = {"from": Game.autoplay.started_from(), "nights": Game.autoplay.nights, "night": Game.autoplay.progress_text()}
 	_camera = PdCamera.new()
@@ -2709,9 +2711,8 @@ func _save_stats(finished: bool) -> void:
 ## it, kept for the top of it: see StoryKeeper).
 ## pin: a line said (see _said_line), shown with its 📌: only on screen, not in the transcript file.
 func _show(bbcode: String, pin: int = -1) -> void:
-	var chunk := {"text": Glossary.explain_hangul(bbcode), "pin": pin}  # (any Hangul explains itself on hover)
-	_chunks.append(chunk)
-	_log.append_text(_render(chunk))
+	var chunk := {"text": Glossary.explain_hangul(bbcode), "pin": pin, "at": int(_clock) if _night_number > 0 else -1}  # (any Hangul explains itself on hover)
+	_transcript_view.add(chunk)
 	_story.record(bbcode)
 
 
@@ -2740,15 +2741,14 @@ func _render(chunk: Dictionary) -> String:
 ## The transcript drawn again from its chunks (a pin's changed how a line looks), keeping
 ## where it's scrolled to (unless it was following the latest line).
 func _redraw_transcript() -> void:
-	var bar := _log.get_v_scroll_bar()
-	var at := bar.value
-	var following := at >= bar.max_value - bar.page - 8.0
-	_log.clear()
-	for chunk in _chunks:
-		_log.append_text(_render(chunk))
-	if not following:
-		await get_tree().process_frame
-		bar.value = at
+	_transcript_view.redraw()
+
+
+## The transcript's toolbar used (transcript_view.gd): counted in the stats, and logged.
+func _on_transcript_used(what: String, detail: String) -> void:
+	print("Transcript: %s %s" % [what.replace("_", " "), detail])
+	if _stats != null:
+		_stats.note_transcript(what, detail)
 
 
 ## A link clicked in the transcript: a line's 📌 pins it (or unpins it) for the episode.
@@ -5396,22 +5396,17 @@ func _build_ui() -> void:
 	# Bottom left: what's being said
 	_log_panel = _panel(Vector2(24, PANELS_TOP), Vector2(400, SCREEN.y - PANELS_TOP - 24))  # (sized in _layout_panels)
 	add_child(_log_panel)
-	var log_box := VBoxContainer.new()
+	var log_box := TranscriptView.new()  # (its toolbar, the lines, and "↓ new lines": transcript_view.gd)
+	log_box.name = "TranscriptView"
 	_log_panel.add_child(log_box)
-	_log = RichTextLabel.new()
-	_log.name = "Transcript"
-	_log.bbcode_enabled = true
-	_log.scroll_following = true
-	_log.selection_enabled = true
-	_log.meta_underlined = false  # (a line's 📌 is a link: see _pin_link)
+	log_box.render = _render
+	log_box.build()
+	log_box.used.connect(_on_transcript_used)
+	_transcript_view = log_box
+	_log = log_box.transcript
 	_log.meta_clicked.connect(func(meta):
 		if Game.autoplay == null:  # (pinning and stepping in are the crew's while they're running it)
 			_on_transcript_link(meta))
-	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_log.add_theme_font_size_override("normal_font_size", 15)  # (the side panel's size: more of the night on screen, scrolling by slower)
-	_log.add_theme_font_size_override("bold_font_size", 15)
-	_log.add_theme_font_size_override("italics_font_size", 15)
-	log_box.add_child(_log)
 	_typing_label = Label.new()
 	_typing_label.name = "Status"
 	_typing_label.add_theme_color_override("font_color", MUTED)

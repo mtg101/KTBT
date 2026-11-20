@@ -4,12 +4,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Transcript UI:** it's nice and pretty, but it needs to be easier to use when you want to check on something or find lines to pin
-  - basic search 
-  - catch up to latest (for when you've scrolled up to read something)
-  - popout in resizeable window
-  - zoom / text size options?
-  - how compact text is? (the gaps and layout are great for the game look, but if you're trying to find a line)
 - **Terminal log levels:** only for some things... 
   - time useful for checking things are ticking along in the background while watching Netflix...
   - other things... just a distraction
@@ -20,6 +14,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - I don't need CSOC levels of logging...
   - so just keep logging to updating like once an hour
     - unless the AI find these logs useful
+  - or direct opposite!
+    - if popouts are hard, and were just a debug hack anyway
+    - does the debug log have this stuff?
+    - or do we already save transcripts in a txt file for me to search?
 
 
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
@@ -72,10 +70,13 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Presentation
 
-- **Portraits:** a picture of each character (for the hover or the diary).
-  - **Pre-generated:** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
-  - **Mixed (probably the right balance):** regulars get their own portrait made between nights.
-  - **Live:** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
+- **Portraits:** a picture of each character
+  - many uses
+    - diaries, hover, social media posts, TV popups, cut to camera...
+  - tech options
+    - **Pre-generated:** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
+    - **Mixed (probably the right balance):** regulars get their own portrait made between nights.
+    - **Live:** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
 - **Ambience (sound and animation):** 
   - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
   - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)

@@ -498,3 +498,13 @@ func test_the_crew_running_it_is_in_the_stats() -> void:
 	stats.crew_run = {"from": "the command line", "nights": 10, "night": "night 3 of 10"}
 	assert_str(stats.panel_text(0, 0)).contains("The crew ran it (from the command line): night 3 of 10\n")
 	assert_str(str(stats.summary({})["pd"]["crew"]["night"])).is_equal("night 3 of 10")
+
+
+func test_the_transcripts_toolbar_is_in_the_stats() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).not_contains("Transcript:")  # (before the night: nothing said)
+	stats.transcript_use = {"size": 15, "compact": false}
+	for used in [["search", "«soju» · 3 lines"], ["jump", "1 of 3"], ["jump", "2 of 3"], ["filter", "talk"], ["catch_up", "7"], ["catch_up", "2"], ["size", "17"], ["compact", "on"]]:
+		stats.note_transcript(used[0], used[1])
+	assert_str(stats.panel_text(0, 0)).contains("Transcript: searched 1 (went through matches 2) · showed Talk 1, Events 0, All 0 · caught up 2 (9 new lines) · text 17 · compact")
+	assert_int(int(stats.summary({})["pd"]["transcript"]["caught"])).is_equal(9)

@@ -2804,3 +2804,24 @@ func test_the_crew_run_it_from_the_menu_locked_until_its_stopped_and_handed_back
 	for file_name in summaries:
 		DirAccess.remove_absolute(Autoplay.folder + file_name)
 	Autoplay.folder = ""
+
+
+func test_the_transcripts_toolbar_in_the_bar() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	# Over the transcript: search, All/Talk/Events, text size and Compact (transcript_view.gd).
+	for id in ["TranscriptSearch", "TranscriptShow_all", "TranscriptShow_talk", "TranscriptShow_events", "TranscriptSmaller", "TranscriptBigger", "TranscriptCompact"]:
+		assert_object(runner.find_child(id, true, false)).override_failure_message(id).is_not_null()
+	assert_object(runner.find_child("TranscriptCatchUp", true, false)).is_not_null()
+	# Each chunk knows when it was said (Compact shows it), and a line said is Talk.
+	scene._show("[b]Owner:[/b] Another round?\n\n", scene._said_line("Owner", "Another round?"))
+	var last: Dictionary = scene._transcript_view.chunks.back()
+	assert_int(int(last["at"])).is_equal(int(scene._clock))
+	assert_int(int(last["pin"])).is_greater_equal(0)
+	scene._transcript_view.set_filter("talk")
+	await scene._transcript_view.redraw()
+	assert_str(_transcript(runner)).contains("Another round?").not_contains("opens up")
+	# Used: counted in the stats (THE PD) and logged.
+	assert_int(int(scene._stats.transcript_use.get("talk", 0))).is_equal(1)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Transcript: searched 0 (went through matches 0) · showed Talk 1, Events 0, All 0 · caught up 0 (0 new lines) · text 15")
+	scene._transcript_view.set_filter("all")

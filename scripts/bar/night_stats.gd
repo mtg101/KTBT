@@ -51,6 +51,10 @@ var autopilot := {}
 ## the command line), "nights", "night" ("night 3 of 10"), "took_over" (a time, if they took over
 ## part-way through), "stopped" (how, if they were), "handed_back" (when)}; {} when they weren't.
 var crew_run := {}
+## The transcript's toolbar tonight (transcript_view.gd): {"searches", "jumps", "talk", "events",
+## "all" (the filter picked, each time), "catch_ups", "caught" (lines caught up on), "size" and
+## "compact" (as it is: set as the night opens, then as it's changed)}.
+var transcript_use := {}
 var ratings_before: Array = []
 var arrived := 0
 var served := 0  # paid and left
@@ -442,6 +446,24 @@ func record_topic(topic: String, chat: bool) -> void:
 	topics[key] = int(topics.get(key, 0)) + 1
 
 
+## The transcript's toolbar used (transcript_view.gd's used: what, and its detail).
+func note_transcript(what: String, detail: String) -> void:
+	match what:
+		"search":
+			transcript_use["searches"] = int(transcript_use.get("searches", 0)) + 1
+		"jump":
+			transcript_use["jumps"] = int(transcript_use.get("jumps", 0)) + 1
+		"filter":
+			transcript_use[detail] = int(transcript_use.get(detail, 0)) + 1
+		"catch_up":
+			transcript_use["catch_ups"] = int(transcript_use.get("catch_ups", 0)) + 1
+			transcript_use["caught"] = int(transcript_use.get("caught", 0)) + int(detail)
+		"size":
+			transcript_use["size"] = int(detail)
+		"compact":
+			transcript_use["compact"] = detail == "on"
+
+
 ## How many spells were steered somewhere light (teasing, food fights, silly stories), and
 ## how many to the heavy topics (see Talk.LIGHT_TOPICS): [light, deep].
 func topic_mix() -> Array:
@@ -769,6 +791,10 @@ func panel_text(seated: int, cooking: int) -> String:
 		int(event_counts.get("cheered_on", 0)), "yes" if int(event_counts.get("first_snow", 0)) > 0 else "no"])
 	lines.append("")
 	lines.append("[b]THE PD[/b]")
+	if transcript_use.has("size"):
+		var t := transcript_use
+		lines.append("Transcript: searched %d (went through matches %d) · showed Talk %d, Events %d, All %d · caught up %d (%d new lines) · text %d%s" % [int(t.get("searches", 0)), int(t.get("jumps", 0)),
+			int(t.get("talk", 0)), int(t.get("events", 0)), int(t.get("all", 0)), int(t.get("catch_ups", 0)), int(t.get("caught", 0)), int(t["size"]), " · compact" if bool(t.get("compact", false)) else ""])
 	if not crew_run.is_empty():
 		lines.append("The crew ran it (from %s): %s%s%s%s" % [str(crew_run.get("from", "?")), str(crew_run.get("night", "")),
 			(" · took over at %s" % crew_run["took_over"]) if crew_run.has("took_over") else "",
@@ -910,7 +936,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true), "crew": crew_run.duplicate(true),
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true), "crew": crew_run.duplicate(true), "transcript": transcript_use.duplicate(),
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},
