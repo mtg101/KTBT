@@ -18,6 +18,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **The side panel, next:** The show's season so far as rows (the season page's, as it goes); a tidier Here now (the owner, the cat and the counter in one style with The show's headings).
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   -- both sandbox mode and makes testing specific features easier
+- **Is there a better layout for transcript/events?:** it just scrolls past...
+  - colums? events vs text vs bg info?
+    - would that help?
+  - need to ask AI for ideas I guess!    
 
 ## Future ideas and improvements
 
