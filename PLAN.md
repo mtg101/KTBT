@@ -4,13 +4,17 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **token costs**
-  - just fixing little things is burning $$$
-  - portraits should wait for a new week
-  - but how to stop that burning through a week in hours for it?
-- **Portraits:** feels like a new thing that enables more fun things
-  - even with basic ones they can be used for TV popups, in diary, for social media posts later
-
+- **Portraits:** a face for everyone, from the image model; the first use the hover on a person, then TV pop-ups and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
+  - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
+  - **1. The library:** a `generate_art` batch overnight (the GPU's free; no tokens while it runs) of every gender × age range × hairstyle (× glasses), from `portraits.py`'s PROMPT (black hair, a plain bright red top, flat green; each hairstyle described by its shape, not its name); `portraits.py --sheet` for the contact sheet; the user picks the keepers; into `art/portraits/` (the layer encoding), the manifest and LICENSE-ASSETS. Brows as hair (they stay dark under white hair now).
+  - **2. In the game, on the hover:** painted by `people_art.gd`'s own code (the portraits are in its layer encoding); a pure rule (`rules/portraits.gd`: a look to the best portrait, the same every time for the same person), a view that repaints it onto their ramps, shown on a person's hover; a fallback when nothing matches. Tests, counted in the night's stats ("Portraits: matched · fallback"), logged.
+  - **Using portraits:** 
+    - TV pop-ups and cut to camera
+      - probably have to be able to overlay whole screen not just the bar part?
+        - probably helps the dialog clutter anyway!
+    - show at end of night with reference to diary, or in own popout... or does diary include like... polaroids attached to it?
+    
+  
 
 ## Future ideas and improvements
 
@@ -61,13 +65,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Presentation
 
-- **Portraits:** a picture of each character
-  - many uses
-    - diaries, hover, social media posts, TV popups, cut to camera...
-  - tech options
-    - **Pre-generated:** the local image model (FLUX.2 Klein, set up for the street) makes portraits or parts in one style, tagged by age, gender, job and so on; the keepers are curated and shipped, and the game picks the best match. Nothing runs during play, so no GPU contention, and it works on the laptop.
-    - **Mixed (probably the right balance):** regulars get their own portrait made between nights.
-    - **Live:** drawn as each customer arrives: competes with the LLM for GPU memory, takes seconds, drifts off-style, can't run on the laptop.
 - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
 - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
 - **Voices:** characters speak their lines, a setting choosing **off**, **babble**, **system voices** or **AI voices**; the game picks each voice from facts it owns (gender, age, mood).
