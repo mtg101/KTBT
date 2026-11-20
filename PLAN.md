@@ -15,6 +15,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
       - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
         - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
         - made overnight 20 Nov (`art/raw/react_*`, 1,764 pictures: every kept portrait in every mood, two seeds each): collect them all (`collect_art`, 60 a call)
+        - reaction faces are close-ups (decided 20 Nov): the picture cut to the face (about the middle 56% across, from 8% down, 4:5) before the split, still 64×80; head and shoulders, only shock and funny still read at 64×80, close up all seven do (the 96×120 grid helped less than the crop). A TV zoom on a reaction anyway; maybe the calm face gets a close-up too, for the pop-up's first frame
         - the split, before picking: tears, a blush and the whites of the eyes their own colours (fixed colours, as the people's `FIXED`), or sad loses its tears, sweet its blush (muddy brown now) and shock its eyes
         - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix
       - variety-show graphics on top, maybe: sweat drop, anger marks, a burst behind, zoom and shake, the caption
