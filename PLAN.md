@@ -8,7 +8,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **Where it starts:** a new bar's first episodes are filmed by the owner's niece or nephew (a game fact: who they are, their name, their gender), on a good phone with a live video production app. They're the PD: the player has every PD tool from the first night (cards, the camera, pins, spins, the edit suite). When the show moves up, they go with it (a junior PD at the channel, then the show's PD).
   - **Named channels:** every booking is with a channel that has a name: the AI invents it (the game decides the rung; the AI the name, in Hangul and English, with its meaning on hover), checked against real ones (no KBS, MBC, SBS, EBS, tvN, JTBC, Mnet, TV Chosun, Channel A, MBN, ENA, nor any real app or video site) and against the bar's earlier channels. The phone stream's is the niece or nephew's own handle. Each season's announced with it ("You've been booked for a season on 달빛TV, Moonlight TV!"); staying up means renewed by the same channel, moving to another rung means a new one ("Moonlight TV didn't renew, but Hanbit Plus has picked the show up"). The bar keeps its channel history (which channel, which seasons, how they went) for the diary, "Previously on…" and the title screen. Offline, the canned names do.
   - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card (with named channels).
-  - **Tuning the ladder:** check the targets and the units against a batch (1,000 views a night on the stream, 10,000 subscribers on the channel, 10% a hit and under 5% quiet on TV; 120 views and 150 subscribers a point of the score, less 300 unsubscribes an episode: a great season moves up in one, a good one in two), as the autopilot PD's nights average about 9.5; perhaps shorter seasons (6) on the lower rungs.
+  - **Tuning the ladder:** with the simulation (`test_ladder_sim.gd` prints its report: 200 shows, 8 seasons, for each kind of PD), decide the pace for a typical player. As it stands: a PD like the autopilot (nights about 9.8) gets a channel after one season nearly always, and TV one or two seasons later; a great one (12) climbs a rung a season; a steady one (7.5) finds the phone stream the hard step (22% after one season, median three); a quiet one (5) never leaves it; and no show ever drops (a season under 1,000 subscribers or 5% is rare). Perhaps the stream's target nearer the autopilot's, and the channel's and TV's floors where a bad run can reach them. Perhaps shorter seasons (6) on the lower rungs.
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   -- both sandbox mode and makes testing specific features easier
@@ -43,6 +43,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
 - **Focus camera on owner:** can focus on customers and cat, owner makes sense too
 - **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
+- **Personal tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
+  - repeating words: chijeu chijeu, gogi gogi gogi, etc
+  - ye jeon-ha / m-ma (sarcasm in a tent bar :)
 
 
 ### An actual game or experience
@@ -70,6 +73,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Technical
 
+- **Really long runs:** one day, a bar played for months of nights (autoplay over days, perhaps with time sped up further, or a faster offline mode), to see what only shows up in the long run: many seasons on the ladder with real nights rather than the simulation, the regulars, bonds and memories piling up, the diary's and night log's limits, save sizes, load times and anything that slows down as a bar gets old.
 - **Optimise: only when noticed:** you'd think 10 local LLM calls with big prompts would take ages... but I'm not noticing delays yet - optimize when we need to!
   - **Watching AI quality over time:** autoplay writes the batch review we do by hand (rejections by kind, give-ups, facts and threads that went wrong, lines misusing what they were told) and compares it with the last batch; a small model reading transcripts could flag what the checks can't see (19 Nov: "that husband… he's a good kid").
   - **Prompt length:** every feature adds context (who you know, facts, threads, notes), and with an 8B model length costs speed and obedience. Measure prompt size and reply time per call in the stats, set a budget, and try a newer or Korean-fluent local model then: a better model may fix more than any single check.
