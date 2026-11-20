@@ -2282,7 +2282,8 @@ func _update_crew() -> void:
 		_pd.crew_running = running
 		if running:
 			_pd.close_writing()
-		_pd.refresh()
+		if _night_number > 0 and not Game.bar.is_empty():  # (not while a new bar's being made: the desk's cards look the bar's regulars up, which fills in its list)
+			_pd.refresh()
 
 
 ## The menu's Start: the crew take over for so many nights, from now (tonight, if it's open, is

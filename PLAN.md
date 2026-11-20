@@ -4,15 +4,23 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Transcript UI:** needs to be easier to use
-  - search, 'catch up to latest, popup in resizeable window, etc
-- **Terminal log levels:** now it's just lighting times and owner movement
-  - time very useful, owner... nto so much
-  - but it's only those two things!
-  - maybe shuld have everything logging, with levels for filtering?
-  - also: tokens... just turn off owner movemnt! 
-  - and it doesn't say anywhere it's in auto mod
-  - probably needs a 'are you shure' for any clicking when it's in auto mode for testing
+- **Transcript UI:** it's nice and pretty, but it needs to be easier to use when you want to check on something or find lines to pin
+  - basic search 
+  - catch up to latest (for when you've scrolled up to read something)
+  - popout in resizeable window
+  - zoom / text size options?
+  - how compact text is? (the gaps and layout are great for the game look, but if you're trying to find a line)
+- **Terminal log levels:** only for some things... 
+  - time useful for checking things are ticking along in the background while watching Netflix...
+  - other things... just a distraction
+  - we could go and spend lots of tokens making a full logging system with levels...
+    - but won't sombody think of the tokens!
+    - vibe coding makes it very easy to do everything really well, just because the agents will relentlessly create you a perfect logging system
+    - but really this is just me learning to vibe code!
+    - I don't need CSOC levels of logging...
+  - so just keep logging to updating like once an hour
+    - unless the AI find these logs useful
+
 
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier

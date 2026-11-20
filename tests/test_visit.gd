@@ -1406,7 +1406,8 @@ func test_the_pixels_are_lit_by_the_hour() -> void:
 	assert_array(PixelLight.bulbs.map(func(b): return Vector2(b.x, b.y))).is_equal(scene._tent_view.bulb_spots())
 	assert_that(PixelLight.material("tent").get_shader_parameter("to_stage_offset")).is_equal(-scene._stage.global_position)
 	assert_int(scene._light_hour).is_equal(int(scene._clock) / 60)  # (logged on the hour)
-	assert_float(float(scene._stats.art["pools"])).is_greater(0.0)  # brighter under a bulb than at the counter's end: its pool, in the stats
+	assert_bool(scene._stats.art.has("pools")).is_true()  # how much brighter under a bulb than at the counter's end, in the stats
+	assert_float(float(scene._stats.art["pools"])).is_greater_equal(0.0)  # (none at dusk, or in fog: the night's still as drawn all along the counter)
 	_time_up(scene)
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 	assert_int(int(scene._stats.art["lit"])).is_greater(3)  # (in the night's stats)

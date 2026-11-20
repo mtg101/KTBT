@@ -111,7 +111,7 @@ Most of the risk in this stage is in rules the game owns, so most of it can be t
 
 ## Coverage so far
 
-All 753 tests (not yet run since the 20 Nov lighting change and the crew: 746 passed before them) (20 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
+All 753 tests pass (20 November 2026, GdUnit4 v6.2.0 on Godot 4.7.2).
 
 | Area | Test file | Rule tests | Click-through tests |
 |---|---|---|---|
