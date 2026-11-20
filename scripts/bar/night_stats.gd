@@ -813,6 +813,10 @@ func panel_text(seated: int, cooking: int) -> String:
 		var tonights: Dictionary = art["street"]
 		lines.append("Street: lamps %d · stars %d · moon %s · road %s" % [int(tonights.get("lamps", 0)), int(tonights.get("stars", 0)), str(tonights.get("moon", "?")), str(tonights.get("road", "?"))])
 	lines.append("Diary: %s" % (("stamp %s (%s)" % [story.get("diary_stamp", "?"), story.get("diary_by", "?")]) if story.has("diary_by") else "not yet"))
+	if story.get("show", {}) is Dictionary and not story.get("show", {}).is_empty():  # the show's seasons (rules/show_seasons.gd)
+		var on_air: Dictionary = story["show"]
+		lines.append("Season: %s%s%s" % [on_air.get("place", "?"), (" · the season before tonight: %s" % on_air["so_far"]) if str(on_air.get("so_far", "")) != "" else "",
+			(" · %s%s" % [on_air["verdict"], (", looked back on (%d episodes)" % int(on_air["looked_back"])) if on_air.has("looked_back") else ""]) if on_air.has("verdict") else (" · the verdict at 3am" if bool(on_air.get("finale", false)) else "")])
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")

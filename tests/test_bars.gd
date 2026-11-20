@@ -89,16 +89,19 @@ func test_title_shows_nights_and_visits() -> void:
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 3
 	bar["visits"] = 1
+	bar["show"]["season"] = 2
+	bar["show"]["aired"] = 3
 	SaveStore.save_bar(bar)
 	var runner := scene_runner(TITLE)
 	assert_str((runner.find_child("Bar0") as Button).text).contains("3 nights, 1 visit")
+	assert_str((runner.find_child("Bar0") as Button).text).contains("season 2, 3 of 8 aired")  # (where the show's got to)
 
 
 func test_a_bars_diary_can_be_read_from_the_title() -> void:
 	_saved_bar("Golmok Pocha", 12, 1000)  # no diary yet: no Diary button
 	var bar := SaveStore.new_bar("Sarang Pocha", "A test tent", OWNER_DATA)
 	for night in [1, 2, 3]:
-		SaveStore.record_diary(bar, {"night": night, "episode": night, "day": "Friday", "weather": "rain", "text": "Night %d was a night." % night, "stamp": "soju"})
+		SaveStore.record_diary(bar, {"night": night, "episode": night, "season": 1, "season_episode": night, "day": "Friday", "weather": "rain", "text": "Night %d was a night." % night, "stamp": "soju"})
 	SaveStore.save_bar(bar)
 	var runner := scene_runner(TITLE)
 	assert_object(runner.find_child("Diary1", true, false)).is_null()  # the older bar (listed second) has none
@@ -106,7 +109,7 @@ func test_a_bars_diary_can_be_read_from_the_title() -> void:
 	var book = runner.find_child("DiaryBook", true, false)
 	assert_object(book).is_not_null()
 	assert_int(book.showing_night()).is_equal(3)  # opens at the latest
-	assert_str((book.find_child("Episode", true, false) as Label).text).is_equal("EP. 3")
+	assert_str((book.find_child("Episode", true, false) as Label).text).is_equal("S1 · EP 3")  # (always its season and episode)
 	assert_str((book.find_child("DiaryWhere", true, false) as Label).text).is_equal("3 of 3")
 	assert_bool((book.find_child("DiaryNewer", true, false) as Button).disabled).is_true()
 	await _click(runner, book.find_child("DiaryOlder", true, false))
@@ -242,7 +245,7 @@ func test_reopening_a_bar_plays_previously_on() -> void:
 	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 4
-	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "season": 1, "season_episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
 		"facts": {"people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."}]}})
 	SaveStore.save_bar(bar)
 	Game.bar = SaveStore.load_bar(bar["id"])
@@ -263,7 +266,7 @@ func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
 	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 4
-	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "season": 1, "season_episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
 		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}], "missing": ["Hwang Tae-oh"],
 			"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today."}]}})
 	SaveStore.save_bar(bar)
@@ -286,15 +289,15 @@ func test_the_pd_steps_in_and_cuts_last_nights_episode() -> void:
 	# "Previously on…" plays with the PD's cut, then the night starts.
 	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the cut").is_true()
 	var transcript := (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
-	assert_str(transcript).contains("The PD steps in: episode 4, \"Salt and Overtime\"").contains("Previously on… (Salt and Overtime)").contains("Will Tae-oh stay away again?")
+	assert_str(transcript).contains("The PD steps in: season 1, episode 4, \"Salt and Overtime\"").contains("Previously on… (Salt and Overtime)").contains("Will Tae-oh stay away again?")
 	assert_dict(scene._cliffhanger).contains_key_value("kind", "stays_away")  # (it nudges him in, as the game's cliffhangers do)
 	assert_str(str(Game.bar["diary"][-1]["title"]["english"])).is_equal("Salt and Overtime")
 	assert_dict(Game.bar["diary"][-1]["cut_by"]).is_equal({"title": "pd", "cliffhanger": "pd", "scenes": "writers"})
 	assert_str(scene._stats.panel_text(0, 0)).contains("Last night's episode: cut by the PD (stepped in while loading) · title the PD's · cliffhanger the PD's")
 	# Until the first customer, the desk offers to cut it again; then not.
-	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("re-cut episode 4")
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).contains("re-cut season 1, episode 4")
 	scene._arrive(scene._clock)
-	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).not_contains("re-cut episode")
+	assert_str((runner.find_child("PdDeskText") as RichTextLabel).get_parsed_text()).not_contains("re-cut")
 	scene._step_in()  # (too late: nothing)
 	assert_object(runner.find_child("EditSuite")).is_null()
 
@@ -303,7 +306,7 @@ func test_the_pd_chooses_the_scenes_and_it_is_rewritten() -> void:
 	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 4
-	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "season": 1, "season_episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
 		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}, {"name": "Lee Da-eun", "job": "teacher"}],
 			"pinned": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad.", "at": 1260}],
 			"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "said": "I quit today.", "at": 1262}],
@@ -333,7 +336,7 @@ func test_the_pd_steps_in_mid_recap_and_it_plays_again() -> void:
 	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
 	bar["nights"] = 4
-	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "season": 1, "season_episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
 		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}]}})
 	SaveStore.save_bar(bar)
 	Game.bar = SaveStore.load_bar(bar["id"])
@@ -341,7 +344,7 @@ func test_the_pd_steps_in_mid_recap_and_it_plays_again() -> void:
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._recap_screen != null, 10000)).override_failure_message("the recap never played").is_true()
 	assert_object(runner.find_child("RecapStepIn", true, false)).is_not_null()  # (it says you can)
-	assert_str(scene._recap_screen.episode_title_text()).is_equal("EP. 4 · She Quit?!")  # (the writers' title)
+	assert_str(scene._recap_screen.episode_title_text()).is_equal("S1 · EP 4 · She Quit?!")  # (the writers' title)
 	scene._step_in()  # (mid-recap: it stops, for the suite)
 	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
 	runner.find_child("EditSuite").leave_it()

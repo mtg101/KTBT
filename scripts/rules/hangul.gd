@@ -157,6 +157,15 @@ const MEANINGS := {
 	"두 자릿수!": "du jarissu!: double digits (10% or more: a hit)",
 	"시청률 20% 돌파!": "sicheongnyul isip peosenteu dolpa!: ratings break 20%",
 	"돌파": "dolpa: breaking through",
+	# The show's seasons (rules/show_seasons.gd)
+	"최종회": "choejonghoe: the final episode, the season's finale",
+	"시즌 결산": "sijeun gyeolsan: the season, looked back on (결산: settling up, a review)",
+	"시즌": "sijeun: season",
+	"파일럿": "pailleot: a pilot, an episode aired before the show had seasons",
+	"대박 시즌!": "daebak sijeun!: a smash-hit season",
+	"재계약!": "jaegyeyak!: signed again: renewed",
+	"위기!": "wigi!: trouble, a crisis",
+	"폐지 위기!": "pyeji wigi!: in danger of being axed (폐지: a show cancelled)",
 	# The diary's stamps (rules/story.gd DIARY_STAMPS) and days
 	"참 잘했어요": "cham jalhaesseoyo: very well done (a teacher's stamp on homework)",
 	"단골": "dangol: a regular",

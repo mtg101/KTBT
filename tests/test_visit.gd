@@ -2345,10 +2345,11 @@ func test_skip_ends_the_recap() -> void:
 	screen.finished.connect(func(): ended[0] = true)
 	screen.play(["Ji-ho quits.", "Tae-oh stays away."], "Will he come back?", 5, "Golmok Pocha", false,
 		{"people": {"Kim Ji-ho": "김지호"}, "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}], "style": "makjang",
-		"quotes": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}]})  # at full speed: still on the first beat
+		"quotes": [{"speaker": "Kim Ji-ho", "text": "I quit today, and I'm glad."}], "place": {"season": 2, "episode": 5, "finale": false}})  # at full speed: still on the first beat
 	await get_tree().create_timer(1.0).timeout  # past the title card
 	assert_str(screen.beat_text()).is_equal("Ji-ho quits.")
-	assert_str((screen.find_child("RecapEpisode", true, false) as Label).text).is_equal("제5화")
+	assert_str((screen.find_child("RecapEpisode", true, false) as Label).text).is_equal("시즌 2 · 제5화")  # (always its season and episode)
+	assert_str((screen.find_child("RecapEpisodeEnglish", true, false) as Label).text).is_equal("S2 · EP 5 · Golmok Pocha")
 	assert_str(screen.who_text()).is_equal("김지호 Kim Ji-ho")  # her name tag, in Hangul too
 	assert_str(screen.quote_text()).is_equal("“I quit today, and I'm glad.”  — Ji-ho")  # (the line the PD pinned, under its beat)
 	assert_str(screen.style_name()).is_equal("makjang")

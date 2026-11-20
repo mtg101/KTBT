@@ -515,7 +515,8 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 		happenings.append({"at": peak_at, "text": "Every stool was taken.", "who": []})
 	var before: Array = context.get("before", [])
 	return {
-		"episode": int(context.get("episode", 1)), "day": str(context.get("day", "")), "date": str(context.get("date", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
+		"episode": int(context.get("episode", 1)), "episode_label": str(context.get("episode_label", "a pilot episode")),
+		"season": int(context.get("season", 1)), "season_episode": int(context.get("season_episode", context.get("episode", 1))), "day": str(context.get("day", "")), "date": str(context.get("date", "")), "weather": str(context.get("weather", "")), "owner": str(context.get("owner", "")),
 		"customers": int(context.get("customers", 0)), "busy_vs_usual": busy_word(int(context.get("customers", 0)), before.slice(-7)),
 		"busiest": ("%s, with %d at the counter" % [NightRules.clock_text(peak_at), peak]) if peak_at >= 0 else "",
 		"people": people, "missing": missing, "not_here": not_here, "pronouns": _pronouns(context, people),

@@ -11,6 +11,7 @@ const NightStats = preload("res://scripts/bar/night_stats.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -93,6 +94,8 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	assert_str(summary).contains("Night 1 at %s" % Game.bar["name"])
 	assert_str(summary).contains("customer")
 	assert_str(summary).contains("TV ratings %s" % Ratings.percent_text(float(scene._night_ratings["rating"])))
+	assert_str(summary).contains("Season 1, episode 1 of 8")  # (the show's first season)
+	assert_bool((runner.find_child("SeasonButton") as Control).visible).is_false()  # (not a finale)
 	assert_str(_transcript(runner)).contains("pulls down the tarp")
 	assert_array(scene._guests).is_empty()
 
@@ -104,7 +107,7 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	var page = runner.find_child("DiaryPage")  # (untyped: it has its own methods)
 	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).override_failure_message("no diary entry").is_true()
 	assert_bool(page.visible).is_true()
-	assert_str((page.find_child("Episode", true, false) as Label).text).is_equal("EP. 1")
+	assert_str((page.find_child("Episode", true, false) as Label).text).is_equal("S1 · EP 1")
 	var entry: Dictionary = Game.bar["diary"][0]
 	assert_str(page.entry_text()).is_equal(str(entry["text"]))
 	assert_str(str(entry["by"])).is_equal("game")  # (diaries off: the game writes it)
@@ -120,6 +123,19 @@ func test_the_night_ends_with_the_owners_diary() -> void:
 	assert_str(beside.tooltip_text.replace("\n", " ")).contains("share of Korea's TV homes")
 	assert_str(scene._stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: %.1f%%" % float(entry["ratings"]["rating"]))
 	assert_int(SaveStore.load_bar(str(Game.bar["id"]))["diary"].size()).is_equal(1)
+	# The header keeps to its rows, however long the title (regression: 19 Nov, a long title ran over the day).
+	var titled := entry.duplicate(true)
+	titled["title"] = {"hangul": "그늘에 피어나는 슬픔", "english": "Sadness that Blooms in the Shade, and Everything After It"}
+	page.show_entry(titled, "Kim Sung-jin's diary")
+	await get_tree().process_frame
+	var pill := page.find_child("EpisodePill", true, false) as Control
+	var day := page.find_child("Day", true, false) as Control
+	assert_str((page.find_child("Episode", true, false) as Label).text).starts_with("S1 · EP 1 · 그늘에 피어나는 슬픔")
+	assert_float(pill.position.x + pill.size.x).is_less_equal(page.size.x - 20.0)  # (never past the page)
+	assert_float(pill.position.y + pill.size.y).is_less_equal(day.position.y)  # (above the day, not over it)
+	assert_float(day.position.x + day.size.x).is_less_equal((page.find_child("Ratings", true, false) as Control).position.x)
+	assert_float((page.find_child("Whose", true, false) as Control).position.y).is_greater_equal(day.position.y + day.size.y)
+	page.show_entry(entry, "Kim Sung-jin's diary")
 	# The numbers are behind the Stats button.
 	var numbers := runner.find_child("SummaryText") as Control
 	assert_bool(numbers.visible).is_false()
@@ -153,6 +169,10 @@ func test_the_finished_night_is_saved() -> void:
 	assert_bool(entry.has("takings")).is_false()  # (not kept: the ratings are the score, 19 Nov)
 	assert_float(float(entry["ratings"])).is_equal_approx(float(scene._night_ratings["rating"]), 0.001)  # (for the next nights' nudge)
 	assert_str(str(scene._stats.story["ratings_text"])).starts_with("%.1f%%" % float(entry["ratings"]))
+	assert_int(int(entry["season"])).is_equal(1)  # (its place in the show's seasons)
+	assert_int(int(entry["season_episode"])).is_equal(1)
+	assert_int(int(saved["show"]["aired"])).is_equal(1)
+	assert_array(saved["show"]["nights"].map(func(n): return int(n))).is_equal([1])
 
 
 func test_the_night_log_is_written() -> void:
@@ -267,3 +287,68 @@ func test_autoplay_plays_its_nights_then_stops() -> void:
 	Autoplay.folder = ""
 	for file_name in summaries:
 		DirAccess.remove_absolute(TEST_AUTOPLAY + file_name)
+
+
+func test_the_eighth_episode_is_the_finale_and_the_season_is_looked_back_on() -> void:
+	var bar := SaveStore.new_bar("Mi-sook-ne Pocha", "Mi-sook's place", {"name": "Park Mi-sook", "hangul": "박미숙", "age": 61, "gender": "woman", "title": "Ajumma", "archetype": "gruff-but-soft ajumma", "appearance": "Apron.", "personality": "blunt", "speech_style": "short", "secret": "Trot singer."})
+	bar["nights"] = 7
+	bar["show"] = {"season": 1, "aired": 7, "nights": [1, 2, 3, 4, 5, 6, 7], "ratings": [6.0, 7.0, 6.5, 8.0, 5.5, 7.5, 6.0], "seasons": []}
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	assert_str(_transcript(runner)).contains("Season 1, episode 8 of 8, the finale").contains("Tonight's the finale of season 1")
+	assert_str((runner.find_child("MomentLabel") as Label).text).contains("S1 · EP 8/8 · FINALE")
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var page = runner.find_child("SeasonPage")  # (untyped: it has its own methods)
+	assert_bool(await _wait_until(func(): return page.visible)).override_failure_message("the season was never looked back on").is_true()
+	assert_bool((runner.find_child("DiaryPage") as Control).visible).is_false()
+	assert_int(page.rows_shown()).is_equal(8)
+	# Nothing runs off its row, however long the line pinned (regression: 19 Nov, a long line ran off the page).
+	var long_line := {"speaker": "Choi Woo-jin", "text": "But it's not just about perfection, is it, Samchon? Today I had to deal with a department head who doesn't understand what I'm trying to do, and an email that made everything worse."}
+	page.show_season([{"episode": 1, "night": 1, "title": "스트레스의 무게 · The Weight of Stress and Everything That Comes With It", "rating": 5.5, "quote": long_line},
+		{"episode": 2, "night": 2, "title": "", "rating": 1.1, "quote": {}}], Game.bar["show"]["seasons"][0], "Doldol Pocha")
+	await get_tree().process_frame
+	var quotes: Array = []
+	for row in (page.find_child("SeasonRows", true, false) as Control).get_children():
+		if row.is_queued_for_deletion():
+			continue
+		for label in row.find_children("*", "Label", true, false):
+			assert_float((label as Label).position.x + (label as Label).size.x).override_failure_message("%s runs off its row: %s" % [label.name, (label as Label).text]) \
+				.is_less_equal((row as Control).size.x)
+		quotes.append((row.find_child("Quote", true, false) as Label).text)
+	assert_str(str(quotes[0])).starts_with("“But it's not just").ends_with("— Choi Woo-jin")
+	# The verdict: kept with the season, and the next one begins.
+	var the_show: Dictionary = Game.bar["show"]
+	assert_int(int(the_show["season"])).is_equal(2)
+	assert_int(int(the_show["aired"])).is_equal(0)
+	assert_array(the_show["seasons"]).has_size(1)
+	var judged: Dictionary = the_show["seasons"][0]
+	assert_array(judged["nights"]).is_equal([1, 2, 3, 4, 5, 6, 7, 8])
+	assert_bool(ShowSeasons.OUTCOMES.has(str(judged["outcome"]))).is_true()
+	assert_str(page.verdict_text()).is_equal("%s  %s" % [judged["stamp"], judged["words"]])
+	assert_str((page.find_child("SeasonVerdict", true, false) as Label).tooltip_text.replace("\n", " ")).contains("average ratings")  # (its hover: how it was decided)
+	assert_bool(SaveStore.load_bar(str(Game.bar["id"]))["show"]["seasons"].size() == 1).is_true()  # (saved)
+	assert_bool(bool(Game.bar["diary"][-1]["finale"])).is_true()
+	# Logged, counted, and in the summary.
+	assert_str(_transcript(runner)).contains("That's season 1.").contains("Season 1, looked back on: EP 1 6.0%")
+	assert_str(scene._stats.panel_text(0, 0)).contains("Season: Season 1, episode 8 of 8, the finale · the season before tonight: average 6.6%").contains("· Season 1: average")
+	assert_str((runner.find_child("SummaryText") as RichTextLabel).get_parsed_text()).contains(str(judged["words"]))
+	# The button beside Stats flips back to the diary, and to the season again; Stats still works.
+	var button := runner.find_child("SeasonButton") as Button
+	assert_bool(button.visible).is_true()
+	await _click(runner, button)
+	assert_bool((runner.find_child("DiaryPage") as Control).visible).is_true()
+	assert_bool(page.visible).is_false()
+	await _click(runner, button)
+	assert_bool(page.visible).is_true()
+	await _click(runner, runner.find_child("SummaryStatsButton"))
+	assert_bool(page.visible).is_false()
+	await _click(runner, runner.find_child("SummaryStatsButton"))
+	assert_bool(page.visible).is_true()
+	# The next night's the new season's first.
+	Hooks.run_clock = false
+	await _click(runner, runner.find_child("NextNightButton"))
+	assert_bool(await _wait_until(func(): return scene._night_number == 9)).is_true()
+	assert_str(_transcript(runner)).contains("Season 2, episode 1 of 8")
+	assert_bool(page.visible).is_false()

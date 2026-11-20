@@ -84,6 +84,20 @@ func test_the_ratings_have_their_own_section() -> void:
 	assert_float(float(data["story"]["ratings"])).is_equal_approx(6.4, 0.001)
 
 
+func test_the_shows_season_is_in_the_story() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).not_contains("Season:")
+	stats.story["show"] = {"place": "Season 1, episode 3 of 8", "finale": false, "so_far": "average 6.1%, best 7.0% (2 aired)"}
+	assert_str(stats.panel_text(0, 0)).contains("Season: Season 1, episode 3 of 8 · the season before tonight: average 6.1%, best 7.0% (2 aired)")
+	stats.story["show"] = {"place": "Season 1, episode 8 of 8, the finale", "finale": true, "so_far": ""}
+	assert_str(stats.panel_text(0, 0)).contains("Season: Season 1, episode 8 of 8, the finale · the verdict at 3am")
+	stats.story["show"]["verdict"] = "Season 1: average 6.2% = 6.2: stay (재계약!)"
+	stats.story["show"]["looked_back"] = 8
+	assert_str(stats.panel_text(0, 0)).contains("the finale · Season 1: average 6.2% = 6.2: stay (재계약!), looked back on (8 episodes)")
+	var data = JSON.parse_string(FileAccess.get_file_as_string(stats.save({"bar": "Golmok Pocha", "night": 8}, "golmok-pocha", 8)))
+	assert_str(str(data["story"]["show"]["verdict"])).starts_with("Season 1")  # (in the night's log)
+
+
 func test_the_night_log_is_saved_as_json() -> void:
 	var stats := NightStats.new()
 	stats.served = 4

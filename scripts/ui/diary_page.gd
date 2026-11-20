@@ -1,5 +1,6 @@
 extends Control
-## A page of the owner's diary: cream paper with ruled lines and a red margin, the episode and
+## A page of the owner's diary: cream paper with ruled lines and a red margin, the episode (its
+## season and its episode in it, "S2 · EP 3": never a running count) and
 ## the day (in Hangul and English) at the top, the entry in ink, and a stamp in the corner
 ## (Story.DIARY_STAMPS), and the episode's TV ratings by the owner's name. Used at 3am (see visit.gd _end_night) and for the diary book. While the
 ## owner's still writing, a pen moves across the page instead.
@@ -8,6 +9,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
@@ -20,8 +22,11 @@ const PAGE := Vector2(780, 600)
 const LINE_GAP := 38.0  # the ruled lines, matched to the entry's lines
 const BODY_TOP := 150.0
 const LEFT := 80.0  # the margin
+const DAY_WIDTH := 300.0  # the day and weather, left of the ratings
+const PILL_MOST := PAGE.x - LEFT - 50.0  # the episode's pill, at its widest
 
 var _episode: Label
+var _pill: PanelContainer
 var _day: Label
 var _whose: Label
 var _ratings: Label  # "시청률 6.4%", and a banner for a hit or a new best (Ratings), with its hover
@@ -39,28 +44,39 @@ func _init() -> void:
 	pivot_offset = PAGE / 2
 	rotation = -0.012  # not quite straight, like a real notebook
 
-	var pill := PanelContainer.new()
-	pill.position = Vector2(LEFT + 10, 36)
+	# The header, a row each so nothing overlaps: the episode and its title in a pink pill (as
+	# wide as it needs, never past the page: a long title trimmed with "…"); the day and weather,
+	# with the ratings on the right; whose diary it is.
+	_pill = PanelContainer.new()
+	var pill := _pill
+	pill.name = "EpisodePill"
+	pill.position = Vector2(LEFT + 10, 18)
 	var style := Ktv.pill(PINK, 14, 3, 14, false)
 	style.content_margin_bottom = 2
 	pill.add_theme_stylebox_override("panel", style)
 	add_child(pill)
 	_episode = _label(26, Ktv.INK)
 	_episode.name = "Episode"
+	_episode.clip_text = true
+	_episode.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	pill.add_child(_episode)
-	_day = _label(24, INK)
+	_day = _label(22, INK)
 	_day.name = "Day"
-	_day.position = Vector2(LEFT + 150, 38)
-	_day.size = Vector2(PAGE.x - LEFT - 180, 40)
 	_day.clip_text = true
+	_day.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_day.position = Vector2(LEFT + 12, 64)
+	_day.size = Vector2(DAY_WIDTH, 30)
 	add_child(_day)
-	_whose = _label(18, INK.lightened(0.3))
-	_whose.position = Vector2(LEFT + 12, 92)
+	_whose = _label(16, INK.lightened(0.3))
+	_whose.name = "Whose"
+	_whose.position = Vector2(LEFT + 12, 98)
 	add_child(_whose)
 	_ratings = _label(20, PINK.darkened(0.25))
 	_ratings.name = "Ratings"
-	_ratings.position = Vector2(PAGE.x - 400, 92)
-	_ratings.size = Vector2(360, 30)
+	_ratings.clip_text = true
+	_ratings.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_ratings.position = Vector2(LEFT + 12 + DAY_WIDTH + 10, 65)
+	_ratings.size = Vector2(PAGE.x - 40 - (LEFT + 12 + DAY_WIDTH + 10), 30)
 	_ratings.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_ratings.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
 	_ratings.visible = false
@@ -111,8 +127,9 @@ func _init() -> void:
 	add_child(_stamp)
 
 
-## The owner's still writing: the page header, and a pen moving across the page.
-func show_writing(episode: int, day: String, weather: String, who: String) -> void:
+## The owner's still writing: the page header, and a pen moving across the page. episode: its
+## tag ("S2 · EP 3", ShowSeasons.tag).
+func show_writing(episode: String, day: String, weather: String, who: String) -> void:
 	_set_header(episode, day, weather, who)
 	_body.visible = false
 	_stamp.visible = false
@@ -132,9 +149,10 @@ func show_writing(episode: int, day: String, weather: String, who: String) -> vo
 
 ## A finished entry (as SaveStore.record_diary keeps it).
 func show_entry(entry: Dictionary, whose: String) -> void:
-	_set_header(int(entry.get("episode", entry.get("night", 1))), str(entry.get("day", "")), str(entry.get("weather", "")), whose)
+	_set_header(ShowSeasons.tag(ShowSeasons.of(entry)), str(entry.get("day", "")), str(entry.get("weather", "")), whose)
 	if not entry.get("title", {}).is_empty():  # (its title, once it has one: the writers' or the PD's)
 		_episode.text += " · " + Story.title_text(entry["title"])
+		_fit_episode()
 		var hangul := str(entry["title"].get("hangul", ""))
 		if hangul != "":
 			_episode.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -190,12 +208,26 @@ func _names_in(entry: Dictionary) -> Array:
 	return names
 
 
-func _set_header(episode: int, day: String, weather: String, whose: String) -> void:
-	_episode.text = "EP. %d" % episode
+func _set_header(episode: String, day: String, weather: String, whose: String) -> void:
+	_episode.text = episode
+	_fit_episode()
 	_day.text = "%s %s · %s" % [Story.DAY_HANGUL.get(day, ""), day, weather]
 	_day.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
 	_day.tooltip_text = Text.tip(Glossary.hangul_tip(str(Story.DAY_HANGUL.get(day, ""))))
 	_whose.text = whose
+
+
+## The episode's pill as wide as its words, but never past the page (then trimmed with "…").
+func _fit_episode() -> void:
+	var font := _episode.get_theme_font("font")
+	var wide := font.get_string_size(_episode.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _episode.get_theme_font_size("font_size")).x
+	_episode.custom_minimum_size.x = minf(ceilf(wide) + 2.0, PILL_MOST - 28.0)  # (the pill's margins)
+	_pill.reset_size()
+
+
+## How wide the episode's pill is, for the tests.
+func pill_width() -> float:
+	return _pill.get_combined_minimum_size().x
 
 
 ## A round seal, like an ink stamp: two rings, the Hangul big in the middle, the English small.

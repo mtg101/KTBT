@@ -413,25 +413,26 @@ func test_founding_regular_prompt_has_the_games_facts() -> void:
 
 
 func test_the_diary_prompt_has_the_nights_facts() -> void:
-	var facts := {"episode": 12, "day": "Friday", "weather": "the first snow of winter", "owner": "Park Mi-sook", "customers": 14,
+	var facts := {"episode": 12, "episode_label": "season 2, episode 4", "day": "Friday", "weather": "the first snow of winter", "owner": "Park Mi-sook", "customers": 14,
 		"busy_vs_usual": "busier than usual", "busiest": "10:40pm, with 5 at the counter",
 		"people": [{"name": "Kim Ji-ho", "job": "nurse", "regular": "a regular", "ordered": "Soju"}], "missing": ["Hwang Tae-oh"],
 		"moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT HER JOB?!", "said": "I quit today."}],
 		"friendlier": ["Kim Ji-ho and Lee Da-eun are on \"eonni\" terms now"], "new_regulars": ["Kim Ji-ho"], "cat": "Mandu",
 		"cat_laps": ["Kim Ji-ho"], "walked_on": 2, "line": {"speaker": "Kim Ji-ho", "text": "I quit today."}}
 	var text := _request(Prompts.diary_messages(_owner_data(), facts))
-	for bit in ["episode 12", "Friday, the first snow of winter", "Kim Ji-ho (nurse, a regular, had Soju)", "SHE QUIT HER JOB?!", "I quit today.",
+	for bit in ["(season 2, episode 4 of its story)", "Friday, the first snow of winter", "Kim Ji-ho (nurse, a regular, had Soju)", "SHE QUIT HER JOB?!", "I quit today.",
 			"Hwang Tae-oh, a regular, didn't come in", "\"eonni\" terms", "looks like becoming a regular", "Mandu, the cat, sat on Kim Ji-ho's lap",
 			"2 people had to walk on", "14 customers (busier than usual)", "first person", "\"entry\"", "no numbers but the ones above"]:
 		assert_str(text).contains(bit)
+	assert_str(text).not_contains("episode 12")  # (never a running count: its season and episode)
 
 
 func test_the_recap_prompt_tells_last_time() -> void:
-	var facts := {"episode": 13, "bar": "Donghwa Pocha", "owner_data": _owner_data(), "last_entry": "Ji-ho quit. Tae-oh didn't come.",
+	var facts := {"episode": 13, "episode_label": "season 2, episode 5", "bar": "Donghwa Pocha", "owner_data": _owner_data(), "last_entry": "Ji-ho quit. Tae-oh didn't come.",
 		"last": {"day": "Friday", "weather": "snow", "customers": 9, "people": [], "missing": ["Hwang Tae-oh"]},
 		"memories": ["Lee Da-eun, a regular: nervous about her exam."]}
 	var text := _request(Prompts.recap_messages(facts))
-	for bit in ["Donghwa Pocha", "Episode 13", "Previously on", "Ji-ho quit. Tae-oh didn't come.", "Hwang Tae-oh, a regular, didn't come in",
+	for bit in ["Donghwa Pocha", "Season 2, episode 5 starts now", "Previously on", "Ji-ho quit. Tae-oh didn't come.", "Hwang Tae-oh, a regular, didn't come in",
 			"nervous about her exam", "present tense", "teaser", "\"beats\"", "no numbers but the ones above"]:
 		assert_str(text).contains(bit)
 	# One example teaser, picked by the game (given just one, the AI copied it).
@@ -470,7 +471,9 @@ func test_the_owners_life_is_in_every_prompt() -> void:
 
 func test_the_title_prompt() -> void:
 	var text := _request(Prompts.title_messages({"episode": 28, "day": "Friday", "weather": "rain", "people": [], "pinned": [{"speaker": "Kim Ji-ho", "text": "Salt and overtime, that's my life."}]}))
-	assert_str(text).contains("episode 28").contains("three titles").contains("Salt and overtime, that's my life.")
+	assert_str(text).contains("what happened in a pilot episode:").contains("three titles").contains("Salt and overtime, that's my life.")  # (facts from before seasons: a pilot, never a running count)
+	assert_str(text).not_contains("episode 28")
+	assert_str(_request(Prompts.title_messages({"episode": 28, "episode_label": "season 4, episode 4", "people": []}))).contains("what happened in season 4, episode 4:")
 	assert_str(text).contains("\"hangul\"").contains("\"english\"").contains("at most %d characters" % Story.TITLE_MOST)
 
 

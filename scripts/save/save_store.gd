@@ -6,9 +6,11 @@ extends RefCounted
 ## swapped in, so a crash mid-save can't corrupt a bar. If a crash leaves only the .tmp
 ## file, loading uses it.
 ##
-## A bar: {version, id, name, name_meaning, owner, visits, history, created,
-## last_played}. history holds a short summary of each visit (newest last), kept to
+## A bar: {version, id, name, name_meaning, owner, visits, history, show (its seasons),
+## created, last_played}. history holds a short summary of each visit (newest last), kept to
 ## HISTORY_LIMIT entries; later stages (regulars) will build on it.
+
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 const VERSION := 1
 const HISTORY_LIMIT := 100
@@ -35,6 +37,7 @@ static func new_bar(bar_name: String, meaning: String, owner_data: Dictionary) -
 		"history": [],
 		"night_log": [],
 		"cat": {},  # name, coat and personality (the visit scene gives every bar one)
+		"show": ShowSeasons.fresh(),  # the show's seasons: which one, how far in, the verdicts (rules/show_seasons.gd)
 		"created": now,
 		"last_played": now,
 	}

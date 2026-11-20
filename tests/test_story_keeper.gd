@@ -55,6 +55,9 @@ func test_previously_on_is_written_from_the_last_diary_and_the_regulars() -> voi
 	var dice := RandomNumberGenerator.new()
 	var facts := StoryKeeper.recap_facts(bar, owner_data, regulars, dice)
 	assert_int(int(facts["episode"])).is_equal(7)
+	assert_str(str(facts["episode_label"])).is_equal("season 1, episode 1")  # (a bar from before seasons: its first season starts now)
+	bar["show"] = {"season": 2, "aired": 4}
+	assert_str(str(StoryKeeper.recap_facts(bar, owner_data, regulars, dice)["episode_label"])).is_equal("season 2, episode 5")
 	assert_str(str(facts["last_entry"])).is_equal("A quiet night.")
 	assert_array(facts["names"]).contains(["Park Mi-sook", "Lee Min-jun", "Kim Ji-ho"])
 	assert_str(str(facts["hangul"]["Kim Ji-ho"])).is_equal("김지호")

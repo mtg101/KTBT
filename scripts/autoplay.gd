@@ -24,7 +24,7 @@ static var folder := ""
 var nights := 0  # how many to play
 var bar_id := ""  # the bar to carry on ("": a new one, autoplay's own)
 var begun := false  # the title screen's opened the bar
-var played: Array = []  # each night: {"night", "minutes", "customers", "offline", "rejected", "gave_up", "errors", "ratings" (-1: none)}
+var played: Array = []  # each night: {"night", "minutes", "customers", "offline", "rejected", "gave_up", "errors", "ratings" (-1: none), "season" ("": none)}
 var stop_reason := ""  # why it stopped early ("" if it didn't)
 var pause_seconds := PAUSE_SECONDS
 var errors := Errors.new()
@@ -82,11 +82,12 @@ static func from_args(args: PackedStringArray) -> Variant:
 	return new(how_many, carry_on)
 
 
-## A night's done (logged and written up): note it. ratings: its TV ratings (Ratings.score), or -1.
-func night_done(night: int, customers: int, offline: bool, rejected: int, gave_up: int, ratings: float = -1.0) -> void:
+## A night's done (logged and written up): note it. ratings: its TV ratings (Ratings.score), or -1;
+## season: where it was in the show's seasons ("S1 · EP 8/8 · FINALE", and the verdict after a finale), or "".
+func night_done(night: int, customers: int, offline: bool, rejected: int, gave_up: int, ratings: float = -1.0, season: String = "") -> void:
 	var now := Time.get_ticks_msec()
 	played.append({"night": night, "minutes": snappedf((now - _last_msec) / 60000.0, 0.1), "customers": customers, "offline": offline,
-		"rejected": rejected, "gave_up": gave_up, "errors": errors.count - _errors_before, "ratings": ratings})
+		"rejected": rejected, "gave_up": gave_up, "errors": errors.count - _errors_before, "ratings": ratings, "season": season})
 	_last_msec = now
 	_errors_before = errors.count
 
@@ -114,6 +115,8 @@ func summary_text(bar_name: String) -> String:
 		minutes += float(night["minutes"])
 		lines.append("Night %d: %.1f min, %d customers, %sAI rejected %d, gave up %d%s%s" % [night["night"], night["minutes"], night["customers"],
 			("ratings %.1f%%, " % float(night["ratings"])) if float(night.get("ratings", -1.0)) >= 0.0 else "", night["rejected"], night["gave_up"], ", OFFLINE" if night["offline"] else "", ", %d errors" % night["errors"] if int(night["errors"]) > 0 else ""])
+		if str(night.get("season", "")) != "":
+			lines[-1] += " (%s)" % night["season"]
 	lines.append("")
 	lines.append("Altogether %.0f min. Errors: %d%s" % [minutes, errors.count, ":" if not errors.kept.is_empty() else "."])
 	for kept in errors.kept:

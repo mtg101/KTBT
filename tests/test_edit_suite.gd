@@ -25,7 +25,7 @@ const SCENES := [
 func _suite() -> EditSuite:
 	var suite := EditSuite.new()
 	add_child(suite)
-	suite.open(28, TITLES, "What will Ji-ho do now?", OPTIONS, SCENES)
+	suite.open("season 2, episode 4", TITLES, "What will Ji-ho do now?", OPTIONS, SCENES)
 	suite.finished.connect(func(cut): _cuts.append(cut))
 	return suite
 
@@ -35,6 +35,7 @@ func test_the_writers_cut_is_picked_to_start_with() -> void:
 	assert_object(suite.find_child("CutIt", true, false)).is_not_null()
 	suite.cut()
 	assert_dict(_cuts[0]).is_equal({"title": TITLES[0], "title_by": "writers", "cliffhanger_by": "writers", "own_teaser": false})
+	assert_bool(suite.find_children("*", "Label", true, false).any(func(l): return (l as Label).text.ends_with("THE EDIT SUITE · SEASON 2, EPISODE 4"))).is_true()  # (its season and episode)
 
 
 func test_the_pd_picks_a_title_and_a_cliffhanger() -> void:

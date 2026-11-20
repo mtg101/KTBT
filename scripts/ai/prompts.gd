@@ -813,10 +813,16 @@ static func _recap_scenes_text(scenes: Array, last: Dictionary) -> String:
 	return ""
 
 
+## Which episode it is, in words: "season 2, episode 3" (episodes are numbered within their
+## season, never as a running count), or "a pilot episode" for facts from before seasons.
+static func _episode_words(facts: Dictionary) -> String:
+	return str(facts.get("episode_label", "a pilot episode"))
+
+
 ## Three titles for last night's episode, from the facts the diary was written from (and the
 ## lines the PD pinned): the edit suite offers them, and the writers' cut uses the first.
 static func title_messages(facts: Dictionary) -> Array:
-	var request := """You're the writer of a K-drama about a pojangmacha under a Seoul overpass. Here's what happened in episode %s:
+	var request := """You're the writer of a K-drama about a pojangmacha under a Seoul overpass. Here's what happened in %s:
 %s
 
 Give the episode three titles to choose from, the way Korean dramas and variety shows title their episodes: short, a little dramatic or playful, about what happened to these people (first names are fine), each different in feel.
@@ -824,7 +830,7 @@ Korean is welcome, as TV mixes the two: a title can be Korean with its English m
 
 Only what's above: no other names, nothing invented.
 
-Reply with ONLY a JSON object: {"titles": [{"hangul": "Korean, in Hangul, or \"\"", "english": "the title in English, at most %d characters"}, ...three]}""" % [facts.get("episode", 1), diary_facts_text(facts), Story.TITLE_MOST]
+Reply with ONLY a JSON object: {"titles": [{"hangul": "Korean, in Hangul, or \"\"", "english": "the title in English, at most %d characters"}, ...three]}""" % [_episode_words(facts), diary_facts_text(facts), Story.TITLE_MOST]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -878,14 +884,14 @@ static func diary_messages(owner: Dictionary, facts: Dictionary) -> Array:
 
 (When customers call the owner %s, Imo or Ajumma, they mean the owner: in the diary that's "me", not someone else.)
 
-It's %s and the tarp's down. Tonight at %s's tent (episode %s of its story), as it really happened:
+It's %s and the tarp's down. Tonight at %s's tent (%s of its story), as it really happened:
 %s
 
 Write their diary entry for tonight, in their own voice (first person, the way they talk: %s), four or five short sentences (it has to fit on one page of the diary). Pick the two or three things that mattered most to them tonight, and how they felt about them: it's a diary, not a list of everyone who came in. A little dry humour is fine. Start straight in with the night, as people do in a diary: no "Dear diary", and nothing about writing it.%s
 
 Only what's above: no other names, no numbers but the ones above, nothing invented about what anyone did or said.
 
-Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), owner.get("title", "Ajumma"), closed if closed != "" else "3am", owner["name"], facts.get("episode", 1), diary_facts_text(facts), owner.get("speech_style", ""), early]
+Reply with ONLY a JSON object: {"entry": "the diary entry"}""" % [describe_owner(owner), owner.get("title", "Ajumma"), closed if closed != "" else "3am", owner["name"], _episode_words(facts), diary_facts_text(facts), owner.get("speech_style", ""), early]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
@@ -989,7 +995,7 @@ static func recap_messages(facts: Dictionary) -> Array:
 		lines.append("- %s" % memory)
 	var request := """%s
 
-You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass. Episode %s starts now, and opens with "Previously on…": a recap of last time, over moody shots of the tent.
+You're the narrator of a K-drama about %s, a pojangmacha under a Seoul overpass. %s starts now, and opens with "Previously on…": a recap of last time, over moody shots of the tent.
 
 Last time:
 %s
@@ -1000,7 +1006,7 @@ Only what's above: no other names, no numbers but the ones above, nothing invent
 
 Then say what the teaser asks, so the show knows if it comes true tonight: a "kind" from this list, and "who" (the full names it's about, if any): %s.
 
-Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), facts.get("episode", 1), "\n".join(lines),
+Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), _episode_words(facts).left(1).to_upper() + _episode_words(facts).substr(1), "\n".join(lines),
 		_recap_scenes_text(facts.get("scenes", []), last),
 		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0])), Story.cliffhanger_kinds_text()]
 	return [

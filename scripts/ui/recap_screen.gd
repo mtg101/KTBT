@@ -10,6 +10,7 @@ extends Control
 signal finished
 signal step_in  ## the PD stepping in to cut it (see show_step_in)
 
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const CaptionPopup = preload("res://scripts/ui/caption.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
@@ -167,6 +168,7 @@ func _init() -> void:
 	_episode_ko.add_theme_color_override("font_outline_color", PINK.darkened(0.2))
 	_card.add_child(_episode_ko)
 	_episode_en = _label("", 40, YELLOW, 12)
+	_episode_en.name = "RecapEpisodeEnglish"
 	_episode_en.position = Vector2(0, 570)
 	_episode_en.size = Vector2(SIZE.x, 60)
 	_episode_en.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -220,12 +222,14 @@ func _init() -> void:
 ## when skipped). extras: "people" (name -> Hangul), "moments" (the TV reactions, with who and
 ## mood), "weather" (snow, or petals otherwise) and "quotes" (the lines the PD pinned last time,
 ## {"speaker", "text"}: one under each beat, in order) and "ratings" (last time's, "RATINGS 6.4%",
-## by the episode's title).
+## by the episode's title) and "place" (tonight's place in the seasons, ShowSeasons.tonight: the
+## episode card says "시즌 2 · 제1화" and "S2 · EP 1"; without it, episode is season 1's).
 func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: bool = false, extras: Dictionary = {}) -> void:
 	_apply_style(str(extras.get("style", "melodrama")))
 	(_title.get_child(0) as Label).text = "제1화 · THE FIRST EPISODE" if opener else str(_style["title"])
-	_episode_ko.text = "제%d화" % episode
-	_episode_en.text = "EP. %d · %s" % [episode, bar_name]
+	var place: Dictionary = extras.get("place", {"season": 1, "episode": episode})  # (tonight's: numbered within its season)
+	_episode_ko.text = ShowSeasons.hangul(place)
+	_episode_en.text = "%s · %s%s" % [ShowSeasons.tag(place), bar_name, "  ·  THE FINALE" if bool(place.get("finale", false)) else ""]
 	var drift := str(_style["drift"])
 	if str(extras.get("weather", "")).to_lower().contains("snow"):
 		drift = "snow"

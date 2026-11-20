@@ -2,8 +2,6 @@
 
 What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when something's built, it moves to [DEVLOG.md](DEVLOG.md) (and how it works, to CONCEPT.md), and a part-built item keeps only what's still to do. AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).
 
-Every list item is a **bold label**, a colon, then the details.
-
 ## Next stages
 
 - **Seasons and the platform ladder (next):** a reason to play. The ratings are the score; the show climbs or drops a ladder of platforms, season by season, and is never taken off air. The bar, its regulars, bonds, diary and story carry through every rung: only the show's reach changes.
@@ -16,10 +14,15 @@ Every list item is a **bold label**, a colon, then the details.
     5. **A network:** the big over-the-air channels: the top, 15% good, 20%+ legend.
   - **Named channels:** every booking is with a channel that has a name: the AI invents it (the game decides the rung; the AI the name, in Hangul and English, with its meaning on hover), checked against real ones (no KBS, MBC, SBS, EBS, tvN, JTBC, Mnet, TV Chosun, Channel A, MBN, ENA, nor any real app or video site) and against the bar's earlier channels. The phone stream's is the niece or nephew's own handle. Each season's announced with it ("You've been booked for a season on 달빛TV, Moonlight TV!"); staying up means renewed by the same channel, moving to another rung means a new one ("Moonlight TV didn't renew, but Hanbit Plus has picked the show up"). The bar keeps its channel history (which channel, which seasons, how they went) for the diary, "Previously on…" and the title screen. Offline, the canned names do.
   - **Rungs change the numbers, not the tools:** the units, the targets, how the climb is announced, and small touches of flavour (the stream's view count in the top bar, the channel on the loading screen). Not the PD's means: the player can do everything from the start. (Korean TV's effects are phone-app level these days anyway.)
-  - **Seasons:** about 8 episodes (perhaps 6 on the lower rungs); the last is a finale, with a season recap built from the pins; then the verdict against the rung's targets (the season's average, with a bonus for a record night or a hit): up a rung, stay, or down one (perhaps only after two bad seasons, so luck doesn't decide it). Never below the phone stream.
+  - **Seasons on the ladder:** the season's verdict (a hit season, renewed, a warning, or down after two quiet seasons in a row) moving the show: up a rung, stay, or down one, never below the phone stream. Each rung's own targets in place of today's (10 or more a hit season, under 5 a quiet one: check them against a batch, as the autopilot PD's nights average about 9.5%), the verdict's words to match the rung ("picked up by a bigger channel"), perhaps shorter seasons (6) on the lower rungs, and the season page and title screen naming the channel.
+  - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
   - **Making the PD's part felt:** for climbing to feel earned, the player needs to see what their choices did: at 3am, what each card, camera follow, pin and spin added to the episode.
   - **Later on the ladder:** notes from above each episode from the video channel up ("more romance this week": a bonus if it lands, nothing lost if not); a year-end awards night from the general-entertainment channel up (the network's 연예대상 at the top), regulars up for "best couple" or "rookie of the year".
-  - **Build in order:** seasons on today's rung (a season of 8, the finale recap, the verdict); then the ladder as numbers (the rungs, their units, targets and slots, starting on the phone stream, moving up and down, older bars placed on cable); then the PD's part made visible at 3am; then notes from above and the awards.
+  - **Build in order:** the ladder as numbers (the rungs, their units, targets and slots, starting on the phone stream, the season's verdict moving the show up and down, older bars placed on cable); then the PD's part made visible at 3am; then notes from above and the awards.
+- **lighting model:** the pixel lightign is very clever, and I'd use it on a C64 but...
+  - it looks weird as people gain 'sparkly coats' as they walk under the tent
+    - at the dither follows the tent dither behind it - obvious as people walk past
+  - let's think about moving to the ligthing being independent from c64-style dithering to using modern ability to lighten/darken areas
 
 ## Future ideas and improvements
 

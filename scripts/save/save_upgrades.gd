@@ -14,10 +14,12 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const People = preload("res://scripts/rules/people.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Bonds = preload("res://scripts/rules/bonds.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 
 ## What the game fills in itself, without the AI. Returns what it filled in ([]: nothing):
-## "owner_look", "owner_life", "cat_nickname", "bonds", "takings" (dropped). (The game's dice, in the order they always were:
+## "owner_look", "owner_life", "cat_nickname", "bonds", "takings" (dropped), "show" (a bar from before
+## seasons: its first season starts with its next night). (The game's dice, in the order they always were:
 ## the look first; the cat's nickname needs none.)
 static func upgrade(bar: Dictionary) -> Array:
 	var changed: Array = []
@@ -40,6 +42,9 @@ static func upgrade(bar: Dictionary) -> Array:
 		for night in bar.get("night_log", []):
 			night.erase("takings")
 		changed.append("takings")
+	if not bar.has("show"):  # a bar from before the show had seasons (19 Nov): season 1 starts next night
+		bar["show"] = ShowSeasons.fresh()
+		changed.append("show")
 	return changed
 
 

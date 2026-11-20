@@ -40,9 +40,9 @@ func _init() -> void:
 	z_index = 40
 
 
-## Opens it on last night's episode: its number, the drafted titles (the writers' first), the
+## Opens it on last night's episode: which it was ("season 1, episode 4": ShowSeasons.words), the drafted titles (the writers' first), the
 ## writers' teaser, the cliffhangers the night can answer, and the scenes it could be made of.
-func open(episode: int, titles: Array, writers_teaser: String, options: Array, scenes: Array = []) -> void:
+func open(episode: String, titles: Array, writers_teaser: String, options: Array, scenes: Array = []) -> void:
 	_titles = titles.duplicate(true)
 	_options = options.duplicate(true)
 	_scenes = scenes.duplicate(true)
@@ -61,7 +61,7 @@ func open(episode: int, titles: Array, writers_teaser: String, options: Array, s
 	box.custom_minimum_size = Vector2(WIDTH, 0)
 	box.add_theme_constant_override("separation", 12)
 	scroll.add_child(box)
-	var heading := Ktv.label("편집실 · THE EDIT SUITE · EPISODE %d" % episode, 40, Ktv.CREAM, 8)
+	var heading := Ktv.label("편집실 · THE EDIT SUITE · %s" % episode.to_upper(), 40, Ktv.CREAM, 8)
 	heading.mouse_filter = Control.MOUSE_FILTER_STOP
 	heading.tooltip_text = Text.tip(Glossary.hangul_tip("편집실"))
 	box.add_child(heading)

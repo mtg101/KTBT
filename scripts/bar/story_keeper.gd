@@ -8,6 +8,7 @@ extends RefCounted
 ## recap; this keeps the record.
 ## (Part 7 of splitting visit.gd: see DEVLOG.md, 16 November 2026.)
 
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Bonds = preload("res://scripts/rules/bonds.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
@@ -86,6 +87,7 @@ static func recap_facts(bar: Dictionary, owner_data: Dictionary, regulars: Array
 			if not kept.is_empty():
 				latest_memories.append("%s, a regular: %s" % [regular["name"], kept[-1]["text"]])
 	var last_facts: Dictionary = last.get("facts", {})
+	var tonight := ShowSeasons.tonight(bar.get("show", ShowSeasons.fresh()))  # (episodes are numbered within their season)
 	var hangul := {str(owner_data.get("name", "")): str(owner_data.get("hangul", ""))}  # for the recap's name tags
 	for regular in regulars:
 		hangul[str(regular["name"])] = str(regular.get("hangul", ""))
@@ -94,7 +96,8 @@ static func recap_facts(bar: Dictionary, owner_data: Dictionary, regulars: Array
 		if not hangul.has(str(person["name"])) or str(hangul[str(person["name"])]) == "":
 			hangul[str(person["name"])] = str(person.get("hangul", ""))
 	return {
-		"episode": int(bar.get("nights", 0)) + 1, "bar": str(bar.get("name", "")), "owner": str(owner_data.get("name", "")),
+		"episode": int(bar.get("nights", 0)) + 1, "episode_label": ShowSeasons.words(tonight), "season": int(tonight["season"]), "season_episode": int(tonight["episode"]),
+		"bar": str(bar.get("name", "")), "owner": str(owner_data.get("name", "")),
 		"archetype": str(owner_data.get("archetype", "")), "owner_data": owner_data.duplicate(true), "cat": str(bar.get("cat", {}).get("name", "")),
 		"regulars": regulars.map(func(r): return str(r["name"])), "names": names,
 		"last": last_facts, "last_entry": str(last.get("text", "")), "memories": latest_memories, "hangul": hangul,

@@ -3,6 +3,7 @@ extends Control
 
 const Text = preload("res://scripts/rules/text.gd")
 const SaveStore = preload("res://scripts/save/save_store.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const DiaryBook = preload("res://scripts/ui/diary_book.gd")
 
@@ -108,7 +109,8 @@ func _fill_list() -> void:
 		_list.add_child(row)
 
 
-## One saved bar: its name and meaning, owner, nights, visits, regulars and when it was last played.
+## One saved bar: its name and meaning, owner, nights, visits, regulars, when it was last played
+## and where the show's got to in its season.
 func _bar_button(bar: Dictionary, index: int) -> Button:
 	var button := Button.new()
 	button.name = "Bar%d" % index
@@ -125,6 +127,9 @@ func _bar_button(bar: Dictionary, index: int) -> Button:
 		visits, "visit" if visits == 1 else "visits",
 		regulars, "regular" if regulars == 1 else "regulars",
 		_when(int(bar.get("last_played", 0)))]
+	if bar.has("show"):  # where the show's got to: "season 2, 3 of 8 aired"
+		var aired: Dictionary = bar["show"]
+		button.text += "  ·  season %d, %d of %d aired" % [int(aired.get("season", 1)), int(aired.get("aired", 0)), ShowSeasons.EPISODES]
 	if bool(bar.get("autoplay", false)):
 		button.text += "  ·  played by autoplay"  # (a test bar: see autoplay.gd)
 	button.add_theme_font_size_override("font_size", 18)

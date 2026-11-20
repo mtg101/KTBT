@@ -69,6 +69,8 @@ const Orders = preload("res://scripts/rules/orders.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
+const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const SeasonPage = preload("res://scripts/ui/season_page.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
@@ -429,6 +431,12 @@ var _ratings_dice := RandomNumberGenerator.new()
 ## rating once it's in (Ratings.score, with "banner" and "record").
 var _busier := 1.0
 var _night_ratings := {}
+## Tonight's place in the show's seasons (ShowSeasons.tonight), and, after a finale, the season
+## just ended: its verdict, nights and ratings (ShowSeasons.verdict), for the season page.
+var _show_place := {}
+var _season_ended := {}
+var _season_page: Control  # the season looked back on, after a finale (ui/season_page.gd)
+var _season_button: Button  # on the summary after a finale: the season page or the diary
 var _scenery: Scenery  # the tent's fixtures: the fridge, the odeng pot, the neon, steam (scripts/bar/scenery.gd)
 var _street_lights: StreetLights  # the street's lamps, cables, stars, moon and wet road (street_lights.gd)
 var _street_for := ""  # the bar whose street is drawn
@@ -1072,6 +1080,10 @@ func _short_date() -> String:
 func _start_night() -> void:
 	_night_number = int(Game.bar.get("nights", 0)) + 1
 	_night_day = NightRules.night_day(int(Game.bar.get("first_day", 4)), _night_number)
+	if not Game.bar.has("show"):
+		Game.bar["show"] = ShowSeasons.fresh()
+	_show_place = ShowSeasons.tonight(Game.bar["show"])
+	_season_ended = {}
 	_pick_weather()
 	var bar_id := str(Game.bar.get("id", ""))
 	if _street_for != bar_id:
@@ -1131,6 +1143,7 @@ func _start_night() -> void:
 	_busier = Ratings.busier(Ratings.from_log(Game.bar.get("night_log", [])))
 	_night_ratings = {}
 	_stats.story["busier"] = _busier
+	_stats.story["show"] = {"place": ShowSeasons.label(_show_place), "finale": bool(_show_place["finale"]), "so_far": ShowSeasons.so_far(Game.bar["show"])}
 	_stats.ratings_before = Ratings.from_log(Game.bar.get("night_log", []))
 	_events.happened.connect(func(_kind, _facts, _about, _spot): _update_ratings())
 	_update_ratings()
@@ -1172,7 +1185,9 @@ func _start_night() -> void:
 	_tent_cat.place()
 	_update_clock_label()
 	_start_transcript()
-	_show("\n[center][color=#%s]· · ·  Night %d  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number])
+	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place)])
+	if bool(_show_place["finale"]):
+		_narrate("Tonight's the finale of season %d: at 3am, the channel decides what happens to the show." % int(_show_place["season"]))
 	_narrate("%s %s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, _night_date.get("text", ""), NightRules.clock_text(NightRules.OPEN_MINUTES), Text.sentence_case(_night_weather)])
 	if _night_weather == Seasons.FIRST_SNOW:
 		_event("first_snow")
@@ -1350,25 +1365,35 @@ func _end_night() -> void:
 		"night": _night_number, "day": _night_day, "weather": _night_weather,
 		"customers": _night_visits,
 		"ratings": float(_night_ratings["rating"]),
+		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]),
 		"line": line.duplicate(),
 		"when": int(Time.get_unix_time_from_system()),
 	})
+	if ShowSeasons.record(Game.bar["show"], _night_number, float(_night_ratings["rating"])):
+		_end_season()
 	Game.save()
 	_narrate("%s. %s pulls down the tarp and stacks the stools." % [NightRules.clock_text(int(_clock)), _owner_display()])
 	_update_clock_label()
 	var t := "[center][font_size=34][b]Night %d at %s[/b][/font_size]\n" % [_night_number, _esc(Game.bar["name"])]
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers"]
-	t += "[b]TV ratings %s[/b]  ·  %s" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]  # (the night's score: takings aren't kept)
+	t += "[b]TV ratings %s[/b]  ·  %s\n" % [Ratings.percent_text(float(_night_ratings["rating"])), _night_ratings["band"]]  # (the night's score: takings aren't kept)
+	t += "[color=#%s]%s[/color]" % [MUTED.to_html(false), ShowSeasons.label(_show_place)]
+	if not _season_ended.is_empty():
+		t += "\n[b]%s[/b]  %s" % [Glossary.explain_hangul(_esc(str(_season_ended["stamp"]))), _esc(str(_season_ended["words"]))]  # (the stamp explains itself on hover)
 	if not line.is_empty():
 		t += "\n\n[i][color=#%s]\"%s\"[/color][/i]\n[color=#%s]%s[/color]" % [OWNER_TEXT.to_html(false), _esc(line["text"]), MUTED.to_html(false), _esc(line["speaker"])]
 	t += "[/center]\n\n" + _stats.panel_text(0, 0)
 	_summary_text.text = t
 	_summary_text.visible = false  # the numbers are behind the Stats button: the diary's the thing
 	_stats_button.button_pressed = false
+	_season_page.visible = false
+	_season_button.visible = false
 	_summary.visible = true
 	await _regulars_remember_each_other()
 	await _write_diary()
+	if not _season_ended.is_empty() and not _closed():
+		_show_season_page()
 	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
 	if Game.autoplay != null:
@@ -1377,6 +1402,56 @@ func _end_night() -> void:
 		_closing_early = false
 		_leave_button.disabled = false
 		_leave_button.text = "Close the bar"
+
+
+## 3am after a finale: the channel's verdict on the season (ShowSeasons.verdict: its average
+## ratings, with a bonus for a new best or a hit, against today's targets), kept with the bar,
+## and the next season begins. Counted in the stats (THE STORY), logged and in the transcript;
+## the season page comes after the diary (_show_season_page).
+func _end_season() -> void:
+	var the_show: Dictionary = Game.bar["show"]
+	var this_season: Array = the_show.get("nights", [])
+	var before := Ratings.from_log(Game.bar.get("night_log", []).filter(func(n): return not this_season.has(int(n.get("night", 0)))))
+	var judged := ShowSeasons.verdict(int(the_show.get("season", 1)), the_show.get("ratings", []), before, the_show.get("seasons", []))
+	_season_ended = judged.duplicate()
+	_season_ended["nights"] = this_season.duplicate()
+	_season_ended["ratings"] = the_show.get("ratings", []).duplicate()
+	ShowSeasons.end_season(the_show, judged)
+	_stats.story["show"]["verdict"] = ShowSeasons.log_text(judged)
+	_stats.story["show"]["verdict_words"] = str(judged["words"])
+	print("Season: %s" % ShowSeasons.log_text(judged))
+	_narrate("That's season %d. %s" % [int(judged["season"]), str(judged["words"])])
+
+
+## After the finale's diary: the season looked back on (ui/season_page.gd) in its place, an
+## episode a row from the diary, and the verdict; the button beside Stats flips back to the diary.
+func _show_season_page() -> void:
+	var rows := ShowSeasons.recap_rows(_season_ended["nights"], _season_ended["ratings"], Game.bar.get("diary", []))
+	_season_page.show_season(rows, _season_ended, str(Game.bar.get("name", "")))
+	_season_button.text = "Diary"
+	_season_button.visible = true
+	_stats_button.button_pressed = false
+	_diary_page.visible = false
+	_season_page.visible = true
+	_ambience.sting("sparkle")
+	var said := PackedStringArray()
+	for row in rows:
+		var quote: Dictionary = row["quote"]
+		said.append("EP %d %s%s%s" % [int(row["episode"]), Ratings.percent_text(float(row["rating"])), (" «%s»" % str(row["title"])) if str(row["title"]) != "" else "",
+			(" \"%s\" (%s)" % [quote["text"], quote["speaker"]]) if not quote.is_empty() else ""])
+	_stats.story["show"]["looked_back"] = rows.size()
+	_show("[i][color=#%s]Season %d, looked back on: %s. %s %s[/color][/i]\n\n" % [MUTED.to_html(false), int(_season_ended["season"]), _esc(" · ".join(said)),
+		_esc(str(_season_ended["stamp"])), _esc(str(_season_ended["words"]))])
+
+
+## The summary's season button (after a finale): the season page or the diary, and back.
+func _on_season_toggled() -> void:
+	var to_season := not _season_page.visible
+	_stats_button.button_pressed = false
+	_summary_text.visible = false
+	_season_page.visible = to_season
+	_diary_page.visible = not to_season
+	_season_button.text = "Diary" if to_season else "Season %d" % int(_season_ended.get("season", 1))
 
 
 ## Last time's ratings, for "Previously on…" ("RATINGS 6.4%"), or "" before the show had them.
@@ -1491,7 +1566,7 @@ func _write_diary() -> void:
 		button.disabled = true
 	var facts := _diary_facts()
 	_diary_page.visible = true
-	_diary_page.show_writing(_night_number, _night_day, _night_weather, _owner_display())
+	_diary_page.show_writing(ShowSeasons.tag(_show_place), _night_day, _night_weather, _owner_display())
 	var text := ""
 	var by := "game"
 	if Hooks.diaries:
@@ -1505,14 +1580,15 @@ func _write_diary() -> void:
 		text = Story.stitched_diary(facts)
 	var entry := {"episode": _night_number, "night": _night_number, "day": _night_day, "weather": _night_weather,
 		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system()),
-		"ratings": _night_ratings.duplicate(true)}
+		"ratings": _night_ratings.duplicate(true),
+		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]), "finale": bool(_show_place["finale"])}
 	SaveStore.record_diary(Game.bar, entry)
 	_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
 	Game.save()
 	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
 	_stats.story["diary_stamp"] = str(entry["stamp"])
 	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
-	_show("[i][color=#%s]%s's diary, episode %d: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], _night_number, _esc(text)])
+	_show("[i][color=#%s]%s's diary, %s: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], ShowSeasons.words(_show_place), _esc(text)])
 	for button in _summary_buttons:
 		button.disabled = false
 
@@ -1525,7 +1601,8 @@ func _validate_diary(data: Variant, facts: Dictionary) -> String:
 ## for the diary book and "Previously on…".
 func _diary_facts() -> Dictionary:
 	return Story.diary_facts(_events.timeline, {
-		"episode": _night_number, "day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]), "date": _date_words(),
+		"episode": _night_number, "episode_label": ShowSeasons.words(_show_place), "season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]),
+		"day": _night_day, "weather": _night_weather, "owner": str(_owner["name"]), "date": _date_words(),
 		"owner_gender": str(_owner.get("gender", "")), "customers": _night_visits,
 		"before": Game.bar.get("night_log", []).slice(0, -1).map(func(n): return int(n.get("customers", 0))),
 		"regulars": _regulars().map(func(r): return {"name": str(r["name"]), "founding": bool(r.get("founding", false)), "gender": str(r.get("gender", ""))}),
@@ -1571,7 +1648,7 @@ func _offer_step_in() -> void:
 	_step_in_wanted = false
 	_step_in_when = ""
 	if _loading != null and _loading.visible:
-		var button: Button = _loading.show_step_in("✂  The writers are cutting episode %d…  Step in as the PD (Enter)" % int(Game.bar.get("nights", 0)))
+		var button: Button = _loading.show_step_in("✂  The writers are cutting %s…  Step in as the PD (Enter)" % _last_episode_words())
 		button.pressed.connect(_step_in)
 	if _autopilot != null and _autopilot.steps_in():
 		_autopilot.counts["stepped_in"] = "yes"
@@ -1625,7 +1702,7 @@ func _cut_episode() -> Dictionary:
 	var entry: Dictionary = Game.bar.get("diary", [])[-1]
 	var suite := EditSuite.new()
 	add_child(suite)
-	suite.open(int(entry.get("episode", 0)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
+	suite.open(ShowSeasons.words(ShowSeasons.of(entry)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
 		Story.scene_options(entry.get("facts", {})))
 	if _autopilot != null:
 		_autopilot_cuts.call_deferred(suite, entry.get("titles", []).size(), Story.cliffhanger_options(entry.get("facts", {})).size(), Story.scene_options(entry.get("facts", {})).size())
@@ -1659,7 +1736,7 @@ func _cut_episode() -> Dictionary:
 		_stats.story["edit"] = noted
 	else:
 		_before_night["edit"] = noted
-	_show("[i][color=#%s]✂ The PD steps in: episode %d, %s%s.[/color][/i]\n\n" % [CAMERA_RED.to_html(false), int(entry.get("episode", 0)),
+	_show("[i][color=#%s]✂ The PD steps in: %s, %s%s.[/color][/i]\n\n" % [CAMERA_RED.to_html(false), ShowSeasons.words(ShowSeasons.of(entry)),
 		_esc("\"%s\"" % Story.title_text(airing.get("title", {}))), " (left to the writers)" if not cut.has("title_by") else (", cliffhanger «%s»" % _esc(airing.get("teaser", "")))])
 	return airing
 
@@ -1755,12 +1832,13 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	_before_night["recap_style"] = style
 	var extras := {"people": facts["hangul"], "moments": facts["last"].get("moments", []), "weather": str(facts["last"].get("weather", "")), "style": style,
 		"quotes": [] if opener else recap.get("quotes", facts["last"].get("pinned", [])),
-		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "EP. %d · %s" % [int(Game.bar.get("nights", 0)), Story.title_text(recap["title"])],
+		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "%s · %s" % [ShowSeasons.tag(ShowSeasons.of(Game.bar.get("diary", [{}])[-1])), Story.title_text(recap["title"])],
 		"step_in": not opener and _step_in_open,
-		"ratings": "" if opener else _last_ratings_text()}
+		"ratings": "" if opener else _last_ratings_text(),
+		"place": ShowSeasons.tonight(Game.bar.get("show", ShowSeasons.fresh()))}
 	if not opener and not facts["last"].get("pinned", []).is_empty():
 		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
-	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(Game.bar.get("nights", 0)) + 1, str(Game.bar.get("name", "")), opener, extras)
+	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(extras["place"]["episode"]), str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
 	_recap_screen = null
 	if _step_in_wanted:
@@ -1768,6 +1846,12 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	var titled := "" if recap.get("title", {}).is_empty() else " (%s)" % Story.title_text(recap["title"])
 	_recap_said = "%s%s %s %s" % ["Series opener:" if opener else "Previously on…", titled, " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
 	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(_recap_said)])
+
+
+## Last night's episode in words, for cutting it: "season 1, episode 4" (from its diary entry).
+func _last_episode_words() -> String:
+	var diary: Array = Game.bar.get("diary", [])
+	return ShowSeasons.words(ShowSeasons.of(diary[-1])) if not diary.is_empty() else "last night's episode"
 
 
 ## The owner's diary as a book, over everything (the night carries on behind it).
@@ -1781,9 +1865,11 @@ func _open_diary() -> void:
 
 ## The end-of-night Stats button: the numbers instead of the diary page, and back.
 func _on_summary_stats_toggled(on: bool) -> void:
+	var season_up := _season_button.visible and _season_button.text == "Diary"  # (the season page was showing)
 	_summary_text.visible = on
-	_diary_page.visible = not on
-	_stats_button.text = "Diary" if on else "Stats"  # (and back)
+	_diary_page.visible = not on and not season_up
+	_season_page.visible = not on and season_up
+	_stats_button.text = ("Season" if season_up else "Diary") if on else "Stats"  # (and back)
 
 
 ## Every answer from the AI, for the stats: tonight's (and its diary, after), or, while the next
@@ -1806,6 +1892,8 @@ func _on_ai_rejected(purpose: String, problem: String, reply: String) -> void:
 
 func _on_next_night_pressed() -> void:
 	_summary.visible = false
+	_season_page.visible = false
+	_season_button.visible = false
 	_story.forget_before()  # (the end of last night, the diary: not tonight's)
 	_getting_ready = true
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty():
@@ -1827,7 +1915,8 @@ func _autoplay_next() -> void:
 	if auto.bar_id == "" and not bool(Game.bar.get("autoplay", false)):
 		Game.bar["autoplay"] = true  # (its own bar: marked as a test bar on the title screen)
 		Game.save()
-	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up, float(_night_ratings.get("rating", -1.0)))
+	auto.night_done(_night_number, _night_visits, _ai.offline, _stats.rejected, _stats.gave_up, float(_night_ratings.get("rating", -1.0)),
+		ShowSeasons.short_label(_show_place) + ((" · " + ShowSeasons.log_text(_season_ended)) if not _season_ended.is_empty() else ""))
 	var path: String = auto.save_summary(str(Game.bar.get("name", "")), str(Game.bar.get("id", "bar")))
 	auto.write_running(str(Game.bar.get("name", "")))
 	print("Autoplay: night %d done (%s). Summary: %s" % [_night_number, auto.progress_text(), ProjectSettings.globalize_path(path)])
@@ -1845,7 +1934,7 @@ func _autoplay_next() -> void:
 func _update_clock_label() -> void:
 	if _night_number == 0:
 		return
-	_moment_label.text = "Night %d  ·  %s %s  ·  %s  ·  %s" % [_night_number, _night_day, _short_date(), NightRules.clock_text(int(_clock)), _night_weather]
+	_moment_label.text = "Night %d  ·  %s  ·  %s %s  ·  %s  ·  %s" % [_night_number, ShowSeasons.short_label(_show_place), _night_day, _short_date(), NightRules.clock_text(int(_clock)), _night_weather]
 	if _night_open and _time_speed > 1.05:
 		_moment_label.text += "  ·  ▶▶ %.0f×" % _time_speed  # time's running fast: the tent's quiet
 
@@ -4292,7 +4381,7 @@ func _show_camera() -> void:
 ## The PD's desk, brought up to date (who the camera's on, tonight's cards).
 func _update_desk() -> void:
 	if _pd != null:
-		_pd.recut = ("✂ Step in: re-cut episode %d (Enter)" % int(Game.bar.get("nights", 0))) if _step_in_open and _night_open and not Game.bar.get("diary", []).is_empty() else ""
+		_pd.recut = ("✂ Step in: re-cut %s (Enter)" % _last_episode_words()) if _step_in_open and _night_open and not Game.bar.get("diary", []).is_empty() else ""
 		_pd.refresh()
 
 
@@ -4935,6 +5024,11 @@ func _build_ui() -> void:
 	_diary_page.name = "DiaryPage"
 	_diary_page.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	summary_col.add_child(_diary_page)
+	_season_page = SeasonPage.new()  # (after a finale, in the diary's place)
+	_season_page.name = "SeasonPage"
+	_season_page.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_season_page.visible = false
+	summary_col.add_child(_season_page)
 	_summary_text = RichTextLabel.new()
 	_summary_text.name = "SummaryText"
 	_summary_text.bbcode_enabled = true
@@ -4966,6 +5060,13 @@ func _build_ui() -> void:
 	_stats_button.tooltip_text = Text.tip("Tonight's numbers, instead of the diary.")
 	_stats_button.toggled.connect(_on_summary_stats_toggled)
 	summary_buttons.add_child(_stats_button)
+	_season_button = Button.new()
+	_season_button.name = "SeasonButton"
+	_season_button.custom_minimum_size = Vector2(140, 48)
+	_season_button.tooltip_text = Text.tip("The season looked back on, or the diary.")
+	_season_button.visible = false
+	_season_button.pressed.connect(_on_season_toggled)
+	summary_buttons.add_child(_season_button)
 	summary_buttons.add_child(next_night)
 	_summary_buttons = [next_night]
 	var summary_leave := Button.new()

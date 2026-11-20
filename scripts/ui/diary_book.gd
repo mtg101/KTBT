@@ -85,7 +85,7 @@ func _flip(by: int) -> void:
 
 func _show_page() -> void:
 	if _entries.is_empty():
-		_page.show_entry({"text": "Nothing written yet: the first entry comes at 3am.", "stamp": "soju", "episode": 0}, _whose)
+		_page.show_entry({"text": "Nothing written yet: the first entry comes at 3am.", "stamp": "soju", "season": 1, "season_episode": 1}, _whose)
 	else:
 		_page.show_entry(_entries[_at], _whose)
 	_older.disabled = _at <= 0
