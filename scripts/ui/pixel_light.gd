@@ -2,8 +2,9 @@ extends RefCounted
 ## The light by the hour, on the pixels themselves (ART.md, "Lighting by palette"): a small
 ## shader on every piece of pixel art (the street's, the tent's, the people's) moves each pixel
 ## up or down its own colour's light ramp (darker is bluer, lighter warmer: the palette's ramp()
-## sums), whole steps at a time, with a 4x4 Bayer dither on the grid between them, so the light
-## falls in bands of pixels and nothing's ever smoothed.
+## sums), smoothly: a blend between the whole steps either side of the light there. No dither
+## (20 Nov: a dither fixed to the grid slid across people as they walked, their coats sparkling
+## with the tarp's pattern behind them), so the light fades evenly and moves with whoever's in it.
 ## How far a pixel moves is the light where it is, in steps: the night's own (AMBIENT: dusk at
 ## 6pm, darkest after midnight, a little less towards dawn) plus the bulbs' (each lights what's
 ## round it, fading out with distance; the tarp holds their light in, so the street behind
@@ -55,7 +56,6 @@ uniform float blue_hue = 0.64;
 uniform float warm_hue = 0.11;
 varying vec2 stage_at;
 
-const float BAYER[16] = float[](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
 
 void vertex() {
 	stage_at = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy * to_stage_scale + to_stage_offset;
@@ -78,6 +78,34 @@ float towards(float hue, float to, float share) {
 	return fract(hue + (fract(to - hue + 0.5) - 0.5) * share);
 }
 
+// One step along a colour's ramp: down darker and bluer, up lighter and warmer.
+vec3 one_step(vec3 from, float dir) {
+	vec3 hsv = from;
+	if (dir < 0.0) {
+		hsv.z = hsv.z * down_value;
+		hsv.x = towards(hsv.x, blue_hue, 0.06);
+		hsv.y = min(1.0, hsv.y * 1.04);
+	} else {
+		hsv.z = hsv.z + (1.0 - hsv.z) * up_value;
+		hsv.x = towards(hsv.x, warm_hue, 0.05);
+		hsv.y = hsv.y * 0.94;
+	}
+	return hsv;
+}
+
+// A colour n whole steps along its ramp, from how it's drawn.
+vec3 walk(vec3 from, int n) {
+	vec3 hsv = from;
+	for (int i = 0; i < 4; i++) {
+		if (i < -n) {
+			hsv = one_step(hsv, -1.0);
+		} else if (i < n) {
+			hsv = one_step(hsv, 1.0);
+		}
+	}
+	return hsv;
+}
+
 void fragment() {
 	vec4 c = texture(TEXTURE, UV) * COLOR;
 	vec3 hsv = to_hsv(c.rgb);
@@ -98,23 +126,12 @@ void fragment() {
 	float steps = min(ambient + lit_by_bulbs * light + lamp_light, brightest);
 	// What glows by itself (bright and coloured: a lit window, the neon) keeps its light.
 	steps *= 1.0 - self_lit * smoothstep(0.78, 0.92, hsv.z) * smoothstep(0.3, 0.55, hsv.y);
-	vec2 cell = floor(stage_at / 3.0);
-	int k = int(mod(cell.y, 4.0)) * 4 + int(mod(cell.x, 4.0));
-	int n = int(floor(steps + (BAYER[k] + 0.5) / 16.0));
-	for (int i = 0; i < 4; i++) {
-		if (n < 0) {
-			hsv.z *= down_value;
-			hsv.x = towards(hsv.x, blue_hue, 0.06);
-			hsv.y = min(1.0, hsv.y * 1.04);
-			n += 1;
-		} else if (n > 0) {
-			hsv.z += (1.0 - hsv.z) * up_value;
-			hsv.x = towards(hsv.x, warm_hue, 0.05);
-			hsv.y *= 0.94;
-			n -= 1;
-		}
-	}
-	COLOR = vec4(to_rgb(hsv), c.a);
+	// Blended between the whole steps either side (each from how it's drawn, so a whole step
+	// is the ramp's own and there's no jump as the light crosses one): smooth, no dither.
+	float whole = floor(steps);
+	vec3 below = to_rgb(walk(hsv, int(whole)));
+	vec3 above = to_rgb(walk(hsv, int(whole) + 1));
+	COLOR = vec4(mix(below, above, steps - whole), c.a);
 }
 """
 
@@ -220,8 +237,8 @@ static func ambient(minutes: float, weather_kind: String = "") -> float:
 	return steps + float(WEATHER.get(weather_kind, 0.0))
 
 
-## The light at a spot on the stage, in steps from how it's drawn (as the shader works it out,
-## before the dither): for the tests and the log.
+## The light at a spot on the stage, in steps from how it's drawn (as the shader works it out):
+## for the tests and the log.
 static func light_at(spot: Vector2, kind: String = "tent") -> float:
 	var from_bulbs := 0.0
 	for bulb: Vector4 in bulbs:
@@ -232,6 +249,13 @@ static func light_at(spot: Vector2, kind: String = "tent") -> float:
 		if lamp.z > 0.0 and lamp.w > 0.0:
 			from_lamps += lamp.z * clampf(1.0 - spot.distance_to(Vector2(lamp.x, lamp.y)) / lamp.w, 0.0, 1.0)
 	return minf(ambient_steps + float(KINDS.get(kind, 1.0)) * from_bulbs + from_lamps, BRIGHTEST)
+
+
+## A colour moved along its ramp as the shader does: a blend between the whole steps either
+## side, each from how it's drawn (smooth: no dither, and no jump at a whole step). For the tests.
+static func lit(colour: Color, steps: float) -> Color:
+	var whole := floorf(steps)
+	return shifted(colour, int(whole)).lerp(shifted(colour, int(whole) + 1), steps - whole)
 
 
 ## A colour moved whole steps along its ramp (as the shader does): for the tests.

@@ -2,6 +2,10 @@
 
 A running record of what we've done on KTBT and why, newest first. What's coming next is in [PLAN.md](PLAN.md), and AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).
 
+## 20 November 2026
+
+- **Smooth light, no dither.** Testing the visuals: the light's 4×4 Bayer dither was fixed to the stage's grid, so anyone walking under the tent slid across it, their coat sparkling with the same pattern as the tarp behind them. Very C64, and very noticeable on anything that moves. Now each pixel still moves along its own colour's ramp (darker and bluer, lighter and warmer, as the palette's made), but blended smoothly between the whole steps either side of the light there, each worked out from the colour as drawn (so a whole step is exactly the ramp's, and there's no jump as the light crosses one). The light fades evenly from a bulb into the dark, and moves with whoever's in it. ART.md's lighting rules say so; the test checks the blend, that it never jumps, and that no dither comes back. 723 tests.
+
 ## 19 November 2026
 
 - **The diary page's header fixed.** With the season, episode and title in its pink pill ("S2 · EP 1 · 그늘에 피어나는 슬픔 · Sadness that Blooms in the Shade"), the pill ran over the day and weather beside it. Now the header's three rows of its own: the pill (as wide as its words, never past the page, a long title trimmed with "…"); the day and weather, with the ratings on the right; whose diary it is. The diary test checks the rows don't overlap and the pill stays on the page with a long title. 722 tests.

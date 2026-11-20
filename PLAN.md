@@ -19,10 +19,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **Making the PD's part felt:** for climbing to feel earned, the player needs to see what their choices did: at 3am, what each card, camera follow, pin and spin added to the episode.
   - **Later on the ladder:** notes from above each episode from the video channel up ("more romance this week": a bonus if it lands, nothing lost if not); a year-end awards night from the general-entertainment channel up (the network's 연예대상 at the top), regulars up for "best couple" or "rookie of the year".
   - **Build in order:** the ladder as numbers (the rungs, their units, targets and slots, starting on the phone stream, the season's verdict moving the show up and down, older bars placed on cable); then the PD's part made visible at 3am; then notes from above and the awards.
-- **lighting model:** the pixel lightign is very clever, and I'd use it on a C64 but...
-  - it looks weird as people gain 'sparkly coats' as they walk under the tent
-    - at the dither follows the tent dither behind it - obvious as people walk past
-  - let's think about moving to the ligthing being independent from c64-style dithering to using modern ability to lighten/darken areas
 
 ## Future ideas and improvements
 
@@ -59,6 +55,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **A roguelike PD:** the plant cards as a game of their own: a deck built up over a season, cards earned from good ratings, rarer cards (a chaebol heir in disguise, a long-lost sibling, a typhoon), combos, a network executive's demands each run (a ratings target, "more romance this week"), the season ending in renewal or cancellation. The tent still runs itself; the run is the PD's.
 - **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
+- **social media responses: ** at end of day summary, alongside diary, affects ratings (future: popsup live during show)
 - **Player customisation:** the style guide, archetypes and menu catalogue as editable files, so players can make their own bar; and settings like time speed and weather.
 
 ### Presentation

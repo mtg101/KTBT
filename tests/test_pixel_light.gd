@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 ## Tests for scripts/ui/pixel_light.gd: the light by the hour on the pixels, the night's own and
-## the bulbs', each pixel moved whole steps along its colour's ramp.
+## the bulbs', each pixel moved along its colour's ramp, smoothly (no dither).
 
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 
@@ -60,6 +60,23 @@ func test_a_step_down_the_ramp_is_darker_and_bluer_up_lighter_and_warmer() -> vo
 	assert_bool(PixelLight.shifted(red, 0).is_equal_approx(red)).is_true()
 	assert_float(PixelLight.shifted(red, -2).v).is_less(down.v)
 	assert_float(PixelLight.shifted(red, -1).a).is_equal(red.a)
+
+
+func test_the_light_fades_smoothly_between_steps_with_no_dither() -> void:
+	var red := Color("c8443a")
+	# Whole steps are the ramp's own; between them, a blend, so the light fades evenly.
+	assert_bool(PixelLight.lit(red, -1.0).is_equal_approx(PixelLight.shifted(red, -1))).is_true()
+	assert_bool(PixelLight.lit(red, 0.0).is_equal_approx(red)).is_true()
+	var halfway := PixelLight.lit(red, -0.5)
+	assert_float(halfway.v).is_greater(PixelLight.shifted(red, -1).v).is_less(red.v)
+	var last := PixelLight.lit(red, -1.9)
+	for k in range(1, 20):  # no jumps: a little more light, a little lighter
+		var now := PixelLight.lit(red, -1.9 + k * 0.1)
+		assert_float(now.v).is_greater(last.v)
+		assert_float(now.v - last.v).is_less(0.05)
+		last = now
+	# Regression (20 Nov): a dither fixed to the grid slid across people as they walked.
+	assert_str(PixelLight.SHADER).not_contains("BAYER").not_contains("stage_at / 3.0")
 
 
 func test_each_kind_shares_one_material() -> void:
