@@ -419,13 +419,13 @@ def pick_sheets(folder, only=None):
     print("%s: %d picks (yours to change: a seed, or null for none)" % (PICKS, len(picks)))
 
 
-def keep():
+def keep(only=None):
     """The picks into the game: art/portraits/<id>.png in the layer encoding, the manifest and LICENSE-ASSETS."""
     import json
     picks = json.load(open(PICKS, encoding="utf-8"))
     kept = 0
     for name, seed in sorted(picks.items()):
-        if seed is None:
+        if seed is None or (only and "_".join(name.split("_")[1:3]) not in only):
             continue
         path = os.path.join(RAW, "%s_%d.png" % (name, seed))
         made = json.load(open(os.path.splitext(path)[0] + ".json", encoding="utf-8-sig"))
@@ -443,7 +443,7 @@ if __name__ == "__main__":
     ap.add_argument("--width", type=int, default=W); ap.add_argument("--height", type=int, default=H)
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--pick", metavar="FOLDER", help="pick sheets of the batch's pictures into FOLDER, and art/raw/portrait_picks.json")
-    ap.add_argument("--only", help="with --pick: just these sheets (w_20s,m_70s...), so a run fits in a shell call")
+    ap.add_argument("--only", help="with --pick or --keep: just these groups (w_20s,m_70s...), so a run fits in a shell call")
     ap.add_argument("--keep", action="store_true", help="the picks (portrait_picks.json) into art/portraits/, the manifest and LICENSE-ASSETS")
     ap.add_argument("--batch", action="store_true", help="write art/raw/portrait_batch.json, the library's jobs for the helper's queue_art_batch")
     a = ap.parse_args()
@@ -453,7 +453,7 @@ if __name__ == "__main__":
         pick_sheets(a.pick, a.only.split(",") if a.only else None)
         sys.exit(0)
     if a.keep:
-        keep()
+        keep(a.only.split(",") if a.only else None)
         sys.exit(0)
     if a.batch:
         import json
