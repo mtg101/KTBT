@@ -575,6 +575,7 @@ static func viewfinder_off(node: Variant) -> void:
 		return
 	var marks: Node = node.get_node_or_null("CameraBadge")
 	if marks != null:
+		node.remove_child(marks)  # (gone now, not at the frame's end: following again at once draws it again)
 		marks.queue_free()
 
 

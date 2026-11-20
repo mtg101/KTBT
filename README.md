@@ -14,7 +14,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **Recently:** the show's ratings (시청률), worked out at 3am from what happened; the PD's desk (camera, plant cards, write-ins, the edit's spin on a caption, pins); a lighter, cheekier night that stays warm, not "bants"; the stage in pixel art, lit by the hour (the street, the tent, the people and the cat, words in a pixel Korean font); each bar's own menu. The whole story is in [DEVLOG.md](DEVLOG.md).
 
-**How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
+**How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)). A new chat with Claude starts from [START-HERE.md](START-HERE.md): the map, the gotchas and how to work, in two pages.
 
 **Next up:** portraits: a face for everyone (to start with, simple ones), for TV pop-ups, the diary and, later, social media posts. See [PLAN.md](PLAN.md).
 

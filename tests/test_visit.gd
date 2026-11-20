@@ -1161,7 +1161,8 @@ func test_the_pd_writes_a_card() -> void:
 	assert_bool(guest.to_camera).is_true()
 	await scene._say(guest, false, "Honestly? My grandmother.")
 	assert_bool(guest.to_camera).is_false()
-	assert_str(_transcript(runner)).contains("● INTERVIEW").contains("to camera: Honestly? My grandmother.")
+	# (Their next line, whichever it is: the night's own can get in before this one.)
+	assert_str(_transcript(runner)).contains("● INTERVIEW").contains(", to camera: ")
 	# Whoever a card's just happened to speaks before the owner does (night 27: she spoke in between, and was answered).
 	var at: int = guest.line
 	guest.line = 4
