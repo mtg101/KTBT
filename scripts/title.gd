@@ -130,7 +130,11 @@ func _bar_button(bar: Dictionary, index: int) -> Button:
 		_when(int(bar.get("last_played", 0)))]
 	if bar.has("show"):  # where the show's got to: "season 2, 3 of 8 aired"
 		var aired: Dictionary = bar["show"]
-		button.text += "  ·  season %d on %s, %d of %d aired" % [int(aired.get("season", 1)), Ladder.rung(ShowSeasons.rung_of(aired))["name"], int(aired.get("aired", 0)), ShowSeasons.EPISODES]
+		var channel: Dictionary = aired.get("channel", {})
+		var on := str(Ladder.rung(ShowSeasons.rung_of(aired))["name"])
+		if str(channel.get("rung", "")) == ShowSeasons.rung_of(aired):
+			on += " (%s)" % channel.get("english", "")  # (the channel it's booked on)
+		button.text += "  ·  season %d on %s, %d of %d aired" % [int(aired.get("season", 1)), on, int(aired.get("aired", 0)), ShowSeasons.EPISODES]
 	if bool(bar.get("autoplay", false)):
 		button.text += "  ·  played by autoplay"  # (a test bar: see autoplay.gd)
 	button.add_theme_font_size_override("font_size", 18)

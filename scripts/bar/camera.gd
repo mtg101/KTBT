@@ -20,6 +20,7 @@ var following: Variant = null  # the Guest the camera's on, or null
 var on_cat := false  # ... or it's on the cat
 var cat: Variant = null  # the tent's cat (bar/cat.gd), for who it's with
 var noticed: Array = []  # names who've had their "the camera's on me" moment tonight (once each)
+var crew := Talk.CREW  # who's filming, for the prompts (Channels.camera_crew: the niece or nephew on the phone stream)
 
 
 ## Follow someone (whoever was followed before is dropped). Gives them their moment of
@@ -30,7 +31,7 @@ func follow(guest: Variant) -> Variant:
 	var named := str(guest.customer["name"])
 	if not noticed.has(named):
 		noticed.append(named)
-		guest.camera_moment = Talk.camera_moment(named)
+		guest.camera_moment = Talk.camera_moment(named, crew)
 	return previous
 
 

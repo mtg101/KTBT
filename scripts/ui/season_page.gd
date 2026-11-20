@@ -70,7 +70,7 @@ func show_season(rows: Array, judged: Dictionary, bar_name: String) -> void:
 	for child in _rows.get_children():
 		child.queue_free()
 	_rung = str(judged.get("rung", Ladder.OLDER))
-	_sub.text = "SEASON %d, LOOKED BACK ON  ·  %s  ·  %s  ·  %s" % [int(judged.get("season", 1)), bar_name, str(Ladder.rung(_rung)["name"]).to_upper(),
+	_sub.text = "SEASON %d, LOOKED BACK ON  ·  %s  ·  %s  ·  %s" % [int(judged.get("season", 1)), bar_name, str(Ladder.rung(_rung)["name"]).to_upper() + ((" (%s)" % judged["channel"]) if str(judged.get("channel", "")) != "" else ""),
 		ShowSeasons.season_done(judged)]
 	var best := 0.0
 	for row in rows:

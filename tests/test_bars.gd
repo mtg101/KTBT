@@ -12,6 +12,7 @@ const Menu = preload("res://scripts/rules/menu.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
+const Channels = preload("res://scripts/rules/channels.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 
 const TITLE := "res://scenes/title.tscn"
@@ -190,6 +191,27 @@ func test_the_pd_sets_up_a_new_show_and_the_bar_waits_for_them() -> void:
 	assert_str(scene._stats.panel_text(0, 0)).contains("Setup: the show starts on video (the PD's)")
 	var beside := (runner.find_child("RatingsLabel") as Label).text  # the Korean, and the English beside it
 	assert_str(beside).starts_with("구독자 subscribers ").not_contains("+").ends_with("·  online video channel")  # (the channel's total subscribers)
+
+
+func test_a_new_bar_gets_its_niece_or_nephew_and_its_stream() -> void:
+	Hooks.channels = true  # (the AI names them: here, the canned AI)
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	var the_show: Dictionary = Game.bar["show"]
+	var relative: Dictionary = the_show["pd"]
+	assert_str(Channels.validate_relative(relative.duplicate())).is_empty()
+	assert_array(["niece", "nephew"]).contains([str(relative["relation"])])
+	assert_str(str(relative["gender"])).is_equal(Channels.gender_of(str(relative["relation"])))
+	assert_str(str(the_show["channel"]["english"])).is_equal("@" + str(relative["handle"]))  # (the phone stream: their own handle)
+	assert_str(str(the_show["channel"]["rung"])).is_equal("phone")
+	var transcript := (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
+	assert_str(transcript).contains("Behind the camera: %s" % relative["name"]).contains("@" + str(relative["handle"]))
+	assert_str(scene._on_air_text()).is_equal("on a phone stream (@%s)" % relative["handle"])
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	assert_str(scene._stats.panel_text(0, 0)).contains("On air: on a phone stream (@%s) · filmed by %s" % [relative["handle"], Channels.camera_crew(the_show).trim_suffix(",")])
+	assert_str(scene._camera.crew).is_equal(Channels.camera_crew(the_show))  # (the camera's moments say who's filming)
+	assert_str(str(scene._stats.story["relative"]["by"])).is_equal("ai")  # (asked the AI: here, the canned one)
+	assert_str(str(SaveStore.load_bar(str(Game.bar["id"]))["show"]["pd"]["name"])).is_equal(str(relative["name"]))  # (saved)
 
 
 func test_a_new_bar_chooses_its_own_menu() -> void:

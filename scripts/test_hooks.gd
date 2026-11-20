@@ -68,6 +68,9 @@ static var reactions := true
 static var diaries := true
 ## false: no "Previously on…" (or series opener) when a bar opens.
 static var recaps := true
+## Whether the AI names the show's niece or nephew and its channels (off: the game's own names,
+## without asking, so tests' scripted replies go where they're meant).
+static var channels := true
 ## false: last night's episode titles come from the game's templates (Story.stitched_titles), not the AI.
 static var titles := true
 
@@ -109,6 +112,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	reactions = false
 	diaries = false
 	recaps = false
+	channels = false
 	titles = false
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
@@ -150,6 +154,7 @@ static func restore() -> void:
 	write_ins_offline = false
 	diaries = true
 	recaps = true
+	channels = true
 	titles = true
 	bubbles = true
 	captions = true

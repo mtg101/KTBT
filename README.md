@@ -6,7 +6,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 ## Status
 
-✅ **Latest (20 Nov):** the platform ladder. A new bar's show starts as a phone stream (views and likes) and climbs (or drops) three rungs season by season: an online video channel (its total subscribers) and network TV (시청률 ratings), each expecting more than the last, never off air. The season's verdict moves it, said in plain words ("Your show's been picked up by an online video channel!"). Moving on is to absolute targets: 1,000+ views a night over a season gets a channel, 10,000 subscribers gets a TV deal; the rules, and how the season's going, are on the ratings' hover in the top bar. The menu (Esc) has tabs for the options and the diary, and closing the bar. While a new bar's being made, the PD can set up the show (Enter) and start it on any rung.
+✅ **Latest (20 Nov):** the platform ladder. A new bar's show starts as a phone stream (views and likes) and climbs (or drops) three rungs season by season: an online video channel (its total subscribers) and network TV (시청률 ratings), each expecting more than the last, never off air. The season's verdict moves it, said in plain words ("Your show's been picked up by an online video channel!"). Moving on is to absolute targets: 1,000+ views a night over a season gets a channel, 10,000 subscribers gets a TV deal; the rules, and how the season's going, are on the ratings' hover in the top bar. The menu (Esc) has tabs for the options and the diary, and closing the bar. While a new bar's being made, the PD can set up the show (Enter) and start it on any rung. The owner's niece or nephew films the phone stream (named by the AI, with their stream's handle), and every channel the show's booked on is named by the AI too (달빛TV, Moonlight TV), never a real one.
 
 **Before that (19 Nov):** seasons. Every eight episodes is a season: the eighth is the finale, and at 3am after it the season's looked back on (each episode's title, ratings and pinned line) and the channel gives its verdict, from the average ratings with a bonus for a new best or a hit: a hit season, renewed, or a warning (two quiet seasons in a row and the channel loses patience).
 
@@ -16,7 +16,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)).
 
-**Next up:** the ladder's people and names: the owner's niece or nephew filming the phone stream, and every channel the show's booked on named by the AI. See [PLAN.md](PLAN.md).
+**Next up:** making the PD's part felt: at 3am, what each card, camera follow, pin and spin added to the episode. See [PLAN.md](PLAN.md).
 
 ### What's in it so far
 
@@ -33,7 +33,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 734 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 742 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -109,6 +109,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/rules/menu.gd` | The menu, prices and each dish's Hangul (the game's facts) |
 | `scripts/rules/regulars.gd` | Regulars: who comes back, how often, how they fade, and a simulation of months of nights |
 | `scripts/rules/ladder.gd` | The platform ladder: three rungs, a phone stream, an online video channel and network TV, each showing the night's score in its own units and judging a season against its own targets |
+| `scripts/rules/channels.gd` | The show's people and places: the owner's niece or nephew who films it, and the channels it's booked on, named by the AI and checked |
 | `scripts/rules/ladder_sim.gd` | The ladder simulated: many shows through many seasons in a moment, no scene or AI, to see how it's paced |
 | `scripts/rules/show_seasons.gd` | The show's seasons of eight episodes: the finale, the season looked back on, the channel's verdict |
 | `scripts/save/save_store.gd` | Reads, writes and deletes each bar's save file, safely |

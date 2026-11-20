@@ -389,8 +389,14 @@ func test_a_good_season_on_the_phone_stream_moves_the_show_up_a_rung() -> void:
 	Hooks.run_clock = false
 	await _click(runner, runner.find_child("NextNightButton"))
 	assert_bool(await _wait_until(func(): return scene._night_number == 9)).is_true()
-	assert_str(_transcript(runner)).contains("Your show's been picked up by an online video channel! Season 2 starts tonight").contains("Season 2, episode 1 of 8  ·  on an online video channel")
+	assert_str(_transcript(runner)).contains("Your show's been picked up by an online video channel, 포차로그 (Pocha Log)! Season 2 starts tonight").contains("Season 2, episode 1 of 8  ·  on an online video channel")
 	assert_str(str(scene._stats.story["show"]["moved"])).contains("picked up by an online video channel")
+	# Booked on a channel of its own (the game's name here: the AI's off in tests), kept with its history.
+	var channel: Dictionary = Game.bar["show"]["channel"]
+	assert_str(str(channel["rung"])).is_equal("video")
+	assert_str(str(channel["english"])).is_equal("Pocha Log")
+	assert_int(int(channel["from_season"])).is_equal(2)
+	assert_array(Game.bar["show"]["channels"].map(func(c): return str(c["rung"]))).is_equal(["phone", "video"])  # (the stream, then the channel)
 	assert_int(int(Game.bar["show"].get("subscribers", 0))).is_equal(0)  # (none yet: the channel's first episode is tonight)
 	assert_str(scene._stats.panel_text(0, 0)).contains("· on video · Your show's been picked up")
 

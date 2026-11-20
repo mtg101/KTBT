@@ -113,6 +113,49 @@ Reply with ONLY a JSON object with exactly these keys:
 	]
 
 
+## The owner's niece or nephew, who films the show on their phone (the game decides which: relation
+## "niece" or "nephew"): the AI names them, and their stream's handle. Checked by
+## Channels.validate_relative.
+static func relative_messages(owner: Dictionary, bar_name: String, relation: String) -> Array:
+	var request := """%s
+
+Their tent is called %s. The owner's %s, a young %s in their twenties, has started filming the tent's nights on a good phone with a live video app, and posting them as a show. They're the show's PD (producer-director): bright, a little cheeky, fond of their %s.
+
+Name them, and their stream's handle: what they'd call their account on a short-video app (lowercase English letters, numbers, dots or underscores, no spaces; made up, never a real platform or brand).
+
+Reply with ONLY a JSON object with exactly these keys:
+- "name": their Korean name, in English letters, family name first (like "Kim Ji-woo")
+- "hangul": their name in Hangul
+- "handle": the handle, without the @""" % [describe_owner(owner), bar_name, relation, "woman" if relation == "niece" else "man", "aunt" if str(owner.get("gender", "woman")) == "woman" else "uncle"]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## A channel the show's been booked on (the game decides the rung: "video", the show's own online
+## video channel; "network", a TV network): the AI names it, in Hangul and English, with what it
+## means. taken: the show's earlier channels, never again. Checked by Channels.validate_channel.
+static func channel_messages(rung: String, bar_name: String, taken: Array) -> Array:
+	var what := "The show about the tent has grown into its own online video channel, run by the owner's niece or nephew: name the channel." if rung == "video" \
+		else "The show about the tent has been picked up by a Korean TV network: one of the big over-the-air channels. Name the network: a made-up one."
+	var request := """%s
+
+The tent is called %s. %s Korean channels have short names, often a Korean word or two with TV or 방송 (broadcasting), like 달빛TV (Moonlight TV).%s
+
+Never a real channel, network, platform or app (no KBS, MBC, SBS, EBS, tvN, JTBC, or anything like them): make one up.
+
+Reply with ONLY a JSON object with exactly these keys:
+- "hangul": the name in Hangul (with TV if you like)
+- "english": the name in English
+- "meaning": what the Korean means, in a few English words""" % [STYLE_GUIDE.get_slice("\n", 0), bar_name, what,
+		(" It's been on %s before: not those." % ", ".join(PackedStringArray(taken))) if not taken.is_empty() else ""]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
 ## A new bar's menu: the owner chooses what their tent serves, from the catalogue of real pocha
 ## food, within the house rules (see Catalogue.validate_menu). The game adds soju, beer and
 ## rice itself.

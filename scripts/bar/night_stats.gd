@@ -819,6 +819,10 @@ func panel_text(seated: int, cooking: int) -> String:
 		var on_air: Dictionary = story["show"]
 		lines.append("Season: %s%s%s%s%s" % [on_air.get("place", "?"), (" · on " + str(on_air["rung"])) if on_air.has("rung") else "", (" · " + str(on_air["moved"])) if on_air.has("moved") else "", (" · the season before tonight: %s" % on_air["so_far"]) if str(on_air.get("so_far", "")) != "" else "",
 			(" · %s%s" % [on_air["verdict"], (", looked back on (%d episodes)" % int(on_air["looked_back"])) if on_air.has("looked_back") else ""]) if on_air.has("verdict") else (" · the verdict at 3am" if bool(on_air.get("finale", false)) else "")])
+	if story.get("show", {}) is Dictionary and story.get("show", {}).has("on_air"):  # (where it goes out, and who films it: rules/channels.gd)
+		lines.append("On air: %s · filmed by %s%s%s" % [story["show"]["on_air"], story["show"].get("crew", "?"),
+			(" · cast tonight: %s, the owner's %s (@%s, by the %s)" % [story["relative"]["name"], story["relative"]["relation"], story["relative"]["handle"], story["relative"]["by"]]) if story.get("relative", {}) is Dictionary and not story.get("relative", {}).is_empty() else "",
+			(" · booked tonight: %s (by the %s)" % [story["booked"]["channel"], story["booked"]["by"]]) if story.get("booked", {}) is Dictionary and not story.get("booked", {}).is_empty() else ""])
 	if story.get("setup", {}) is Dictionary and not story.get("setup", {}).is_empty():  # (a new bar: the PD set the show up)
 		lines.append("Setup: the show starts on %s (the PD's)" % story["setup"].get("rung", "?"))
 	if story.has("cliffhanger"):

@@ -71,6 +71,7 @@ const Story = preload("res://scripts/rules/story.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
+const Channels = preload("res://scripts/rules/channels.gd")
 const SeasonPage = preload("res://scripts/ui/season_page.gd")
 const ShowSetup = preload("res://scripts/ui/show_setup.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
@@ -522,6 +523,8 @@ func _open_saved_bar() -> void:
 		await _invent_signatures()  # a menu from before signature dishes: the owner's own
 	if Hooks.bar_menus and not Game.bar.get("menu", []).is_empty() and not _stopped:
 		await _change_menu()  # now and then, something new on the board
+	if not _stopped:
+		await _book_channel()  # (a bar from before channels, or the show's moved since)
 	if _closed():
 		_owner_working = false
 		return
@@ -706,6 +709,9 @@ func _invent_owner() -> void:
 	while _setting_up and not _closed():  # (the PD's setting the show up: it starts when they're done)
 		await get_tree().process_frame
 	_setup_open = false
+	if _closed():
+		return
+	await _book_channel()  # (who's filming, and where it goes out: after the setup, which may have moved it)
 	if _closed():
 		return
 	_end_loading()
@@ -1103,6 +1109,7 @@ func _start_night() -> void:
 	if not Game.bar.has("show"):
 		Game.bar["show"] = ShowSeasons.fresh()
 	_show_place = ShowSeasons.tonight(Game.bar["show"])
+	_remember_channels()
 	_season_ended = {}
 	_pick_weather()
 	var bar_id := str(Game.bar.get("id", ""))
@@ -1125,6 +1132,7 @@ func _start_night() -> void:
 	_night_lines = []
 	_stats = NightStats.new()
 	_camera = PdCamera.new()
+	_camera.crew = Channels.camera_crew(Game.bar.get("show", {}))  # (who's filming: the niece or nephew, on the phone stream)
 	_camera.cat = _tent_cat
 	_pd.camera = _camera
 	var hand := _pd.deal("%s night %d" % [Game.bar.get("id", ""), _night_number], _plant_tonight(), Game.bar.get("last_hand", []))
@@ -1163,7 +1171,8 @@ func _start_night() -> void:
 	_busier = Ratings.busier(Ratings.from_log(Game.bar.get("night_log", [])))
 	_night_ratings = {}
 	_stats.story["busier"] = _busier
-	_stats.story["show"] = {"place": ShowSeasons.label(_show_place), "rung": _rung(), "finale": bool(_show_place["finale"]), "so_far": ShowSeasons.so_far(Game.bar["show"])}
+	_stats.story["show"] = {"place": ShowSeasons.label(_show_place), "rung": _rung(), "finale": bool(_show_place["finale"]), "so_far": ShowSeasons.so_far(Game.bar["show"]),
+		"on_air": _on_air_text(), "crew": Channels.camera_crew(Game.bar["show"]).trim_suffix(",")}
 	_stats.ratings_before = Ratings.from_log(Game.bar.get("night_log", []))
 	_events.happened.connect(func(_kind, _facts, _about, _spot): _update_ratings())
 	_update_ratings()
@@ -1205,7 +1214,7 @@ func _start_night() -> void:
 	_tent_cat.place()
 	_update_clock_label()
 	_start_transcript()
-	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  ·  on %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place), Ladder.rung(_rung())["name"]])
+	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  ·  %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place), _on_air_text()])
 	var moved := _moved_tonight()
 	if moved != "":
 		_narrate(moved)
@@ -1402,7 +1411,7 @@ func _end_night() -> void:
 	t += "[color=#%s]%s, %s[/color]\n\n" % [MUTED.to_html(false), _night_day, _esc(_night_weather)]
 	t += "%d %s tonight\n" % [_night_visits, "customer" if _night_visits == 1 else "customers"]
 	t += "[b]%s[/b]  ·  %s\n" % [Ladder.headline(float(_night_ratings["rating"]), str(_night_ratings["rung"]), int(_night_ratings.get("subscribers", -1))), _night_ratings["band"]]  # (the night's score, in its rung's units: takings aren't kept)
-	t += "[color=#%s]%s, on %s[/color]" % [MUTED.to_html(false), ShowSeasons.label(_show_place), Ladder.rung(str(_night_ratings["rung"]))["name"]]
+	t += "[color=#%s]%s, %s[/color]" % [MUTED.to_html(false), ShowSeasons.label(_show_place), _esc(_on_air_text())]
 	if not _season_ended.is_empty():
 		t += "\n[b]%s[/b]  %s" % [Glossary.explain_hangul(_esc(str(_season_ended["stamp"]))), _esc(str(_season_ended["words"]))]  # (the stamp explains itself on hover)
 	if not line.is_empty():
@@ -1438,6 +1447,7 @@ func _end_season() -> void:
 	var before := Ratings.from_log(Game.bar.get("night_log", []).filter(func(n): return not this_season.has(int(n.get("night", 0)))))
 	var judged := ShowSeasons.verdict(int(the_show.get("season", 1)), the_show.get("ratings", []), before, the_show.get("seasons", []), ShowSeasons.rung_of(the_show), int(the_show.get("subscribers", 0)))
 	_season_ended = judged.duplicate()
+	_season_ended["channel"] = Channels.full_name(the_show.get("channel", {}))  # (where the season went out)
 	_season_ended["nights"] = this_season.duplicate()
 	_season_ended["ratings"] = the_show.get("ratings", []).duplicate()
 	ShowSeasons.end_season(the_show, judged)
@@ -1569,6 +1579,8 @@ func _update_ratings() -> void:
 	_ratings_label.text = "%s%s  ·  %s" % [Ladder.label(float(result["rating"]), rung, int(result.get("subscribers", -1))), when, Ladder.rung(rung)["short"]]  # (the Korean, and the English beside it)
 	var the_show: Dictionary = Game.bar.get("show", {})
 	var going := "\nThis season: " + Ladder.progress(rung, the_show.get("ratings", []), int(the_show.get("subscribers", 0))) if rung == _rung() else ""  # (how it's going against the rule)
+	if rung == _rung() and str(the_show.get("channel", {}).get("rung", "")) == rung:
+		going = "\nOn air: %s Behind the camera: %s." % [Channels.hover(the_show["channel"]), Channels.camera_crew(the_show).trim_suffix(",")] + going
 	_ratings_label.tooltip_text = Text.tip(Ladder.hover(result, rung) + going + ("\nSo far tonight, before luck (what else is on): the final numbers are at 3am." if when == " so far" else ""))
 
 
@@ -1692,6 +1704,90 @@ func _validate_recap(data: Variant, facts: Dictionary) -> String:
 
 
 # --- The edit: the PD steps in -------------------------------------------------------------
+
+## The show's niece or nephew, if it hasn't one yet: the game decides which (from the bar, so
+## no dice are rolled), the AI names them and their stream's handle (Channels.validate_relative),
+## or the game does. Kept with the show ("pd"), logged and in the transcript.
+func _cast_relative() -> void:
+	var the_show: Dictionary = Game.bar["show"]
+	if not the_show.get("pd", {}).is_empty():
+		return
+	var relation := Channels.relation(fposmod(float(hash(str(Game.bar.get("id", "")))) / 997.0, 1.0))
+	var by := "game"
+	var reply: Dictionary = {}
+	if Hooks.channels:
+		_typing_label.text = "The owner's %s is setting up their phone..." % relation
+		reply = await _ai.ask_json(Prompts.relative_messages(_owner, str(Game.bar.get("name", "")), relation), Channels.validate_relative, {"temperature": 0.9},
+			{"purpose": "relative", "relation": relation, "owner_name": str(_owner.get("name", ""))})
+		_typing_label.text = ""
+		if _closed():
+			return
+		by = "ai" if not reply.is_empty() else "game"
+	if reply.is_empty():
+		reply = Channels.fallback_relative(relation, fposmod(float(hash(str(_owner.get("name", "")))) / 1000.0, 1.0))
+	reply["relation"] = relation
+	reply["gender"] = Channels.gender_of(relation)
+	the_show["pd"] = reply
+	_before_night["relative"] = {"name": str(reply["name"]), "relation": relation, "handle": str(reply["handle"]), "by": by}
+	if str(reply.get("hangul", "")) != "":
+		Glossary.remember(str(reply["hangul"]), "%s %s: the owner's %s, who films the show" % [reply["hangul"], reply["name"], relation])
+	_narrate("Behind the camera: %s, %s's %s, filming on %s phone as @%s." % [reply["name"], Names.given_name(str(_owner.get("name", ""))), relation,
+		"her" if relation == "niece" else "his", reply["handle"]])
+	print("Crew: %s, the owner's %s (@%s, by the %s)" % [reply["name"], relation, reply["handle"], by])
+	Game.save()
+
+
+## Books the show on a channel for its rung, if it needs one (none yet, or it's moved): on the
+## phone stream, the niece or nephew's own handle; otherwise the AI names the channel
+## (Channels.validate_channel: made up, never the show's earlier ones), or the game does. Kept
+## with the show ("channel", and the history), logged, said in the transcript.
+func _book_channel() -> void:
+	if not Game.bar.has("show"):
+		Game.bar["show"] = ShowSeasons.fresh()
+	var the_show: Dictionary = Game.bar["show"]
+	await _cast_relative()  # (every show has one: they film the stream, and go with it as it climbs)
+	if _closed() or not Channels.needs_booking(the_show):
+		return
+	var rung := ShowSeasons.rung_of(the_show)
+	var channel: Dictionary = {}
+	var by := "game"
+	if rung == "phone":
+		channel = Channels.stream_channel(the_show["pd"])
+	else:
+		var taken := Channels.taken_names(the_show)
+		if Hooks.channels:
+			_typing_label.text = "The show's being booked on %s..." % Ladder.rung(rung)["name"]
+			channel = await _ai.ask_json(Prompts.channel_messages(rung, str(Game.bar.get("name", "")), taken), func(data): return Channels.validate_channel(data, taken),
+				{"temperature": 0.9}, {"purpose": "channel", "rung": rung, "taken": taken})
+			_typing_label.text = ""
+			if _closed():
+				return
+			by = "ai" if not channel.is_empty() else "game"
+		if channel.is_empty():
+			channel = Channels.fallback_channel(rung, taken)
+	Channels.book(the_show, rung, channel, int(the_show.get("season", 1)))
+	_remember_channels()
+	_before_night["booked"] = {"channel": Channels.full_name(the_show["channel"]), "rung": rung, "by": by}
+	print("Booked: %s on %s (by the %s)" % [Channels.full_name(the_show["channel"]), rung, by])
+	Game.save()
+
+
+## The show's channels' Hangul, explained on hover wherever it's shown.
+func _remember_channels() -> void:
+	for channel in Game.bar.get("show", {}).get("channels", []):
+		if str(channel.get("hangul", "")) != "":
+			Glossary.remember(str(channel["hangul"]), "%s %s" % [channel["hangul"], Channels.hover(channel)])
+
+
+## Where the show goes out, in words: "on a phone stream (@jiwoo_pocha_live)", "on network TV (달빛TV, Moonlight TV)".
+func _on_air_text() -> String:
+	var the_show: Dictionary = Game.bar.get("show", {})
+	var channel: Dictionary = the_show.get("channel", {})
+	var where := "on %s" % Ladder.rung(ShowSeasons.rung_of(the_show))["name"]
+	if channel.is_empty() or str(channel.get("rung", "")) != ShowSeasons.rung_of(the_show):
+		return where
+	return "%s (%s)" % [where, Channels.full_name(channel).replace(" (", ", ").trim_suffix(")")]
+
 
 ## A new bar: the PD can set the show up (where it starts on the ladder, for now) while the bar's
 ## being made, from the loading screen's button or Enter. Never waits on them: not stepping in,
@@ -1947,9 +2043,11 @@ func _moved_tonight() -> String:
 	var to := str(last.get("to", from))
 	if to == from:
 		return ""
+	var channel: Dictionary = Game.bar.get("show", {}).get("channel", {})
+	var named := (", " + Channels.full_name(channel)) if str(channel.get("rung", "")) == to else ""  # (the channel it's booked on)
 	if Ladder.index_of(to) > Ladder.index_of(from):
-		return "Your show's been picked up by %s! Season %d starts tonight, with more people watching than ever." % [Ladder.rung(to)["name"], int(_show_place["season"])]
-	return "The show's dropped to %s. Season %d starts tonight: time to win the audience back." % [Ladder.rung(to)["name"], int(_show_place["season"])]
+		return "Your show's been picked up by %s%s! Season %d starts tonight, with more people watching than ever." % [Ladder.rung(to)["name"], named, int(_show_place["season"])]
+	return "The show's dropped to %s%s. Season %d starts tonight: time to win the audience back." % [Ladder.rung(to)["name"], named, int(_show_place["season"])]
 
 
 ## Last night's episode in words, for cutting it: "season 1, episode 4" (from its diary entry).
@@ -2002,6 +2100,11 @@ func _on_next_night_pressed() -> void:
 		_owner_working = false
 		if _closed():
 			return
+	_owner_working = true
+	await _book_channel()  # (the show's moved: a new channel, before the new season's first night)
+	_owner_working = false
+	if _closed():
+		return
 	_start_night()
 
 
@@ -4723,7 +4826,7 @@ func _plant_in(transcript: Array, guest: Variant) -> void:
 		return
 	var said: Array = []
 	if guest.camera_moment != "":
-		said.append(Talk.camera_happened(str(guest.customer["name"])))
+		said.append(Talk.camera_happened(str(guest.customer["name"]), _camera.crew))
 	if guest.plant_moment != "" and guest.plant_happened != "":
 		said.append(guest.plant_happened)
 	for what in said:
@@ -5237,6 +5340,7 @@ func _on_menu_toggled(on: bool) -> void:
 	if on:
 		_menu_diary.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
 		_options_panel.reset_size()
+
 
 
 ## Opens the menu on a tab (MENU_OPTIONS, MENU_DIARY).

@@ -2,6 +2,7 @@ extends GdUnitTestSuite
 ## Tests for offline mode: the canned AI (scripts/ai/canned_ai.gd) and the AI settings
 ## (scripts/ai/ai_settings.gd). Every canned reply must pass the same rules as a real AI reply.
 
+const Channels = preload("res://scripts/rules/channels.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
@@ -131,6 +132,19 @@ func test_canned_bar_names_pass_the_rules() -> void:
 				var reply: Dictionary = _canned.reply({"purpose": "bar_name", "owner_name": owner_data["name"]})
 				var problem := BarLook.validate_bar_name(reply)
 				assert_str(problem).override_failure_message("%s -> %s" % [JSON.stringify(reply), problem]).is_empty()
+
+
+func test_the_canned_niece_or_nephew_and_channels_pass_the_rules() -> void:
+	for relation in ["niece", "nephew"]:
+		for owner_data in CannedAi.OWNERS["woman"] + CannedAi.OWNERS["man"]:
+			var reply: Dictionary = _canned.reply({"purpose": "relative", "relation": relation, "owner_name": owner_data["name"]})
+			assert_str(Channels.validate_relative(reply)).override_failure_message(JSON.stringify(reply)).is_empty()
+	for rung in ["video", "network"]:
+		var taken: Array = []
+		for k in 3:  # (each time a new one: never the same again)
+			var channel: Dictionary = _canned.reply({"purpose": "channel", "rung": rung, "taken": taken})
+			assert_str(Channels.validate_channel(channel, taken)).override_failure_message(JSON.stringify(channel)).is_empty()
+			taken.append(str(channel["english"]))
 
 
 func test_canned_customers_avoid_names_already_at_the_counter() -> void:

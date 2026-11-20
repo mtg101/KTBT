@@ -9,6 +9,7 @@ extends RefCounted
 ## Tests can queue exact replies with CannedAi.scripted (raw JSON text or Dictionaries,
 ## including deliberately bad ones); while the queue has anything in it, it's used first.
 
+const Channels = preload("res://scripts/rules/channels.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
@@ -195,6 +196,10 @@ func reply(request: Dictionary) -> Variant:
 			if bool(request.get("owner_speaks", false)):
 				return {"line": OWNER_LINES.pick_random()}
 			return {"line": CHAT_OPENERS.pick_random() if bool(request.get("first", false)) else CHAT_LINES.pick_random()}
+		"relative":  # (the niece or nephew: the game's own, picked by the owner's name, so no dice are rolled)
+			return Channels.fallback_relative(str(request.get("relation", "niece")), fposmod(float(hash(str(request.get("owner_name", "")))) / 1000.0, 1.0))
+		"channel":
+			return Channels.fallback_channel(str(request.get("rung", "network")), request.get("taken", []))
 		"bar_name":
 			return _bar_name(str(request.get("owner_name", "")))
 		"bar_look":

@@ -945,7 +945,7 @@ func test_the_pds_camera_follows_whoever_is_clicked() -> void:
 	assert_str(str(followed.node.get_node("Hover").tooltip_text)).contains("click to stop")
 	assert_str(_transcript(runner)).contains("The camera follows %s." % followed.customer["name"])
 	assert_str((runner.find_child("CameraRec") as Label).text).contains(str(followed.customer["name"]))
-	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == Talk.camera_happened(followed.customer["name"]))).is_true()  # (noticed: in their conversation)
+	assert_bool(followed.transcript.any(func(e): return str(e.get("action", "")) == Talk.camera_happened(followed.customer["name"], scene._camera.crew))).is_true()  # (noticed: in their conversation; on the phone stream, the niece or nephew filming)
 	assert_int(int(scene._stats.event_counts.get("camera_on", 0))).is_equal(1)
 	# The owner gets to them sooner (as if they'd waited longer).
 	assert_int(scene._neediness(followed)).is_equal(followed.attended - PdCamera.PULL - (3 if followed.company == "owner" else 0))

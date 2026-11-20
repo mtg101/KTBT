@@ -185,6 +185,14 @@ func test_bar_name_prompt_asks_for_romanised_korean_and_knows_the_owner() -> voi
 	assert_str(text).contains("not English words")
 
 
+func test_the_niece_or_nephew_and_channel_prompts() -> void:
+	var text := _request(Prompts.relative_messages(_owner_data(), "Mi-sook-ne Pocha", "niece"))
+	assert_str(text).contains("Park Mi-sook").contains("Mi-sook-ne Pocha").contains("The owner's niece").contains("their aunt").contains("\"handle\"").contains("never a real platform")
+	var channel := _request(Prompts.channel_messages("network", "Mi-sook-ne Pocha", ["Pocha Log"]))
+	assert_str(channel).contains("picked up by a Korean TV network").contains("Never a real channel").contains("It's been on Pocha Log before")
+	assert_str(_request(Prompts.channel_messages("video", "Mi-sook-ne Pocha", []))).contains("its own online video channel").not_contains("before: not those")
+
+
 # --- Customers talking to each other -----------------------------------------------------
 
 func _second_customer() -> Dictionary:

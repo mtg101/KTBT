@@ -2141,7 +2141,7 @@ func test_any_hangul_explains_itself() -> void:
 	# And every bit of Hangul in the game's code, wherever it's shown: a new caption or sign
 	# can't reach the screen unexplained. (Not names, which are told to the Glossary as they're
 	# known, the AI's prompts, which aren't shown, or the places the meanings come from.)
-	var not_shown := ["canned_ai.gd", "names.gd", "prompts.gd", "pipeline_test.gd", "hangul.gd", "glossary.gd", "address.gd", "menu.gd", "signatures.gd"]  # (a signature dish carries its own meaning)
+	var not_shown := ["canned_ai.gd", "names.gd", "prompts.gd", "pipeline_test.gd", "hangul.gd", "glossary.gd", "address.gd", "menu.gd", "signatures.gd", "channels.gd"]  # (a signature dish carries its own meaning; so does a channel, told to the Glossary as it's booked, and its list of real names is never shown)
 	var literal := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
 	var run := RegEx.create_from_string("[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+(?:[ 0-9]*[\\x{AC00}-\\x{D7A3}\\x{3131}-\\x{318E}]+)*")
 	for path in _scripts("res://scripts"):

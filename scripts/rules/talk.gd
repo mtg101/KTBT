@@ -748,20 +748,26 @@ static func says_hwaiting(line: String, names: Array = []) -> bool:
 ## next line. The situation, never the words: the AI finds its own "Mwo?!".
 ## The PD's camera turns to someone for the first time tonight: everyone knows they're on a
 ## show, so they notice (and play up to it, hide from it, or carry on: theirs to choose).
-const CAMERA_MOMENT := "The show's camera crew have just turned their camera on {who}, and they've noticed."
+const CAMERA_MOMENT := "{crew} have just turned their camera on {who}, and they've noticed."
+const CREW := "The show's camera crew"  # (who's filming: Channels.camera_crew says, by the rung)
 
 
-static func camera_moment(who: String) -> String:
-	return CAMERA_MOMENT.replace("{who}", Names.given_name(who))
+## crew: who's filming ("Ji-woo, the owner's niece, filming on her phone,", the show's crew...).
+static func camera_moment(who: String, crew: String = CREW) -> String:
+	if crew != CREW and crew.ends_with(","):  # (one person, filming on a phone)
+		return "%s has just turned it on %s, and they've noticed." % [crew, Names.given_name(who)]
+	return CAMERA_MOMENT.replace("{crew}", crew).replace("{who}", Names.given_name(who))
 
 
 ## ...and what happened, as it goes in the conversation they speak in next (who: full name):
 ## as with the plant cards, a moment in the direction alone was ignored (0 of 3).
-const CAMERA_HAPPENED := "The show's crew turn their camera on {who}."
+const CAMERA_HAPPENED := "{crew} turn their camera on {who}."
 
 
-static func camera_happened(who: String) -> String:
-	return CAMERA_HAPPENED.replace("{who}", who)
+static func camera_happened(who: String, crew: String = CREW) -> String:
+	if crew != CREW and crew.ends_with(","):
+		return "%s turns it on %s." % [crew, who]
+	return CAMERA_HAPPENED.replace("{crew}", crew).replace("{who}", who)
 
 
 const STUNNED_MOMENT := "What {who} just said has stunned them: they can hardly believe their ears."
