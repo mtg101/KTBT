@@ -30,6 +30,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - but it's only those two things!
   - maybe shuld have everything logging, with levels for filtering?
   - also: tokens... just turn off owner movemnt! 
+- **Autoplay mode safeguards:** clicking to close bar is end of the run
+  - and it doesn't say anywhere it's in auto mod
+  - probably needs a 'are you shure' for any clicking when it's in auto mode for testing
 
 ## Future ideas and improvements
 
