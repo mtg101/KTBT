@@ -6,13 +6,21 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **Portraits:** a face for everyone, from the image model; the first use the hover on a person, then TV pop-ups and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
   - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
-  - **1. The library:** run the batch (`portraits.py --batch` has written the list; the helper's `queue_art_batch`, then `collect_art` until it's all in); pick sheets by gender and age range, the best of each three pre-picked by how cleanly it splits, so the user only overrides; the keepers into `art/portraits/` (the layer encoding), the manifest (`art.gd` knowing the portrait keys, or the art tests fail) and LICENSE-ASSETS. Brows as hair (they stay dark under white hair now).
+  - **1. The library:** the user looks over the pick sheets (`art/raw/portrait_pick/`) and changes any pre-pick they don't like in `art/raw/portrait_picks.json`; then `portraits.py --keep` and an import. Any job with no good candidate: more seeds for just that one (buzz cuts, which came out as plain short hair, may want a stronger shape in HAIR_SHAPES; older men's grey streaks, read as skin, could be scored down). Brows as hair (they stay dark under white hair now).
   - **2. In the game, on the hover:** painted by `people_art.gd`'s own code (the portraits are in its layer encoding); a pure rule (`rules/portraits.gd`: a look to the best portrait, the same every time for the same person), a view that repaints it onto their ramps, shown on a person's hover; a fallback when nothing matches; non-binary customers get the woman's or man's portrait for their hairstyle. Tests, counted in the night's stats ("Portraits: matched · fallback"), logged.
-  - **Using portraits:** 
-    - TV pop-ups and cut to camera
-      - probably have to be able to overlay whole screen not just the bar part?
-        - probably helps the dialog clutter anyway!
-    - show at end of night with reference to diary, or in own popout... or does diary include like... polaroids attached to it?
+- **Using portraits:** 
+  - TV pop-ups and cut to camera
+    - probably have to be able to overlay whole screen not just the bar part?
+      - probably helps the dialog clutter anyway!
+    - expressions: the library's faces are calm (passport-photo neutral); a pop-up wants shocked, laughing, crying, fuming
+      - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
+        - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
+        - how: Klein 4B (distilled, the model we have) edits from a reference picture; ComfyUI's template "Flux.2 [Klein] 4B Distilled: Image Edit", exported as API to `tools/art/klein_edit_api.json`; the helper's jobs take a `reference` (the kept neutral picture, copied into ComfyUI's input folder); the prompt keeps everything (face, hair, glasses, red top, green, framing, style) and changes only the expression, so `portraits.py` splits it as before
+        - first a try by hand in ComfyUI on one or two portraits (does it keep the person?), then a few through the helper, then the batch: 126 × 7 moods × 2 seeds, about 1,800 pictures, a couple of hours
+        - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the neutral one (a different person is the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix
+        - after the neutral picks are kept (they're the references)
+      - variety-show graphics on top, maybe: sweat drop, anger marks, a burst behind, zoom and shake, the caption
+  - show at end of night with reference to diary, or in own popout... or does diary include like... polaroids attached to it?
     
   
 

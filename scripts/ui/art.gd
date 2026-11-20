@@ -72,6 +72,14 @@ static func ids(kind: String) -> Array:
 			return ["overpass", "overpass_2", "apartments", "apartments_2", "apartments_3", "apartments_4", "apartments_5", "apartments_6",
 				"shops", "shops_2", "shops_3", "shops_4", "karaoke", "karaoke_2", "karaoke_3", "karaoke_4",
 				"corner_shop", "corner_shop_2", "corner_shop_3", "corner_shop_4"]
+		"portrait":  # a face for anyone: by gender, age range, hairstyle and glasses, repainted onto their own colours
+			# ("w_60s_perm_glasses"; tools/art/portraits.py makes them, in the people's layer encoding)
+			var portraits: Array = []
+			for gender in ["w", "m"]:
+				for age in Looks.AGE_RANGES:
+					for hair in Looks.HAIR_STYLES:
+						portraits.append_array(["%s_%s_%s" % [gender, age, hair], "%s_%s_%s_glasses" % [gender, age, hair]])
+			return portraits
 	return []
 
 ## Where the art is (tests point it at their own).

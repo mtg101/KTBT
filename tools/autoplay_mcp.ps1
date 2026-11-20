@@ -237,7 +237,9 @@ function RawFolder {
 function Pending {
 	$file = Join-Path (RawFolder) 'pending.json'
 	if (-not (Test-Path $file)) { return @() }
-	try { return @(Get-Content -Path $file -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { return @() }
+	# (not piped, and each item handed back on its own: in Windows PowerShell 5.1 a one-item list came back
+	# wrapped, and was saved a level deeper every time, so it was never fetched)
+	try { $parsed = ConvertFrom-Json -InputObject (Get-Content -Path $file -Raw -Encoding UTF8); return @($parsed | ForEach-Object { $_ }) } catch { return @() }
 }
 
 function SavePending($items) {
@@ -361,8 +363,9 @@ function QueueArtBatch($arguments) {
 	if ($null -ne $arguments -and [string]$arguments.file -ne '') { $file = [string]$arguments.file }
 	if ($file -notmatch '^[a-z0-9_-]{1,60}\.json$') { return ToolText 'file: a .json list in art\raw\ (lowercase, digits, - and _).' $true }
 	$path = Join-Path (RawFolder) $file
-	if (-not (Test-Path $path)) { return ToolText "No art\raw\$file: make it first (python3 tools/art/portraits.py --batch)." $true }
-	$jobs = @(ConvertFrom-Json -InputObject (Get-Content -Path $path -Raw -Encoding UTF8))  # (not piped: Windows PowerShell 5.1 would hand the whole list back as one item)
+	if (-not (Test-Path $path)) { return ToolText "No art\raw\$($file): make it first (python3 tools/art/portraits.py --batch)." $true }
+	$parsed = ConvertFrom-Json -InputObject (Get-Content -Path $path -Raw -Encoding UTF8)
+	$jobs = @($parsed | ForEach-Object { $_ })  # (Windows PowerShell 5.1 hands a JSON list back as one item: this splits it)
 	if ($null -ne (RunningBatch)) { return ToolText "An autoplay batch is running: Ollama has the GPU. Stop it first, or wait." $true }
 	if (@(Pending).Count -gt 0) { return ToolText "Pictures are still being made: collect_art them first (or stop_art and start again)." $true }
 	$problem = StartComfy

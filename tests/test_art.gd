@@ -7,6 +7,7 @@ const TentView = preload("res://scripts/bar/tent_view.gd")
 const StreetArt = preload("res://scripts/bar/street_art.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
+const Looks = preload("res://scripts/rules/looks.gd")
 
 const FIXTURES := "res://tests/support/art/"  # a lucky cat, and an entry whose file's missing
 
@@ -123,6 +124,13 @@ func test_a_manifest_only_has_what_the_game_draws_with_its_sources_and_licences(
 		"touch/radio: no source",
 		"touch/radio: touches/radio.png isn't listed in LICENSE-ASSETS.md",
 	])
+
+
+func test_portraits_are_by_gender_age_hairstyle_and_glasses() -> void:
+	var ids := Art.ids("portrait")
+	assert_array(ids).contains(["w_20s_long", "w_60s_perm_glasses", "m_70s_balding", "m_30s_two_block_glasses"])
+	assert_array(ids).not_contains(["x_20s_long", "w_90s_long", "w_20s_mohawk"])
+	assert_int(ids.size()).is_equal(2 * Looks.AGE_RANGES.size() * Looks.HAIR_STYLES.size() * 2)
 
 
 func test_the_games_art_folder_passes() -> void:
