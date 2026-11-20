@@ -24,7 +24,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Is there a better layout for transcript/events?:** it just scrolls past...
   - colums? events vs text vs bg info?
     - would that help?
-  - need to ask AI for ideas I guess!    
+  - need to ask AI for ideas I guess!   
+- **Terminal log levels:** now it's just lighting times and owner movement
+  - time very useful, owner... nto so much
+  - but it's only those two things!
+  - maybe shuld have everything logging, with levels for filtering?
+  - also: tokens... just turn off owner movemnt! 
 
 ## Future ideas and improvements
 
