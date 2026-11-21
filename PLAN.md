@@ -7,22 +7,22 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Portraits:** a face for everyone, from the image model; the first use the hover on a person, then TV pop-ups and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
   - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
   - **In the game, on the hover:** painted by `people_art.gd`'s own code (the portraits are in its layer encoding); a pure rule (`rules/portraits.gd`: a look to the best portrait, the same every time for the same person), a view that repaints it onto their ramps, shown on a person's hover; a fallback when nothing matches; non-binary customers get the woman's or man's portrait for their hairstyle. Known: brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair. Tests, counted in the night's stats ("Portraits: matched · fallback"), logged.
-  - **Status:** generated
-    - overnight generated the base reaction images
-    - now waiting for Claude's weekly allowance to reset as I'm burning too many pay-as-you-go tokens!
+  - expressions: the library's faces are calm (passport-photo neutral); a pop-up wants shocked, laughing, crying, fuming
+    - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
+      - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
+      - the pictures: `art/raw/react_<id>_<mood>_<seed>.png` (1,764: every kept portrait in every mood, two seeds each; `react_try_*` is the first try, not part of the set)
+      - reaction faces are close-ups (decided 20 Nov): the picture cut to the face (about the middle 56% across, from 8% down, 4:5) before the split, still 64×80; head and shoulders, only shock and funny still read at 64×80, close up all seven do (the 96×120 grid helped less than the crop). A TV zoom on a reaction anyway; maybe the calm face gets a close-up too, for the pop-up's first frame
+      - the split, before picking: tears, a blush and the whites of the eyes their own colours (like the people's `FIXED` ones), or sad loses its tears, sweet its blush (muddy brown now) and shock its eyes
+      - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix  
+    - **Status:** all in `art/raw/`; next, the close-up crop and the split
+  - now waiting for Claude's weekly allowance to reset as I'm burning too many pay-as-you-go tokens!
 - **Using portraits:** 
   - TV pop-ups and cut to camera
-    - probably have to be able to overlay whole screen not just the bar part?
+    - makes them bigger?
+      - probably have to be able to overlay whole screen not just the bar part?
       - probably helps the dialog clutter anyway!
-    - expressions: the library's faces are calm (passport-photo neutral); a pop-up wants shocked, laughing, crying, fuming
-      - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
-        - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
-        - made overnight 20 Nov (`art/raw/react_*`, 1,764 pictures: every kept portrait in every mood, two seeds each): collect them all (`collect_art`, 60 a call)
-        - reaction faces are close-ups (decided 20 Nov): the picture cut to the face (about the middle 56% across, from 8% down, 4:5) before the split, still 64×80; head and shoulders, only shock and funny still read at 64×80, close up all seven do (the 96×120 grid helped less than the crop). A TV zoom on a reaction anyway; maybe the calm face gets a close-up too, for the pop-up's first frame
-        - the split, before picking: tears, a blush and the whites of the eyes their own colours (like the people's `FIXED` ones), or sad loses its tears, sweet its blush (muddy brown now) and shock its eyes
-        - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix
-      - variety-show graphics on top, maybe: sweat drop, anger marks, a burst behind, zoom and shake, the caption
-  - show at end of night with reference to diary, or in own popout... or does diary include like... polaroids attached to it?
+  - show at end of night with reference to diary, maybe tv popout style?
+    - ... or does diary include like... polaroids attached to it?
     
   
 
@@ -62,8 +62,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
     - myers briggs (and other astrology ;) 
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **Sharing an episode:** an "episode card" (the title, the line of the night, the TV reaction, the people drawn small) saved as an image or a short clip. Suits a game that's open about its AI, and feeds the store page.
-- **social media responses:** at end of day summary, alongside diary, affects ratings
+- **Social media responses:** at end of day summary, alongside diary, affects ratings
   - 0-3 a night depending on events?
   - text + images: food, selfie at bar, portraits can be used, etc
   - future: pops up live during show

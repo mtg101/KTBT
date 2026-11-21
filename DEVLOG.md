@@ -2,6 +2,10 @@
 
 A running record of what we've done on KTBT and why, newest first. What's coming next is in [PLAN.md](PLAN.md), and AI quirks are in [LLM-TUNING.md](LLM-TUNING.md).
 
+## 21 November 2026
+
+- **The reaction faces, collected.** The overnight batch finished; `collect_art` fetched all 1,764 into `art/raw/` (30 calls of 60), each with its `.json` note: 126 portraits × 7 moods × 2 seeds, 253 per mood counting the first try's seven, none empty. Next, the close-up crop and the split. No game code, 769 tests.
+
 ## 20 November 2026
 
 - **Quick fix: PLAN tripped its own check.** "(fixed colours" (about colours of their own for tears and blushes) read as "(fixed" to `test_the_plan_only_says_whats_left`, which keeps done things out of PLAN; reworded. 769 tests.
