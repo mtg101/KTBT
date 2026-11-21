@@ -42,6 +42,9 @@ var gestures := {}  # gestures, by kind: customers' "drink" (a glass raised), "e
 var card_turns := 0  # someone a card had just happened to, turned to first (before a greeting or a chat)
 var worn_let_through := 0  # lines let through with a worn-out phrase, rather than a chat given up
 var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
+## Portraits in people's hovers (visit.gd _give_portrait): "matched" (their own), "fallback" (the
+## nearest the library had), "none" (no portrait), one each per person; "seen": hovers opened with one.
+var portraits := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
@@ -857,6 +860,8 @@ func panel_text(seated: int, cooking: int) -> String:
 			(" (a bulb's pool +%.1f steps over the counter's end)" % float(art["pools"])) if art.has("pools") else "", int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
 			int(gestures.get("pour", 0)), int(gestures.get("carry", 0)), int(gestures.get("cook", 0)), int(gestures.get("wave", 0)),
 			(" · BROKEN %s" % ", ".join(PackedStringArray(art["broken"]))) if not art.get("broken", []).is_empty() else ""])
+	if not portraits.is_empty():
+		lines.append(portraits_text())
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():
 		var tonights: Dictionary = art["street"]
 		lines.append("Street: lamps %d · stars %d · moon %s · road %s" % [int(tonights.get("lamps", 0)), int(tonights.get("stars", 0)), str(tonights.get("moon", "?")), str(tonights.get("road", "?"))])
@@ -931,6 +936,12 @@ func panel_text(seated: int, cooking: int) -> String:
 	return "\n".join(lines)
 
 
+## Portraits tonight: whose were their own, the nearest there was, or none, and hovers seen.
+func portraits_text() -> String:
+	return "Portraits: matched %d · fallback %d%s · seen in a hover %d" % [int(portraits.get("matched", 0)), int(portraits.get("fallback", 0)),
+		(" · NONE %d" % int(portraits["none"])) if int(portraits.get("none", 0)) > 0 else "", int(portraits.get("seen", 0))]
+
+
 ## Everything, for the log file. context: which bar and night, AI settings and so on.
 func summary(context: Dictionary) -> Dictionary:
 	return {
@@ -941,6 +952,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"story": story.duplicate(),
 		"art": art.duplicate(true),
 		"poses": poses,
+		"portraits": portraits.duplicate(),
 		"gestures": gestures.duplicate(),
 		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},

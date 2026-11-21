@@ -112,11 +112,7 @@ static func texture(look: Dictionary, view: String, frame: int = 0, holding: Str
 	if _cache.has(key):
 		return _cache[key]
 	var picture := Image.create(SIZE.x, SIZE.y, false, Image.FORMAT_RGBA8)
-	var colours := {
-		SKIN: Color(Looks.SKIN_TONES[clampi(int(look.get("skin", 0)), 0, Looks.SKIN_TONES.size() - 1)]),
-		HAIR: Color(str(Looks.HAIR_COLOURS.get(look.get("hair_colour", "black"), Looks.HAIR_COLOURS["black"])[0])),
-		CLOTH: Color(str(Looks.CLOTHES_COLOURS.get(look.get("colour", "black"), Looks.CLOTHES_COLOURS["black"])[0])),
-	}
+	var colours := _colours(look)
 	var made: ImageTexture = null
 	var complete := true
 	for id in layers_for(look, view, frame, holding):
@@ -138,6 +134,43 @@ static func texture(look: Dictionary, view: String, frame: int = 0, holding: Str
 			_build(picture, view, str(look.get("build", "average")))
 		made = ImageTexture.create_from_image(picture)
 	_cache[key] = made
+	return made
+
+
+## What their skin, hair and clothes are painted in (each a ramp's plain-light step).
+static func _colours(look: Dictionary) -> Dictionary:
+	return {
+		SKIN: Color(Looks.SKIN_TONES[clampi(int(look.get("skin", 0)), 0, Looks.SKIN_TONES.size() - 1)]),
+		HAIR: Color(str(Looks.HAIR_COLOURS.get(look.get("hair_colour", "black"), Looks.HAIR_COLOURS["black"])[0])),
+		CLOTH: Color(str(Looks.CLOTHES_COLOURS.get(look.get("colour", "black"), Looks.CLOTHES_COLOURS["black"])[0])),
+	}
+
+
+## Portraits (PLAN.md, "Portraits"): a head-and-shoulders face, bigger than the people on stage,
+## from the library in art/portraits (rules/portraits.gd picks which), in the same layer
+## encoding, painted onto their own skin, hair and clothes ramps the same way. Its outlines are
+## the fixed ink, as tools/art/portraits.py previews them. null if the portrait isn't there.
+const PORTRAIT_SIZE := Vector2i(64, 80)
+static var _portraits := {}  # (portrait, look) -> ImageTexture or null
+
+
+static func portrait(look: Dictionary, key: String) -> ImageTexture:
+	if key == "":
+		return null
+	var cache_key := "%s|%s" % [key, JSON.stringify(look, "", true)]
+	if _portraits.has(cache_key):
+		return _portraits[cache_key]
+	var made: ImageTexture = null
+	var layer := Art.texture("portrait/" + key)
+	if layer != null:
+		var pixels := _pixels_of("portrait/" + key, layer, PORTRAIT_SIZE).duplicate()
+		for k in range(0, pixels.size(), 5):
+			if pixels[k + 3] == FIXED_SLOT:  # (lines: the ink itself, not its deepest shadow)
+				pixels[k + 2] = BASE_STEP
+		var picture := Image.create(PORTRAIT_SIZE.x, PORTRAIT_SIZE.y, false, Image.FORMAT_RGBA8)
+		_paint(picture, pixels, _colours(look))
+		made = ImageTexture.create_from_image(picture)
+	_portraits[cache_key] = made
 	return made
 
 
@@ -174,6 +207,7 @@ static func reset() -> void:
 	_cache = {}
 	_layers = {}
 	_walks = {}
+	_portraits = {}
 
 
 ## Facing us, the arm that holds a phone, hanging (tools/art/people.py: its columns outside the
@@ -273,7 +307,7 @@ static func _paint(picture: Image, pixels: PackedInt32Array, colours: Dictionary
 static var _layers := {}  # a layer's drawn pixels, read once: [x, y, step, slot, fixed colour] each
 
 
-static func _pixels_of(id: String, layer: Texture2D) -> PackedInt32Array:
+static func _pixels_of(id: String, layer: Texture2D, size: Vector2i = SIZE) -> PackedInt32Array:
 	if _layers.has(id):
 		return _layers[id]
 	var image := layer.get_image()
@@ -281,8 +315,8 @@ static func _pixels_of(id: String, layer: Texture2D) -> PackedInt32Array:
 		image.decompress()
 	image.convert(Image.FORMAT_RGBA8)
 	var pixels := PackedInt32Array()
-	for y in mini(image.get_height(), SIZE.y):
-		for x in mini(image.get_width(), SIZE.x):
+	for y in mini(image.get_height(), size.y):
+		for x in mini(image.get_width(), size.x):
 			var pixel := image.get_pixel(x, y)
 			if pixel.a8 < 128:
 				continue

@@ -937,6 +937,23 @@ func _click_person(scene, guest) -> void:
 	scene._on_guest_clicked(press, guest)
 
 
+func test_everyone_has_their_portrait_in_their_hover() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	Hooks.stay_minutes_override = 600
+	_crowd(scene, 2)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 2 and scene._guests.all(func(g): return g.node.get_node_or_null("Hover") != null))).is_true()
+	for guest in scene._guests:
+		var hover = guest.node.get_node("Hover")
+		assert_object(hover.portrait).override_failure_message(str(guest.customer.get("look", {}))).is_not_null()
+		var tip: Control = auto_free(hover._make_custom_tooltip(hover.tooltip_text))
+		assert_object(tip.get_node("Portrait")).is_not_null()
+	assert_object(scene._owner_node.get_node("Hover").portrait).is_not_null()  # (the owner too)
+	assert_int(int(scene._stats.portraits.get("matched", 0))).is_equal(3)  # (once each, however often the hover's updated)
+	assert_int(int(scene._stats.portraits.get("seen", 0))).is_equal(2)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Portraits: matched 3 · fallback 0 · seen in a hover 2")
+
+
 func test_the_pds_camera_follows_whoever_is_clicked() -> void:
 	var runner := await _open_bar()
 	var scene = runner.scene()

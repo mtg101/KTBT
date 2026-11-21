@@ -80,6 +80,9 @@ const ShowSetup = preload("res://scripts/ui/show_setup.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const PortraitRules = preload("res://scripts/rules/portraits.gd")
+const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const PixelFrame = preload("res://scripts/ui/pixel_frame.gd")
@@ -4749,14 +4752,41 @@ func _update_hover(guest: Guest) -> void:
 		return
 	var area := guest.node.get_node_or_null("Hover") as Control
 	if area == null:
-		area = Control.new()
+		area = PortraitHover.new()
 		area.name = "Hover"
 		area.position = Vector2(15, 0)  # (their body: the shoulders' width, so the dishes beside them keep their own hovers)
 		area.size = Vector2(Layout.PERSON_SIZE.x - 30, Layout.PERSON_SIZE.y)
 		area.mouse_filter = Control.MOUSE_FILTER_STOP
 		area.gui_input.connect(_on_guest_clicked.bind(guest))
 		guest.node.add_child(area)
+	_give_portrait(area, guest.customer)
 	area.tooltip_text = _hover_text(guest)
+
+
+## Portraits: someone's face in their hover, once they have a look (rules/portraits.gd picks it
+## from the library, the same for the same look; people_art.gd paints it onto their colours),
+## counted in the night's stats and noted, once each (again only if their look changes: a new owner).
+func _give_portrait(area: Control, person: Dictionary) -> void:
+	var hover := area as PortraitHover
+	if hover == null or person.get("look", {}).is_empty() or hover.picked_for == person["look"]:
+		return
+	hover.picked_for = person["look"]
+	if _portraits_here.is_empty():  # (the library, looked over once)
+		_portraits_here = Art.ids("portrait").filter(func(id): return Art.has("portrait/" + str(id)))
+		_portraits_here.append("")  # (and never looked over again, even with none there)
+	var look: Dictionary = person["look"]
+	var picked := PortraitRules.pick(str(person.get("gender", "")), look, _portraits_here, int(person.get("age", 0)))
+	var how := str(picked["how"])
+	hover.portrait = PeopleArt.portrait(look, str(picked["key"]))
+	if hover.portrait == null:
+		how = "none"
+	_stats.portraits[how] = int(_stats.portraits.get(how, 0)) + 1
+	hover.shown.connect(func(): _stats.portraits["seen"] = int(_stats.portraits.get("seen", 0)) + 1)
+	DebugLog.say("Portraits", "%s: %s (%s%s)" % [str(person.get("name", "?")), str(picked["key"]) if how != "none" else "no portrait", how,
+		"" if how != "fallback" else ", wanted " + PortraitRules.ideal(str(person.get("gender", "")), look, int(person.get("age", 0)))])
+
+
+var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
 
 
 func _hover_text(guest: Guest) -> String:
@@ -4861,6 +4891,7 @@ func _update_owner_hover() -> void:
 		return
 	var text := "%s, the owner of %s" % [_owner_label(), str(Game.bar.get("name", "the tent"))]
 	text += "\n" + ("● The camera's on them: click to stop" if _camera != null and _camera.on_owner else "Click to follow them with the camera")
+	_give_portrait(area, _owner)
 	area.tooltip_text = Text.tip(text)
 
 
@@ -5785,7 +5816,7 @@ func _build_stage(stage: Control) -> void:
 	_owner_tag = _owner_node.get_node("Tag") as Label
 	_owner_tag.z_index = 3  # their head is just under the tarp: the name goes in front of it
 	_owner_node.visible = false
-	var owner_area := Control.new()  # (who they are, and a click: the camera follows them, as a customer)
+	var owner_area := PortraitHover.new()  # (who they are, with their portrait, and a click: the camera follows them, as a customer)
 	owner_area.name = "Hover"
 	owner_area.position = Vector2(15, 0)
 	owner_area.size = Vector2(Layout.PERSON_SIZE.x - 30, Layout.PERSON_SIZE.y)
