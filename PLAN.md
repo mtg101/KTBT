@@ -7,24 +7,20 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Portraits:** a face for everyone, from the image model: next, the reaction faces, then TV pop-ups and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
   - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
   - **Known:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn on portraits (the head's bare).
+  - **The cat's portrait (later):** a face for the cat too, for its hover and the pop-ups when it steals a scene: one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
   - expressions: the library's faces are calm (passport-photo neutral); a pop-up wants shocked, laughing, crying, fuming
     - from Klein, overnight (decided 20 Nov; no swapping eyes and mouths in code): each kept portrait redrawn with a few stock reactions, the same person, as another batch
       - the reactions are the TV moods (`captions.gd` REACTIONS): shock, sad, sweet, warm, funny, awkward, roast (the one roasted: caught out, indignant), so a mood's caption pops its face
       - the pictures: `art/raw/react_<id>_<mood>_<seed>.png` (1,764: every kept portrait in every mood, two seeds each; `react_try_*` is the first try, not part of the set)
       - reaction faces are close-ups (decided 20 Nov): the picture cut to the face (about the middle 56% across, from 8% down, 4:5) before the split, still 64×80; head and shoulders, only shock and funny still read at 64×80, close up all seven do (the 96×120 grid helped less than the crop). A TV zoom on a reaction anyway; maybe the calm face gets a close-up too, for the pop-up's first frame
       - the split, before picking: tears, a blush and the whites of the eyes their own colours (like the people's `FIXED` ones), or sad loses its tears, sweet its blush (muddy brown now) and shock its eyes
-      - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix  
+      - picking: sheets by mood, pre-picked as before plus how much the hair and outline still match the calm one (a different person's the risk); the pre-picks kept straight away (decided 21 Nov: the user's never needed to change one; the sheets still made, to look over if a face seems off in the game); kept as `art/portraits/<id>_<mood>.png`, `art.gd` knowing the mood suffix  
     - **Status:** all in `art/raw/`; next, the close-up crop and the split
   - now waiting for Claude's weekly allowance to reset as I'm burning too many pay-as-you-go tokens!
-- **Using portraits:** 
-  - TV pop-ups and cut to camera
-    - makes them bigger?
-      - probably have to be able to overlay whole screen not just the bar part?
-      - probably helps the dialog clutter anyway!
-  - show at end of night with reference to diary, maybe tv popout style?
-    - ... or does diary include like... polaroids attached to it?
-    
-  
+- **Using portraits:** in this order, once the reaction faces are in (above)
+  - **The TV sting with a face (decided 21 Nov: a mix of sizes):** a reaction caption cuts to camera: whoever it's about, in that mood (their calm portrait if there's no mood face), framed like Korean TV's picture-in-picture box beside the caption and its sting. Most moments an inset over the stage; the biggest (the AI's size 4–5) a zoom over the whole window, clearing the talk for a beat. Counted in the stats (insets, zooms, calm faces standing in), logged.
+  - **The diary (decided 21 Nov: a mix):** at 3am, a TV-style end card first (the night's biggest moment, its reaction face and caption), then the owner's diary page with polaroids pinned to it of the night's people (`diary_page.gd` knows who's in the entry): each their calm face, or their big moment's face if they had one, a handwritten name under it. Kept with the entry, so the diary book shows them too.
+  - **The rest of the show:** faces on "Previously on…"'s card and in the edit suite's scenes (who each cut's about); later, the social media posts (below).
 
 ## Future ideas and improvements
 
