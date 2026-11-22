@@ -4,10 +4,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Regulars get faces of their own, and everyone's own face their moods:** the owner's is made as a new bar is (`ai/portrait_maker.gd`); the regulars' next, the same way and only in the gaps when the GPU's free (making the bar, and after closing at 3am), with the setting's `owner_and_regulars` (it does the owner only for now).
-  - **Regulars:** the first regulars' calm faces at bar creation, a new regular's after closing (ComfyUI started after the 3am diary and stopped before the next night's first AI call), auto-picked (none of three splitting cleanly keeps the library face); the PD can recast a regular's face later (three more, pick one).
+- **Everyone's own face their moods:** the owner's and the regulars' faces of their own are made in the gaps when the GPU's free (`ai/portrait_maker.gd`); their TV moods are still the library's.
   - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
-  - Counted in the night's stats (regulars' faces made, failed, still the library's; moods made), logged (as the owner's are: ComfyUI started and stopped, each picture, each split's score, each fallback and each PD pick).
+  - Counted in the night's stats (moods made, failed, still the library's), logged (as the faces are: ComfyUI started and stopped, each picture, each split's score, each fallback).
 - tidy up quick stuff
   - things like extra PD cards, simple text extras, the similar loading screens, maybe some simple bg animations, customer variants, etc
   - get AI to scan this plan for simple stuff to fix

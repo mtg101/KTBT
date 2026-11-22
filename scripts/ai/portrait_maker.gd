@@ -176,7 +176,8 @@ func _exit_tree() -> void:
 ## count pictures of prompt (seeds from first_seed up), each split into a portrait:
 ## [{"seed", "picture" (the model's), "split" (rules/portrait_split.gd), "score"}], the ones that
 ## came out (a picture that fails is counted and noted, and the rest carry on). After open().
-func make(prompt: String, person: String, count: int, first_seed: int) -> Array:
+## split_name: what the split scores them as (PortraitRules.split_name: balding, glasses), else person.
+func make(prompt: String, person: String, count: int, first_seed: int, split_name: String = "") -> Array:
 	var made: Array = []
 	for k in count:
 		var pic_seed := first_seed + k
@@ -189,7 +190,7 @@ func make(prompt: String, person: String, count: int, first_seed: int) -> Array:
 			DebugLog.say("Faces", "%s, seed %d: no picture (%s)" % [person, pic_seed, last_error])
 			continue
 		var took := (Time.get_ticks_msec() - asked) / 1000.0
-		var split := await _split(picture, person)
+		var split := await _split(picture, split_name if split_name != "" else person)
 		if not is_inside_tree():
 			return made
 		counts["made"] = int(counts.get("made", 0)) + 1

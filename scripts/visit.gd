@@ -84,6 +84,7 @@ const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PortraitRules = preload("res://scripts/rules/portraits.gd")
 const PortraitSplit = preload("res://scripts/rules/portrait_split.gd")
 const PortraitMaker = preload("res://scripts/ai/portrait_maker.gd")
+const RecastScreen = preload("res://scripts/ui/recast_screen.gd")
 const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
 const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
@@ -248,6 +249,13 @@ var _casting_photos: Array = []  # this round's: [{"seed", "picture", "split", "
 var _casting_pick := -1  # which of them is the owner's face
 var _casting_rounds := 0
 var _faces_story := {}  # what happened, for the night's stats (_before_night["faces"])
+var _casting_regulars := false  # the regulars' photos being taken now (the bar, and the next night, wait)
+var _recast: Control  # RecastScreen, while the PD's recasting a regular's face (3am)
+var _recast_button: Button
+var _recast_photos: Array = []  # the regular's three: [{"seed", "picture", "split", "score"}]
+var _recast_id := ""  # whose
+var _recast_shooting := false
+var _recast_story := {}  # what the PD did, for the next night's stats (_before_night["faces_recast"])
 var _step_in_open := false  # they can, now: from the loading screen until the first customer arrives
 var _step_in_wanted := false  # ...and have (it opens as soon as it can)
 var _step_in_when := ""  # when they did: "loading", "recap" or "night" (for the stats)
@@ -538,6 +546,8 @@ func _open_saved_bar() -> void:
 		Game.save()
 	_owner = Game.bar["owner"].duplicate(true)
 	_own_face(_owner)  # (a face of their own, read in before anything draws it: "Previously on…"'s polaroids too)
+	for regular in Game.bar.get("regulars", []):  # (not _regulars(): that fills the list in, and an older bar's founding regulars are made from it being missing)
+		_own_face(regular)
 	_show_bar_name()
 	_show_look()
 	_people_view.dress(_owner_node, _owner_look())
@@ -655,7 +665,7 @@ func _loading_status() -> String:
 		return text
 	if waited < LOADING_WAKING:
 		return "%s  (%ds)" % [text, waited]
-	return "%s  (%ds: the writers' room may be waking up: the AI can take a minute after it's been idle)" % [text, waited]
+	return "%s  (%ds: %s)" % [text, waited, Text.wait_aside(text.contains("photo"), waited)]  # (in the show's words, never "the AI")
 
 
 const LOADING_PATIENCE := 5  # seconds before the status counts them
@@ -744,7 +754,7 @@ func _invent_owner() -> void:
 	_show_cat()
 	await _cast_owner_face()  # (the AI's done with the bar for now: the GPU's free for the image model)
 	await _frame_done  # let the tent draw before the loading screen fades
-	while (_setting_up or _casting) and not _closed():  # (the PD's setting the show up, or a reshoot: it starts when they're done)
+	while (_setting_up or _casting or _casting_regulars) and not _closed():  # (the PD's setting the show up, or a reshoot: it starts when they're done)
 		await get_tree().process_frame
 	_setup_open = false
 	await _close_casting()
@@ -1489,9 +1499,11 @@ func _end_night() -> void:
 	await _write_diary()
 	if not _season_ended.is_empty() and not _closed():
 		_show_season_page()
+	await _faces_after_closing()  # (the GPU's free until the next night's first AI call)
 	_cliffhanger = {}  # (answered or not, it was last time's: the diary has it)
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
 	_night_written = true
+	_update_recast_button()  # (the 📷 button: the GPU's free until the next night)
 	if Game.autoplay != null:
 		_autoplay_next()
 	if _closing_early:  # (written up: the button's for leaving again)
@@ -2561,6 +2573,7 @@ func _on_ai_rejected(purpose: String, problem: String, reply: String) -> void:
 
 func _on_next_night_pressed() -> void:
 	_summary.visible = false
+	_recast_button.visible = false
 	_season_page.visible = false
 	_season_button.visible = false
 	_story.forget_before()  # (the end of last night, the diary: not tonight's)
@@ -5258,12 +5271,9 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 	if hover == null or person.get("look", {}).is_empty() or hover.picked_for == person["look"]:
 		return
 	hover.picked_for = person["look"]
-	if _portraits_here.is_empty():  # (the library, looked over once)
-		_portraits_here = Art.ids("portrait").filter(func(id): return Art.has("portrait/" + str(id)))
-		_portraits_here.append("")  # (and never looked over again, even with none there)
 	var look: Dictionary = person["look"]
 	var own := _own_face(person)
-	var picked := {"key": own, "how": "own"} if own != "" else PortraitRules.pick(str(person.get("gender", "")), look, _portraits_here, int(person.get("age", 0)))
+	var picked := {"key": own, "how": "own"} if own != "" else PortraitRules.pick(str(person.get("gender", "")), look, _library_portraits(), int(person.get("age", 0)))
 	var how := str(picked["how"])
 	hover.portrait = PeopleArt.portrait(look, str(picked["key"]))
 	if hover.portrait == null:
@@ -5279,6 +5289,14 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 
 
 var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
+
+
+## The library's portraits (looked over once).
+func _library_portraits() -> Array:
+	if _portraits_here.is_empty():
+		_portraits_here = Art.ids("portrait").filter(func(id): return Art.has("portrait/" + str(id)))
+		_portraits_here.append("")  # (and never looked over again, even with none there)
+	return _portraits_here
 var _own_missing := {}  # faces of their own whose pictures weren't with the bar (noted once)
 
 
@@ -5308,12 +5326,15 @@ func _own_face(person: Dictionary) -> String:
 # (pick another, or reshoot). Offline, off in the settings, without ComfyUI, or when every picture
 # fails, the owner keeps the library's face.
 
-## Why there'll be no face of their own ("" if there can be one).
-func _why_no_faces() -> String:
+## Why there'll be no face of their own ("" if there can be one): the owner's, or the regulars'.
+func _why_no_faces(for_regulars: bool = false) -> String:
+	var setting := str(_ai.settings.get("faces", "owner_and_regulars"))
+	if setting == "off":
+		return "off in the AI settings"
+	if for_regulars and setting != "owner_and_regulars":
+		return "the AI settings make the owner's only"
 	if not Hooks.fake_comfy.is_empty():
 		return ""
-	if str(_ai.settings.get("faces", "owner")) == "off":
-		return "off in the AI settings"
 	if _ai.offline:
 		return "offline: %s" % _ai.offline_reason
 	return ""
@@ -5349,6 +5370,16 @@ func _cast_owner_face() -> void:
 	_faces_story.merge(_maker.counts, true)
 	_casting = false
 	_tell_setup_casting()
+	if _why_no_faces(true) == "" and not _closed():  # (then the first regulars, while ComfyUI's ours)
+		var people := _regulars_without_faces()
+		if not people.is_empty():
+			if _comfy_open:
+				_faces_story["regulars"] = await _cast_regulars(people)
+			else:
+				_faces_story["regulars"] = {"why": problem, "waiting": people.size()}
+				DebugLog.say("Faces", "the regulars keep the library's faces for now: %s" % problem)
+			if _maker != null:
+				_faces_story.merge(_maker.counts, true)
 
 
 ## A round of three casting photos of the owner; the best split's their face (by the game), unless
@@ -5357,7 +5388,7 @@ func _shoot_owner() -> void:
 	_typing_label.text = "The casting photographer's taking the owner's photos..."
 	var prompt := PortraitRules.prompt_for(str(_owner.get("gender", "")), _owner.get("look", {}), int(_owner.get("age", 0)), str(_owner.get("appearance", "")))
 	DebugLog.say("Faces", "the owner's casting photos: %s" % prompt)
-	var photos: Array = await _maker.make(prompt, "owner", 3, (randi() % 90000 + 10000) * 10)
+	var photos: Array = await _maker.make(prompt, "owner", 3, _casting_seed(), PortraitRules.split_name("owner", _owner.get("look", {})))
 	if _closed() or photos.is_empty():
 		return
 	_casting_rounds += 1
@@ -5372,17 +5403,11 @@ func _use_owner_face(k: int, by: String) -> void:
 		return
 	var photo: Dictionary = _casting_photos[k]
 	var pic_seed := int(photo["seed"])
-	var id := str(Game.bar["id"])
-	var file := "portrait_owner_%d.png" % pic_seed
-	var layer: Image = photo["split"]["layer"]
-	if SaveStore.save_picture(id, file, layer) != OK:
+	var face := _keep_face("owner", photo, by)
+	if face.is_empty():
 		DebugLog.say("Faces", "couldn't keep the owner's face with the bar: the library's instead")
 		return
-	SaveStore.save_picture(id, "portrait_owner_%d_picture.png" % pic_seed, photo["picture"])
 	_casting_pick = k
-	var key := PortraitRules.own_key(id, "owner", pic_seed)
-	Art.own["portrait/" + key] = ImageTexture.create_from_image(layer)
-	var face := {"key": key, "file": file, "picture": "portrait_owner_%d_picture.png" % pic_seed, "seed": pic_seed, "score": snappedf(float(photo["score"]), 0.001), "by": by}
 	_owner["face"] = face
 	Game.bar["owner"]["face"] = face.duplicate()
 	Game.save()
@@ -5407,7 +5432,7 @@ func _pd_picks_owner_face(k: int) -> void:
 
 ## The PD wants three more photos (ComfyUI's still ours until the setup's closed).
 func _reshoot_owner_face() -> void:
-	if _casting or not _comfy_open or _maker == null or _closed():
+	if _casting or _casting_regulars or not _comfy_open or _maker == null or _closed():
 		return
 	_casting = true
 	_faces_story["reshoots"] = int(_faces_story.get("reshoots", 0)) + 1
@@ -5447,7 +5472,258 @@ func _tell_setup_casting() -> void:
 		faces.append({"texture": PeopleArt.paint_portrait(_owner.get("look", {}), photo["split"]["layer"]), "score": float(photo["score"])})
 	var status := "shooting" if _casting else ("ready" if not faces.is_empty() else ("none" if not _faces_story.is_empty() else "waiting"))
 	_setup_screen.show_casting({"status": status, "why": str(_faces_story.get("why", "")), "faces": faces, "pick": _casting_pick,
-		"can_reshoot": _comfy_open and not _casting, "owner": _owner_display() if not _owner.is_empty() else "the owner"})
+		"can_reshoot": _comfy_open and not _casting and not _casting_regulars, "owner": _owner_display() if not _owner.is_empty() else "the owner",
+		"regulars": "Now the regulars' photos (the game picks theirs: you can recast them at 3am)..." if _casting_regulars else ""})
+
+
+## A new seed for a round of casting photos (three in a row from it).
+func _casting_seed() -> int:
+	return (randi() % 90000 + 10000) * 10
+
+
+## A face of their own from a casting photo, kept with the bar (the split's layer, and the model's
+## picture, for the moods to come) and read into Art.own: its record (a person's "face"), or {} if
+## it couldn't be kept. tag: whose ("owner", or a regular's _face_tag).
+func _keep_face(tag: String, photo: Dictionary, by: String) -> Dictionary:
+	if not Game.bar.has("id"):
+		return {}
+	var pic_seed := int(photo["seed"])
+	var id := str(Game.bar["id"])
+	var file := "portrait_%s_%d.png" % [tag, pic_seed]
+	var picture_file := "portrait_%s_%d_picture.png" % [tag, pic_seed]
+	var layer: Image = photo["split"]["layer"]
+	if SaveStore.save_picture(id, file, layer) != OK:
+		return {}
+	SaveStore.save_picture(id, picture_file, photo["picture"])
+	var key := PortraitRules.own_key(id, tag, pic_seed)
+	Art.own["portrait/" + key] = ImageTexture.create_from_image(layer)
+	return {"key": key, "file": file, "picture": picture_file, "seed": pic_seed, "score": snappedf(float(photo["score"]), 0.001), "by": by}
+
+
+## A regular's name in the bar's pictures and their portrait ids.
+func _face_tag(regular: Dictionary) -> String:
+	return str(regular.get("id", "regular")).replace("/", "_").replace(" ", "-")
+
+
+## The regulars still to get a face of their own: no "face" yet. (One whose photos didn't come
+## out keeps the library's, {"key": "", "why"}, and isn't tried again: the PD can recast them.)
+func _regulars_without_faces() -> Array:
+	return _regulars().filter(func(regular): return not (regular.get("face", {}) is Dictionary and not (regular.get("face", {}) as Dictionary).is_empty()))
+
+
+## Casting photos of these regulars, up to REGULARS_A_GAP of them (the rest next time), each
+## auto-picked (_shoot_regular). After _maker.open(). What happened, for the stats: {"own",
+## "library", "left" (still to do), "names"}.
+func _cast_regulars(people: Array) -> Dictionary:
+	_casting_regulars = true
+	_tell_setup_casting()
+	var story := {"own": 0, "library": 0, "left": maxi(0, people.size() - REGULARS_A_GAP), "names": []}
+	for regular in people.slice(0, REGULARS_A_GAP):
+		if _closed() or _maker == null:
+			break
+		var got := await _shoot_regular(regular)
+		story[got] = int(story[got]) + 1
+		story["names"].append(str(regular.get("name", "?")) + ("" if got == "own" else " (the library's)"))
+	_typing_label.text = ""
+	_casting_regulars = false
+	_tell_setup_casting()
+	return story
+
+
+const REGULARS_A_GAP := 3  # regulars' faces made in one gap (each about 20 seconds: three pictures and their splits)
+
+
+## Three casting photos of a regular, the cleanest split their face if it's clean enough
+## (PortraitRules.CLEAN_ENOUGH), else the library's for good (noted with why). "own" or "library".
+func _shoot_regular(regular: Dictionary) -> String:
+	var who := str(regular.get("name", "a regular"))
+	var look: Dictionary = regular.get("look", {})
+	_typing_label.text = "The casting photographer's taking %s's photos..." % who
+	var prompt := PortraitRules.prompt_for(str(regular.get("gender", "")), look, int(regular.get("age", 0)), str(regular.get("appearance", "")))
+	DebugLog.say("Faces", "%s's casting photos: %s" % [who, prompt])
+	var photos: Array = await _maker.make(prompt, _face_tag(regular), 3, _casting_seed(), PortraitRules.split_name(_face_tag(regular), look))
+	if _closed():
+		return "library"
+	var k := PortraitSplit.best(photos) if not photos.is_empty() else -1
+	var most: float = PortraitRules.CLEAN_ENOUGH if is_nan(Hooks.clean_enough) else Hooks.clean_enough
+	var why := ""
+	if k < 0:
+		why = "every picture failed (%s)" % (_maker.last_error if _maker != null else "?")
+	elif float(photos[k]["score"]) > most:
+		why = "none split cleanly enough (the best scored %.3f, over %.2f)" % [float(photos[k]["score"]), most]
+	var face := _keep_face(_face_tag(regular), photos[k], "game") if why == "" else {}
+	if why == "" and face.is_empty():
+		why = "couldn't keep it with the bar"
+	if why != "":
+		regular["face"] = {"key": "", "why": why, "night": _night_number}
+		Game.save()
+		DebugLog.say("Faces", "%s keeps the library's face: %s" % [who, why])
+		return "library"
+	regular["face"] = face
+	Game.save()
+	DebugLog.say("Faces", "%s's face: seed %d (score %.3f), picked by the game" % [who, int(face["seed"]), float(face["score"])])
+	return "own"
+
+
+## 3am, once the diary's written: faces of their own for the regulars without one (tonight's new
+## regulars, or ones from before the setting allowed it), in the gap before the next night, the
+## summary page's buttons waiting: Ollama lets go, ComfyUI starts, and it's stopped again before
+## the next night's first AI call. Counted in tonight's stats ("faces_after") and noted.
+func _faces_after_closing() -> void:
+	var people := _regulars_without_faces()
+	if people.is_empty() or _closed() or str(_ai.settings.get("faces", "owner_and_regulars")) != "owner_and_regulars":
+		return
+	var why := _why_no_faces(true)
+	if why != "":
+		_stats.story["faces_after"] = {"why": why, "waiting": people.size()}
+		DebugLog.say("Faces", "%d %s keep the library's faces for now: %s" % [people.size(), "regular" if people.size() == 1 else "regulars", why])
+		return
+	_writing_up = true
+	for button in _summary_buttons:
+		button.disabled = true
+	var let_go: bool = await _ai.let_go()
+	DebugLog.say("Faces", "after closing: Ollama let go of the model" if let_go else "after closing: Ollama didn't let go of the model (it may not have had it loaded)")
+	var story := {}
+	if not _closed():
+		_maker = PortraitMaker.new()
+		add_child(_maker)
+		var problem: String = await _maker.open()
+		if problem == "" and not _closed():
+			story = await _cast_regulars(people)
+		else:
+			story = {"why": problem if problem != "" else "the bar closed", "waiting": people.size()}
+			DebugLog.say("Faces", "after closing, the regulars keep the library's faces for now: %s" % story["why"])
+		if _maker != null:
+			await _maker.close()
+			if _maker != null:
+				story.merge(_maker.counts, true)
+				_maker.queue_free()
+				_maker = null
+	_stats.story["faces_after"] = story
+	_writing_up = false
+	for button in _summary_buttons:
+		button.disabled = Game.autoplay != null
+	_update_recast_button()
+
+
+# --- Recasting a regular's face (3am: the summary page's 📷 button) -------------------------------
+# The PD picks a regular, three new casting photos are taken (ComfyUI started for it, and stopped
+# when they're done), and they click one to use it (by "pd"), or keep the face they have. Only
+# while the GPU's free: the night's written up, and before the next one opens.
+
+## Whether the PD can recast now: the setting, not offline, regulars, and not the crew's night.
+func _can_recast() -> bool:
+	return _why_no_faces(true) == "" and not _regulars().is_empty() and Game.autoplay == null
+
+
+func _update_recast_button() -> void:
+	if _recast_button != null:
+		_recast_button.visible = _night_written and _can_recast()
+
+
+## The 📷 button: the recasting screen over the summary.
+func _open_recast() -> void:
+	if _recast != null or _writing_up or not _can_recast():
+		return
+	_recast = RecastScreen.new()
+	add_child(_recast)
+	_recast.open(_regulars().map(func(regular): return {"id": str(regular["id"]), "name": str(regular.get("name", "?")), "texture": _face_texture(regular),
+		"own": _own_face(regular) != ""}))
+	_recast.chosen.connect(_recast_regular)
+	_recast.face_picked.connect(_recast_pick)
+	_recast.finished.connect(_close_recast)
+	_recast_story = {"shot": 0, "picked": []}
+	DebugLog.say("Faces", "the PD opens the recasting")
+
+
+## Someone's face as it is now: their own, or the library's (as _give_portrait picks it).
+func _face_texture(person: Dictionary) -> Texture2D:
+	var own := _own_face(person)
+	if own != "":
+		return PeopleArt.portrait(person.get("look", {}), own)
+	var picked := PortraitRules.pick(str(person.get("gender", "")), person.get("look", {}), _library_portraits(), int(person.get("age", 0)))
+	return PeopleArt.portrait(person.get("look", {}), str(picked["key"]))
+
+
+## The PD picks whose face to recast: three new photos of them.
+func _recast_regular(id: String) -> void:
+	var regular := _regular(id)
+	if _recast_shooting or regular.is_empty() or _recast == null:
+		return
+	_recast_shooting = true
+	_recast_id = id
+	_recast_photos = []
+	var who := str(regular.get("name", "?"))
+	_recast.show_state({"status": "shooting", "who": who})
+	DebugLog.say("Faces", "the PD recasts %s's face" % who)
+	var problem := ""
+	if _maker == null:
+		var let_go: bool = await _ai.let_go()
+		DebugLog.say("Faces", "Ollama let go of the model" if let_go else "Ollama didn't let go of the model (it may not have had it loaded)")
+		if _recast == null:
+			_recast_shooting = false
+			return
+		_maker = PortraitMaker.new()
+		add_child(_maker)
+		problem = await _maker.open()
+	var photos: Array = []
+	if problem == "" and _maker != null:
+		var look: Dictionary = regular.get("look", {})
+		var prompt := PortraitRules.prompt_for(str(regular.get("gender", "")), look, int(regular.get("age", 0)), str(regular.get("appearance", "")))
+		DebugLog.say("Faces", "%s's casting photos: %s" % [who, prompt])
+		photos = await _maker.make(prompt, _face_tag(regular), 3, _casting_seed(), PortraitRules.split_name(_face_tag(regular), look))
+		_recast_story["shot"] = int(_recast_story.get("shot", 0)) + 1
+	_recast_shooting = false
+	if _recast == null or not is_instance_valid(_recast):
+		return
+	_recast_photos = photos
+	if photos.is_empty():
+		var why := problem if problem != "" else "every picture failed (%s)" % (_maker.last_error if _maker != null else "?")
+		DebugLog.say("Faces", "no photos of %s to recast with: %s" % [who, why])
+		_recast.show_state({"status": "none", "who": who, "why": why})
+		return
+	_show_recast(regular, -1)
+
+
+func _show_recast(regular: Dictionary, pick: int) -> void:
+	var faces: Array = []
+	for photo in _recast_photos:
+		faces.append({"texture": PeopleArt.paint_portrait(regular.get("look", {}), photo["split"]["layer"]), "score": float(photo["score"])})
+	_recast.show_state({"status": "ready", "who": str(regular.get("name", "?")), "faces": faces, "pick": pick, "now": _face_texture(regular)})
+
+
+## The PD clicks one of the three: it's their face now.
+func _recast_pick(k: int) -> void:
+	var regular := _regular(_recast_id)
+	if regular.is_empty() or k < 0 or k >= _recast_photos.size() or _recast_shooting:
+		return
+	var face := _keep_face(_face_tag(regular), _recast_photos[k], "pd")
+	if face.is_empty():
+		DebugLog.say("Faces", "couldn't keep %s's new face with the bar" % regular.get("name", "?"))
+		return
+	regular["face"] = face
+	Game.save()
+	(_recast_story["picked"] as Array).append(str(regular.get("name", "?")))
+	DebugLog.say("Faces", "%s's face: seed %d (score %.3f), picked by the PD" % [regular.get("name", "?"), int(face["seed"]), float(face["score"])])
+	_show_recast(regular, k)
+	_recast.update_regular(_recast_id, _face_texture(regular))
+
+
+## Done recasting: ComfyUI stopped (if it was ours), and what the PD did for the next night's stats.
+func _close_recast() -> void:
+	_recast = null
+	while _recast_shooting:
+		await get_tree().process_frame
+	if _maker != null:
+		await _maker.close()
+		if _maker != null:
+			_recast_story.merge(_maker.counts, true)
+			_maker.queue_free()
+			_maker = null
+	if int(_recast_story.get("shot", 0)) > 0:
+		_before_night["faces_recast"] = _recast_story.duplicate(true)
+	DebugLog.say("Faces", "the PD's done recasting: %d rounds of photos, %d %s" % [int(_recast_story.get("shot", 0)), (_recast_story.get("picked", []) as Array).size(),
+		"new face" if (_recast_story.get("picked", []) as Array).size() == 1 else "new faces"])
 var _faces_kept := {}  # name -> {"key", "look"}: everyone's portrait as given (_give_portrait), kept after they've gone
 var _zoomed_tonight := false  # the night's first big moment's had the zoom (its caption and face over the whole window)
 
@@ -6357,8 +6633,16 @@ func _build_ui() -> void:
 	_season_button.visible = false
 	_season_button.pressed.connect(_on_season_toggled)
 	summary_buttons.add_child(_season_button)
+	_recast_button = Button.new()
+	_recast_button.name = "RecastButton"
+	_recast_button.text = "📷  Recast a face"
+	_recast_button.custom_minimum_size = Vector2(220, 48)
+	_recast_button.tooltip_text = Text.tip("Have new casting photos taken of a regular (about half a minute), and pick one for their face on the show. Only now, while the image model has the GPU between nights.")
+	_recast_button.visible = false
+	_recast_button.pressed.connect(_open_recast)
+	summary_buttons.add_child(_recast_button)
 	summary_buttons.add_child(next_night)
-	_summary_buttons = [next_night]
+	_summary_buttons = [next_night, _recast_button]
 	_summary_leave = Button.new()
 	_summary_leave.name = "SummaryLeaveButton"
 	_summary_leave.text = "Close the bar"
@@ -6781,6 +7065,8 @@ func _regular_tonight(regular: Dictionary, guest: Guest) -> Dictionary:
 	var customer := {}
 	for key in ["name", "hangul", "gender", "age", "job", "speech_style", "appearance"]:
 		customer[key] = regular.get(key, "")
+	if regular.get("face", {}) is Dictionary and not (regular.get("face", {}) as Dictionary).is_empty():
+		customer["face"] = (regular["face"] as Dictionary).duplicate()  # (a face of their own: _own_face)
 	customer["look"] = Regulars.dressed_for(regular.get("look", {}), _weather_kind)
 	customer["regular"] = _regular_facts(regular)
 	customer["regular_id"] = regular["id"]

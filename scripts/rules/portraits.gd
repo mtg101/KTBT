@@ -126,6 +126,18 @@ static func own_key(bar_id: String, person: String, pic_seed: int) -> String:
 	return "own_%s_%s_%d" % [bar_id.replace("/", "_"), person, pic_seed]
 
 
+## The name the split scores a casting photo by (rules/portrait_split.gd score: little hair if
+## it's "balding", glasses' frames if it ends "_glasses"), as the library's ids say them.
+static func split_name(who: String, look: Dictionary) -> String:
+	return who + ("_balding" if str(look.get("hair", "")) == "balding" else "") + ("_glasses" if bool(look.get("glasses", false)) else "")
+
+
+## A regular's face of their own is the best of their three casting photos only if it split at
+## least this cleanly (the split's score: lower is cleaner; the library's picks are about 0 to
+## 0.1); worse, and they keep the library's face. (The owner's is the PD's to judge, on the setup.)
+const CLEAN_ENOUGH := 0.3
+
+
 ## Whether a portrait id is a face of someone's own (not the library's).
 static func is_own(key: String) -> bool:
 	return key.begins_with("own_")

@@ -75,6 +75,9 @@ static var channels := true
 ## Pictures (Images) the portrait maker (ai/portrait_maker.gd) hands back instead of asking
 ## ComfyUI, in turn, even offline: [] for ComfyUI itself (and none offline).
 static var fake_comfy: Array = []
+## How cleanly a regular's best casting photo must split to be their face (NAN: the rule's,
+## rules/portraits.gd CLEAN_ENOUGH): tests set INF (any) or -INF (none).
+static var clean_enough := NAN
 ## false: last night's episode titles come from the game's templates (Story.stitched_titles), not the AI.
 static var titles := true
 ## false: 3am's posts have the game's own words (Socials.stitched_words), not the AI's.
@@ -125,6 +128,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	recaps = false
 	channels = false
 	fake_comfy = []
+	clean_enough = NAN
 	titles = false
 	socials = false
 	viewers = false
@@ -136,7 +140,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	print_paths = false
 	SaveStore.folder = saves
 	NightStats.folder = stats
-	AiSettings.override = {"backend": "canned"}
+	AiSettings.override = {"backend": "canned", "faces": "owner"}  # (a test of the regulars' faces asks for them)
 	CannedAi.scripted = []
 	Ai.simulate_unreachable = false
 	Ai.canned_think_seconds = 0.0
@@ -172,6 +176,7 @@ static func restore() -> void:
 	recaps = true
 	channels = true
 	fake_comfy = []
+	clean_enough = NAN
 	titles = true
 	socials = true
 	viewers = true

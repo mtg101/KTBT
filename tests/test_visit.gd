@@ -800,7 +800,11 @@ func test_a_slow_ai_on_the_loading_screen_shows_its_alive() -> void:
 	scene._loading_since -= 8.0
 	assert_str(scene._loading_status()).contains("(8s)")
 	scene._loading_since -= 12.0
-	assert_str(scene._loading_status()).contains("may be waking up")
+	assert_str(scene._loading_status()).contains("(20s: the cast are running their lines)").not_contains("AI")  # (in the show's words)
+	scene._loading_note = "The casting photographer's taking the owner's photos..."
+	scene._loading_status()
+	scene._loading_since -= 31.0
+	assert_str(scene._loading_status()).contains("(31s: the lighting's being reset)")
 	scene._loading_note = ""
 
 

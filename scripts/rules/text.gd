@@ -235,6 +235,21 @@ static func hint(tip_words: String, inner: String) -> String:
 const TIP_WIDTH := 48
 
 
+## Why a wait's taking a while, in the show's own words (never "the AI"): the casting photos
+## (photos: the image model, the first picture loading it) or the writers (lines: the local AI,
+## which can take a minute to load back after it's been idle, after the photos especially), a
+## new excuse every WAIT_ASIDE_SECONDS.
+static func wait_aside(photos: bool, waited: int) -> String:
+	var asides: Array = WAIT_PHOTOS if photos else WAIT_LINES
+	@warning_ignore("integer_division")
+	return str(asides[(maxi(0, waited) / WAIT_ASIDE_SECONDS) % asides.size()])
+
+
+const WAIT_PHOTOS := ["retaking a few shots", "the photographer's changing lenses", "fixing it in post", "the lighting's being reset"]
+const WAIT_LINES := ["retaking some lines", "the writers are rewriting a scene", "the cast are running their lines", "the script's being rewritten"]
+const WAIT_ASIDE_SECONDS := 10
+
+
 ## Hover text, wrapped to TIP_WIDTH (each line of it, keeping any line breaks it has). Every
 ## tooltip in the game goes through this.
 static func tip(text: String, width: int = TIP_WIDTH) -> String:

@@ -921,6 +921,10 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append("Setup: the show starts on %s (the PD's)" % story["setup"].get("rung", "?"))
 	if story.get("faces", {}) is Dictionary and not story.get("faces", {}).is_empty():  # (a new bar: faces of their own, ai/portrait_maker.gd)
 		lines.append(faces_text(story["faces"]))
+	if story.get("faces_recast", {}) is Dictionary and not story.get("faces_recast", {}).is_empty():  # (the PD, before tonight)
+		lines.append(recast_text(story["faces_recast"]))
+	if story.get("faces_after", {}) is Dictionary and not story.get("faces_after", {}).is_empty():  # (after closing: the regulars without one)
+		lines.append("Faces of their own after closing: " + regulars_faces_text(story["faces_after"]) + comfy_text(story["faces_after"]))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")
@@ -988,8 +992,33 @@ func portraits_text() -> String:
 ## Faces of their own made as the bar opened (visit.gd _cast_owner_face): the owner's, or why they
 ## keep the library's; the pictures made and failed, the casting rounds, ComfyUI and how long.
 static func faces_text(faces: Dictionary) -> String:
-	var made := " · %d made, %d failed" % [int(faces.get("made", 0)), int(faces.get("failed", 0))] if faces.has("made") else ""
 	var rounds := (" · %d rounds" % int(faces["rounds"])) if int(faces.get("rounds", 1)) > 1 else ""
+	var regulars := (" · " + regulars_faces_text(faces["regulars"])) if faces.get("regulars", {}) is Dictionary and not (faces.get("regulars", {}) as Dictionary).is_empty() else ""
+	if str(faces.get("owner", "")) == "own":
+		return "Faces of their own: the owner's (picked by the %s, score %.3f)%s%s" % ["PD" if str(faces.get("by", "")) == "pd" else "game", float(faces.get("score", 0.0)), comfy_text(faces, rounds), regulars]
+	return "Faces of their own: the owner keeps the library's (%s)%s%s" % [faces.get("why", "?"), comfy_text(faces), regulars]
+
+
+## The regulars' faces made in a gap (visit.gd _cast_regulars): their own, the library's (none
+## clean enough, or none made), and still to do; or why none were tried.
+static func regulars_faces_text(regulars: Dictionary) -> String:
+	if regulars.has("why"):
+		return "the regulars keep the library's faces for now (%s, %d waiting)" % [regulars["why"], int(regulars.get("waiting", 0))]
+	var left := (", %d still to do" % int(regulars["left"])) if int(regulars.get("left", 0)) > 0 else ""
+	return "the regulars' own %d, the library's %d%s (%s)" % [int(regulars.get("own", 0)), int(regulars.get("library", 0)), left, ", ".join(PackedStringArray(regulars.get("names", [])))]
+
+
+## What the PD did recasting regulars' faces before tonight (visit.gd _open_recast).
+static func recast_text(recast: Dictionary) -> String:
+	var picked: Array = recast.get("picked", [])
+	return "Faces recast by the PD before tonight: %d %s of photos, %s%s" % [int(recast.get("shot", 0)), "round" if int(recast.get("shot", 0)) == 1 else "rounds",
+		("new faces for " + ", ".join(PackedStringArray(picked))) if not picked.is_empty() else "none picked (they kept theirs)", comfy_text(recast)]
+
+
+## The pictures made and failed, ComfyUI (started and stopped by the game, or already running)
+## and how long, for a gap's faces (rounds: the owner's casting rounds, after the pictures).
+static func comfy_text(faces: Dictionary, rounds: String = "") -> String:
+	var made := " · %d made, %d failed" % [int(faces.get("made", 0)), int(faces.get("failed", 0))] if faces.has("made") else ""
 	var comfy := ""
 	if bool(faces.get("fake", false)):
 		comfy = " · the test's pictures"
@@ -998,9 +1027,7 @@ static func faces_text(faces: Dictionary) -> String:
 	elif bool(faces.get("started", false)):
 		comfy = " · ComfyUI started and %s" % ("stopped" if bool(faces.get("stopped", false)) else "NOT STOPPED")
 	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""
-	if str(faces.get("owner", "")) == "own":
-		return "Faces of their own: the owner's (picked by the %s, score %.3f)%s%s%s%s" % ["PD" if str(faces.get("by", "")) == "pd" else "game", float(faces.get("score", 0.0)), made, rounds, comfy, took]
-	return "Faces of their own: the owner keeps the library's (%s)%s%s%s" % [faces.get("why", "?"), made, comfy, took]
+	return made + rounds + comfy + took
 
 
 ## Faces on the captions tonight: beside them and zooms, and which faces.

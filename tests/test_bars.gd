@@ -280,6 +280,99 @@ func test_the_pd_picks_another_casting_photo_and_has_three_more_taken() -> void:
 	assert_str(panel).contains("Faces of their own: the owner's (picked by the PD").contains("6 made, 0 failed · 2 rounds")
 
 
+## Faces of their own for the regulars too (the setting's "owner_and_regulars"; the test's
+## pictures, and how cleanly they must split: INF any, -INF none).
+func _faces_for_regulars(clean_enough: float, scene = null) -> void:
+	AiSettings.override["faces"] = "owner_and_regulars"
+	if scene != null:
+		scene._ai.settings["faces"] = "owner_and_regulars"  # (read as the scene opened)
+	Hooks.fake_comfy = _casting_pictures()
+	Hooks.clean_enough = clean_enough
+
+
+func test_a_new_bars_founding_regulars_get_faces_of_their_own_too() -> void:
+	Hooks.founding_regulars = true
+	_faces_for_regulars(INF)
+	var runner := scene_runner(VISIT)  # (not _open_visit: nine photos take longer than its wait)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open, FACES_WAIT_MS * 2)).override_failure_message("the bar never opened").is_true()
+	var regulars: Array = Game.bar["regulars"]
+	assert_int(regulars.size()).is_equal(2)
+	var id := str(Game.bar["id"])
+	for regular in regulars:
+		var face: Dictionary = regular["face"]
+		assert_str(str(face["by"])).is_equal("game")
+		assert_str(str(face["key"])).is_equal(PortraitRules.own_key(id, scene._face_tag(regular), int(face["seed"])))
+		assert_object(SaveStore.load_picture(id, str(face["file"]))).is_not_null()  # (kept with the bar, and the model's picture)
+		assert_object(SaveStore.load_picture(id, str(face["picture"]))).is_not_null()
+		assert_str(scene._own_face(regular)).is_equal(str(face["key"]))
+	var saved: Dictionary = SaveStore.load_bar(id)
+	assert_str(str(saved["regulars"][0]["face"]["key"])).is_equal(str(regulars[0]["face"]["key"]))  # (saved)
+	assert_str(scene._stats.panel_text(0, 0)).contains("· 9 made, 0 failed · the test's pictures").contains(" · the regulars' own 2, the library's 0 (%s, %s)" % [regulars[0]["name"], regulars[1]["name"]])
+	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
+
+
+func test_after_closing_regulars_without_a_face_get_one_or_keep_the_librarys() -> void:
+	Hooks.founding_regulars = true
+	var runner := await _open_visit()  # (offline: no photos as the bar's made)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	assert_array(scene._regulars_without_faces()).has_size(2)
+	await scene._faces_after_closing()  # (the setting's the owner's only: nothing)
+	assert_bool(scene._stats.story.has("faces_after")).is_false()
+	_faces_for_regulars(INF, scene)
+	await scene._faces_after_closing()
+	var regulars: Array = Game.bar["regulars"]
+	assert_array(scene._regulars_without_faces()).is_empty()
+	assert_str(str(regulars[1]["face"]["by"])).is_equal("game")
+	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
+	assert_bool(scene._writing_up).is_false()  # (the summary page's buttons back)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Faces of their own after closing: the regulars' own 2, the library's 0 (%s, %s) · 6 made, 0 failed · the test's pictures" % [regulars[0]["name"], regulars[1]["name"]])
+	# A regular coming in brings their face with them (the hover's their own).
+	var customer := {"look": regulars[1]["look"], "face": regulars[1]["face"]}
+	assert_str(scene._own_face(customer)).is_equal(str(regulars[1]["face"]["key"]))
+	# None of three splitting cleanly: the library's, for good (the PD can recast them).
+	regulars[1].erase("face")
+	Hooks.clean_enough = -INF
+	await scene._faces_after_closing()
+	assert_str(str(regulars[1]["face"]["key"])).is_empty()
+	assert_str(str(regulars[1]["face"]["why"])).starts_with("none split cleanly enough")
+	assert_str(scene._own_face(regulars[1])).is_empty()
+	assert_array(scene._regulars_without_faces()).is_empty()  # (not tried again)
+	assert_str(scene._stats.panel_text(0, 0)).contains("the regulars' own 0, the library's 1 (%s (the library's))" % regulars[1]["name"])
+
+
+func test_the_pd_recasts_a_regulars_face_at_3am() -> void:
+	Hooks.founding_regulars = true
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	var button := runner.find_child("RecastButton", true, false) as Button
+	scene._night_written = true
+	scene._update_recast_button()
+	assert_bool(button.visible).is_false()  # (offline, and the owner's only)
+	_faces_for_regulars(INF, scene)
+	scene._update_recast_button()
+	assert_bool(button.visible).is_true()
+	scene._open_recast()
+	var recast = runner.find_child("RecastScreen", true, false)
+	assert_object(recast).is_not_null()
+	var regular: Dictionary = Game.bar["regulars"][0]
+	await _click(runner, recast.find_child("RecastRegular_0", true, false))
+	assert_str(str((recast.find_child("RecastNote", true, false) as Label).text)).contains("taking %s's photos" % regular["name"])
+	assert_bool((recast.find_child("RecastDone", true, false) as Button).disabled).is_true()  # (not while they're being taken)
+	assert_bool(await _wait_until(func(): return recast.find_child("RecastPhoto_2", true, false) != null and not scene._recast_shooting, FACES_WAIT_MS)).override_failure_message("no photos").is_true()
+	assert_bool(regular.has("face")).is_false()  # (none picked yet: theirs as it was)
+	await _click(runner, recast.find_child("RecastPhoto_1", true, false))
+	assert_bool(await _wait_until(func(): return regular.has("face"))).override_failure_message("the PD's pick wasn't taken").is_true()
+	assert_str(str(regular["face"]["by"])).is_equal("pd")
+	assert_int(int(regular["face"]["seed"])).is_equal(int(scene._recast_photos[1]["seed"]))
+	assert_int(((recast.find_child("RecastFrame_1", true, false) as PanelContainer).get_theme_stylebox("panel") as StyleBoxFlat).border_width_left).is_equal(5)  # (framed)
+	await _click(runner, recast.find_child("RecastDone", true, false))
+	assert_bool(await _wait_until(func(): return scene._maker == null and scene._before_night.has("faces_recast"))).override_failure_message("never closed").is_true()
+	assert_str(NightStats.recast_text(scene._before_night["faces_recast"])).starts_with("Faces recast by the PD before tonight: 1 round of photos, new faces for %s · 3 made, 0 failed · the test's pictures" % regular["name"])
+
+
 func test_a_new_bar_gets_its_niece_or_nephew_and_its_stream() -> void:
 	Hooks.channels = true  # (the AI names them: here, the canned AI)
 	var runner := await _open_visit()

@@ -10,16 +10,16 @@ extends RefCounted
 ##   backend="auto"                     ; "auto", "ollama" or "canned"
 ##   server="http://127.0.0.1:11434"    ; where Ollama is (another PC's address works too)
 ##   model="llama3.1:8b"                ; any model Ollama has pulled
-##   faces="owner"                      ; faces of their own: "off", "owner", "owner_and_regulars"
+##   faces="owner_and_regulars"         ; faces of their own: "off", "owner", "owner_and_regulars"
 ##   comfyui=""                         ; ComfyUI's folder (the portable one), "" for tools/comfyui_path.txt's
 ##
 ## backend: "ollama" always uses the local LLM; "canned" never does (offline mode: instant,
 ## pre-written characters, for machines without a suitable GPU); "auto" uses Ollama and
 ## switches to canned for the rest of the session if Ollama can't be reached.
 ##
-## faces: whether the owner (and, later, the regulars) get a face made for them by the image
-## model in ComfyUI on this PC (ai/portrait_maker.gd), in the gaps when the GPU's free; "off",
-## offline, or without ComfyUI, everyone keeps a face from the library.
+## faces: whether the owner (and the regulars) get a face made for them by the image model in
+## ComfyUI on this PC (ai/portrait_maker.gd), in the gaps when the GPU's free (making the bar,
+## after closing); "off", offline, or without ComfyUI, everyone keeps a face from the library.
 
 const PATH := "user://ai_settings.cfg"
 const BACKENDS := ["auto", "ollama", "canned"]
@@ -27,7 +27,7 @@ const DEFAULTS := {
 	"backend": "auto",
 	"server": "http://127.0.0.1:11434",
 	"model": "llama3.1:8b",
-	"faces": "owner",
+	"faces": "owner_and_regulars",
 	"comfyui": "",
 }
 const FACES := ["off", "owner", "owner_and_regulars"]
@@ -53,6 +53,6 @@ static func load_settings() -> Dictionary:
 		push_warning("Unknown AI backend \"%s\" in %s; using \"auto\"." % [settings["backend"], PATH])
 		settings["backend"] = "auto"
 	if not (settings["faces"] in FACES):
-		push_warning("Unknown faces setting \"%s\" in %s; using \"owner\"." % [settings["faces"], PATH])
-		settings["faces"] = "owner"
+		push_warning("Unknown faces setting \"%s\" in %s; using \"owner_and_regulars\"." % [settings["faces"], PATH])
+		settings["faces"] = "owner_and_regulars"
 	return settings

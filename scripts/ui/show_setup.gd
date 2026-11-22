@@ -121,7 +121,7 @@ func open(start_with: Dictionary = {}) -> void:
 
 ## The owner's casting photos, as they are: {"status": "waiting" (not yet), "shooting", "ready"
 ## or "none" (no face of their own: "why"), "faces": [{"texture", "score"}], "pick": the face's
-## index, "can_reshoot", "owner": their name}.
+## index, "can_reshoot", "owner": their name, "regulars": a line while the regulars' are taken, or ""}.
 func show_casting(state: Dictionary) -> void:
 	if _casting_note == null:
 		return
@@ -136,6 +136,8 @@ func show_casting(state: Dictionary) -> void:
 			_casting_note.text = "No casting photos (%s): %s keeps a face from the show's library." % [state.get("why", "?"), who]
 		_:
 			_casting_note.text = "The casting photographer comes once the tent's up."
+	if str(state.get("regulars", "")) != "":
+		_casting_note.text += " " + str(state["regulars"])
 	for child in _casting_row.get_children():
 		_casting_row.remove_child(child)
 		child.queue_free()
