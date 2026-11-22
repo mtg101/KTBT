@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 798 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 805 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -130,7 +130,8 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/caption.gd` | A Korean TV caption: Hangul over a coloured English tag, popping in and fading |
 | `scripts/ui/caption_reel.gd` | Captions popping up by themselves, for the title and loading screens |
 | `scripts/ui/diary_book.gd` | The owner's diary as a book: a page at a time, older and newer |
-| `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp |
+| `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp, and the night's polaroids if it has them |
+| `scripts/ui/polaroid.gd` | A polaroid on the diary page: someone's portrait in a white frame, taped down at a tilt, their name written under it |
 | `scripts/ui/dish_view.gd` | A dish or drink on the table in pixel art, painted from its shapes (see `rules/dish_art.gd`) on their colours' ramps, lit from above, a darker edge round it, lit by the hour |
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |

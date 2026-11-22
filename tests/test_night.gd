@@ -13,6 +13,7 @@ const Autoplay = preload("res://scripts/autoplay.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -100,6 +101,37 @@ func test_the_night_ends_at_three_with_a_summary() -> void:
 	assert_bool((runner.find_child("SeasonButton") as Control).visible).is_false()  # (not a finale)
 	assert_str(_transcript(runner)).contains("pulls down the tarp")
 	assert_array(scene._guests).is_empty()
+
+
+func test_the_night_s_biggest_moment_gets_an_end_card_and_the_diary_its_polaroids() -> void:
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1 and scene._guests[0].node.get_node_or_null("Hover") != null \
+		and scene._guests[0].node.get_node("Hover").picked_key != "")).is_true()
+	var who := str(scene._guests[0].customer["name"])
+	var owner_name := str(Game.bar["owner"]["name"])
+	var lines := [{"speaker": who, "text": "I quit my job today."}, {"speaker": owner_name, "text": "You did what?"}]
+	scene._air_moment(0, [{"mood": "warm", "caption": "SMALL WIN"}], {"who": owner_name, "topic": "", "size": 4}, lines, [who, owner_name], 0.0)
+	scene._air_moment(0, [{"mood": "shock", "caption": "THEY QUIT?!"}], {"who": who, "topic": "", "size": 5}, lines, [who, owner_name], 0.0)
+	var aired: Array = scene._events.of_kind("big_moment")
+	assert_int(int(aired[-1]["size"])).is_equal(5)
+	assert_array(Captions.REACTIONS["shock"]["hangul"]).contains([str(aired[-1]["hangul"])])  # (the words it aired with, for the card)
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary"))).is_true()
+	# The card: their moment again, though they'd long gone home (the face kept from tonight).
+	assert_str(str(scene._stats.keepsakes.get("end_card", ""))).is_equal("%s, shock (size 5)" % who)
+	assert_str(_transcript(runner)).contains("THEY QUIT?!")
+	var entry: Dictionary = Game.bar["diary"][0]
+	assert_str(str(entry["photos"][0]["name"])).is_equal(who)
+	assert_str(str(entry["photos"][0]["mood"])).is_equal("shock")
+	assert_bool(entry["faces"].has(who) and entry["faces"].has(owner_name)).is_true()  # (everyone tonight's, for the diary book)
+	assert_int(int(entry["facts"]["moments"][-1]["size"])).is_equal(5)
+	assert_str(str(runner.find_child("DiaryPage").photo_names()[0])).is_equal(who)
+	assert_int(int(scene._stats.keepsakes["polaroids"])).is_equal(entry["photos"].size())
+	assert_str(scene._stats.panel_text(0, 0)).contains("Keepsakes: end card %s" % who)
+	# Kept with the bar: the diary book shows them too.
+	assert_str(str(SaveStore.load_bar(str(Game.bar["id"]))["diary"][0]["photos"][0]["name"])).is_equal(who)
 
 
 func test_the_night_ends_with_the_owners_diary() -> void:

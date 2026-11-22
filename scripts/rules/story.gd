@@ -467,7 +467,7 @@ static func diary_facts(events: Array, context: Dictionary) -> Dictionary:
 			"big_moment":
 				# (the mood as the AI judged it: the owner's diary is sincere, whatever the edit aired)
 				moments.append({"who": str(event.get("who", "")), "mood": str(event.get("ai_mood", event.get("mood", ""))), "caption": str(event.get("caption", "")), "said": str(event.get("said", "")),
-					"at": int(event.get("at", -1))})
+					"at": int(event.get("at", -1)), "size": int(event.get("size", 0))})
 			"friendlier":
 				friendlier.append("%s and %s are on \"%s\" terms now" % [event.get("a", ""), event.get("b", ""), event.get("term", "")])
 				happenings.append({"at": int(event.get("at", -1)), "text": "%s and %s are on \"%s\" terms now." % [event.get("a", ""), event.get("b", ""), event.get("term", "")],

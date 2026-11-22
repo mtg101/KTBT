@@ -29,6 +29,7 @@ Each file starts with what it's for (paths from `scripts/`). They preload each o
 | `rules/names.gd` | Names: Korean order and the usual casing, given names, and Hangul (checked against the romanised name) |
 | `rules/looks.gd` | How people look (age range, hair, clothes, colours), how strangers are known by their looks, and the street: rain gear, who walks together, phones |
 | `rules/portraits.gd` | Which portrait a person gets from their look (gender, age range, hairstyle, glasses; non-binary by hairstyle), the same every time; the nearest there is without their own, or none |
+| `rules/keepsakes.gd` | The night's keepsakes at 3am: which big moment gets the TV-style end card (the biggest, ties the latest), and whose polaroids go on the diary page (the biggest moment's, then a regular or whoever stayed longest, each in their own biggest moment's mood or calm) |
 | `rules/bar_look.gd` | Each bar's name and look, from the options the game offers, and the fallbacks |
 | `rules/night_rules.gd` | The clock, arrivals, how fast time runs, the days, passers-by, the sky's light and the weather |
 | `rules/orders.gd` | Orders and later orders (checked; a side the line asks for is added), which food a line mentions, what's served straight away and what's cooked, tonight's specials, the bill |

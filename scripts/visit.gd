@@ -82,6 +82,7 @@ const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PortraitRules = preload("res://scripts/rules/portraits.gd")
+const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
 const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
@@ -1451,6 +1452,7 @@ func _end_night() -> void:
 	_season_page.visible = false
 	_season_button.visible = false
 	_summary.visible = true
+	_end_card()  # (over the whole window, while the owner starts writing: the page is under it)
 	await _regulars_remember_each_other()
 	await _write_diary()
 	if not _season_ended.is_empty() and not _closed():
@@ -1741,6 +1743,7 @@ func _write_diary() -> void:
 		"text": text, "stamp": Story.diary_stamp(facts), "by": by, "facts": facts, "when": int(Time.get_unix_time_from_system()),
 		"ratings": _night_ratings.duplicate(true),
 		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]), "finale": bool(_show_place["finale"])}
+	_keep_faces(entry)
 	SaveStore.record_diary(Game.bar, entry)
 	if _season_ended.is_empty():
 		_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
@@ -1756,6 +1759,53 @@ func _write_diary() -> void:
 	_writing_up = false
 	for button in _summary_buttons:
 		button.disabled = Game.autoplay != null  # (the crew open the next night, while they're running it)
+
+
+## 3am, before the diary page: a TV-style end card, the night's biggest moment again
+## (Keepsakes.biggest_moment) with the Hangul it aired with, its face slapped on at the zoom's
+## size over the whole window, under "오늘의 명장면" (captions_on_screen.gd end_card). No moment
+## tonight, or no face for whoever it was about: no card. Counted and noted.
+func _end_card() -> void:
+	var moment := Keepsakes.biggest_moment(_events.timeline)
+	if moment.is_empty():
+		DebugLog.say("Keepsakes", "no end card: no big moment tonight")
+		return
+	var mood := str(moment.get("mood", ""))
+	var face := _tv_face(str(moment.get("who", "")), mood) if Captions.REACTIONS.has(mood) else {}
+	if face.is_empty():
+		_stats.keepsakes["end_card_faceless"] = 1
+		DebugLog.say("Keepsakes", "no end card: no face for %s (%s)" % [moment.get("who", "?"), mood])
+		return
+	face["node"] = null  # (the end card's: no clipart stuck on anyone on stage at closing)
+	var data: Dictionary = Captions.REACTIONS[mood]
+	var words := Captions.reaction_words(mood, str(moment.get("caption", "")))
+	if str(moment.get("hangul", "")) != "":
+		words["hangul"] = str(moment["hangul"])
+	_captions_part.end_card(words, str(data["icon"]), str(data["colour"]), str(data["sound"]), [face], Keepsakes.END_CARD_SECONDS)
+	_stats.keepsakes["end_card"] = "%s, %s (size %d)" % [face["name"], mood, int(moment.get("size", 0))]
+	DebugLog.say("Keepsakes", "end card: %s's %s moment, size %d, «%s» (%s face)" % [face["name"], mood, int(moment.get("size", 0)), words["english"], face["how"]])
+
+
+## The diary entry's faces: the polaroids (Keepsakes.polaroids: the biggest moment's, then a
+## regular or whoever stayed longest) and everyone tonight's portrait and colours, so the
+## diary book (and later "Previously on…") can show them after the night's gone. Counted and noted.
+func _keep_faces(entry: Dictionary) -> void:
+	var here: Array = [str(_owner.get("name", ""))]
+	for event in _events.of_kind("sat_down"):
+		here.append(str(event.get("name", "")))
+	var faces := {}
+	for person_name in here:
+		if _faces_kept.has(person_name):
+			faces[person_name] = (_faces_kept[person_name] as Dictionary).duplicate(true)
+	var photos: Array = []
+	for photo in Keepsakes.polaroids(_events.timeline, faces, int(_clock), str(_owner.get("name", ""))):
+		var kept: Dictionary = faces[photo["name"]]
+		photos.append({"name": photo["name"], "mood": photo["mood"], "key": kept["key"], "look": kept["look"].duplicate(true)})
+	entry["faces"] = faces
+	entry["photos"] = photos
+	_stats.keepsakes["polaroids"] = photos.size()
+	_stats.keepsakes["faces_kept"] = faces.size()
+	DebugLog.say("Keepsakes", "polaroids: %s; %d faces kept with the entry" % [", ".join(PackedStringArray(photos.map(func(p): return "%s (%s)" % [p["name"], p["mood"]]))) if not photos.is_empty() else "none", faces.size()])
 
 
 func _validate_diary(data: Variant, facts: Dictionary) -> String:
@@ -4406,7 +4456,7 @@ func _tv_face(person_name: String, mood: String) -> Dictionary:
 				if Names.given_name(str(g.customer["name"])) == person_name:
 					guest = g
 		if guest == null:
-			return {}
+			return _face_kept(person_name, mood)  # (gone home: their face kept from tonight)
 		person = guest.customer
 		node = guest.node
 	var hover := (node.get_node_or_null("Hover") as PortraitHover) if is_instance_valid(node) else null
@@ -4420,6 +4470,22 @@ func _tv_face(person_name: String, mood: String) -> Dictionary:
 		if moody != null:
 			texture = moody
 	return {"texture": texture, "name": str(person.get("name", "")), "mood": mood, "how": how, "node": node}  # (node: for the clipart on stage)
+
+
+## The face of someone who's left, from the portraits kept tonight (_faces_kept: a full name or
+## a given name will do), in a mood as _tv_face's, without a node; {} for nobody kept.
+func _face_kept(person_name: String, mood: String) -> Dictionary:
+	var whose := Keepsakes.whose(person_name, _faces_kept)
+	if whose == "":
+		return {}
+	var kept: Dictionary = _faces_kept[whose]
+	var texture := PeopleArt.portrait(kept["look"], str(kept["key"]), "" if mood == "calm" else mood)
+	var how := "calm" if mood == "calm" else ("mood" if texture != null else "stood_in")
+	if texture == null:
+		texture = PeopleArt.portrait(kept["look"], str(kept["key"]))
+	if texture == null:
+		return {}
+	return {"texture": texture, "name": whose, "mood": mood, "how": how, "node": null}
 
 
 ## Whose node it is: the owner's or a customer's name ("" for anyone else, or nobody).
@@ -4495,8 +4561,10 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 	var caption := str(spins[k]["caption"])
 	var who := str(reply["who"])
 	var theirs: Array = lines.filter(func(e): return str(e.get("speaker", "")) == who)
+	var words := Captions.reaction_words(mood, caption, roll)
+	# (its size, and the Hangul it aired with: for 3am's end card, Keepsakes.biggest_moment)
 	_event("big_moment", {"who": who, "mood": mood, "ai_mood": str(spins[0]["mood"]), "edited": k > 0, "caption": caption, "topic": str(reply.get("topic", "")),
-		"said": str(theirs[-1]["text"]) if not theirs.is_empty() else ""})  # (its caption's popped here, below: the AI's words)
+		"said": str(theirs[-1]["text"]) if not theirs.is_empty() else "", "size": clampi(int(reply.get("size", 0)), 0, 5), "hangul": str(words.get("hangul", ""))})  # (its caption's popped here, below: the AI's words)
 	var about: Variant = _owner_node  # (untyped: someone's node may be gone by now)
 	if who != str(_owner["name"]):
 		var guest: Guest = _guest_named(who)
@@ -4516,7 +4584,7 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 		_stats.stings["none"] = int(_stats.stings.get("none", 0)) + 1
 		DebugLog.say("Sting", "no face for %s's big moment" % who)
 	_zoomed_tonight = _zoomed_tonight or zoom
-	_captions_part.pop(Captions.reaction_words(mood, caption, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS,
+	_captions_part.pop(words, str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS,
 		[] if face.is_empty() else [face], zoom)
 
 
@@ -4863,6 +4931,8 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 		how = "none"
 	hover.picked_how = how
 	hover.picked_key = str(picked["key"]) if how != "none" else ""
+	if how != "none":  # (kept by name, for 3am once they've gone: the end card, the polaroids, the entry)
+		_faces_kept[str(person.get("name", ""))] = {"key": hover.picked_key, "look": look.duplicate(true)}
 	_stats.portraits[how] = int(_stats.portraits.get(how, 0)) + 1
 	hover.shown.connect(func(): _stats.portraits["seen"] = int(_stats.portraits.get("seen", 0)) + 1)
 	DebugLog.say("Portraits", "%s: %s (%s%s)" % [str(person.get("name", "?")), str(picked["key"]) if how != "none" else "no portrait", how,
@@ -4870,6 +4940,7 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 
 
 var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
+var _faces_kept := {}  # name -> {"key", "look"}: everyone's portrait as given (_give_portrait), kept after they've gone
 var _zoomed_tonight := false  # the night's first big moment's had the zoom (its caption and face over the whole window)
 
 

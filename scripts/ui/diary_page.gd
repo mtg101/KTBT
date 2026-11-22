@@ -3,7 +3,9 @@ extends Control
 ## season and its episode in it, "S2 · EP 3": never a running count) and
 ## the day (in Hangul and English) at the top, the entry in ink, and a stamp in the corner
 ## (Story.DIARY_STAMPS), and the episode's TV ratings by the owner's name. Used at 3am (see visit.gd _end_night) and for the diary book. While the
-## owner's still writing, a pen moves across the page instead.
+## owner's still writing, a pen moves across the page instead. With the entry's polaroids
+## (rules/keepsakes.gd: kept with it, so the diary book shows them too), one or two stuck down the
+## right edge, half over it, the writing narrowed beside them; older entries have none.
 
 const Story = preload("res://scripts/rules/story.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
@@ -11,6 +13,9 @@ const Text = preload("res://scripts/rules/text.gd")
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
+const Names = preload("res://scripts/rules/names.gd")
+const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const Polaroid = preload("res://scripts/ui/polaroid.gd")
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const PAPER := Ktv.PAPER
@@ -25,6 +30,12 @@ const BODY_TOP := 150.0
 const LEFT := 80.0  # the margin
 const WHOSE_WIDTH := 270.0  # whose diary it is, left of the ratings
 const PILL_MOST := PAGE.x - LEFT - 50.0  # the episode's pill, at its widest
+const PHOTOS_AT := Vector2(PAGE.x - 120, 128)  # the polaroids, down the right edge (half over it)
+const PHOTO_DROP := 196.0  # the second below the first, a little over it
+const PHOTO_TILTS := [0.07, -0.09]
+const PHOTO_ROOM := 110.0  # the writing narrowed by this, with polaroids
+const STAMP_AT := Vector2(PAGE.x - 190, PAGE.y - 190)
+const STAMP_BESIDE := Vector2(PAGE.x - 340, PAGE.y - 190)  # (with polaroids: clear of them)
 
 var _episode: Label
 var _pill: PanelContainer
@@ -36,6 +47,7 @@ var _writing: Label
 var _pen: Polygon2D
 var _pen_tween: Tween
 var _stamp: Control
+var _photos: Control  # the polaroids (ui/polaroid.gd), if the entry has any
 
 
 func _init() -> void:
@@ -123,12 +135,17 @@ func _init() -> void:
 
 	_stamp = Control.new()
 	_stamp.name = "Stamp"
-	_stamp.position = Vector2(PAGE.x - 190, PAGE.y - 190)
+	_stamp.position = STAMP_AT
 	_stamp.size = Vector2(160, 160)
 	_stamp.pivot_offset = Vector2(80, 80)
 	_stamp.rotation = -0.22
 	_stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_stamp)
+	_photos = Control.new()
+	_photos.name = "Photos"
+	_photos.position = PHOTOS_AT
+	_photos.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_photos)
 
 
 ## The owner's still writing: the page header, and a pen moving across the page. episode: its
@@ -138,6 +155,7 @@ func show_writing(episode: String, day: String, weather: String, who: String) ->
 	_body.visible = false
 	_stamp.visible = false
 	_ratings.visible = false
+	_show_photos([])
 	_writing.text = "✎ %s is writing in the diary…" % who
 	_writing.visible = true
 	_pen.visible = true
@@ -165,6 +183,7 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 		_pen_tween.kill()
 	_pen.visible = false
 	_writing.visible = false
+	_show_photos(entry.get("photos", []))
 	_body.text = Glossary.explain_hangul(Glossary.explain(str(entry.get("text", "")).replace("[", "[lb]"), _names_in(entry), WORD_INK))
 	_body.visible = true
 	_body.scroll_to_line(0)
@@ -177,6 +196,39 @@ func show_entry(entry: Dictionary, whose: String) -> void:
 	thump.tween_interval(0.3)
 	thump.tween_property(_stamp, "modulate:a", 0.85, 0.05)
 	thump.parallel().tween_property(_stamp, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+## The entry's polaroids ([{"name", "mood", "key", "look"}], as visit.gd _keep_faces keeps
+## them): each face painted onto its own colours, in its mood (calm if that face isn't there),
+## the given name under it; the writing and the stamp make room. None, or none drawable: the
+## page as ever.
+func _show_photos(photos: Array) -> void:
+	for old in _photos.get_children():
+		_photos.remove_child(old)
+		old.queue_free()
+	for photo in photos:
+		if not photo is Dictionary or _photos.get_child_count() >= PHOTO_TILTS.size():
+			continue
+		var look: Dictionary = photo.get("look", {})
+		var mood := str(photo.get("mood", "calm"))
+		var picture: Texture2D = PeopleArt.portrait(look, str(photo.get("key", "")), "" if mood == "calm" else mood)
+		if picture == null:
+			picture = PeopleArt.portrait(look, str(photo.get("key", "")))
+		if picture == null:
+			continue
+		var polaroid := Polaroid.new()
+		var k := _photos.get_child_count()
+		polaroid.setup(picture, str(photo.get("name", "")), Names.given_name(str(photo.get("name", ""))), float(PHOTO_TILTS[k]))
+		polaroid.position = Vector2(14.0 * k, PHOTO_DROP * k)
+		_photos.add_child(polaroid)
+	var with_photos := _photos.get_child_count() > 0
+	_body.size.x = PAGE.x - LEFT - 60 - (PHOTO_ROOM if with_photos else 0.0)
+	_stamp.position = STAMP_BESIDE if with_photos else STAMP_AT
+
+
+## Whose polaroids are on the page, in order (their full names).
+func photo_names() -> Array:
+	return _photos.get_children().filter(func(p): return not p.is_queued_for_deletion()).map(func(p): return str(p.who))
 
 
 ## The episode's ratings (Ratings.score, as kept with the entry): nothing for nights from before

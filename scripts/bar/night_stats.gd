@@ -53,6 +53,10 @@ var stings := {}
 ## The edit's clipart stuck to people on stage (rules/clipart.gd, ui/clipart_sticker.gd): each
 ## clipart -> how many captions it went on; "missing": one picked whose art wasn't there.
 var clipart := {}
+## 3am's keepsakes (rules/keepsakes.gd): "end_card" (whose moment, its mood and size, if one
+## went up), "end_card_faceless" (a moment, but no face for it), "polaroids" (on the diary
+## page), "faces_kept" (everyone's portrait kept with the entry).
+var keepsakes := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
@@ -874,6 +878,8 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append(stings_text())
 	if not clipart.is_empty():
 		lines.append(clipart_text())
+	if not keepsakes.is_empty():
+		lines.append(keepsakes_text())
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():
 		var tonights: Dictionary = art["street"]
 		lines.append("Street: lamps %d · stars %d · moon %s · road %s" % [int(tonights.get("lamps", 0)), int(tonights.get("stars", 0)), str(tonights.get("moon", "?")), str(tonights.get("road", "?"))])
@@ -960,6 +966,12 @@ func stings_text() -> String:
 		int(stings.get("mood", 0)), int(stings.get("calm", 0)), int(stings.get("stood_in", 0)), (" · NONE %d" % int(stings["none"])) if int(stings.get("none", 0)) > 0 else ""]
 
 
+## 3am's keepsakes: the end card (or why not), the diary's polaroids, the faces kept.
+func keepsakes_text() -> String:
+	return "Keepsakes: end card %s · polaroids %d · faces kept with the entry %d" % [str(keepsakes["end_card"]) if keepsakes.has("end_card") else ("NO FACE" if keepsakes.has("end_card_faceless") else "none"),
+		int(keepsakes.get("polaroids", 0)), int(keepsakes.get("faces_kept", 0))]
+
+
 ## The clipart on stage tonight, most used first.
 func clipart_text() -> String:
 	var shown := clipart.keys().filter(func(clip): return clip != "missing")
@@ -981,6 +993,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"portraits": portraits.duplicate(),
 		"stings": stings.duplicate(),
 		"clipart": clipart.duplicate(),
+		"keepsakes": keepsakes.duplicate(),
 		"gestures": gestures.duplicate(),
 		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},

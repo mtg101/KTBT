@@ -15,6 +15,7 @@ const FaceSticker = preload("res://scripts/ui/face_sticker.gd")
 const ClipartSticker = preload("res://scripts/ui/clipart_sticker.gd")
 const Clipart = preload("res://scripts/rules/clipart.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const ZOOM_DIM := Color(0.04, 0.03, 0.1, 0.72)  # the zoom's window, behind the caption
 const DebugLog = preload("res://scripts/debug_log.gd")
 
@@ -126,6 +127,27 @@ func pop(words: Dictionary, icon: String, colour: String, sound: String, emergen
 	sting.call(sound)
 	if emergency:
 		flash_red()
+
+
+## 3am's end card (rules/keepsakes.gd): the night's biggest moment again, its caption and face
+## at the zoom's size over the whole window, under a title, "오늘의 명장면", and its English.
+func end_card(words: Dictionary, icon: String, colour: String, sound: String, faces: Array, hold: float) -> void:
+	pop(words, icon, colour, sound, false, null, Vector2(-1, -1), hold, faces, true)
+	if not is_instance_valid(shown_zoom):
+		return
+	shown_zoom.name = "EndCard"
+	var title := VBoxContainer.new()
+	title.name = "EndCardTitle"
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.position = Vector2(0, screen.y * 0.06)
+	title.size = Vector2(screen.x, 120)
+	title.alignment = BoxContainer.ALIGNMENT_CENTER
+	for line in [["오늘의 명장면", 64, Color(colour), 12, "Hangul"], ["TONIGHT'S BEST MOMENT", 26, Color.WHITE, 6, "English"]]:
+		var label := Ktv.label(str(line[0]), int(line[1]), line[2], int(line[3]))
+		label.name = str(line[4])
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.add_child(label)
+	shown_zoom.add_child(title)
 
 
 ## The edit's clipart for a caption with faces (rules/clipart.gd: the caption kind's own, the

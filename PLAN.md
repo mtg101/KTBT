@@ -4,15 +4,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- so portriats for diary... 
-  - think about scoials too
-  - and test what we just did
 - **Portraits, the rest of their uses** (everyone has a face, on their hover and slapped onto the captions; how they're made and picked is in ART.md). In this order:
-  - **The diary at 3am** (decided 21–22 Nov):
-    - **A TV-style end card first:** the night's biggest moment again, its caption with the face slapped on (`ui/face_sticker.gd`, the zoom's size), before the diary page. "Biggest": the highest size, ties the latest (nearly every aired moment's a 4). Needs the size kept with the `big_moment` event (it's counted, then dropped) and in the story's moments. No moment tonight, no card.
-    - **A polaroid or two on the diary page:** whoever had the night's biggest moment first, then a regular or whoever stayed longest; each their calm face, or their big moment's face if they had one, a handwritten name under it. The socials, later, carry the rest.
-    - **Kept with the entry,** so the diary book shows them too: each person's portrait and colours saved in the entry (it keeps only their name, job and order now). Older entries get none.
-  - **"Previously on…" and the edit suite:** faces on the recap's card, and in the edit suite's scenes (who each cut's about).
+  - **"Previously on…" and the edit suite:** faces on the recap's card, and in the edit suite's scenes (who each cut's about), from the faces each diary entry keeps (`faces`: name -> portrait and colours; entries from before 22 Nov have none).
   - **Later:** the social media posts (below), and the cat's own portrait (below).
   - **Known flaws to fix sometime:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn (the head's bare).
 

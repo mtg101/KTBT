@@ -97,6 +97,22 @@ func test_a_caption_with_faces_has_them_slapped_on_and_a_zoom_clears_the_talk() 
 	assert_dict(captions.night.stats.stings).is_equal({"beside": 1, "zoom": 1, "mood": 1, "stood_in": 1})
 
 
+func test_the_end_card_is_a_zoom_with_its_title() -> void:
+	var captions := _captions()
+	var window: Control = auto_free(Control.new())
+	add_child(window)
+	captions.zoom_layer = window
+	captions.end_card({"hangul": "충격!", "english": "SHE QUIT?!"}, "😱", "ff4f6d", "dun", [_face("Kim Ji-ho", "mood")], 4.5)
+	assert_str(str(captions.shown_zoom.name)).is_equal("EndCard")
+	assert_bool(captions.shown.get_parent() == captions.shown_zoom).is_true()
+	assert_object(captions.shown.sticker).is_not_null()
+	var title := captions.shown_zoom.get_node("EndCardTitle")
+	assert_str((title.get_node("Hangul") as Label).text).is_equal("오늘의 명장면")
+	assert_str((title.get_node("English") as Label).text).is_equal("TONIGHT'S BEST MOMENT")
+	assert_str(str(_lines[-1])).contains("SHE QUIT?!")
+	assert_int(int(captions.night.stats.stings.get("zoom", 0))).is_equal(1)
+
+
 func test_whoever_s_face_is_on_it_gets_the_clipart_on_stage() -> void:
 	Hooks.caption_pacing = false
 	var captions := _captions()

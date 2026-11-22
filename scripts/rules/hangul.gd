@@ -11,6 +11,7 @@ const MEANINGS := {
 	"야옹": "ya-ong: meow (a Korean cat's)",
 	# TV captions (rules/captions.gd)
 	"만석!": "manseok!: every seat taken",
+	"오늘의 명장면": "oneurui myeongjangmyeon: tonight's best moment (the end card at 3am)",
 	"자리 없음!": "jari eopseum!: no seats",
 	"주문 폭주!": "jumun pokju!: an avalanche of orders",
 	"비상!": "bisang!: emergency!",
