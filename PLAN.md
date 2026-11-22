@@ -4,18 +4,20 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Portraits:** a face for everyone, from the image model: next, the diary, the rest of the show and the in-game social media posts. Bigger than the people on stage, so they hold up in a pop-up: 64×80 on the grid (settled by the first try, DEVLOG 20 Nov), in the same palette and ramps.
-  - **The catch: they have to match.** Everyone's look is the game's (`rules/looks.gd`: gender, age range, hairstyle and colour, clothes and colour, skin, glasses, hat), far too many to make one each. So Klein makes head-and-shoulders portraits by what a recolour can't change (gender × age range × hairstyle, glasses or not), and the game repaints each onto the person's own ramps (hair, skin, clothes), as one drawn bob serves every hair colour now. The pick is fixed per person, so a regular keeps their face.
-  - **Known:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn on portraits (the head's bare).
-- **Using portraits:** in this order
-  - **The diary (decided 21 Nov: a mix):** at 3am, a TV-style end card first (the night's biggest moment, its reaction face and caption), then the owner's diary page with a polaroid or two pinned to it (the socials, later, carry the rest): whoever had the night's biggest moment first, then a regular or whoever stayed longest, each their calm face, or their big moment's face if they had one, a handwritten name under it. The entry has to keep each person's portrait and colours (it keeps only their name, job and order now), so the diary book can draw them later; older entries get none. The biggest moment needs its size kept with the `big_moment` event (it's counted, then dropped) and the story's moments. Kept with the entry, so the diary book shows them too.
-  - **The rest of the show:** faces on "Previously on…"'s card and in the edit suite's scenes (who each cut's about); later, the social media posts (below).
+- **Portraits, the rest of their uses** (everyone has a face, on their hover and slapped onto the captions; how they're made and picked is in ART.md). In this order:
+  - **The diary at 3am** (decided 21–22 Nov):
+    - **A TV-style end card first:** the night's biggest moment again, its caption with the face slapped on (`ui/face_sticker.gd`, the zoom's size), before the diary page. "Biggest": the highest size, ties the latest (nearly every aired moment's a 4). Needs the size kept with the `big_moment` event (it's counted, then dropped) and in the story's moments. No moment tonight, no card.
+    - **A polaroid or two on the diary page:** whoever had the night's biggest moment first, then a regular or whoever stayed longest; each their calm face, or their big moment's face if they had one, a handwritten name under it. The socials, later, carry the rest.
+    - **Kept with the entry,** so the diary book shows them too: each person's portrait and colours saved in the entry (it keeps only their name, job and order now). Older entries get none.
+  - **"Previously on…" and the edit suite:** faces on the recap's card, and in the edit suite's scenes (who each cut's about).
+  - **Later:** the social media posts (below), and the cat's own portrait (below).
+  - **Known flaws to fix sometime:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn (the head's bare).
 
 ## Future ideas and improvements
 
 ### Richer play
 
-- **The cat's portrait:** a face for the cat too, for its hover and the pop-ups when it steals a scene: one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
+- **The cat's portrait:** a face for the cat too, for its hover and slapped onto its captions (coming and going, a lap, a theft): one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
 - **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
