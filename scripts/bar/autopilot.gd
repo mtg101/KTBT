@@ -28,6 +28,12 @@ const WRITE_INS := {
 	"interview": ["Who do you wish was sitting next to you tonight?", "What's the best thing that happened to you this week?",
 		"What would you never say to their face?", "What are you really celebrating tonight?"],
 	"text_from": ["we need to talk", "are you still up?", "I saw you today", "can I call you?", "you left your scarf here"],
+	"gossip": ["the owner used to be a famous singer", "the shop next door's closing down", "someone on this street won the lottery last month",
+		"the noraebang across the road is haunted"],
+	"breaking_news": ["the subway's running all night from tomorrow", "it's going to snow all weekend", "soju's going up by 500 won",
+		"a famous actor's opening a pocha down the road"],
+	"quiz": ["Name three dramas with a piggyback scene", "What's the spiciest thing you've ever finished?", "Which song do you always sing at noraebang?",
+		"Where in Seoul would you take someone on a first date?"],
 }
 
 var dice := RandomNumberGenerator.new()

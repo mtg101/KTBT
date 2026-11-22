@@ -4,8 +4,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- tidy up quick stuff
-  - things like extra PD cards, simple text extras, the similar loading screens, maybe some simple bg animations, customer variants, etc
 - **Everyone's own face their moods:** the owner's and the regulars' faces of their own are made in the gaps when the GPU's free (`ai/portrait_maker.gd`); their TV moods are still the library's.
   - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
   - Counted in the night's stats (moods made, failed, still the library's), logged (as the faces are: ComfyUI started and stopped, each picture, each split's score, each fallback).
@@ -16,8 +14,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 - **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
-  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
-  - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
+  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV").
+  - **Small touches of flavour:** the channel on "Previously on…"'s card.
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
 - **Finishing basics of Customers coming in together:**
   - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
@@ -25,11 +23,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **The story:** who came in with whom in the diary and "Previously on…".
   - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
 - **More PD cards:** 
-  - more tropey cards
-    - chaebols in disguise, people transported from the Joseon period, extreme weather events, etc
-  - more write-in card types
-    - big news events, 'did you hear?', themed prompts (kpop, kdrama, food, etc), other ideas...? (better ideas!")
-    - and... ability to write out the cue before sending it
+  - more tropey cards and write-in types, when there are better ideas
+  - the ability to write out the cue before sending it
       - so you can plan what the big news even is well in advance of triggering it
 - **Narrative:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.

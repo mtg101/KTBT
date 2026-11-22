@@ -4,6 +4,8 @@ extends GdUnitTestSuite
 const Plants = preload("res://scripts/rules/plants.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
+const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Autopilot = preload("res://scripts/bar/autopilot.gd")
 
 
 func test_a_hand_is_dealt_from_the_cards() -> void:
@@ -30,7 +32,7 @@ func test_the_deal_follows_tonight() -> void:
 		var last := Plants.deal(dice, summer)
 		var next := Plants.deal(dice, summer, last)
 		assert_array(next).not_contains(last.filter(func(card): return not Plants.is_write(card) and card != Plants.ALWAYS))  # (not last night's events again)
-		# Write-ins: two a night from only three kinds, so one may come round again, never both.
+		# Write-ins: two a night, never both last night's.
 		assert_int(next.filter(func(card): return Plants.is_write(card) and not last.has(card)).size()).is_greater_equal(1)
 		assert_str(str(last[-1])).is_equal("ppl")  # (a word from our sponsor, every night)
 	assert_bool(Plants.dealable("first_snow", winter)).is_true()
@@ -83,7 +85,7 @@ func test_a_cards_moment_is_about_whoever_it_happens_to() -> void:
 		seen[Plants.variant("small_world", dice)] = true
 	assert_int(seen.size()).is_greater(3)
 	assert_str(Plants.variant("rain", dice)).is_empty()  # (the rain's just the rain)
-	for card in ["phone", "text", "ex_walks_past", "round_on", "noraebang", "power_goes"]:
+	for card in ["phone", "text", "ex_walks_past", "round_on", "noraebang", "power_goes", "wild_weather", "chaebol", "joseon", "quiz"]:
 		assert_str(Plants.variant(card, dice)).is_not_empty()
 	assert_str(Plants.others_moment("round_on", "Kim Ji-ho")).starts_with("Ji-ho has just bought")
 	# Taken up: talking about it, not just carrying on.
@@ -148,3 +150,30 @@ func test_a_text_and_the_sponsor() -> void:
 		for field in ["name", "hangul", "means", "what", "colour", "spellings"]:
 			assert_bool(sponsor.has(field)).is_true()
 		assert_str(Talk.made_up_korean("Have you tried %s? It's the best." % sponsor["name"])).is_empty()  # (known, not made-up Korean)
+
+
+func test_the_tropey_cards_and_write_ins() -> void:
+	# Wild weather's a weather card: not if it's already wet, and what it is this time is tonight's weather.
+	assert_bool(Plants.dealable("wild_weather", {"wet": true})).is_false()
+	assert_str(Plants.why_not("wild_weather", {"open": true, "weather_kind": "rain"})).contains("already wet")
+	for weather in Plants.CARDS["wild_weather"]["variants"]:
+		assert_bool(["rain", "breeze"].has(NightRules.weather_kind(str(weather)))).override_failure_message(str(weather)).is_true()  # (one the tent can show and sound)
+	# A chaebol's driver: whoever it's for, and everyone at the counter saw it.
+	assert_str(Plants.moment("chaebol", "Kim Ji-ho", "", "the chairman is waiting in the car")).contains("«the chairman is waiting in the car»").contains("theirs to say")
+	assert_str(Plants.others_moment("chaebol", "Kim Ji-ho")).contains("Ji-ho")
+	assert_bool(Talk.hint_taken("plant_chaebol", "Driver? What driver? You've got the wrong person!")).is_true()
+	assert_bool(Talk.hint_taken("plant_joseon", "Was that someone in hanbok? What year is it?")).is_true()
+	# The new write-ins: six kinds now, so two a night are never last night's.
+	for card in ["gossip", "breaking_news", "quiz"]:
+		assert_bool(Plants.is_write(card)).is_true()
+		assert_bool(Autopilot.WRITE_INS.has(card)).override_failure_message("the crew can't write %s" % card).is_true()
+	assert_str(Plants.others_moment("breaking_news", "Kim Ji-ho", "the subway's running all night")).contains("«the subway's running all night»")  # (everyone heard it read out)
+	assert_str(Plants.moment("quiz", "Kim Ji-ho", "", "K-dramas", "", "Name three piggyback scenes")).contains("a pop quiz on K-dramas").contains("«Name three piggyback scenes»")
+	assert_str(Plants.shown("gossip", "Kim Ji-ho", "", "", "the owner was a singer")).ends_with("«the owner was a singer»")
+	assert_str(Plants.happened("gossip", "Kim Ji-ho", "", "", "", "the owner was a singer")).not_contains("singer")  # (whispered: only they heard it)
+	var dice := RandomNumberGenerator.new()
+	for k in 30:
+		dice.seed = k
+		var last := Plants.deal(dice)
+		var next := Plants.deal(dice, {}, last)
+		assert_int(next.filter(func(card): return Plants.is_write(card) and last.has(card)).size()).is_equal(0)

@@ -179,3 +179,24 @@ func test_the_verdict_moves_the_show_along_the_ladder() -> void:
 	assert_str(ShowSeasons.season_done(down)).starts_with("averaged ")
 	assert_bool(Hangul.MEANINGS.has(ShowSeasons.STREAM_GOES_ON_HANGUL)).is_true()
 	assert_bool(Hangul.MEANINGS.has(str(ShowSeasons.OUTCOMES["down"]["stamp"]))).is_true()
+
+
+func test_a_new_season_says_what_happened_by_the_channels_name() -> void:
+	var moonlight := {"hangul": "달빛TV", "english": "Moonlight TV", "meaning": "moonlight", "rung": "network", "from_season": 1}
+	var first := {"season": 3, "episode": 1}
+	var on_tv := {"channel": moonlight, "seasons": [{"rung": "network", "to": "network", "outcome": "stay"}]}
+	assert_str(ShowSeasons.season_news(on_tv, first)).is_equal("Moonlight TV has renewed the show for season 3.")
+	on_tv["seasons"] = [{"rung": "network", "to": "network", "outcome": "warned"}]
+	assert_str(ShowSeasons.season_news(on_tv, first)).contains("but it wants better ratings")
+	on_tv["seasons"] = [{"rung": "network", "to": "network", "outcome": "top"}]
+	assert_str(ShowSeasons.season_news(on_tv, first)).is_equal("After a hit season, Moonlight TV has renewed the show for season 3.")
+	assert_str(ShowSeasons.season_news({"seasons": [{"rung": "network", "to": "network", "outcome": "stay"}]}, first)).starts_with("The network has renewed")  # (no channel booked: an older bar)
+	# Its own stream or channel: nothing to renew, it goes on.
+	var stream := {"channel": {"english": "@jiwoo_pocha_live", "rung": "phone"}, "seasons": [{"rung": "phone", "to": "phone", "outcome": "stay"}]}
+	assert_str(ShowSeasons.season_news(stream, {"season": 2, "episode": 1})).is_equal("Season 2 starts tonight on @jiwoo_pocha_live: the stream goes on.")
+	# Moved: up or down, with the new channel.
+	var up := {"channel": moonlight, "seasons": [{"rung": "video", "to": "network", "outcome": "up"}]}
+	assert_str(ShowSeasons.season_news(up, first)).contains("picked up by network TV, 달빛TV (Moonlight TV)!")
+	# Not the first night of a season, or the first season: nothing to say.
+	assert_str(ShowSeasons.season_news(on_tv, {"season": 3, "episode": 2})).is_empty()
+	assert_str(ShowSeasons.season_news({"seasons": []}, {"season": 1, "episode": 1})).is_empty()

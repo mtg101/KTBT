@@ -83,3 +83,16 @@ func test_whos_filming_is_in_the_prompts() -> void:
 	assert_str(Talk.camera_moment("Lee Min-jun", Channels.camera_crew(show))).is_equal("The show's camera crew have just turned their camera on Min-jun, and they've noticed.")
 	show["rung"] = "video"
 	assert_str(Channels.camera_crew(show)).is_equal("The channel's camera")
+
+
+func test_the_loading_screen_shows_the_channel() -> void:
+	var on_tv := {"show": {"channel": {"hangul": "달빛TV", "english": "Moonlight TV", "meaning": "moonlight", "rung": "network"}}}
+	assert_str(LoadingScreen.channel_text(on_tv)).is_equal("on 달빛TV")
+	assert_str(LoadingScreen.channel_text({"show": {"channel": {"hangul": "", "english": "@jiwoo_pocha_live"}}})).is_equal("on @jiwoo_pocha_live")
+	assert_str(LoadingScreen.channel_text({})).is_empty()  # (a new bar: not booked anywhere yet)
+	var screen: LoadingScreen = auto_free(LoadingScreen.new())
+	screen.bar = on_tv
+	add_child(screen)
+	var label: Label = screen.get_node("Channel")
+	assert_str(label.text).is_equal("on 달빛TV")
+	assert_str(label.tooltip_text).contains("Moonlight TV")  # (the Hangul explains itself)

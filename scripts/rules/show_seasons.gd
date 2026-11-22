@@ -13,6 +13,7 @@ extends RefCounted
 const Ratings = preload("res://scripts/rules/ratings.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
+const Channels = preload("res://scripts/rules/channels.gd")
 
 const EPISODES := Ladder.EPISODES
 ## The season's score: its average ratings, plus these (judged against the rung's targets).
@@ -60,6 +61,37 @@ static func record(show: Dictionary, night: int, rating: float) -> bool:
 	ratings.append(snappedf(rating, 0.1))
 	show["ratings"] = ratings
 	return int(show["aired"]) >= EPISODES
+
+
+## A new season's first night, in plain words: the show moved up or down a rung ("Your show's
+## been picked up by network TV, 달빛TV (Moonlight TV)!"), renewed by its channel, by name
+## ("Moonlight TV has renewed the show for season 3."), or its own stream or channel going on;
+## "" on any other night, or in the first season. place: tonight's (see tonight).
+static func season_news(show: Dictionary, place: Dictionary) -> String:
+	var seasons: Array = show.get("seasons", [])
+	if int(place.get("episode", 0)) != 1 or seasons.is_empty():
+		return ""
+	var season := int(place.get("season", 1))
+	var last: Dictionary = seasons[-1]
+	var from := str(last.get("rung", Ladder.OLDER))
+	var to := str(last.get("to", from))
+	var channel: Dictionary = show.get("channel", {})
+	var booked := str(channel.get("rung", "")) == to  # (the channel it's on now)
+	if to != from:
+		var named := (", " + Channels.full_name(channel)) if booked else ""
+		if Ladder.index_of(to) > Ladder.index_of(from):
+			return "Your show's been picked up by %s%s! Season %d starts tonight, with more people watching than ever." % [Ladder.rung(to)["name"], named, season]
+		return "The show's dropped to %s%s. Season %d starts tonight: time to win the audience back." % [Ladder.rung(to)["name"], named, season]
+	var called := Channels.display_name(channel) if booked else ""
+	if bool(Ladder.rung(to)["percent"]):  # (TV: a contract, renewed)
+		var who := called if called != "" else str(Ladder.rung(to)["the"]).left(1).to_upper() + str(Ladder.rung(to)["the"]).substr(1)
+		match str(last.get("outcome", "")):
+			"warned":
+				return "%s has renewed the show for season %d, but it wants better ratings this time." % [who, season]
+			"top":
+				return "After a hit season, %s has renewed the show for season %d." % [who, season]
+		return "%s has renewed the show for season %d." % [who, season]
+	return "Season %d starts tonight%s: the %s goes on." % [season, (" on " + called) if called != "" else "", "stream" if to == Ladder.FIRST else "channel"]
 
 
 ## The channel's verdict on a season. ratings: the season's, in order; before: every rated night

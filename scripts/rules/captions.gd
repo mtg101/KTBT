@@ -143,6 +143,18 @@ const CAPTIONS := {
 		"icon": "🎶", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
 	"plant_power_goes": {"words": [["정전?!", "<LIGHTS OUT|POWER CUT|BLACKOUT>?!"], ["정전?!", "WHO <TURNED OUT|TRIPPED OVER> THE LIGHTS?!"]],
 		"icon": "💡", "colour": "ffd23f", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_wild_weather": {"words": [["폭풍우?!", "<WILD WEATHER|A STORM|HOLD ON TO THE TARP>?!"], ["폭풍우?!", "THE TARP <WON'T HOLD|IS STRAINING>?!"]],
+		"icon": "⛈", "colour": "6fa8ff", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_chaebol": {"words": [["재벌?!", "<A CHAEBOL|AN HEIR> IN DISGUISE?!"], ["회장님?!", "THE CHAIRMAN'S CAR?!"], ["재벌?!", "{name}, <SECRETLY RICH|A SECRET HEIR>?!"]],
+		"icon": "🚘", "colour": "ffd23f", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_joseon": {"words": [["타임슬립?!", "<A TIME TRAVELLER|A TIME SLIP>?!"], ["조선?!", "<STRAIGHT FROM|LOST FROM> JOSEON?!"]],
+		"icon": "⏳", "colour": "c8a2ff", "sound": "whoosh", "emergency": false, "always": true},
+	"plant_gossip": {"words": [["들었어?!", "DID YOU HEAR<?!|…>"], ["소문", "<THE RUMOUR|THE GOSSIP> IS OUT"]],
+		"icon": "🤫", "colour": "ff8fc0", "sound": "pop", "emergency": false, "always": true},
+	"plant_breaking_news": {"words": [["속보!", "BREAKING NEWS<!|…>"], ["속보!", "{name} <READS THE NEWS|HAS THE HEADLINE>"]],
+		"icon": "📰", "colour": "ff5a5a", "sound": "ding", "emergency": false, "always": true},
+	"plant_quiz": {"words": [["퀴즈!", "QUIZ TIME<!|…>"], ["정답은?!", "<THE ANSWER IS|AND THE ANSWER>…?!"]],
+		"icon": "❓", "colour": "a8b0ff", "sound": "ding", "emergency": false, "always": true},
 	# A table game, taken up (see Talk.TABLE_GAMES).
 	"game_spoon_mic": {"words": [["노래 시작!", "THE SPOON MIC IS <ON|LIVE>!"], ["숟가락 마이크", "SPOON MIC, <LIVE|ON AIR>!"]],
 		"icon": "🎤", "colour": "ff8fc0", "sound": "sparkle", "emergency": false, "always": true},
@@ -195,6 +207,8 @@ const FACES := {
 	"plant_phone": "shock", "plant_text_from": "shock", "plant_text": "shock", "plant_ex_walks_past": "shock",
 	"plant_small_world": "shock", "plant_power_goes": "shock", "plant_rain": "shock", "plant_noraebang": "sad",
 	"plant_ppl": "awkward", "plant_cue_card": "awkward", "plant_interview": "awkward", "plant_round_on": "funny",
+	"plant_wild_weather": "shock", "plant_chaebol": "shock", "plant_joseon": "shock", "plant_gossip": "shock",
+	"plant_breaking_news": "shock", "plant_quiz": "awkward",
 	# The cat: its face, and whoever's lap it's on or whose skewer it stole
 	"cat_thief": "shock", "cat_lap": "sweet", "cat_out": "funny", "cat_back": "warm",
 }

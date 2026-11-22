@@ -150,6 +150,43 @@ const CARDS := {
 			"the battery's run flat, and the owner's swapping it"],
 		"moment": "The tent's power has just cut out for a moment ({what}), then come back on.",
 		"happened": "The tent's lights go out: {what}. A moment later, they're back on."},
+	"wild_weather": {"title": "Wild weather", "for": "tent", "lingers": 2, "fact": "weather",
+		"about": "Out of nowhere the weather turns wild: a thunderstorm, hail or a howling gale, and the tarp's straining.",
+		"variants": ["a thunderstorm, with heavy rain and lightning right overhead", "a hailstorm in heavy rain, rattling on the tarp like gravel",
+			"a howling wind, the tarp tugging at its ropes"],
+		"moment": "Out of nowhere the weather's turned wild: {what}.",
+		"happened": "Out of nowhere, the weather turns wild: {what}."},
+	"chaebol": {"title": "A chaebol in disguise?", "for": "someone", "lingers": 3,
+		"about": "A black car pulls up, and a driver in white gloves bows low to someone at the counter. Secretly a chaebol heir, or the wrong person? Theirs to tell.",
+		"variants": ["the chairman is waiting in the car", "your mother has been looking for you all night", "the board meets at eight tomorrow, shall I wait?",
+			"your father says the cards are cancelled until you come home", "the other family are asking about the engagement dinner"],
+		"moment": "A black car has just pulled up outside the tarp, and a driver in white gloves has come in, bowed low to {who} and said: «{what}». Whether {who}'s secretly from a chaebol family, or the driver's got the wrong person, is theirs to say.",
+		"others": "A driver in white gloves has just come in and bowed low to {who}, as if {who} were a chaebol heir: everyone at the counter saw it.",
+		"happened": "A black car pulls up outside the tarp. A driver in white gloves comes in, bows low to {who} and says: «{what}»."},
+	"joseon": {"title": "Lost in time", "for": "tent", "lingers": 2,
+		"about": "Someone in Joseon-period hanbok ducks under the tarp, asks what year it is, and runs off. A time traveller, or an extra from a period drama shooting nearby?",
+		"variants": ["A young scholar in a white hanbok and a black horsehair gat", "A court lady in layers of silk hanbok", "A palace guard with a wooden sword",
+			"Someone in a king's red dragon robe", "A wandering swordsman with a straw hat pulled low"],
+		"moment": "{what} has just ducked under the tarp, stared at the lights as if they'd never seen electricity, asked in old-fashioned palace speech what year it is, and hurried back out into the night.",
+		"happened": "{what} ducks under the tarp, stares at the lights as if they've never seen electricity, asks in old-fashioned palace speech what year it is, and hurries back out into the night."},
+	"gossip": {"title": "Did you hear?", "for": "someone",
+		"write": {"label": "The gossip is…", "hint": "the owner used to be a famous singer", "max": 100, "steers": 2},
+		"about": "Someone at the next stall whispers some gossip to someone at the counter: you write what it is, and they can't keep it to themselves.",
+		"moment": "{who} has just heard some gossip, whispered over from the next stall: «{text}». Their next line passes it on (\"did you hear?\"), or reacts to it.",
+		"happened": "Someone from the next stall leans over and whispers some gossip to {who}.",
+		"shown": "Someone from the next stall leans over and whispers to {who}: «{text}»"},
+	"breaking_news": {"title": "Breaking news", "for": "someone",
+		"write": {"label": "The headline says…", "hint": "the subway's running all night from tomorrow", "max": 100, "steers": 2},
+		"about": "A breaking-news alert lights up someone's phone, and they read it out to the counter: you write the headline.",
+		"moment": "{who}'s phone has just lit up with a breaking-news alert, and they've read it out to the counter: «{text}». Their next line reacts to the news.",
+		"others": "{who} has just read out a breaking-news alert from their phone: «{text}». Everyone here heard it.",
+		"happened": "{who}'s phone lights up with a breaking-news alert, and they read it out: «{text}»."},
+	"quiz": {"title": "Pop quiz", "for": "someone",
+		"write": {"label": "The question is…", "hint": "Name three dramas with a piggyback scene", "max": 100, "steers": 0, "from": "a pop quiz on {what}"},
+		"variants": ["K-pop", "K-dramas", "Korean food", "Seoul", "the nineties", "school days", "variety shows"],
+		"about": "A variety show's quiz corner: the crew hold up a board with a question on a theme (the card's), and you write the question.",
+		"moment": "The show's crew have just held up a quiz board for {who}, variety-show style: a pop quiz on {what}. «{text}» {who} answers it, or guesses wildly, out loud for the counter.",
+		"happened": "The crew hold up a quiz board for {who}: a pop quiz on {what}. «{text}»"},
 }
 
 
@@ -256,9 +293,10 @@ static func moment(card: String, who: String = "", other: String = "", what: Str
 	return gendered(str(CARDS[card]["moment"]).replace("{who}", Names.given_name(who)).replace("{other}", Names.given_name(other)).replace("{what}", what), gender).replace("{text}", text)
 
 
-## What everyone else at the counter's told, for a card that happens to one person (who: theirs).
-static func others_moment(card: String, who: String) -> String:
-	return str(CARDS[card].get("others", "")).replace("{who}", Names.given_name(who))
+## What everyone else at the counter's told, for a card that happens to one person (who: theirs;
+## text: what the PD wrote, for a write-in everyone hears, like the breaking news).
+static func others_moment(card: String, who: String, text: String = "") -> String:
+	return str(CARDS[card].get("others", "")).replace("{who}", Names.given_name(who)).replace("{text}", text)
 
 
 ## What happened, for the conversation they speak in next, and the screen (full names).

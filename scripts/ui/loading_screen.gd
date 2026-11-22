@@ -17,6 +17,7 @@ const BarLook = preload("res://scripts/rules/bar_look.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
 const Text = preload("res://scripts/rules/text.gd")
+const Channels = preload("res://scripts/rules/channels.gd")
 
 ## Captions popping up while the AI works, as a variety show teases what's coming.
 const LINES := [
@@ -300,6 +301,8 @@ func show_bar(the_bar: Dictionary) -> void:
 	old.queue_free()
 	_build_tent()
 	move_child(get_node("Tent"), at)
+	if not backdrop:
+		_build_channel()
 
 
 ## The cover's outline, by shape, its front edge at y 60 (as tent_view.gd's, at this size).
@@ -435,6 +438,38 @@ func _build_title() -> void:
 	tag.add_theme_constant_override("outline_size", 10)
 	tag.add_theme_color_override("font_outline_color", Ktv.INK)
 	add_child(tag)
+	_build_channel()
+
+
+## The channel the show's on, under the bug ("on 달빛TV", "on @jiwoo_pocha_live"), with its
+## hover; nothing for a new bar, before it's booked anywhere.
+func _build_channel() -> void:
+	var old := get_node_or_null("Channel")
+	if old != null:
+		remove_child(old)
+		old.queue_free()
+	var text := channel_text(bar)
+	if text == "":
+		return
+	var label := Label.new()
+	label.name = "Channel"
+	label.text = text
+	label.position = Vector2(62, 84)
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", CREAM)
+	label.add_theme_constant_override("outline_size", 8)
+	label.add_theme_color_override("font_outline_color", Ktv.INK)
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.tooltip_text = Text.tip("The channel the show's on: " + Channels.hover(bar.get("show", {}).get("channel", {})))
+	add_child(label)
+
+
+## What the channel bug says under KTBT: "on 달빛TV" (the Hangul, as Korean TV's bug would),
+## "on @jiwoo_pocha_live" for the stream, or "" with no channel yet.
+static func channel_text(the_bar: Dictionary) -> String:
+	var channel: Dictionary = the_bar.get("show", {}).get("channel", {})
+	var named := str(channel.get("hangul", "")) if str(channel.get("hangul", "")) != "" else str(channel.get("english", ""))
+	return ("on " + named) if named != "" else ""
 
 
 ## Twinkling four-point stars and little hearts round the title.

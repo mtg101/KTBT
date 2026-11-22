@@ -1289,10 +1289,11 @@ func _start_night() -> void:
 	_update_clock_label()
 	_start_transcript()
 	_show("\n[center][color=#%s]· · ·  Night %d  ·  %s  ·  %s  · · ·[/color][/center]\n\n" % [ACCENT.to_html(false), _night_number, ShowSeasons.label(_show_place), _on_air_text()])
-	var moved := _moved_tonight()
+	var moved := ShowSeasons.season_news(Game.bar.get("show", {}), _show_place)  # (moved up or down, or renewed by name)
 	if moved != "":
 		_narrate(moved)
 		_stats.story["show"]["moved"] = moved
+		DebugLog.say("Season", "A new season: " + moved)
 	if bool(_show_place["finale"]):
 		_narrate("Tonight's the finale of season %d: at 3am, %s decides what happens to the show." % [int(_show_place["season"]), "the audience" if Ladder.is_floor(_rung()) else str(Ladder.rung(_rung())["the"])])
 	_narrate("%s %s, %s. %s. The tarp goes up and the first pots go on." % [_night_day, _night_date.get("text", ""), NightRules.clock_text(NightRules.OPEN_MINUTES), Text.sentence_case(_night_weather)])
@@ -2511,24 +2512,6 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	var titled := "" if recap.get("title", {}).is_empty() else " (%s)" % Story.title_text(recap["title"])
 	_recap_said = "%s%s %s %s" % ["Series opener:" if opener else "Previously on…", titled, " ".join(PackedStringArray(recap.get("beats", []))), recap.get("teaser", "")]
 	_show("[i][color=#%s]%s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(_recap_said)])
-
-
-## A new season's first night, after the show moved up or down a rung: said in plain words
-## ("Your show's been picked up by network TV!"), or "" if it didn't move.
-func _moved_tonight() -> String:
-	var seasons: Array = Game.bar.get("show", {}).get("seasons", [])
-	if int(_show_place["episode"]) != 1 or seasons.is_empty():
-		return ""
-	var last: Dictionary = seasons[-1]
-	var from := str(last.get("rung", Ladder.OLDER))
-	var to := str(last.get("to", from))
-	if to == from:
-		return ""
-	var channel: Dictionary = Game.bar.get("show", {}).get("channel", {})
-	var named := (", " + Channels.full_name(channel)) if str(channel.get("rung", "")) == to else ""  # (the channel it's booked on)
-	if Ladder.index_of(to) > Ladder.index_of(from):
-		return "Your show's been picked up by %s%s! Season %d starts tonight, with more people watching than ever." % [Ladder.rung(to)["name"], named, int(_show_place["season"])]
-	return "The show's dropped to %s%s. Season %d starts tonight: time to win the audience back." % [Ladder.rung(to)["name"], named, int(_show_place["season"])]
 
 
 ## Last night's episode in words, for cutting it: "season 1, episode 4" (from its diary entry).
@@ -6010,7 +5993,7 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 			if str(data.get("others", "")) != "":
 				for other in _guests:
 					if other != target:
-						_plant_on(other, card, Plants.others_moment(card, who), Plants.happened(card, who, "", what, gender))
+						_plant_on(other, card, Plants.others_moment(card, who, for_ai), Plants.happened(card, who, "", what, gender, for_ai))
 			about = target.node
 			if text != "":
 				_show("[color=#%s][b]%s[/b][/color] [i]%s[/i]\n\n" % [CAMERA_RED.to_html(false), _esc("[PD]"), Glossary.explain(_esc(Plants.shown(card, who, what, gender, text)), _names_here())])
@@ -6089,8 +6072,8 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 			_regulars_due.sort_custom(func(x, y): return float(x["time"]) < float(y["time"]))
 			_narrate("The PD rings %s: could they come down to the tent tonight?" % who)
 		"weather":
-			_change_weather(str(data["weather"]))
-			_narrate("Out of nowhere, the heavens open: rain drums on the tarp.")
+			_change_weather(what if what != "" else str(data["weather"]))  # (wild weather: this time's)
+			_narrate("Out of nowhere, the heavens open: rain drums on the tarp." if what == "" else Plants.happened(card, "", "", what))
 		"first_snow":
 			_change_weather(Seasons.FIRST_SNOW)
 			Game.bar["snowed_winter"] = Seasons.winter_number(int(Game.bar.get("first_date", 0)), _night_number)
