@@ -56,7 +56,7 @@ func _process(delta: float) -> void:
 func _on_diary_pressed(bar: Dictionary) -> void:
 	var book := DiaryBook.new()
 	add_child(book)
-	book.open(bar.get("diary", []), "%s's diary" % bar.get("owner", {}).get("name", ""))
+	book.open(bar.get("diary", []), "%s's diary" % bar.get("owner", {}).get("name", ""), -1, str(bar.get("id", "")))
 
 
 func _on_delete_pressed(id: String) -> void:

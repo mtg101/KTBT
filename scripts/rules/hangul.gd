@@ -188,6 +188,11 @@ const MEANINGS := {
 	"냥": "nyang: miaow",
 	"정": "jeong: the warm, lasting bond between people",
 	"만석": "manseok: a full house",
+	# The customers' posts (rules/socials.gd): the app, and its Korean hashtags
+	"달밤": "dalbam: a moonlit night (the app the customers post on)",
+	"야식": "yasik: a late-night snack",
+	"첫눈": "cheonnun: the first snow",
+	"고양이": "goyangi: a cat",
 	"눈": "nun: snow",
 	"비": "bi: rain",
 	"소주": "soju: (the stamp for an ordinary night)",

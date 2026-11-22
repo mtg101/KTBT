@@ -96,7 +96,39 @@ static func delete_bar(id: String) -> bool:
 	for path in [_path(id), _path(id) + ".tmp"]:
 		if FileAccess.file_exists(path) and DirAccess.remove_absolute(path) == OK:
 			removed = true
+	var pictures := pictures_folder(id)  # (its pictures go with it)
+	if DirAccess.dir_exists_absolute(pictures):
+		for file_name in DirAccess.get_files_at(pictures):
+			DirAccess.remove_absolute(pictures.path_join(file_name))
+		DirAccess.remove_absolute(pictures)
 	return removed
+
+
+## Where a bar's pictures are kept, beside its save ("<id>_pictures/"): the snapshots on its
+## customers' posts (rules/socials.gd), named in the diary entry they're with.
+static func pictures_folder(id: String) -> String:
+	return folder.path_join(id + "_pictures")
+
+
+## Keeps a picture with a bar (a PNG, file: its name in the bar's pictures folder).
+static func save_picture(id: String, file: String, image: Image) -> Error:
+	if image == null or image.is_empty() or id == "" or file == "":
+		return ERR_INVALID_PARAMETER
+	var made := DirAccess.make_dir_recursive_absolute(pictures_folder(id))
+	if made != OK and not DirAccess.dir_exists_absolute(pictures_folder(id)):
+		return made
+	return image.save_png(pictures_folder(id).path_join(file))
+
+
+## One of a bar's pictures, or null if it's not there (or never was).
+static func load_picture(id: String, file: String) -> Texture2D:
+	if id == "" or file == "":
+		return null
+	var path := pictures_folder(id).path_join(file)
+	if not FileAccess.file_exists(path):
+		return null
+	var image := Image.load_from_file(path)
+	return ImageTexture.create_from_image(image) if image != null and not image.is_empty() else null
 
 
 static func list_bars() -> Array:

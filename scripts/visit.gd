@@ -96,6 +96,9 @@ const DiaryBook = preload("res://scripts/ui/diary_book.gd")
 const RecapScreen = preload("res://scripts/ui/recap_screen.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
 const NightEvents = preload("res://scripts/bar/night_events.gd")
+const Snapshots = preload("res://scripts/bar/snapshots.gd")
+const Socials = preload("res://scripts/rules/socials.gd")
+const SocialFeed = preload("res://scripts/ui/social_feed.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
@@ -454,6 +457,8 @@ var _owner_tag: Label
 var _scenery_dice := RandomNumberGenerator.new()
 ## Its own dice for the ratings' luck, so it never shifts the game's own rolls either.
 var _ratings_dice := RandomNumberGenerator.new()
+var _snaps: Snapshots  # tonight's snapshots of the stage, for the customers' posts (bar/snapshots.gd)
+var _feed: Control  # the posts round the 3am diary page (ui/social_feed.gd)
 ## How much busier tonight is, from the last few nights' ratings (Ratings.busier), and tonight's
 ## rating once it's in (Ratings.score, with "banner" and "record").
 var _busier := 1.0
@@ -1178,6 +1183,11 @@ func _start_night() -> void:
 	_events.happened.connect(_stats.record_event)
 	_events.happened.connect(_caption_for_event)
 	_events.happened.connect(_watch_cliffhanger)
+	_events.happened.connect(_snap_for_posts)
+	_snaps = Snapshots.new()
+	_snaps.host = self
+	_snaps.stage = _stage
+	_snaps.keep_out = _kept_out_of_shots
 	_stats.events = _events.timeline  # (saved in the night's log, so a night's timeline can be looked back over)
 	for answer in _setup_ai:  # (the AI's answers before tonight opened: the menu, the recap...)
 		if answer.size() == 3:  # (a rejected reply: purpose, problem, what it said)
@@ -1731,6 +1741,7 @@ func _write_diary() -> void:
 		button.disabled = true
 	var facts := _diary_facts()
 	_diary_page.visible = true
+	_feed.show_posts([], "")  # (last night's come down: tonight's go up with the entry)
 	_diary_page.show_writing(ShowSeasons.tag(_show_place), _night_day, _night_weather, _owner_display())
 	var text := ""
 	var by := "game"
@@ -1748,6 +1759,7 @@ func _write_diary() -> void:
 		"ratings": _night_ratings.duplicate(true),
 		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]), "finale": bool(_show_place["finale"])}
 	_keep_faces(entry)
+	_post_socials(entry)
 	SaveStore.record_diary(Game.bar, entry)
 	if _season_ended.is_empty():
 		_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
@@ -1759,7 +1771,12 @@ func _write_diary() -> void:
 	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
 	_stats.story["diary_stamp"] = str(entry["stamp"])
 	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
+	_feed.show_posts(entry.get("socials", []), str(Game.bar.get("id", "")))
+	_sync_feed()
 	_show("[i][color=#%s]%s's diary, %s: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], ShowSeasons.words(_show_place), _esc(text)])
+	if not entry.get("socials", []).is_empty():
+		_show("[i][color=#%s]On %s %s tonight: %s[/color][/i]\n\n" % [MUTED.to_html(false), Socials.APP, Socials.APP_ENGLISH,
+			_esc(" · ".join(PackedStringArray(entry["socials"].map(func(post): return "%s %s %s" % [post["handle"], post["text"], " ".join(PackedStringArray(post["tags"]))]))))])
 	_writing_up = false
 	for button in _summary_buttons:
 		button.disabled = Game.autoplay != null  # (the crew open the next night, while they're running it)
@@ -1810,6 +1827,113 @@ func _keep_faces(entry: Dictionary) -> void:
 	_stats.keepsakes["polaroids"] = photos.size()
 	_stats.keepsakes["faces_kept"] = faces.size()
 	DebugLog.say("Keepsakes", "polaroids: %s; %d faces kept with the entry" % [", ".join(PackedStringArray(photos.map(func(p): return "%s (%s)" % [p["name"], p["mood"]]))) if not photos.is_empty() else "none", faces.size()])
+
+
+## 3am: the customers post about their night (Socials.pick, from tonight's events: the game's own
+## words for now), each checked (Socials.check: one that fails isn't posted); the snapshots of
+## the ones picked (bar/snapshots.gd) kept beside the bar's save, named in the posts; a picture
+## that wasn't taken is drawn. Kept with the entry, counted, logged.
+func _post_socials(entry: Dictionary) -> void:
+	var posts_dice := RandomNumberGenerator.new()
+	posts_dice.seed = hash("%s night %d posts" % [Game.bar.get("id", ""), _night_number])
+	var plants := _stats.plants()
+	var taken: Array = plants.keys().filter(func(card): return int(plants[card][2]) > 0)
+	var faces: Dictionary = entry.get("faces", {})
+	var posts := Socials.pick(_events.timeline, {"owner": str(_owner.get("name", "")), "cat": str(_cat.get("name", "")), "faces": faces,
+		"taken_cards": taken, "seats": NightRules.SEATS}, posts_dice)
+	var served := {}
+	var posters: Array = faces.keys()
+	for event in _events.timeline:
+		var who := str(event.get("name", ""))
+		if str(event.get("kind", "")) in ["dish_served", "cat_stole"]:  # (what the cat ran off with was on their table)
+			served[who] = served.get(who, []) + [str(event.get("dish", ""))]
+		elif str(event.get("kind", "")) == "sat_down" and not posters.has(who):
+			posters.append(who)
+	var facts := {"posters": posters, "served": served, "known": posters + [str(_owner.get("name", "")), str(_cat.get("name", ""))]}
+	var counts := {"posts": 0, "pictures": 0, "drawn": 0, "text": 0, "dropped": 0, "viewer_comments": 0, "picked": posts.size()}
+	var kept: Array = []
+	for post in posts:
+		var problem := Socials.check(post, facts)
+		if problem != "":
+			counts["dropped"] += 1
+			DebugLog.say("Socials", "not posted (%s): %s" % [problem, Socials.log_text(post)])
+			continue
+		var shot := str(post["shot"])
+		var image: Image = _snaps.shots.get(str(post["snap"])) if _snaps != null else null
+		if image != null:
+			var file := "night%d_%d.png" % [_night_number, kept.size()]
+			if SaveStore.save_picture(str(Game.bar.get("id", "")), file, image) == OK:
+				post["picture"] = file
+			else:
+				DebugLog.say("Socials", "couldn't keep the snapshot %s (as %s)" % [post["snap"], file])
+		if str(post["picture"]) != "":
+			counts["pictures"] += 1
+		elif Socials.PICTURED.has(shot):
+			counts["drawn"] += 1
+		else:
+			counts["text"] += 1
+		post.erase("snap")
+		kept.append(post)
+		DebugLog.say("Socials", "posted: %s" % Socials.log_text(post))
+	counts["posts"] = kept.size()
+	if _snaps != null:
+		counts["snapshots"] = _snaps.counts.duplicate()
+	entry["socials"] = kept
+	_stats.socials = counts
+	if kept.is_empty():
+		DebugLog.say("Socials", "a quiet feed tonight: no posts (%d picked, %d not posted)" % [posts.size(), int(counts["dropped"])])
+
+
+## A snapshot for the posts, if what just happened could be one (Socials.wants_snap): of whoever
+## it's about, the dish set down, or the cat, a moment after (so they're in the shot).
+func _snap_for_posts(kind: String, facts: Dictionary, _about: Variant, _spot: Vector2) -> void:
+	if _snaps == null:
+		return
+	var event := facts.duplicate()
+	event["at"] = int(_clock)
+	var wanted := Socials.wants_snap(kind, event, str(_owner.get("name", "")))
+	if wanted.is_empty():
+		return
+	_snaps.take(str(wanted["key"]), _snap_aim.bind(str(wanted["aim"]), str(wanted["name"])), float(SNAP_DELAY.get(str(wanted["aim"]), 0.0)))
+
+
+const SNAP_DELAY := {"person": 0.3, "food": 0.2, "cat": 0.0}  # seconds after it happens: the dish down, the cat still at the table
+
+
+## Where a snapshot points (global): someone at their stool, their dish, or the cat; null if
+## they've gone.
+func _snap_aim(aim: String, who: String) -> Variant:
+	if aim == "cat":
+		return _cat_node.get_global_rect().get_center() if is_instance_valid(_cat_node) and _cat_node.visible else null
+	var guest: Guest = _guest_named(who)
+	if guest == null:
+		for here in _guests:
+			if Names.given_name(str(here.customer["name"])) == who:
+				guest = here
+	if guest == null or not is_instance_valid(guest.node):
+		return null
+	if aim == "food" and is_instance_valid(guest.food_row):
+		return guest.food_row.get_global_rect().get_center()
+	return guest.node.get_global_rect().get_center()
+
+
+## What's never in a snapshot: the bubbles, captions, REC and name tags on the stage, and every
+## panel and overlay on the window (bar/snapshots.gd keeps them out).
+func _kept_out_of_shots() -> Array:
+	var out: Array = [_bubble_layer, _caption_layer]
+	if _pd != null and is_instance_valid(_pd.rec):
+		out.append(_pd.rec)
+	out.append_array(_stage.find_children("Tag", "", true, false))
+	for child in get_children():
+		if child != _stage and child != _street_art and child != _street_lights and child is CanvasItem:
+			out.append(child)
+	return out
+
+
+## The posts are up while the diary page is: not over the stats or the season page.
+func _sync_feed() -> void:
+	if _feed != null:
+		_feed.visible = _summary.visible and _diary_page.visible
 
 
 func _validate_diary(data: Variant, facts: Dictionary) -> String:
@@ -2244,7 +2368,7 @@ func _open_diary() -> void:
 		return
 	var book := DiaryBook.new()
 	add_child(book)
-	book.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""))
+	book.open(Game.bar.get("diary", []), "%s's diary" % _owner.get("name", ""), -1, str(Game.bar.get("id", "")))
 
 
 ## The end-of-night Stats button: the numbers instead of the diary page, and back.
@@ -5841,6 +5965,12 @@ func _build_ui() -> void:
 	_diary_page.name = "DiaryPage"
 	_diary_page.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	summary_col.add_child(_diary_page)
+	_feed = SocialFeed.new()  # (the posts round the page: over the whole window)
+	_feed.z_index = 25  # (as the summary: the page and its posts together)
+	_feed.visible = false
+	add_child(_feed)
+	_summary.visibility_changed.connect(_sync_feed)
+	_diary_page.visibility_changed.connect(_sync_feed)
 	_season_page = SeasonPage.new()  # (after a finale, in the diary's place)
 	_season_page.name = "SeasonPage"
 	_season_page.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

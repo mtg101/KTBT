@@ -18,6 +18,7 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Socials = preload("res://scripts/rules/socials.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Signatures = preload("res://scripts/rules/signatures.gd")
 const Text = preload("res://scripts/rules/text.gd")
@@ -157,6 +158,11 @@ func reply(request: Dictionary) -> Variant:
 			return {"titles": Story.stitched_titles(request.get("facts", {}))}
 		"diary":
 			return {"entry": Story.stitched_diary(request.get("facts", {}))}
+		"socials":  # (the customers' posts, from the game's own words: rules/socials.gd)
+			var dice := RandomNumberGenerator.new()
+			var facts: Dictionary = request.get("facts", {})
+			return {"posts": (facts.get("posts", []) as Array).map(func(post): return {"handle": str(post.get("handle", "")),
+				"text": Socials.stitched_words(post, str(facts.get("cat", "")), dice), "tags": Socials.stitched_tags(str(post.get("about", "")), dice)})}
 		"closing":
 			return Story.closing_reason(str(request.get("weather", "")), randf())
 		"menu":

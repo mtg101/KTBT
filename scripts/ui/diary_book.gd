@@ -3,10 +3,12 @@ extends Control
 ## night, with Older and Newer to flip through (or the arrow keys), and Close (or Esc). Over a
 ## dimmed screen: from the bar's Diary button during a night, or a bar's Diary button on the
 ## title screen. Shows whatever entries it's given (SaveStore.record_diary's), so "Previously
-## on…" can open it at the night it's recapping too.
+## on…" can open it at the night it's recapping too. Each entry's posts (ui/social_feed.gd) round
+## the page, as at 3am.
 
 const DiaryPage = preload("res://scripts/ui/diary_page.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const SocialFeed = preload("res://scripts/ui/social_feed.gd")
 
 signal closed
 
@@ -17,6 +19,8 @@ var _page: Control
 var _older: Button
 var _newer: Button
 var _where: Label
+var _feed: Control  # the entry's posts, round the page
+var _bar_id := ""  # whose pictures the posts' snapshots are
 
 
 func _init() -> void:
@@ -55,10 +59,14 @@ func _init() -> void:
 	_newer = _button("DiaryNewer", "Newer ▶", _flip.bind(1))
 	buttons.add_child(_newer)
 	buttons.add_child(_button("DiaryClose", "Close", close))
+	_feed = SocialFeed.new()
+	add_child(_feed)
 
 
-## Opens the book at an entry (the latest, unless told which night).
-func open(entries: Array, whose: String, night: int = -1) -> void:
+## Opens the book at an entry (the latest, unless told which night). bar_id: whose save the
+## posts' pictures are beside.
+func open(entries: Array, whose: String, night: int = -1, bar_id: String = "") -> void:
+	_bar_id = bar_id
 	_entries = entries.duplicate()
 	_entries.sort_custom(func(a, b): return int(a.get("night", 0)) < int(b.get("night", 0)))
 	_whose = whose
@@ -72,6 +80,11 @@ func open(entries: Array, whose: String, night: int = -1) -> void:
 func close() -> void:
 	closed.emit()
 	queue_free()
+
+
+## Whose posts are round the page.
+func posters() -> Array:
+	return _feed.posters()
 
 
 func showing_night() -> int:
@@ -88,6 +101,7 @@ func _show_page() -> void:
 		_page.show_entry({"text": "Nothing written yet: the first entry comes at 3am.", "stamp": "soju", "season": 1, "season_episode": 1}, _whose)
 	else:
 		_page.show_entry(_entries[_at], _whose)
+	_feed.show_posts([] if _entries.is_empty() else _entries[_at].get("socials", []), _bar_id)
 	_older.disabled = _at <= 0
 	_newer.disabled = _at >= _entries.size() - 1
 	_where.text = "%d of %d" % [_at + 1, _entries.size()] if not _entries.is_empty() else ""

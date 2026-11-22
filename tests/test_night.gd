@@ -14,6 +14,7 @@ const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
+const Socials = preload("res://scripts/rules/socials.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -132,6 +133,48 @@ func test_the_night_s_biggest_moment_gets_an_end_card_and_the_diary_its_polaroid
 	assert_str(scene._stats.panel_text(0, 0)).contains("Keepsakes: end card %s" % who)
 	# Kept with the bar: the diary book shows them too.
 	assert_str(str(SaveStore.load_bar(str(Game.bar["id"]))["diary"][0]["photos"][0]["name"])).is_equal(who)
+
+
+func test_the_customers_post_about_their_night_round_the_diary_page() -> void:
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	scene._arrive(scene._clock)
+	assert_bool(await _wait_until(func(): return scene._guests.size() == 1 and scene._guests[0].node.get_node_or_null("Hover") != null \
+		and scene._guests[0].node.get_node("Hover").picked_key != "")).is_true()
+	var guest = scene._guests[0]
+	var who := str(guest.customer["name"])
+	guest.served.append("odeng")
+	scene._add_dish(guest, "odeng")
+	scene._cat_steals(guest)
+	var stole: Dictionary = scene._events.of_kind("cat_stole")[-1]
+	assert_int(int(scene._snaps.counts["asked"])).is_greater_equal(1)  # (a snapshot wanted of the cat mid-theft)
+	# Headless, there's no screen to take it from: one stands in, as if there were.
+	var shot := Image.create(300, 200, false, Image.FORMAT_RGBA8)
+	shot.fill(Color("e8833a"))
+	scene._snaps.shots[Socials.snap_key(stole)] = shot
+	assert_bool(await _wait_for_summary(runner)).is_true()
+	var feed = runner.find_child("SocialFeed")
+	assert_bool(await _wait_until(func(): return Game.bar.has("diary") and feed.visible)).is_true()
+	var entry: Dictionary = Game.bar["diary"][0]
+	var theft: Array = entry["socials"].filter(func(p): return p["about"] == "cat_theft")
+	assert_int(theft.size()).is_equal(1)
+	assert_str(str(theft[0]["poster"])).is_equal(who)
+	assert_str(str(theft[0]["text"])).contains(str(Game.bar["cat"]["name"]))
+	assert_str(str(theft[0]["picture"])).is_not_empty()
+	assert_bool(theft[0].has("snap")).is_false()  # (only what's kept)
+	assert_object(SaveStore.load_picture(str(Game.bar["id"]), str(theft[0]["picture"]))).is_not_null()
+	assert_array(feed.posters()).contains([who])
+	assert_array(feed.pictures()).contains(["snapshot"])
+	assert_str(scene._stats.panel_text(0, 0)).contains("Socials: posts %d" % entry["socials"].size())
+	assert_str(_transcript(runner)).contains("On 달밤 Dalbam tonight")
+	# Kept with the bar, for the diary book.
+	assert_array(SaveStore.load_bar(str(Game.bar["id"]))["diary"][0]["socials"].map(func(p): return p["poster"])).contains([who])
+	# The stats up in the page's place: the posts come down with it, and back.
+	scene._on_summary_stats_toggled(true)
+	assert_bool(feed.visible).is_false()
+	scene._on_summary_stats_toggled(false)
+	assert_bool(feed.visible).is_true()
 
 
 func test_the_night_ends_with_the_owners_diary() -> void:

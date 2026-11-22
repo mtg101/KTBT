@@ -58,6 +58,11 @@ var clipart := {}
 ## went up), "end_card_faceless" (a moment, but no face for it), "polaroids" (on the diary
 ## page), "faces_kept" (everyone's portrait kept with the entry).
 var keepsakes := {}
+## 3am's posts (rules/socials.gd, visit.gd _post_socials): "posts" (up round the diary page),
+## "pictures" (real snapshots kept with them), "drawn" (a picture that wasn't taken, drawn),
+## "text" (words alone), "dropped" (failing the check), "picked", "viewer_comments" (none yet:
+## PLAN.md), "snapshots" (bar/snapshots.gd counts: asked, taken, failed, over, no_screen).
+var socials := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
@@ -883,6 +888,8 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append(clipart_text())
 	if not keepsakes.is_empty():
 		lines.append(keepsakes_text())
+	if not socials.is_empty():
+		lines.append(socials_text())
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():
 		var tonights: Dictionary = art["street"]
 		lines.append("Street: lamps %d · stars %d · moon %s · road %s" % [int(tonights.get("lamps", 0)), int(tonights.get("stars", 0)), str(tonights.get("moon", "?")), str(tonights.get("road", "?"))])
@@ -980,6 +987,19 @@ func keepsakes_text() -> String:
 		int(keepsakes.get("polaroids", 0)), int(keepsakes.get("faces_kept", 0))]
 
 
+## 3am's posts: "Socials: posts 2 · pictures 1 (drawn 1) · viewer comments 0 · snapshots 3 of 4".
+func socials_text() -> String:
+	var snaps: Dictionary = socials.get("snapshots", {})
+	var why := PackedStringArray()
+	for count in [["failed", "FAILED"], ["over", "over the limit"], ["no_screen", "no screen"]]:
+		if int(snaps.get(count[0], 0)) > 0:
+			why.append("%s %d" % [count[1], int(snaps[count[0]])])
+	return "Socials: posts %d · pictures %d (drawn %d, words alone %d) · viewer comments %d · snapshots %d of %d%s%s" % [int(socials.get("posts", 0)),
+		int(socials.get("pictures", 0)), int(socials.get("drawn", 0)), int(socials.get("text", 0)), int(socials.get("viewer_comments", 0)),
+		int(snaps.get("taken", 0)), int(snaps.get("asked", 0)), (" (%s)" % ", ".join(why)) if not why.is_empty() else "",
+		(" · NOT POSTED %d" % int(socials["dropped"])) if int(socials.get("dropped", 0)) > 0 else ""]
+
+
 ## The clipart on stage tonight, most used first.
 func clipart_text() -> String:
 	var shown := clipart.keys().filter(func(clip): return clip != "missing")
@@ -1002,6 +1022,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"stings": stings.duplicate(),
 		"clipart": clipart.duplicate(),
 		"keepsakes": keepsakes.duplicate(),
+		"socials": socials.duplicate(true),
 		"gestures": gestures.duplicate(),
 		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
