@@ -94,16 +94,13 @@ func test_a_portrait_is_painted_onto_their_own_colours() -> void:
 	assert_object(PeopleArt.portrait(STUDENT, "w_20s_mohawk")).is_null()  # (not in the library)
 
 
-func test_every_portrait_with_reaction_faces_has_all_the_tv_moods() -> void:
-	var with_faces := 0
+func test_every_portrait_has_a_reaction_face_for_every_tv_mood() -> void:
+	var checked := 0
 	for id in _library():
 		var moods: Array = Captions.REACTIONS.keys().filter(func(mood): return Art.has("reaction/%s_%s" % [id, mood]))
-		if moods.is_empty():
-			continue
-		with_faces += 1
 		assert_array(moods).override_failure_message("%s has only %s" % [id, moods]).has_size(Captions.REACTIONS.size())
-	# (the faces with glasses; those without are being redrawn: Klein had put glasses on them)
-	assert_int(with_faces).is_greater_equal(63)
+		checked += 1
+	assert_int(checked).is_equal(126)
 
 
 func test_a_reaction_face_is_painted_onto_their_own_colours_with_its_own_tears() -> void:
