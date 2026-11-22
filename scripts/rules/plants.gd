@@ -1,5 +1,5 @@
 extends RefCounted
-## The PD's plant cards: three a night, dealt from a pack, each one a thing that happens at the
+## The PD's plant cards: six a night, dealt from a pack, each one a thing that happens at the
 ## tent, never the words. A **situation** card is something that happens to someone (or two
 ## people, or the whole tent): they're told it in whichever conversation they speak in next,
 ## as what just happened, and as a moment for their line; whether anything comes of it is the

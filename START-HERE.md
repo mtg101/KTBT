@@ -8,7 +8,7 @@ A Korean tent bar (pojangmacha) at night, as a reality show: the night runs itse
 
 ## Where things are
 
-- `scripts/visit.gd`: the tent scene, ~6,000 lines. **Never read it whole**: grep its `# ---` section headers (The owner, The night, The edit, Let the crew run it, Tasks, Customers chatting, The cat, The PD's camera, The PD's plant cards, Building the screen, Regulars…) and read the section.
+- `scripts/visit.gd`: the tent scene, ~7,300 lines. **Never read it whole**: grep its `# ---` section headers (The owner, The night, The edit, Let the crew run it, Tasks, Customers chatting, The cat, The PD's camera, The PD's plant cards, Building the screen, Regulars…) and read the section.
 - `scripts/rules/`: pure rules and checks, no scene (talk, captions, cat_rules, hangul meanings, glossary, menu, ratings, ladder…). `scripts/ai/`: the AI (prompts, `canned_ai.gd`). `scripts/bar/`: parts of the tent (camera, pd_desk, night_stats, night_events, kitchen, street…). `scripts/ui/`: drawn things (people_art, pixel_light, transcript_view, crew_controls…). `scripts/save/`, `scripts/sound/`.
 - `scripts/game.gd`: the autoload (`Game`): the open bar, saves, autoplay. `scripts/autoplay.gd`: batches and the crew. `scripts/debug_log.gd`: notes. `scripts/test_hooks.gd`: every test switch (`Hooks.*`).
 - `tests/`: GdUnit4; scene tests extend `tests/support/bar_test.gd`. `tools/art/`: the art in Python (`people.py`, `tent.py`, `cat.py`, `light_preview.py` to look without Godot).

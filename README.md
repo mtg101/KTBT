@@ -141,7 +141,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/viewer_comments.gd` | The viewers' comments on the episode: the phone stream's live chat, the channel's comments or TV's viewer board, with their hearts, likes or recommends |
 | `scripts/ui/dish_view.gd` | A dish or drink on the table in pixel art, painted from its shapes (see `rules/dish_art.gd`) on their colours' ramps, lit from above, a darker edge round it, lit by the hour |
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
-| `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
+| `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen), with the channel the show's on |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
 | `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles, with a post's or comment's card beside a beat that cuts to the internet |
 | `scripts/ui/show_setup.gd` | Setting up the show: while a new bar's being made, the PD chooses where it starts on the ladder (more of the setup later) |

@@ -4,7 +4,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Everyone's own face their moods:** the owner's and the regulars' faces of their own are made in the gaps when the GPU's free (`ai/portrait_maker.gd`); their TV moods are still the library's.
+- **Everyone's own face, their moods:** the owner's and the regulars' faces of their own are made in the gaps when the GPU's free (`ai/portrait_maker.gd`); their TV moods are still the library's.
   - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
   - Counted in the night's stats (moods made, failed, still the library's), logged (as the faces are: ComfyUI started and stopped, each picture, each split's score, each fallback).
 
@@ -12,27 +12,25 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Richer play
 
-- **Finishing basics of Seasons and the platform ladder:** 
+- **Finishing basics of Seasons and the platform ladder:**
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
-  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV").
-  - **Small touches of flavour:** the channel on "Previously on…"'s card.
+  - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and "Previously on…"'s card could show the channel (the loading screen does).
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
 - **Finishing basics of Customers coming in together:**
   - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
   - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
   - **The story:** who came in with whom in the diary and "Previously on…".
   - **Speaking for the right person:** in a three- or four-way chat, small models are likelier to write someone else's line, or a whole exchange: the checks that strip "Name:" and cut off second lines should know every name in the chat.
-- **More PD cards:** 
-  - more tropey cards and write-in types, when there are better ideas
-  - the ability to write out the cue before sending it
-      - so you can plan what the big news even is well in advance of triggering it
-- **Narrative:**
+- **More PD cards:**
+  - **More tropey cards and write-in types,** when there are better ideas (there are 13 events and 6 write-ins now).
+  - **Writing a write-in ahead:** the ability to write out the cue before sending it, so you can plan what the big news even is well in advance of triggering it.
+- **Story and people:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
   - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
   - **Cliffhangers about what's said (a stage of its own):** "will she finally confess?", "will he quit?", "is the secret out?": the AI judges after a conversation whether it was answered (like the TV reaction check), with a check and tests for each kind.
   - **Drinking too much (with a content setting first):** past three or four bottles, someone dozes face-down on the counter (the owner drapes something over them), someone heartbroken makes the 2am call to an ex (술김에?! on TV), and one of a pair piggybacks the other home. Drunkenness played for drama, so alongside 
   - **Calendar, holidays and events:** Korean occasions from the date (`rules/seasons.gd`: Seollal, Chuseok, Christmas, 11/11...) as game facts shaping who turns up, what they order and what they talk about; and any occasion a line mentions checked against tonight's date (19 Nov: Chuseok came up in November).
-  - **Types of people:** 
+  - **Types of people:**
     - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
     - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
   - **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
@@ -40,16 +38,17 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **My fave tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
     - repeating words: chijeu chijeu, gogi gogi gogi, etc
     - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
-    - myers briggs (and other astrology ;) 
+    - myers briggs (and other astrology ;)
     - everyone is welcome - Midnight Diner style - doesn't matter who you are what you do, everyone is welcome
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
-  - good for both sandbox mode and makes testing specific features easier
-- **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
-  - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
-- **Videos:"**
-  - if we can take pics... why not a video clip?
-  - can be social media or the TV show using it
+- **The show itself:**
+  - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
+    - good for both sandbox mode and makes testing specific features easier
+  - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
+    - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
+  - **Videos:**
+    - if we can take pics... why not a video clip?
+    - can be social media or the TV show using it
 
 ### Presentation
 
@@ -62,7 +61,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.
   - **AI voices:** a local text-to-speech service beside Ollama, on the CPU so it doesn't fight the LLM: **Kokoro** (82M, Apache-2.0, good quality) or **Piper** (fast, GPL-3.0 engine, voices with their own licences). Check first how they say Korean names and words.
 - **Opening style:** is it always the same rotating splat?
-
+- **Customer variants:** more looks for the customers (art work: each its own chat).
+- **The loading screens:** they're all much alike; vary them, and other simple text extras.
 
 ### Technical
 
@@ -80,7 +80,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **A first night for someone new:** a guided first episode, the producer explaining one control per beat (the desk, cards, pins, spins, the edit suite).
 - **Packaging, first-run setup and releasing:** a big part of the point is learning to ship a Godot game.
   - **Exporting:** export templates, a Windows preset, an icon, the name and version in the build, and a check that it runs on a clean machine (saves and logs in the user folder).
-  - **Can we include the local AI models as part of the install?**  or we have to explain it in docs with fallback modes
+  - **Can we include the local AI models as part of the install?** Or we have to explain it in docs with fallback modes.
 - **A store page, as if for real:**
   - **The overview:** a one-line pitch ("Coffee Talk with soju: a Korean tent bar where every customer is invented by an AI, and every night is an episode"), short and long descriptions, features as bullets (AI customers with memories, regulars who come back, Korean TV captions, the owner's diary, Hangul names, offline mode), tags.
   - **Screenshots:** five or six moments at full resolution: a full house in the rain, a TV caption mid-pop, a reaction ("충격!"), the 3am diary, the "Previously on…" card, the title screen; perhaps a screenshot mode with the panels hidden.
