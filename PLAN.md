@@ -4,15 +4,16 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Portraits, the rest of their uses** (everyone has a face, on their hover and slapped onto the captions; how they're made and picked is in ART.md). In this order:
-  - **Next:** the social media posts (below), and the cat's own portrait (below).
-  - **Known flaws to fix sometime:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn (the head's bare).
+- **The cat's portrait:** a face for the cat too, for its hover and slapped onto its captions (coming and going, a lap, a theft): one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
+- **Social media posts:** at end of night to start with
+  - customers post about their experience (selfie, food pics, comments about food and nights events)
+  - viewers can post commentary about the night
+  - maybe one of each appears alongside the diary?
 
 ## Future ideas and improvements
 
 ### Richer play
 
-- **The cat's portrait:** a face for the cat too, for its hover and slapped onto its captions (coming and going, a lap, a theft): one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
 - **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
