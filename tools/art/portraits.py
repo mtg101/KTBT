@@ -14,6 +14,9 @@ in PROMPT below): black, red and skin are far apart, so the picture splits into 
     python3 tools/art/portraits.py --reactions  (the reaction faces' jobs: every kept portrait in every TV mood)
     python3 tools/art/portraits.py --pick art/raw/portrait_pick   (pick sheets, and art/raw/portrait_picks.json)
     python3 tools/art/portraits.py --keep       (the picks into art/portraits/, the manifest and LICENSE-ASSETS)
+    python3 tools/art/portraits.py --react-pick art/raw/react_pick [--only w_20s]   (the reaction faces' close-ups,
+        split once into art/raw/react_split/, pick sheets, and art/raw/reaction_picks.json)
+    python3 tools/art/portraits.py --react-keep  (the reaction picks into art/reactions/, the manifest and LICENSE-ASSETS)
     python3 tools/art/portraits.py --self-test
 
 What it does, for each picture:
@@ -28,6 +31,12 @@ What it does, for each picture:
  5. The layer (people.py's encoding: red = step x 36, green = slot x 36, blue = fixed x 8), and
     previews painted onto looks from rules/looks.gd's own colours, all on one contact sheet.
 Prints each portrait's share of hair, skin, cloth and lines, so a bad split shows in the log.
+
+The reaction faces (PLAN.md): each kept portrait redrawn by Klein in each TV mood, then cut to a close-up
+of the face (close_up()) before the split, which also keeps three colours of their own as fixed colours
+(the whites of the eyes and teeth, tears, a blush), so a recolour can't muddy them. Pre-picked by how much
+the hair and outline match the calm close-up (a different person's the risk) and whether the mood's own
+colour came through.
 """
 import argparse, os, re, sys
 import numpy as np
@@ -87,8 +96,10 @@ def batch_jobs():
 
 # The reaction faces (PLAN.md, TV pop-ups): each kept portrait redrawn by Klein's edit workflow with
 # the expression of each TV mood (rules/captions.gd REACTIONS), everything else kept.
-REACT_PROMPT = ("Same person, same face, same hair, same glasses if any, same red top, same flat green background, "
+# Glasses said outright: "same glasses if any" put glasses on nearly every face that had none (22 Nov).
+REACT_PROMPT = ("Same person, same face, same hair, {glasses}, same red top, same flat green background, "
                 "same framing and the same flat cel-shaded illustration style. Change only the facial expression: {face}.")
+REACT_GLASSES = {True: "same glasses", False: "no glasses (bare eyes, as in the picture)"}
 MOOD_FACES = {
     "shock": "wide-eyed with shock, eyebrows raised high, mouth dropped open",
     "sad": "sad, eyes glistening with tears, a tear on one cheek, mouth turned down",
@@ -100,6 +111,7 @@ MOOD_FACES = {
 }
 REACT_SEEDS = 2
 REACT_FIRST_SEED = 20000
+REACT_BARE_FIRST_SEED = 40000  # (the faces without glasses, made again with REACT_GLASSES said: new seeds, new pictures)
 
 
 def reaction_jobs():
@@ -111,9 +123,12 @@ def reaction_jobs():
     for name, seed in sorted(picks.items()):
         if seed is None:
             continue
+        glasses = name.endswith("_glasses")
         for mood, face in MOOD_FACES.items():
-            jobs.append({"name": "react_%s_%s" % (name.replace("portrait_", ""), mood), "prompt": REACT_PROMPT.format(face=face),
-                         "seed": REACT_FIRST_SEED + 10 * len(jobs), "count": REACT_SEEDS, "width": W * 12, "height": H * 12,
+            first = REACT_FIRST_SEED if glasses else REACT_BARE_FIRST_SEED
+            jobs.append({"name": "react_%s_%s" % (name.replace("portrait_", ""), mood),
+                         "prompt": REACT_PROMPT.format(face=face, glasses=REACT_GLASSES[glasses]),
+                         "seed": first + 10 * len(jobs), "count": REACT_SEEDS, "width": W * 12, "height": H * 12,
                          "reference": "%s_%d.png" % (name, seed)})
     return jobs
 
@@ -122,6 +137,12 @@ W, H = 64, 80  # the portrait on the grid (stage 1's pick; --width/--height to t
 SKIN, HAIR, CLOTH, FIXED_SLOT = 1, 2, 3, 0  # as people.py
 INK = 1  # people_art.gd FIXED: "ink"
 LINE = 9  # (a part of its own while working: drawn as the fixed ink)
+# The reaction faces' own colours (parts of their own while working, drawn as fixed colours, like the
+# people's FIXED ones), so a recolour can't muddy them: the whites of the eyes (and teeth), tears, a blush.
+WHITE, TEAR, BLUSH = 10, 11, 12
+FIXED_OF = {LINE: INK, WHITE: 2, TEAR: 14, BLUSH: 15}  # people_art.gd FIXED: ink, white_shirt, tear, blush
+EXTRAS = (WHITE, TEAR, BLUSH)
+EXTRA_SHARE = 0.3  # one of them wins a game pixel it's this much of (after the lines)
 STEP_L = 11.0  # Lab lightness per light step, from a part's median
 LINE_SHARE = 0.22  # a line wins a game pixel it's this much of
 HAIR_MIN = 0.003  # a dark area this much of the picture (after the opening) is hair, not a line
@@ -178,9 +199,10 @@ def big_areas(mask, share):
     return np.asarray(Image.fromarray(keep.astype(np.uint8) * 255).resize((w, h), Image.NEAREST)) > 0
 
 
-def parts(rgba):
-    """Each picture pixel's part (-1 background, SKIN, HAIR, CLOTH, LINE) and its Lab lightness."""
-    fg = pixelate.cut_background(rgba)
+def parts(rgba, fg=None):
+    """Each picture pixel's part (-1 background, SKIN, HAIR, CLOTH, LINE) and its Lab lightness (fg: the
+    foreground, if it's known already)."""
+    fg = pixelate.cut_background(rgba) if fg is None else fg
     lab = palette.to_lab(rgba[..., :3])
     L, a, b = lab[..., 0], lab[..., 1], lab[..., 2]
     chroma = np.hypot(a, b)
@@ -226,7 +248,12 @@ def to_grid(part, step, width=W, height=H):
             if (cp == LINE).sum() >= LINE_SHARE * len(cp):
                 out_part[j, i] = LINE
                 continue
-            values, counts = np.unique(cp[cp != LINE], return_counts=True)
+            extra = max(EXTRAS, key=lambda e: (cp == e).sum())
+            if (cp == extra).sum() >= EXTRA_SHARE * len(cp):
+                out_part[j, i] = extra; out_step[j, i] = 4
+                continue
+            plain = (cp != LINE) & ~np.isin(cp, EXTRAS)
+            values, counts = np.unique(cp[plain], return_counts=True)
             if len(values) == 0:
                 out_part[j, i] = LINE
                 continue
@@ -251,10 +278,11 @@ def layer(gp, gs):
     """people.py's encoding: red = step x 36, green = slot x 36, blue = fixed x 8; alpha where drawn."""
     out = np.zeros(gp.shape + (4,), np.uint8)
     drawn = gp >= 0
-    slot = np.where(gp == LINE, FIXED_SLOT, gp)
-    out[..., 0] = np.where(gp == LINE, 0, gs) * 36
+    fixed = np.isin(gp, list(FIXED_OF))
+    slot = np.where(fixed, FIXED_SLOT, gp)
+    out[..., 0] = np.where(gp == LINE, 0, np.where(fixed, 4, gs)) * 36
     out[..., 1] = np.clip(slot, 0, 7) * 36
-    out[..., 2] = np.where(gp == LINE, INK * 8, 0)
+    out[..., 2] = sum(np.where(gp == p, f * 8, 0) for p, f in FIXED_OF.items())
     out[..., 3] = np.where(drawn, 255, 0)
     return Image.fromarray(out, "RGBA")
 
@@ -269,6 +297,9 @@ def paint(gp, gs, hair, skin, cloth, ink):
             where = (gp == p) & (gs == s)
             out[where, :3] = r[s]; out[where, 3] = 255
     out[gp == LINE, :3] = palette.hexc(ink); out[gp == LINE, 3] = 255
+    fixed = fixed_colours()
+    for p in EXTRAS:
+        out[gp == p, :3] = palette.hexc(fixed[FIXED_OF[p]]); out[gp == p, 3] = 255
     return Image.fromarray(out, "RGBA")
 
 
@@ -470,6 +501,212 @@ def keep(only=None):
     print("%d portraits into art/portraits/, the manifest and LICENSE-ASSETS" % kept)
 
 
+# --- The reaction faces: close-ups, split with their own colours, picked and kept (PLAN.md) -------
+
+REACT_PICKS = os.path.join(RAW, "reaction_picks.json")
+REACT_CACHE = os.path.join(RAW, "react_split")  # each picture's split, made once (it's the slow part)
+CLOSE_UP = (0.56, 0.08)  # the face: the middle 56% across, from 8% down, 4:5 (decided 20 Nov)
+CLOSE_SCALE = 7  # picture pixels per game pixel while splitting (the crop's own size: no upscale)
+MOOD_NEEDS = {"sad": (TEAR, 3), "sweet": (BLUSH, 6), "shock": (WHITE, 6)}  # a mood's own colour, and how many pixels of it
+NO_MOOD = 0.3  # a candidate without its mood's colour scores this much worse
+
+
+def close_up(picture):
+    """The picture cut to the face (CLOSE_UP), still 4:5."""
+    w, h = picture.size
+    cw = round(w * CLOSE_UP[0]); ch = round(cw * H / W)
+    x, y = (w - cw) // 2, round(h * CLOSE_UP[1])
+    return picture.crop((x, y, x + cw, min(h, y + ch)))
+
+
+def react_parts(rgba):
+    """parts(), and on the skin the reaction faces' own colours: the whites of the eyes and teeth (very
+    light, no colour), tears (light and blue), a blush (light and pink, bluer than lips or a mouth)."""
+    part, L = parts(rgba, rgba[..., 3] >= 128)  # (the background's cut from the whole picture: react_split())
+    lab = palette.to_lab(rgba[..., :3])
+    a, b = lab[..., 1], lab[..., 2]
+    skin = part == SKIN
+    part[skin & (L > 92) & (np.hypot(a, b) < 6)] = WHITE
+    part[skin & (L > 70) & (b < -3) & (a < 2)] = TEAR
+    part[skin & (L > 60) & (a > 28) & (b < 0.4 * a)] = BLUSH
+    return part, L
+
+
+def react_split(path):
+    """A picture's close-up on the grid: (part, step), cached in REACT_CACHE."""
+    cached = os.path.join(REACT_CACHE, os.path.splitext(os.path.basename(path))[0] + ".npz")
+    if os.path.exists(cached) and os.path.getmtime(cached) >= os.path.getmtime(path):
+        got = np.load(cached)
+        return got["part"], got["step"]
+    whole = Image.open(path).convert("RGBA")
+    # The background's cut from the whole picture (at half size, for speed): a close-up's edges are
+    # face and hair, which cut_background would take for the background.
+    half = whole.resize((whole.width // 2, whole.height // 2), Image.LANCZOS)
+    fg = Image.fromarray(pixelate.cut_background(np.asarray(half)).astype(np.uint8) * 255).resize(whole.size, Image.NEAREST)
+    whole.putalpha(fg)
+    face = close_up(whole).resize((W * CLOSE_SCALE, H * CLOSE_SCALE), Image.LANCZOS)
+    part, L = react_parts(np.asarray(face))
+    gp, gs = to_grid(part, steps_of(part, L))
+    os.makedirs(REACT_CACHE, exist_ok=True)
+    np.savez_compressed(cached, part=gp, step=gs)
+    return gp, gs
+
+
+def overlap(x, y):
+    """How much two masks are the same (shared over either)."""
+    either = (x | y).sum()
+    return (x & y).sum() / either if either else 1.0
+
+
+def react_score(gp, calm, mood):
+    """How good a candidate is (lower is better): the same hair and outline as the calm close-up (a
+    different person's the risk), its mood's own colour there, and not all lines."""
+    bad = (1 - overlap(gp == HAIR, calm == HAIR)) + (1 - overlap(gp >= 0, calm >= 0))
+    if mood in MOOD_NEEDS:
+        part, least = MOOD_NEEDS[mood]
+        bad += NO_MOOD if (gp == part).sum() < least else 0
+    lines = (gp == LINE).sum() / max(1, (gp >= 0).sum())
+    return bad + 6 * max(0.0, lines - 0.15)
+
+
+def react_candidates(only=None):
+    """{portrait id: (calm picture, {mood: [(seed, path)...]})} from reaction_batch.json, the pictures made."""
+    import json
+    out = {}
+    for job in json.load(open(os.path.join(RAW, "reaction_batch.json"), encoding="utf-8")):
+        mood = job["name"].rsplit("_", 1)[1]
+        ident = job["name"][len("react_"):-len(mood) - 1]
+        if only and "_".join(ident.split("_")[:2]) not in only:
+            continue
+        made = [(job["seed"] + k, os.path.join(RAW, "%s_%d.png" % (job["name"], job["seed"] + k))) for k in range(job["count"])]
+        calm, moods = out.setdefault(ident, (os.path.join(RAW, job["reference"]), {}))
+        moods[mood] = [m for m in made if os.path.exists(m[1])]
+    return out
+
+
+def react_pick_sheets(folder, only=None):
+    """A sheet for each gender and age range: a row each portrait, its calm close-up, then each mood's
+    candidates (painted on brown hair, the second skin and beige), the pre-pick framed in gold; and
+    reaction_picks.json (a seed, or null for none), keeping any picks already in it. Prints each mood's
+    picks without its own colour, and any portrait whose pick looks like someone else."""
+    import json
+    from PIL import ImageDraw
+    hairs, clothes, skins = looks_colours()
+    ink = fixed_colours()[INK]
+    picks = json.load(open(REACT_PICKS, encoding="utf-8")) if os.path.exists(REACT_PICKS) else {}
+    groups = {}
+    found = react_candidates(only)
+    paths = [calm for calm, _ in found.values()] + [path for _, moods in found.values() for made in moods.values() for _, path in made]
+    from multiprocessing import Pool
+    with Pool(os.cpu_count() or 1) as pool:  # (split once each, side by side: the slow part)
+        pool.map(react_split, paths, chunksize=4)
+    for ident, (calm, moods) in found.items():
+        groups.setdefault("_".join(ident.split("_")[:2]), []).append((ident, calm, moods))
+    os.makedirs(folder, exist_ok=True)
+    scale, label_w = 2, 150
+    cell = W * scale + 6
+    moods = list(MOOD_FACES)
+    for group, rows in sorted(groups.items()):
+        sheet = Image.new("RGBA", (label_w + cell * (1 + 2 * len(moods)), 16 + (H * scale + 8) * len(rows)), NIGHT + (255,))
+        draw = ImageDraw.Draw(sheet)
+        for m, mood in enumerate(moods):
+            draw.text((label_w + cell * (1 + 2 * m) + 4, 2), mood, fill=(235, 235, 240))
+        for r, (ident, calm, made_by_mood) in enumerate(rows):
+            y = 16 + r * (H * scale + 8)
+            calm_gp, calm_gs = react_split(calm)
+            img = paint(calm_gp, calm_gs, hairs["dark_brown"], skins[1], clothes["beige"], ink).resize((W * scale, H * scale), Image.NEAREST)
+            sheet.paste(img, (label_w, y), img)
+            draw.text((6, y + 4), ident, fill=(235, 235, 240))
+            for m, mood in enumerate(moods):
+                made = made_by_mood.get(mood, [])
+                key = "%s_%s" % (ident, mood)
+                scored = []
+                for k, (seed, path) in enumerate(made):
+                    gp, gs = react_split(path)
+                    scored.append((react_score(gp, calm_gp, mood), seed))
+                    img = paint(gp, gs, hairs["dark_brown"], skins[1], clothes["beige"], ink).resize((W * scale, H * scale), Image.NEAREST)
+                    sheet.paste(img, (label_w + cell * (1 + 2 * m + k), y), img)
+                if picks.get(key) is not None and picks[key] not in [seed for seed, _ in made]:
+                    del picks[key]  # (a pick from pictures no longer in the batch: made again since)
+                if key not in picks and made and len(made) == REACT_SEEDS:
+                    picks[key] = min(scored)[1]
+                    best = min(scored)[0]
+                    if mood in MOOD_NEEDS and not any((react_split(path)[0] == MOOD_NEEDS[mood][0]).sum() >= MOOD_NEEDS[mood][1] for _, path in made):
+                        print("%s: neither has its %s colour" % (key, mood))
+                    elif best > 0.6 + (NO_MOOD if mood in MOOD_NEEDS else 0):
+                        print("%s: the pick's hair or outline differs from the calm one (%.2f)" % (key, best))
+                for k, (seed, _) in enumerate(made):
+                    if seed == picks.get(key):
+                        x = label_w + cell * (1 + 2 * m + k)
+                        draw.rectangle((x - 2, y - 2, x + W * scale + 1, y + H * scale + 1), outline=(242, 193, 74), width=2)
+        path = os.path.join(folder, "react_%s.png" % group)
+        sheet.save(path)
+        print("%s: %d portraits" % (path, len(rows)))
+    with open(REACT_PICKS, "w", encoding="utf-8") as f:
+        json.dump(dict(sorted(picks.items())), f, indent=1)
+    print("%s: %d picks (yours to change: a seed, or null for none)" % (REACT_PICKS, len(picks)))
+
+
+def react_keep(only=None):
+    """The reaction picks into the game: art/reactions/<portrait id>_<mood>.png in the layer encoding,
+    the manifest and LICENSE-ASSETS. Prints how many of each mood's faces have its own colour."""
+    import json
+    picks = json.load(open(REACT_PICKS, encoding="utf-8"))
+    kept, coloured = 0, {}
+    for key, seed in sorted(picks.items()):
+        if seed is None or (only and "_".join(key.split("_")[:2]) not in only):
+            continue
+        mood = key.rsplit("_", 1)[1]
+        path = os.path.join(RAW, "react_%s_%d.png" % (key, seed))
+        made = json.load(open(os.path.splitext(path)[0] + ".json", encoding="utf-8-sig"))
+        gp, gs = react_split(path)
+        if mood in MOOD_NEEDS:
+            part, least = MOOD_NEEDS[mood]
+            coloured.setdefault(mood, [0, 0])[0] += int((gp == part).sum() >= least)
+            coloured[mood][1] += 1
+        source = "%s via ComfyUI (edit, from %s), seed %s, then portraits.py's close-up: \"%s\"" % (
+            made["model"], os.path.basename(made.get("reference", "its calm portrait")), made["seed"], made["prompt"])
+        pixelate.add_to_game(layer(gp, gs), "reaction/" + key, source, "CC BY-SA 4.0 (this project)")
+        kept += 1
+    print("%d reaction faces into art/reactions/, the manifest and LICENSE-ASSETS (%s)" % (kept, ", ".join(
+        "%s with its colour %d of %d" % (m, c[0], c[1]) for m, c in sorted(coloured.items()))))
+
+
+def react_self_test():
+    """A made-up close-up (skin face, white eyes with dark pupils, a blue tear, pink cheeks, black hair)
+    keeps its whites, tear and blush, and the layer draws them in their fixed colours."""
+    pic = np.zeros((H * CLOSE_SCALE, W * CLOSE_SCALE, 3), float); pic[:] = (120, 180, 110)
+    yy, xx = np.mgrid[0:H * CLOSE_SCALE, 0:W * CLOSE_SCALE]
+    cx = W * CLOSE_SCALE / 2
+    pic[((xx - cx) / 200) ** 2 + ((yy - 230) / 260) ** 2 < 1] = (20, 20, 24)  # the hair
+    pic[((xx - cx) / 170) ** 2 + ((yy - 300) / 220) ** 2 < 1] = (250, 228, 212)  # the face
+    for ex in (cx - 70, cx + 70):
+        pic[((xx - ex) / 34) ** 2 + ((yy - 260) / 20) ** 2 < 1] = (252, 252, 252)  # an eye's white
+        pic[((xx - ex) / 9) ** 2 + ((yy - 260) / 12) ** 2 < 1] = (15, 15, 18)  # its pupil
+    pic[(np.abs(xx - (cx - 70)) < 9) & (yy > 300) & (yy < 380)] = (150, 205, 245)  # a tear
+    pic[((xx - (cx + 90)) / 40) ** 2 + ((yy - 330) / 22) ** 2 < 1] = (245, 140, 160)  # a blush
+    rgb = np.clip(pic, 0, 255).astype(np.uint8)
+    rgba = np.dstack([rgb, np.where(pixelate.cut_background(np.dstack([rgb, np.full(rgb.shape[:2], 255, np.uint8)])), 255, 0).astype(np.uint8)])
+    part, L = react_parts(rgba)
+    gp, gs = to_grid(part, steps_of(part, L))
+    problems = []
+    for p, name in ((WHITE, "eye whites"), (TEAR, "tear"), (BLUSH, "blush")):
+        if not (gp == p).any():
+            problems.append("no %s" % name)
+    if not (gp == HAIR).any() or not (gp == SKIN).any():
+        problems.append("the hair or skin went")
+    enc = np.asarray(layer(gp, gs))
+    blush = gp == BLUSH
+    if blush.any() and not ((enc[blush][:, 1] // 36 == FIXED_SLOT).all() and (np.round(enc[blush][:, 2] / 8) == FIXED_OF[BLUSH]).all()):
+        problems.append("the blush isn't drawn as its fixed colour")
+    cw, ch = close_up(Image.new("RGB", (768, 960))).size
+    if abs(ch / cw - H / W) > 0.01:
+        problems.append("the close-up isn't 4:5 (%dx%d)" % (cw, ch))
+    print("\n".join(problems) if problems else "reaction faces self-test: OK (whites %d, tear %d, blush %d pixels)" % (
+        (gp == WHITE).sum(), (gp == TEAR).sum(), (gp == BLUSH).sum()))
+    return not problems
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("pictures", nargs="*")
@@ -477,13 +714,21 @@ if __name__ == "__main__":
     ap.add_argument("--width", type=int, default=W); ap.add_argument("--height", type=int, default=H)
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--pick", metavar="FOLDER", help="pick sheets of the batch's pictures into FOLDER, and art/raw/portrait_picks.json")
-    ap.add_argument("--only", help="with --pick or --keep: just these groups (w_20s,m_70s...), so a run fits in a shell call")
+    ap.add_argument("--only", help="with --pick, --keep, --react-pick or --react-keep: just these groups (w_20s,m_70s...), so a run fits in a shell call")
     ap.add_argument("--keep", action="store_true", help="the picks (portrait_picks.json) into art/portraits/, the manifest and LICENSE-ASSETS")
     ap.add_argument("--reactions", action="store_true", help="write art/raw/reaction_batch.json: every kept portrait in every TV mood, for queue_art_batch")
     ap.add_argument("--batch", action="store_true", help="write art/raw/portrait_batch.json, the library's jobs for the helper's queue_art_batch")
+    ap.add_argument("--react-pick", metavar="FOLDER", help="the reaction faces' close-ups split, pick sheets into FOLDER, and art/raw/reaction_picks.json")
+    ap.add_argument("--react-keep", action="store_true", help="the reaction picks into art/reactions/, the manifest and LICENSE-ASSETS")
     a = ap.parse_args()
     if a.self_test:
-        sys.exit(0 if self_test() else 1)
+        sys.exit(0 if self_test() and react_self_test() else 1)
+    if a.react_pick:
+        react_pick_sheets(a.react_pick, a.only.split(",") if a.only else None)
+        sys.exit(0)
+    if a.react_keep:
+        react_keep(a.only.split(",") if a.only else None)
+        sys.exit(0)
     if a.pick:
         pick_sheets(a.pick, a.only.split(",") if a.only else None)
         sys.exit(0)

@@ -7,7 +7,9 @@ const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
+const TEAR := 14  # people_art.gd FIXED: the reaction faces' tears (tools/art/portraits.py FIXED_OF)
 const STUDENT := {"age_range": "20s", "hair": "long", "hair_colour": "black", "clothes": "hoodie", "colour": "charcoal", "glasses": true, "skin": 2}
 
 
@@ -90,6 +92,39 @@ func test_a_portrait_is_painted_onto_their_own_colours() -> void:
 			break
 	assert_object(PeopleArt.portrait(STUDENT, "")).is_null()
 	assert_object(PeopleArt.portrait(STUDENT, "w_20s_mohawk")).is_null()  # (not in the library)
+
+
+func test_every_portrait_with_reaction_faces_has_all_the_tv_moods() -> void:
+	var with_faces := 0
+	for id in _library():
+		var moods: Array = Captions.REACTIONS.keys().filter(func(mood): return Art.has("reaction/%s_%s" % [id, mood]))
+		if moods.is_empty():
+			continue
+		with_faces += 1
+		assert_array(moods).override_failure_message("%s has only %s" % [id, moods]).has_size(Captions.REACTIONS.size())
+	# (the faces with glasses; those without are being redrawn: Klein had put glasses on them)
+	assert_int(with_faces).is_greater_equal(63)
+
+
+func test_a_reaction_face_is_painted_onto_their_own_colours_with_its_own_tears() -> void:
+	var calm := PeopleArt.portrait(STUDENT, "w_20s_long_glasses")
+	var sad := PeopleArt.portrait(STUDENT, "w_20s_long_glasses", "sad")
+	assert_object(sad).is_not_null()
+	assert_vector(Vector2(sad.get_size())).is_equal(Vector2(PeopleArt.PORTRAIT_SIZE))
+	assert_object(sad).is_not_same(calm)
+	assert_object(PeopleArt.portrait(STUDENT, "w_20s_long_glasses", "sad")).is_same(sad)  # (made once)
+	var pixels: PackedInt32Array = PeopleArt._pixels_of("reaction/w_20s_long_glasses_sad", Art.texture("reaction/w_20s_long_glasses_sad"), PeopleArt.PORTRAIT_SIZE)
+	var image := sad.get_image()
+	var hair_ramp: Array = PeopleArt.ramp(Color(Looks.HAIR_COLOURS["black"][0]))
+	var tears := 0
+	for k in range(0, pixels.size(), 5):
+		if pixels[k + 3] == PeopleArt.HAIR:
+			assert_bool(_same(image.get_pixel(pixels[k], pixels[k + 1]), hair_ramp[pixels[k + 2]])).is_true()
+		elif pixels[k + 3] == PeopleArt.FIXED_SLOT and pixels[k + 4] == TEAR:
+			tears += 1
+			assert_bool(_same(image.get_pixel(pixels[k], pixels[k + 1]), PeopleArt.ramp(Color(PeopleArt.FIXED[TEAR]))[PeopleArt.BASE_STEP])).is_true()  # (its own blue, whatever their skin)
+	assert_int(tears).is_greater(0)
+	assert_object(PeopleArt.portrait(STUDENT, "w_20s_mohawk", "sad")).is_null()  # (no such face: the caller shows the calm one)
 
 
 func test_the_hover_shows_their_face_beside_the_words() -> void:

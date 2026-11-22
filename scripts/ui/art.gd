@@ -12,6 +12,7 @@ const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
 const SCALE := 3
@@ -80,6 +81,13 @@ static func ids(kind: String) -> Array:
 					for hair in Looks.HAIR_STYLES:
 						portraits.append_array(["%s_%s_%s" % [gender, age, hair], "%s_%s_%s_glasses" % [gender, age, hair]])
 			return portraits
+		"reaction":  # each portrait's face in each TV mood, a close-up ("w_60s_perm_glasses_shock": captions.gd REACTIONS;
+			# tools/art/portraits.py, from the image model's redrawing of the portrait, in the same encoding)
+			var faces: Array = []
+			for portrait in ids("portrait"):
+				for mood in Captions.REACTIONS:
+					faces.append("%s_%s" % [portrait, mood])
+			return faces
 	return []
 
 ## Where the art is (tests point it at their own).
@@ -183,12 +191,17 @@ static func summary() -> Dictionary:
 ## that file's text).
 static func check_manifest(entries: Dictionary, licences: String) -> Array:
 	var problems: Array = []
+	var known := {}  # kind -> {id: true} (looked up once a kind: the faces are hundreds)
 	for key in entries:
 		var parts := str(key).split("/")
-		if parts.size() != 2 or ids(parts[0]).is_empty():
+		if parts.size() == 2 and not known.has(parts[0]):
+			known[parts[0]] = {}
+			for id in ids(parts[0]):
+				known[parts[0]][str(id)] = true
+		if parts.size() != 2 or known[parts[0]].is_empty():
 			problems.append("%s: no such kind of art (\"kind/id\", the kinds in art.gd's ids())" % key)
 			continue
-		if not ids(parts[0]).has(parts[1]):
+		if not known[parts[0]].has(parts[1]):
 			problems.append("%s: no %s called \"%s\"" % [key, parts[0], parts[1]])
 		var entry = entries[key]
 		if not entry is Dictionary:

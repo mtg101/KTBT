@@ -25,9 +25,10 @@ const HAIR := 2
 const CLOTH := 3
 ## Colours that are always the same (tools/art/people.py names them, in this order): trousers,
 ## ink (eyes, shoes, glasses), a white shirt, a blue shirt, a tie, a cream top, gold buttons, the
-## apron, a strap, a tote, a backpack, a hair tie, a briefcase, a green soju bottle.
+## apron, a strap, a tote, a backpack, a hair tie, a briefcase, a green soju bottle; and the reaction
+## faces' tears and blush (tools/art/portraits.py; their eye whites are the white shirt's).
 const FIXED := ["2a2a33", "1a1a20", "eef0f2", "9cc4e4", "8a2a35", "efe6d2", "f2c14a", "f5f2ea", "8a5a33", "cdb894",
-	"3a3946", "c8443a", "5a3a2a", "2f8f4e"]
+	"3a3946", "c8443a", "5a3a2a", "2f8f4e", "8ec8f0", "f2899a"]
 
 ## The light ramp's steps (tools/art/palette.py: LEVELS, the same sums): deep shadow to highlight.
 const LEVELS := [0.22, 0.36, 0.52, 0.72, 1.0, 1.22, 1.42]
@@ -150,20 +151,24 @@ static func _colours(look: Dictionary) -> Dictionary:
 ## from the library in art/portraits (rules/portraits.gd picks which), in the same layer
 ## encoding, painted onto their own skin, hair and clothes ramps the same way. Its outlines are
 ## the fixed ink, as tools/art/portraits.py previews them. null if the portrait isn't there.
+## With a mood (captions.gd REACTIONS), the same face in that mood: a close-up, the same size, its
+## eye whites, tears and blush in their own fixed colours (art "reaction/<portrait>_<mood>"); null
+## if that face isn't there (the caller shows the calm one).
 const PORTRAIT_SIZE := Vector2i(64, 80)
-static var _portraits := {}  # (portrait, look) -> ImageTexture or null
+static var _portraits := {}  # (portrait, mood, look) -> ImageTexture or null
 
 
-static func portrait(look: Dictionary, key: String) -> ImageTexture:
+static func portrait(look: Dictionary, key: String, mood: String = "") -> ImageTexture:
 	if key == "":
 		return null
-	var cache_key := "%s|%s" % [key, JSON.stringify(look, "", true)]
+	var art_id := ("portrait/" + key) if mood == "" else "reaction/%s_%s" % [key, mood]
+	var cache_key := "%s|%s" % [art_id, JSON.stringify(look, "", true)]
 	if _portraits.has(cache_key):
 		return _portraits[cache_key]
 	var made: ImageTexture = null
-	var layer := Art.texture("portrait/" + key)
+	var layer := Art.texture(art_id)
 	if layer != null:
-		var pixels := _pixels_of("portrait/" + key, layer, PORTRAIT_SIZE).duplicate()
+		var pixels := _pixels_of(art_id, layer, PORTRAIT_SIZE).duplicate()
 		for k in range(0, pixels.size(), 5):
 			if pixels[k + 3] == FIXED_SLOT:  # (lines: the ink itself, not its deepest shadow)
 				pixels[k + 2] = BASE_STEP

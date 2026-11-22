@@ -25,7 +25,7 @@ DOWN_VALUE, UP_VALUE, BLUE_HUE, WARM_HUE = 0.72, 0.35, 0.64, 0.11
 BULBS = [(621.0, 155.0), (1251.0, 155.0)]
 SEAT_X = [470.0, 760.0, 1050.0, 1340.0, 1630.0]
 FIXED = ["2a2a33", "1a1a20", "eef0f2", "9cc4e4", "8a2a35", "efe6d2", "f2c14a", "f5f2ea", "8a5a33", "cdb894",
-         "3a3946", "c8443a", "5a3a2a", "2f8f4e"]
+         "3a3946", "c8443a", "5a3a2a", "2f8f4e", "8ec8f0", "f2899a"]
 PEOPLE = [  # skin, hair, cloth, clothes, hair style
     ("e0b48e", "222026", "3a5a8a", "knit", "ponytail"),
     ("c99a74", "8a8c96", "4a3a2a", "padded", "short"),

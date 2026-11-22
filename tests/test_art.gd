@@ -8,6 +8,7 @@ const StreetArt = preload("res://scripts/bar/street_art.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const BarLook = preload("res://scripts/rules/bar_look.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
 
 const FIXTURES := "res://tests/support/art/"  # a lucky cat, and an entry whose file's missing
 
@@ -131,6 +132,13 @@ func test_portraits_are_by_gender_age_hairstyle_and_glasses() -> void:
 	assert_array(ids).contains(["w_20s_long", "w_60s_perm_glasses", "m_70s_balding", "m_30s_two_block_glasses"])
 	assert_array(ids).not_contains(["x_20s_long", "w_90s_long", "w_20s_mohawk"])
 	assert_int(ids.size()).is_equal(2 * Looks.AGE_RANGES.size() * Looks.HAIR_STYLES.size() * 2)
+
+
+func test_reaction_faces_are_each_portrait_in_each_tv_mood() -> void:
+	var ids := Art.ids("reaction")
+	assert_array(ids).contains(["w_20s_long_shock", "w_60s_perm_glasses_sad", "m_70s_balding_roast", "m_30s_two_block_glasses_sweet"])
+	assert_array(ids).not_contains(["w_20s_long", "w_20s_long_angry", "w_20s_long_glasses"])
+	assert_int(ids.size()).is_equal(Art.ids("portrait").size() * Captions.REACTIONS.size())
 
 
 func test_the_games_art_folder_passes() -> void:

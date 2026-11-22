@@ -34,7 +34,8 @@ def fixed_colours():
 
 def fixed(name):
     return {"trousers": 0, "ink": 1, "white_shirt": 2, "blue_shirt": 3, "tie": 4, "cream": 5, "gold": 6,
-            "apron": 7, "strap": 8, "tote": 9, "backpack": 10, "hair_tie": 11, "briefcase": 12, "bottle": 13}[name]
+            "apron": 7, "strap": 8, "tote": 9, "backpack": 10, "hair_tie": 11, "briefcase": 12, "bottle": 13,
+            "tear": 14, "blush": 15}[name]  # (the last two: the reaction faces', portraits.py)
 
 
 class Layer:
