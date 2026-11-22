@@ -5,8 +5,9 @@ extends RefCounted
 ## clothes the way the library's are (ui/people_art.gd portrait()). It's portraits.py's split
 ## (cut_background, parts, steps_of, to_grid, layer, score) ported line for line, to give the same
 ## answer: tests/test_portrait_split.gd checks it against the Python's on the library's pictures.
-## The reaction faces' own colours (eye whites, tears, a blush) are in the grid and the encoding;
-## finding them in a picture (react_parts) comes with the reaction faces.
+## And the reaction split (react_split: a face redrawn in a TV mood, cut to a close-up, with its own
+## colours, the eye whites, tears and a blush, kept as fixed ones; react_score and best() to pick
+## between seeds), ported the same way and checked in tests/test_reaction_split.gd.
 ## (Part of the game's rules: pure functions and the tables they use, with any dice rolls
 ## passed in, so they can be tested on their own. See ARCHITECTURE.md.)
 
@@ -30,6 +31,10 @@ const LINE_SHARE := 0.22  # a line wins a game pixel it's this much of
 const HAIR_MIN := 0.003  # a dark area this much of the picture (after the opening) is hair, not a line
 const BG_CLOSE := 45.0  # pixelate.py: this close (Lab) to the edges' colour, and joined to an edge, is background
 const EYES := [0.32, 0.52]  # the band of the portrait (top to bottom) the eyes and glasses are in
+const CLOSE_UP := [0.56, 0.08]  # a reaction face's close-up: the middle 56% across, from 8% down, 4:5
+const CLOSE_SCALE := 7  # picture pixels per game pixel while splitting a close-up
+const MOOD_NEEDS := {"sad": [TEAR, 3], "sweet": [BLUSH, 6], "shock": [WHITE, 6]}  # a mood's own colour, and how many pixels of it
+const NO_MOOD := 0.3  # a candidate without its mood's colour scores this much worse
 
 static var _linear := PackedFloat64Array()  # sRGB 0..255 to linear light, worked out once
 
@@ -55,8 +60,9 @@ static func split(picture: Image, name: String = "") -> Dictionary:
 		"ms": Time.get_ticks_msec() - started}
 
 
-## Which of several splits of the same person to pre-pick: the index of the lowest score (the
-## lowest seed if two tie, as portraits.py's min()). candidates: [{"score", "seed"}...]; -1 if none.
+## Which of several splits of the same person (or of one mood's seeds) to pre-pick: the index of the
+## lowest score (the lowest seed if two tie, as portraits.py's min()). candidates: [{"score",
+## "seed"}...]; -1 if none.
 static func best(candidates: Array) -> int:
 	var at := -1
 	for k in candidates.size():
@@ -96,33 +102,18 @@ static func _lab_of_linear(r: float, g: float, b: float) -> PackedFloat64Array:
 # --- The picture's parts -----------------------------------------------------------------------
 
 ## Each picture pixel's part (EMPTY for the background, SKIN, HAIR, CLOTH, LINE) and its Lab
-## lightness: {"part": PackedInt32Array, "L": PackedFloat64Array}. image: RGBA8.
-static func parts_of(image: Image) -> Dictionary:
+## colour: {"part": PackedInt32Array, "L", "a", "b": PackedFloat64Array}. image: RGBA8. given_fg:
+## the foreground (1s and 0s), if it's known already (a close-up's: react_parts()).
+static func parts_of(image: Image, given_fg: PackedByteArray = PackedByteArray()) -> Dictionary:
 	var w := image.get_width()
 	var h := image.get_height()
 	var n := w * h
 	var data := image.get_data()
-	if _linear.is_empty():
-		_linear.resize(256)
-		for v in 256:
-			_linear[v] = _lin(v)
-	var light := PackedFloat64Array()
-	var aa := PackedFloat64Array()
-	var bb := PackedFloat64Array()
-	light.resize(n)
-	aa.resize(n)
-	bb.resize(n)
-	for i in n:
-		var r := _linear[data[i * 4]]
-		var g := _linear[data[i * 4 + 1]]
-		var b := _linear[data[i * 4 + 2]]
-		var fx := _f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047)
-		var fy := _f(r * 0.2126 + g * 0.7152 + b * 0.0722)
-		var fz := _f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883)
-		light[i] = 116.0 * fy - 16.0
-		aa[i] = 500.0 * (fx - fy)
-		bb[i] = 200.0 * (fy - fz)
-	var fg := cut_background(data, w, h, light, aa, bb)
+	var lab := _lab_of(data, n)
+	var light: PackedFloat64Array = lab[0]
+	var aa: PackedFloat64Array = lab[1]
+	var bb: PackedFloat64Array = lab[2]
+	var fg := given_fg if not given_fg.is_empty() else cut_background(data, w, h, light, aa, bb)
 	var cloth := PackedByteArray()
 	var hairish := PackedByteArray()
 	cloth.resize(n)
@@ -152,7 +143,32 @@ static func parts_of(image: Image) -> Dictionary:
 			part[i] = LINE
 		else:
 			part[i] = SKIN
-	return {"part": part, "L": light}
+	return {"part": part, "L": light, "a": aa, "b": bb}
+
+
+## Every pixel's Lab colour (as palette.py's to_lab): [L, a, b], a PackedFloat64Array each.
+static func _lab_of(data: PackedByteArray, n: int) -> Array:
+	if _linear.is_empty():
+		_linear.resize(256)
+		for v in 256:
+			_linear[v] = _lin(v)
+	var light := PackedFloat64Array()
+	var aa := PackedFloat64Array()
+	var bb := PackedFloat64Array()
+	light.resize(n)
+	aa.resize(n)
+	bb.resize(n)
+	for i in n:
+		var r := _linear[data[i * 4]]
+		var g := _linear[data[i * 4 + 1]]
+		var b := _linear[data[i * 4 + 2]]
+		var fx := _f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047)
+		var fy := _f(r * 0.2126 + g * 0.7152 + b * 0.0722)
+		var fz := _f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883)
+		light[i] = 116.0 * fy - 16.0
+		aa[i] = 500.0 * (fx - fy)
+		bb[i] = 200.0 * (fy - fz)
+	return [light, aa, bb]
 
 
 ## The foreground (1) and background (0), as pixelate.py's cut_background: the picture's own
@@ -396,6 +412,159 @@ static func layer(part: PackedInt32Array, step: PackedInt32Array, width: int = W
 		data[i * 4 + 2] = int(FIXED_OF[p]) * 8 if fixed else 0
 		data[i * 4 + 3] = 255 if p >= 0 else 0
 	return Image.create_from_data(width, height, false, Image.FORMAT_RGBA8, data)
+
+
+# --- The reaction faces: a mood's picture, its close-up and its own colours ----------------------
+
+## A face redrawn in a TV mood to its close-up on the grid, as portraits.py's react_split (uncached):
+## {"part", "step", "layer" (as split()'s), "face": the close-up it split (W x H at CLOSE_SCALE,
+## the background cut away), "ms"}. The background's cut from the whole picture, at half size; a
+## close-up's edges are face and hair, which the cut would take for the background. (Godot's
+## Lanczos isn't PIL's, so this is near the Python's, not the same: react_grid() on the Python's
+## own close-up is.)
+static func react_split(picture: Image) -> Dictionary:
+	var started := Time.get_ticks_msec()
+	var grid := react_grid(react_face(picture))
+	grid["ms"] = Time.get_ticks_msec() - started
+	return grid
+
+
+## A picture's close-up at the split's size, its background cut away (alpha), as portraits.py's react_face.
+static func react_face(picture: Image) -> Image:
+	var whole := picture.duplicate() as Image
+	if whole.get_format() != Image.FORMAT_RGBA8:
+		whole.convert(Image.FORMAT_RGBA8)
+	var w := whole.get_width()
+	var h := whole.get_height()
+	var half := whole.duplicate() as Image
+	half.resize(w / 2, h / 2, Image.INTERPOLATE_LANCZOS)
+	var half_data := half.get_data()
+	var half_lab := _lab_of(half_data, half.get_width() * half.get_height())
+	var half_fg := cut_background(half_data, half.get_width(), half.get_height(), half_lab[0], half_lab[1], half_lab[2])
+	var data := whole.get_data()
+	var sw := half.get_width()
+	var sh := half.get_height()
+	for y in h:  # (the half-size cut back to the whole picture, picked nearest, as PIL's resize)
+		var from_y := int((y + 0.5) * sh / h) * sw
+		for x in w:
+			data[(y * w + x) * 4 + 3] = 255 if half_fg[from_y + int((x + 0.5) * sw / w)] == 1 else 0
+	whole = Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, data)
+	var face := close_up(whole)
+	face.resize(W * CLOSE_SCALE, H * CLOSE_SCALE, Image.INTERPOLATE_LANCZOS)
+	return face
+
+
+## The picture cut to the face (CLOSE_UP), still 4:5, as portraits.py's close_up.
+static func close_up(picture: Image) -> Image:
+	var w := picture.get_width()
+	var h := picture.get_height()
+	var cw := int(_round_even(w * float(CLOSE_UP[0])))
+	var ch := int(_round_even(cw * float(H) / W))
+	var x := (w - cw) / 2
+	var y := int(_round_even(h * float(CLOSE_UP[1])))
+	return picture.get_region(Rect2i(x, y, cw, mini(h, y + ch) - y))
+
+
+## A close-up (react_face()) on the grid: {"part", "step", "layer", "face"}.
+static func react_grid(face: Image) -> Dictionary:
+	var image := face
+	if image.get_format() != Image.FORMAT_RGBA8:
+		image = face.duplicate() as Image
+		image.convert(Image.FORMAT_RGBA8)
+	var found := react_parts(image)
+	var grid := to_grid(found["part"], steps_of(found["part"], found["L"]), image.get_width(), image.get_height())
+	grid["layer"] = layer(grid["part"], grid["step"])
+	grid["face"] = image
+	return grid
+
+
+## parts_of() a close-up (its foreground its own alpha), and on the skin the reaction faces' own
+## colours, as portraits.py's react_parts: the whites of the eyes and teeth (very light, no colour),
+## tears (light and blue), a blush (light and pink, bluer than lips or a mouth); a later one wins.
+static func react_parts(image: Image) -> Dictionary:
+	var data := image.get_data()
+	var n := image.get_width() * image.get_height()
+	var fg := PackedByteArray()
+	fg.resize(n)
+	for i in n:
+		fg[i] = 1 if data[i * 4 + 3] >= 128 else 0
+	var found := parts_of(image, fg)
+	var part: PackedInt32Array = found["part"]
+	var light: PackedFloat64Array = found["L"]
+	var aa: PackedFloat64Array = found["a"]
+	var bb: PackedFloat64Array = found["b"]
+	for i in n:
+		if part[i] != SKIN:
+			continue
+		var l := light[i]
+		var a := aa[i]
+		var b := bb[i]
+		if l > 60.0 and a > 28.0 and b < 0.4 * a:
+			part[i] = BLUSH
+		elif l > 70.0 and b < -3.0 and a < 2.0:
+			part[i] = TEAR
+		elif l > 92.0 and sqrt(a * a + b * b) < 6.0:
+			part[i] = WHITE
+	found["part"] = part
+	return found
+
+
+## How good a mood's candidate is (lower is better), as portraits.py's react_score: the same hair and
+## outline as the calm close-up's (a different person's the risk), its mood's own colour there
+## (MOOD_NEEDS), and not all lines. part, calm: grids (W x H) from react_split().
+static func react_score(part: PackedInt32Array, calm: PackedInt32Array, mood: String) -> float:
+	var hair_both := 0
+	var hair_either := 0
+	var drawn_both := 0
+	var drawn_either := 0
+	var lines := 0
+	var drawn := 0
+	var needed := -100
+	var least := 0
+	if MOOD_NEEDS.has(mood):
+		needed = int(MOOD_NEEDS[mood][0])
+		least = int(MOOD_NEEDS[mood][1])
+	var own := 0
+	for i in part.size():
+		var p := part[i]
+		var c := calm[i]
+		if p == HAIR or c == HAIR:
+			hair_either += 1
+			if p == HAIR and c == HAIR:
+				hair_both += 1
+		if p >= 0 or c >= 0:
+			drawn_either += 1
+			if p >= 0 and c >= 0:
+				drawn_both += 1
+		if p >= 0:
+			drawn += 1
+		if p == LINE:
+			lines += 1
+		if p == needed:
+			own += 1
+	var bad := (1.0 - _overlap(hair_both, hair_either)) + (1.0 - _overlap(drawn_both, drawn_either))
+	if MOOD_NEEDS.has(mood) and own < least:
+		bad += NO_MOOD
+	return bad + 6.0 * maxf(0.0, lines / float(maxi(1, drawn)) - 0.15)
+
+
+## How many of a grid's game pixels are each of the reaction faces' own colours: {"white", "tear", "blush"}.
+static func colours(part: PackedInt32Array) -> Dictionary:
+	var out := {"white": 0, "tear": 0, "blush": 0}
+	for p in part:
+		match p:
+			WHITE:
+				out["white"] += 1
+			TEAR:
+				out["tear"] += 1
+			BLUSH:
+				out["blush"] += 1
+	return out
+
+
+## How much two masks are the same: shared over either (1 if neither has any), as portraits.py's overlap.
+static func _overlap(both: int, either: int) -> float:
+	return both / float(either) if either > 0 else 1.0
 
 
 # --- Judging a split -----------------------------------------------------------------------------

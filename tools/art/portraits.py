@@ -19,7 +19,8 @@ in PROMPT below): black, red and skin are far apart, so the picture splits into 
     python3 tools/art/portraits.py --react-keep  (the reaction picks into art/reactions/, the manifest and LICENSE-ASSETS)
     python3 tools/art/portraits.py --self-test
     python3 tools/art/portraits.py --expect tests/support/portraits   (what the game's own split, scripts/rules/
-        portrait_split.gd, should make of the pictures there: each one's layer and expected.json, for its test)
+        portrait_split.gd, should make of the pictures there: each one's layer and expected.json, for its test;
+        a folder of react_ pictures, as tests/support/reactions, gets the reaction split's close-ups, layers and picks)
 
 What it does, for each picture:
  1. Cuts the background out (pixelate.py's cut_background).
@@ -540,18 +541,27 @@ def react_split(path):
     if os.path.exists(cached) and os.path.getmtime(cached) >= os.path.getmtime(path):
         got = np.load(cached)
         return got["part"], got["step"]
-    whole = Image.open(path).convert("RGBA")
+    gp, gs = react_grid(react_face(Image.open(path)))
+    os.makedirs(REACT_CACHE, exist_ok=True)
+    np.savez_compressed(cached, part=gp, step=gs)
+    return gp, gs
+
+
+def react_face(picture):
+    """A picture's close-up at the split's size (W x H at CLOSE_SCALE), its background cut away (alpha)."""
+    whole = picture.convert("RGBA")
     # The background's cut from the whole picture (at half size, for speed): a close-up's edges are
     # face and hair, which cut_background would take for the background.
     half = whole.resize((whole.width // 2, whole.height // 2), Image.LANCZOS)
     fg = Image.fromarray(pixelate.cut_background(np.asarray(half)).astype(np.uint8) * 255).resize(whole.size, Image.NEAREST)
     whole.putalpha(fg)
-    face = close_up(whole).resize((W * CLOSE_SCALE, H * CLOSE_SCALE), Image.LANCZOS)
+    return close_up(whole).resize((W * CLOSE_SCALE, H * CLOSE_SCALE), Image.LANCZOS)
+
+
+def react_grid(face):
+    """A close-up (react_face()) on the grid: (part, step)."""
     part, L = react_parts(np.asarray(face))
-    gp, gs = to_grid(part, steps_of(part, L))
-    os.makedirs(REACT_CACHE, exist_ok=True)
-    np.savez_compressed(cached, part=gp, step=gs)
-    return gp, gs
+    return to_grid(part, steps_of(part, L))
 
 
 def overlap(x, y):
@@ -709,6 +719,40 @@ def react_self_test():
     return not problems
 
 
+def react_expect(folder):
+    """expect() for a folder of reaction faces: one calm picture (portrait_<id>_<seed>.png) and its moods'
+    candidates (react_<id>_<mood>_<seed>.png). For each, <same>_face.png (the Python's close-up, so the
+    game's split can be checked on it exactly) and <same>_layer.png; each candidate's score and its moods'
+    own colours in expected.json, and each mood's pick."""
+    import json
+    names = sorted(n for n in os.listdir(folder) if n.endswith(".png") and not n.endswith(("_layer.png", "_face.png")))
+    calm = [n for n in names if n.startswith("portrait_")]
+    assert len(calm) == 1, "one calm picture (portrait_<id>_<seed>.png), not %d" % len(calm)
+    grids = {}
+    for name in names:
+        face = react_face(Image.open(os.path.join(folder, name)))
+        face.save(os.path.join(folder, name.replace(".png", "_face.png")))
+        gp, gs = react_grid(face)
+        layer(gp, gs).save(os.path.join(folder, name.replace(".png", "_layer.png")))
+        grids[name] = gp
+    ident = re.match(r"portrait_(.+)_\d+\.png$", calm[0]).group(1)
+    calm_gp = grids[calm[0]]
+    out, scored = {}, {}
+    for name in names:
+        if name == calm[0]:
+            continue
+        mood, seed = re.match(r"react_%s_([a-z]+)_(\d+)\.png$" % re.escape(ident), name).groups()
+        gp = grids[name]
+        sc = react_score(gp, calm_gp, mood)
+        out[name] = {"mood": mood, "seed": int(seed), "score": sc,
+                     "colours": {"white": int((gp == WHITE).sum()), "tear": int((gp == TEAR).sum()), "blush": int((gp == BLUSH).sum())}}
+        scored.setdefault(mood, []).append((sc, int(seed)))
+    picks = {mood: min(s)[1] for mood, s in scored.items()}
+    with open(os.path.join(folder, "expected.json"), "w", encoding="utf-8") as f:
+        json.dump({"id": ident, "calm": calm[0], "pictures": out, "picks": picks}, f, indent=1)
+    print("%s: %s and %d candidates, picks %s" % (folder, calm[0], len(out), picks))
+
+
 def expect(folder):
     """The Python's answer for the game's port of the split (scripts/rules/portrait_split.gd) to be checked
     against: for each picture in folder (portrait_<id>_<seed>.png), <same>_layer.png and its score and
@@ -747,7 +791,7 @@ if __name__ == "__main__":
     if a.self_test:
         sys.exit(0 if self_test() and react_self_test() else 1)
     if a.expect:
-        expect(a.expect)
+        (react_expect if any(n.startswith("react_") for n in os.listdir(a.expect)) else expect)(a.expect)
         sys.exit(0)
     if a.react_pick:
         react_pick_sheets(a.react_pick, a.only.split(",") if a.only else None)

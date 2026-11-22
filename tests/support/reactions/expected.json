@@ -1,0 +1,71 @@
+{
+ "id": "m_40s_side_part",
+ "calm": "portrait_m_40s_side_part_8902.png",
+ "pictures": {
+  "react_m_40s_side_part_sad_41410.png": {
+   "mood": "sad",
+   "seed": 41410,
+   "score": 0.42215934082045564,
+   "colours": {
+    "white": 51,
+    "tear": 0,
+    "blush": 0
+   }
+  },
+  "react_m_40s_side_part_sad_41411.png": {
+   "mood": "sad",
+   "seed": 41411,
+   "score": 0.1250359416317648,
+   "colours": {
+    "white": 26,
+    "tear": 36,
+    "blush": 0
+   }
+  },
+  "react_m_40s_side_part_shock_41400.png": {
+   "mood": "shock",
+   "seed": 41400,
+   "score": 0.18020167361816664,
+   "colours": {
+    "white": 107,
+    "tear": 0,
+    "blush": 0
+   }
+  },
+  "react_m_40s_side_part_shock_41401.png": {
+   "mood": "shock",
+   "seed": 41401,
+   "score": 0.1732715656389513,
+   "colours": {
+    "white": 122,
+    "tear": 0,
+    "blush": 0
+   }
+  },
+  "react_m_40s_side_part_sweet_41420.png": {
+   "mood": "sweet",
+   "seed": 41420,
+   "score": 0.10329301208317665,
+   "colours": {
+    "white": 42,
+    "tear": 0,
+    "blush": 260
+   }
+  },
+  "react_m_40s_side_part_sweet_41421.png": {
+   "mood": "sweet",
+   "seed": 41421,
+   "score": 0.09145412770645955,
+   "colours": {
+    "white": 21,
+    "tear": 0,
+    "blush": 181
+   }
+  }
+ },
+ "picks": {
+  "sad": 41411,
+  "shock": 41401,
+  "sweet": 41421
+ }
+}
