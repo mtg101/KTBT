@@ -142,3 +142,39 @@ func test_the_hover_shows_their_face_beside_the_words() -> void:
 ## Whether two colours are the same at 8 bits a channel (a pixel against a ramp's step).
 func _same(pixel: Color, step: Color) -> bool:
 	return absi(step.r8 - pixel.r8) <= 1 and absi(step.g8 - pixel.g8) <= 1 and absi(step.b8 - pixel.b8) <= 1
+
+
+# --- Faces of their own ---------------------------------------------------------------------------
+
+func test_a_face_of_their_own_is_asked_for_in_the_librarys_style_and_colours() -> void:
+	var prompt := PortraitRules.prompt_for("woman", {"age_range": "60s", "hair": "perm", "hair_colour": "grey", "glasses": true}, 63,
+		"A small, quick woman in a padded vest, grey curls under a headscarf, always wiping the counter.")
+	assert_str(prompt).starts_with("Head and shoulders portrait of a Korean woman in her sixties with very curly, tightly permed short black hair")
+	assert_str(prompt).contains("lines and wrinkles on her face, and thin-framed glasses")
+	assert_str(prompt).contains("Who they are: A small, quick woman in a padded vest, grey curls under a headscarf, always wiping the counter.")
+	assert_str(prompt).contains("Whatever the description says, black hair and a plain bright red top.")  # (said again after the description's own colours)
+	assert_str(prompt).ends_with("Plain flat green background, no text.")
+	var plain := PortraitRules.prompt_for("man", {"age_range": "30s", "hair": "two_block"})
+	assert_str(plain).contains("man in his thirties with black hair in a two-block cut").contains("and no glasses").not_contains("Who they are")
+
+
+func test_a_long_description_is_cut_to_a_line() -> void:
+	var about := "word ".repeat(100)
+	var prompt := PortraitRules.prompt_for("man", {"age_range": "40s", "hair": "short"}, 0, about)
+	var line := prompt.get_slice("Who they are: ", 1).get_slice("...", 0)
+	assert_int(line.length()).is_less_equal(PortraitRules.ABOUT_MOST)
+	assert_str(prompt).contains("word...")
+
+
+func test_a_face_of_their_own_has_an_id_of_its_own_and_is_painted_like_the_librarys() -> void:
+	assert_str(PortraitRules.own_key("ggwa-pocha-1794600000", "owner", 81230)).is_equal("own_ggwa-pocha-1794600000_owner_81230")
+	assert_bool(PortraitRules.is_own("own_x_owner_1")).is_true()
+	assert_bool(PortraitRules.is_own("w_20s_long")).is_false()
+	var key: String = _library()[0]
+	var layer := Art.texture("portrait/" + key).get_image()
+	var from_art := PeopleArt.portrait(STUDENT, key).get_image()
+	var from_layer := PeopleArt.paint_portrait(STUDENT, layer).get_image()  # (a casting photo's split, not art yet)
+	assert_bool(from_layer.get_data() == from_art.get_data()).override_failure_message("a layer painted another way").is_true()
+	Art.own["portrait/own_test_owner_1"] = ImageTexture.create_from_image(layer)  # (one of their own: drawn as the library's are)
+	assert_bool(PeopleArt.portrait(STUDENT, "own_test_owner_1").get_image().get_data() == from_art.get_data()).is_true()
+	Art.own.erase("portrait/own_test_owner_1")

@@ -82,7 +82,7 @@ func _wait_until(condition: Callable, timeout_ms := TIMEOUT_MS) -> bool:
 ## only just appeared may not be in its place yet.
 ## (Not gdUnit's simulate_mouse_*: they move the real mouse pointer, which grabs it while
 ## the tests run, and in headless runs on Windows the clicks never arrive at all.)
-func _click(_runner: GdUnitSceneRunner, button: Button) -> void:
+func _click(_runner: GdUnitSceneRunner, button: BaseButton) -> void:
 	for i in 3:
 		await get_tree().process_frame
 	var at := button.get_global_rect().get_center()

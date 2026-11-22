@@ -72,6 +72,9 @@ static var recaps := true
 ## Whether the AI names the show's niece or nephew and its channels (off: the game's own names,
 ## without asking, so tests' scripted replies go where they're meant).
 static var channels := true
+## Pictures (Images) the portrait maker (ai/portrait_maker.gd) hands back instead of asking
+## ComfyUI, in turn, even offline: [] for ComfyUI itself (and none offline).
+static var fake_comfy: Array = []
 ## false: last night's episode titles come from the game's templates (Story.stitched_titles), not the AI.
 static var titles := true
 ## false: 3am's posts have the game's own words (Socials.stitched_words), not the AI's.
@@ -121,6 +124,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	diaries = false
 	recaps = false
 	channels = false
+	fake_comfy = []
 	titles = false
 	socials = false
 	viewers = false
@@ -167,6 +171,7 @@ static func restore() -> void:
 	diaries = true
 	recaps = true
 	channels = true
+	fake_comfy = []
 	titles = true
 	socials = true
 	viewers = true

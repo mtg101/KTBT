@@ -100,6 +100,9 @@ static var folder := "res://art/"
 static var used := {}  # key -> "image", "drawn" (in code) or "broken" (its image wouldn't load)
 static var _manifest = null  # (read once)
 static var _textures := {}
+## Faces of people's own (ai/portrait_maker.gd), made during the game and kept with the bar, not
+## in the art folder: "portrait/own_..." -> the layer's texture. Kept through reset(), as they're the bar's.
+static var own := {}
 
 
 ## Forget everything read (after changing folder).
@@ -130,6 +133,8 @@ static func has(key: String) -> bool:
 
 ## The image for a key, or null (none, or it wouldn't load: an error, once).
 static func texture(key: String) -> Texture2D:
+	if own.has(key):
+		return own[key]
 	if _textures.has(key):
 		return _textures[key]
 	var found: Texture2D = null

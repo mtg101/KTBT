@@ -14,6 +14,7 @@ const MenuChanges = preload("res://scripts/rules/menu_changes.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
 const Channels = preload("res://scripts/rules/channels.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
+const PortraitRules = preload("res://scripts/rules/portraits.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -191,6 +192,82 @@ func test_the_pd_sets_up_a_new_show_and_the_bar_waits_for_them() -> void:
 	assert_str(scene._stats.panel_text(0, 0)).contains("Setup: the show starts on video (the PD's)")
 	var beside := (runner.find_child("RatingsLabel") as Label).text  # the Korean, and the English beside it
 	assert_str(beside).starts_with("구독자 subscribers ").not_contains("+").ends_with("·  online video channel")  # (the channel's total subscribers)
+
+
+# --- Faces of their own (ai/portrait_maker.gd: here from the test's pictures, not ComfyUI) -----------
+
+const CASTING := ["portrait_m_50s_balding_glasses_9050.png", "portrait_m_50s_balding_glasses_9051.png", "portrait_m_50s_balding_glasses_9052.png"]
+const FACES_WAIT_MS := 90000  # (each picture's split takes a few seconds)
+
+
+func _casting_pictures() -> Array:
+	return CASTING.map(func(file): return Image.load_from_file(ProjectSettings.globalize_path("res://tests/support/portraits/" + file)))
+
+
+func test_a_new_bars_owner_gets_a_face_of_their_own() -> void:
+	Hooks.fake_comfy = _casting_pictures()
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open, FACES_WAIT_MS)).override_failure_message("the bar never opened").is_true()
+	var face: Dictionary = Game.bar["owner"].get("face", {})
+	assert_dict(face).is_not_empty()
+	var scores: Array = scene._casting_photos.map(func(photo): return snappedf(float(photo["score"]), 0.001))
+	assert_float(float(face["score"])).is_equal(scores.min())  # (the game's pick: the cleanest split)
+	assert_str(str(face["by"])).is_equal("game")
+	assert_str(str(face["key"])).is_equal(PortraitRules.own_key(str(Game.bar["id"]), "owner", int(face["seed"])))
+	var id := str(Game.bar["id"])
+	assert_object(SaveStore.load_picture(id, str(face["file"]))).is_not_null()  # (kept with the bar: the layer, and the model's picture)
+	assert_object(SaveStore.load_picture(id, str(face["picture"]))).is_not_null()
+	assert_str(str(SaveStore.load_bar(id)["owner"]["face"]["key"])).is_equal(str(face["key"]))  # (saved)
+	var hover = scene._owner_node.get_node("Hover")
+	assert_str(hover.picked_how).is_equal("own")
+	assert_str(hover.picked_key).is_equal(str(face["key"]))
+	assert_int(int(scene._stats.portraits.get("own", 0))).is_equal(1)
+	var panel: String = scene._stats.panel_text(0, 0)
+	assert_str(panel).contains("Faces of their own: the owner's (picked by the game, score %.3f) · 3 made, 0 failed · the test's pictures" % float(face["score"]))
+	assert_str(panel).contains("Portraits: their own 1 · ")
+	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
+
+
+func test_offline_the_owner_keeps_the_librarys_face() -> void:
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	assert_bool(Game.bar["owner"].has("face")).is_false()
+	assert_str(scene._owner_node.get_node("Hover").picked_how).is_not_equal("own")
+	assert_str(scene._stats.panel_text(0, 0)).contains("Faces of their own: the owner keeps the library's (offline: chosen in the AI settings)")
+
+
+func test_the_pd_picks_another_casting_photo_and_has_three_more_taken() -> void:
+	Hooks.fake_comfy = _casting_pictures()
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	var enter := InputEventKey.new()
+	enter.keycode = KEY_ENTER
+	enter.pressed = true
+	scene._unhandled_input(enter)
+	var setup = runner.find_child("ShowSetup", true, false)
+	assert_object(setup).is_not_null()
+	assert_str((setup.find_child("CastingNote", true, false) as Label).text).contains("once the tent's up")  # (before the photographer comes)
+	assert_bool(await _wait_until(func(): return setup.find_child("CastingPhoto_2", true, false) != null and not scene._casting, FACES_WAIT_MS)).override_failure_message("no casting photos").is_true()
+	assert_str((setup.find_child("CastingNote", true, false) as Label).text).contains("the game's picked")
+	var picked: int = scene._casting_pick
+	var other := (picked + 1) % 3
+	await _click(runner, setup.find_child("CastingPhoto_%d" % other, true, false))
+	assert_bool(await _wait_until(func(): return scene._casting_pick == other)).override_failure_message("the PD's pick wasn't taken").is_true()
+	assert_str(str(Game.bar["owner"]["face"]["by"])).is_equal("pd")
+	assert_int(int(Game.bar["owner"]["face"]["seed"])).is_equal(int(scene._casting_photos[other]["seed"]))
+	var frame := setup.find_child("CastingFrame_%d" % other, true, false) as PanelContainer
+	assert_int((frame.get_theme_stylebox("panel") as StyleBoxFlat).border_width_left).is_equal(5)  # (framed: the face on the show)
+	var first_seeds: Array = scene._casting_photos.map(func(photo): return photo["seed"])
+	await _click(runner, setup.find_child("CastingReshoot", true, false))
+	assert_bool(await _wait_until(func(): return scene._casting_rounds == 2 and not scene._casting, FACES_WAIT_MS)).override_failure_message("never reshot").is_true()
+	assert_array(scene._casting_photos.map(func(photo): return photo["seed"])).not_contains(first_seeds)  # (three new ones)
+	assert_bool(scene._night_open).is_false()  # (the bar waits for the PD)
+	await _click(runner, setup.find_child("SetupDone", true, false))
+	assert_bool(await _wait_until(func(): return scene._night_open)).override_failure_message("the bar never opened").is_true()
+	var panel: String = scene._stats.panel_text(0, 0)
+	assert_str(panel).contains("Faces of their own: the owner's (picked by the PD").contains("6 made, 0 failed · 2 rounds")
 
 
 func test_a_new_bar_gets_its_niece_or_nephew_and_its_stream() -> void:

@@ -177,3 +177,21 @@ func _go_offline(reason: String) -> void:
 	offline = true
 	offline_reason = reason
 	offline_started.emit(reason)
+
+
+## Lets the GPU go: asks Ollama to unload the model now (keep_alive 0), so the image model has
+## the GPU to itself (ai/portrait_maker.gd); the next ask loads it again. Whether Ollama said
+## yes (false offline, or if it didn't answer). Use with await.
+func let_go() -> bool:
+	if offline or simulate_unreachable:
+		return false
+	var http := HTTPRequest.new()
+	http.timeout = SERVER_CHECK_SECONDS * 4.0
+	add_child(http)
+	var body := JSON.stringify({"model": str(settings["model"]), "keep_alive": 0})
+	var done := false
+	if http.request(str(settings["server"]) + "/api/generate", PackedStringArray(["Content-Type: application/json"]), HTTPClient.METHOD_POST, body) == OK:
+		var result: Array = await http.request_completed
+		done = result[0] == HTTPRequest.RESULT_SUCCESS and result[1] == 200
+	http.queue_free()
+	return done

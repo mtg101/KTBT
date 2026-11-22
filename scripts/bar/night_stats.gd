@@ -42,7 +42,8 @@ var gestures := {}  # gestures, by kind: customers' "drink" (a glass raised), "e
 var card_turns := 0  # someone a card had just happened to, turned to first (before a greeting or a chat)
 var worn_let_through := 0  # lines let through with a worn-out phrase, rather than a chat given up
 var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
-## Portraits in people's hovers (visit.gd _give_portrait): "matched" (their own), "fallback" (the
+## Portraits in people's hovers (visit.gd _give_portrait): "own" (a face made for them, kept with the
+## bar: ai/portrait_maker.gd), "matched" (the library's for their look), "fallback" (the
 ## nearest the library had), "none" (no portrait), one each per person; "seen": hovers opened with one;
 ## the cat's: "cat_face" (its coat's portrait) or "cat_none", and "cat_seen" (its hover opened with it).
 var portraits := {}
@@ -918,6 +919,8 @@ func panel_text(seated: int, cooking: int) -> String:
 			(" · booked tonight: %s (by the %s)" % [story["booked"]["channel"], story["booked"]["by"]]) if story.get("booked", {}) is Dictionary and not story.get("booked", {}).is_empty() else ""])
 	if story.get("setup", {}) is Dictionary and not story.get("setup", {}).is_empty():  # (a new bar: the PD set the show up)
 		lines.append("Setup: the show starts on %s (the PD's)" % story["setup"].get("rung", "?"))
+	if story.get("faces", {}) is Dictionary and not story.get("faces", {}).is_empty():  # (a new bar: faces of their own, ai/portrait_maker.gd)
+		lines.append(faces_text(story["faces"]))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")
@@ -978,8 +981,26 @@ func portraits_text() -> String:
 		cat = " · the cat's face, seen %d" % int(portraits.get("cat_seen", 0))
 	elif portraits.has("cat_none"):
 		cat = " · the cat: NO FACE"
-	return "Portraits: matched %d · fallback %d%s · seen in a hover %d%s" % [int(portraits.get("matched", 0)), int(portraits.get("fallback", 0)),
+	return "Portraits: %smatched %d · fallback %d%s · seen in a hover %d%s" % [("their own %d · " % int(portraits["own"])) if int(portraits.get("own", 0)) > 0 else "", int(portraits.get("matched", 0)), int(portraits.get("fallback", 0)),
 		(" · NONE %d" % int(portraits["none"])) if int(portraits.get("none", 0)) > 0 else "", int(portraits.get("seen", 0)), cat]
+
+
+## Faces of their own made as the bar opened (visit.gd _cast_owner_face): the owner's, or why they
+## keep the library's; the pictures made and failed, the casting rounds, ComfyUI and how long.
+static func faces_text(faces: Dictionary) -> String:
+	var made := " · %d made, %d failed" % [int(faces.get("made", 0)), int(faces.get("failed", 0))] if faces.has("made") else ""
+	var rounds := (" · %d rounds" % int(faces["rounds"])) if int(faces.get("rounds", 1)) > 1 else ""
+	var comfy := ""
+	if bool(faces.get("fake", false)):
+		comfy = " · the test's pictures"
+	elif bool(faces.get("already", false)):
+		comfy = " · ComfyUI was already running"
+	elif bool(faces.get("started", false)):
+		comfy = " · ComfyUI started and %s" % ("stopped" if bool(faces.get("stopped", false)) else "NOT STOPPED")
+	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""
+	if str(faces.get("owner", "")) == "own":
+		return "Faces of their own: the owner's (picked by the %s, score %.3f)%s%s%s%s" % ["PD" if str(faces.get("by", "")) == "pd" else "game", float(faces.get("score", 0.0)), made, rounds, comfy, took]
+	return "Faces of their own: the owner keeps the library's (%s)%s%s%s" % [faces.get("why", "?"), made, comfy, took]
 
 
 ## Faces on the captions tonight: beside them and zooms, and which faces.

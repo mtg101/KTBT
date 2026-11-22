@@ -4,10 +4,13 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Owner and regulars get faces of their own, made during the game:** Klein made for that person (their look plus a line of who they are, from their description), split and repainted onto their own colours like the library faces, so the face always matches them on stage. Only in the gaps when the GPU's free (making the bar, and after closing at 3am), never during a night: Ollama lets go of the model, ComfyUI starts, the pictures are made (about 5 seconds each once loaded), ComfyUI stops. Until a face is ready, and in offline mode, without ComfyUI or when every picture fails, the person keeps their library face. A setting: off, owner only, or owner and regulars.
-  - **1. Godot drives ComfyUI, and the owner's face:** a new `scripts/ai/portrait_maker.gd` doing what the helper does (starting ComfyUI from a path in settings, filling `klein_api.json`'s prompt, `/prompt`, `/history`, `/view`) and the GPU handover with Ollama. At bar creation, three candidates of the owner, split by `rules/portrait_split.gd` and the best auto-picked (`best()`); the PD can step in on the show setup (three casting photos, the pick framed, choose another or reshoot). Saved with the bar (`<bar>/portraits/<person>.png`, its seed with it); `art.gd` looks there first, then the library (`rules/portraits.gd`).
-  - **2. Regulars and their reaction faces:** the first regulars' calm faces at bar creation, a new regular's after closing, auto-picked (none of three splitting cleanly keeps the library face); the PD can recast a regular's face later (three more, pick one). Each face's seven TV moods made by the edit workflow from its calm face after a night closes (the library's moods stand in until then); the moods need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
-  - Counted in the night's stats (custom faces made, failed, still the library's; moods made), logged (ComfyUI started and stopped, each picture, each split's score, each fallback and each PD pick).
+- **Regulars get faces of their own, and everyone's own face their moods:** the owner's is made as a new bar is (`ai/portrait_maker.gd`); the regulars' next, the same way and only in the gaps when the GPU's free (making the bar, and after closing at 3am), with the setting's `owner_and_regulars` (it does the owner only for now).
+  - **Regulars:** the first regulars' calm faces at bar creation, a new regular's after closing (ComfyUI started after the 3am diary and stopped before the next night's first AI call), auto-picked (none of three splitting cleanly keeps the library face); the PD can recast a regular's face later (three more, pick one).
+  - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
+  - Counted in the night's stats (regulars' faces made, failed, still the library's; moods made), logged (as the owner's are: ComfyUI started and stopped, each picture, each split's score, each fallback and each PD pick).
+- tidy up quick stuff
+  - things lie extra PD card, simple text extras, the similar loading screens, etc
+  - get AI to scan this plan for simple stuff to fix
 
 ## Future ideas and improvements
 
@@ -18,7 +21,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
   - **Small touches of flavour:** the channel on the loading screen and "Previously on…"'s card.
   - **The season on TV:** the new season's premiere opening with "Previously on…" over the whole last season (the AI's, from the season page's rows), and the seasons in the diary book (each season's page between its episodes).
-- **Finishing basic of Customers coming in together:**
+- **Finishing basics of Customers coming in together:**
   - **Threes and fours:** three nurses off a night shift, a team after a hoesik; waiting for three stools or squeezing in; a three-way bill fight.
   - **Greeted and ordering together, sometimes:** the owner greets a pair with one welcome ("two of you tonight?"), and one orders for both ("two somaek and the pajeon to share", one line, both served), the game deciding when; the sharing moments (pouring for each other, ssam) made for them.
   - **The story:** who came in with whom in the diary and "Previously on…".
@@ -46,11 +49,13 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - myers briggs (and other astrology ;) 
     - everyone is welcome - Midnight Diner style - doesn't matter who you are what you do, everyone is welcome
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **More social media:** after the posts stage: posts popping up live during the show; the triple+ replay for big events; and for thinking about, how a video post of the night would be made.
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
 - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
   - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
+- **Videos:"**
+  - if we can take pics... why not a video clip?
+  - can be social media or the TV show using it
 
 ### Presentation
 

@@ -3,7 +3,9 @@ extends Control
 ## screen, or Enter) and set the show up before its first episode. Full screen, the game's
 ## defaults picked, so the PD only changes what they want. For now, where the show starts on
 ## the ladder (rules/ladder.gd: a new bar's starts on the phone stream; starting higher skips
-## the climb, mostly for trying the rungs out); more of the show's setup goes here later.
+## the climb, mostly for trying the rungs out), and the owner's casting photos (faces of their
+## own: visit.gd _cast_owner_face shows them here as they come, show_casting; the game's pick
+## framed, the PD can choose another or have three more taken); more of the show's setup goes here later.
 ## Nothing's running while it's open, and the bar waits for it. "Start the show" (Enter) or Esc
 ## closes it with what's picked.
 
@@ -14,6 +16,10 @@ const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
 ## What's chosen: {"rung"}.
 signal finished(choices: Dictionary)
+## The PD picks the owner's face: this round's casting photo k.
+signal face_picked(k: int)
+## The PD wants three more casting photos.
+signal reshoot_wanted
 
 const RED := Color("ff4f6d")  # the camera's red: the PD's
 const WIDTH := 1100.0
@@ -21,6 +27,10 @@ const HEADING_HANGUL := "방송 준비"
 
 var _rung_picks: Array = []  # CheckBoxes, one a rung, lowest first
 var _done := false
+var _casting_note: Label
+var _casting_row: HBoxContainer
+var _reshoot: Button
+const PHOTO_SCALE := 2  # the casting photos: the portrait's pixels two to one, never smoothed
 
 
 func _init() -> void:
@@ -74,6 +84,28 @@ func open(start_with: Dictionary = {}) -> void:
 		indent.add_theme_constant_override("margin_left", 40)
 		indent.add_child(about)
 		box.add_child(indent)
+	box.add_child(_heading("THE OWNER'S CASTING PHOTOS"))
+	_casting_note = _note("The casting photographer comes once the tent's up.")
+	_casting_note.name = "CastingNote"
+	box.add_child(_casting_note)
+	var photos := HBoxContainer.new()
+	photos.add_theme_constant_override("separation", 24)
+	box.add_child(photos)
+	_casting_row = HBoxContainer.new()
+	_casting_row.name = "CastingPhotos"
+	_casting_row.add_theme_constant_override("separation", 16)
+	_casting_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	photos.add_child(_casting_row)
+	_reshoot = Button.new()
+	_reshoot.name = "CastingReshoot"
+	_reshoot.text = "📷  Three more"
+	_reshoot.tooltip_text = Text.tip("Have three more casting photos taken (about half a minute); the game picks the best of them again")
+	_reshoot.focus_mode = Control.FOCUS_NONE
+	_reshoot.add_theme_font_size_override("font_size", 20)
+	_reshoot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_reshoot.visible = false
+	_reshoot.pressed.connect(func(): reshoot_wanted.emit())
+	photos.add_child(_reshoot)
 	var start := Button.new()
 	start.name = "SetupDone"
 	start.text = "Start the show (Enter)"
@@ -85,6 +117,52 @@ func open(start_with: Dictionary = {}) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_END
 	row.add_child(start)
 	box.add_child(row)
+
+
+## The owner's casting photos, as they are: {"status": "waiting" (not yet), "shooting", "ready"
+## or "none" (no face of their own: "why"), "faces": [{"texture", "score"}], "pick": the face's
+## index, "can_reshoot", "owner": their name}.
+func show_casting(state: Dictionary) -> void:
+	if _casting_note == null:
+		return
+	var who := str(state.get("owner", "the owner"))
+	var faces: Array = state.get("faces", [])
+	match str(state.get("status", "waiting")):
+		"shooting":
+			_casting_note.text = "The casting photographer's taking %s's photos..." % who
+		"ready":
+			_casting_note.text = "%s's face on the show: the game's picked the photo that comes out cleanest. Click another to use it instead." % who
+		"none":
+			_casting_note.text = "No casting photos (%s): %s keeps a face from the show's library." % [state.get("why", "?"), who]
+		_:
+			_casting_note.text = "The casting photographer comes once the tent's up."
+	for child in _casting_row.get_children():
+		_casting_row.remove_child(child)
+		child.queue_free()
+	for k in faces.size():
+		var picked := k == int(state.get("pick", -1))
+		var frame := PanelContainer.new()
+		frame.name = "CastingFrame_%d" % k
+		var style := StyleBoxFlat.new()
+		style.bg_color = Ktv.PANEL
+		style.border_color = RED if picked else Ktv.MUTED
+		style.set_border_width_all(5 if picked else 1)
+		style.set_content_margin_all(6)
+		frame.add_theme_stylebox_override("panel", style)
+		var photo := TextureButton.new()
+		photo.name = "CastingPhoto_%d" % k
+		photo.texture_normal = faces[k]["texture"]
+		photo.ignore_texture_size = true
+		photo.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		photo.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		photo.custom_minimum_size = Vector2(64 * PHOTO_SCALE, 80 * PHOTO_SCALE)
+		photo.focus_mode = Control.FOCUS_NONE
+		photo.tooltip_text = Text.tip(("%s's face on the show (the split's score %.3f: lower is cleaner)" if picked else "Use this one for %s's face (the split's score %.3f: lower is cleaner)") % [who, float(faces[k].get("score", 0.0))])
+		photo.pressed.connect(func(): face_picked.emit(k))
+		frame.add_child(photo)
+		_casting_row.add_child(frame)
+	_reshoot.visible = bool(state.get("can_reshoot", false)) or str(state.get("status", "")) == "shooting"
+	_reshoot.disabled = not bool(state.get("can_reshoot", false))
 
 
 ## Picks a rung (as clicking it does).

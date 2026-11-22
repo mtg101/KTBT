@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 863 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 872 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -76,7 +76,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
 **Debug notes:** what the game decides as it goes (regulars turning up, facts and threads remembered, who came in together, the ratings, the street…) goes to each night's own file in `logs/debug/` beside its transcript, each with the time. The console (VS Code's Debug Console, the terminal) stays quiet: the light once an hour (it's ticking along), autoplay and the crew, the season, and where the night's files are, plus any errors. Run with `-- --log-all` to put everything on the console too.
 
-**Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`. See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
+**Choosing the AI:** each machine has an `ai_settings.cfg` (in Godot, **Project → Open User Data Folder**) with `backend` set to `auto` (Ollama, falling back to offline mode), `ollama` or `canned` (offline mode: pre-written characters, no AI), plus the Ollama `server` and `model`, and `faces` (`owner` by default, `owner_and_regulars`, or `off`: a face of their own made by the image model, with `comfyui` its folder, or `tools/comfyui_path.txt`'s). See [TOOLCHAIN.md](TOOLCHAIN.md#5b-ai-settings-choosing-which-ai-the-game-uses).
 
 **No suitable GPU?** Use offline mode, a small model on the CPU, or another machine's Ollama. See [TOOLCHAIN.md](TOOLCHAIN.md#5a-machines-without-a-suitable-gpu).
 
@@ -108,9 +108,10 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `.github/workflows/tests.yml` | Runs all the tests on GitHub on every push |
 | `addons/gdUnit4/` | The GdUnit4 test framework (v6.2.0) |
 | `scripts/ai/ai.gd` | Asks the AI for JSON, validates the reply, and retries with feedback if it's wrong; picks Ollama or offline mode |
-| `scripts/ai/ai_settings.gd` | Reads each machine's `ai_settings.cfg` (backend, server, model) |
+| `scripts/ai/ai_settings.gd` | Reads each machine's `ai_settings.cfg` (backend, server, model, faces, ComfyUI's folder) |
 | `scripts/ai/canned_ai.gd` | Offline mode: pre-written owners, customers, orders and lines, built to pass the game's rules; also the tests' fake AI |
 | `scripts/ai/ollama_client.gd` | Talks to Ollama's local HTTP API |
+| `scripts/ai/portrait_maker.gd` | Faces of their own: drives ComfyUI on this PC (starts it, queues Klein, fetches and splits the pictures, stops it) |
 | `scripts/ai/prompts.gd` | The K-drama style guide and every prompt sent to the AI |
 | `scripts/bar/` | The tent's parts, each with one job and its own tests: the tent's look (`tent_view.gd`), drawing people (`people_view.gd`), the street (`street.gd`), the cat (`cat.gd`), the stove (`kitchen.gd`), TV captions on screen (`captions_on_screen.gd`), the transcript and the recap's facts (`story_keeper.gd`), regulars tonight (`regulars_tonight.gd`), customer chats (`counter_chats.gd`), who calls whom (`friendliness.gd`), what each line is given (`conversation.gd`), the tent's fixtures (`scenery.gd`), the stats panel's tabs (`stats_panel.gd`), the PD's camera (`camera.gd`), the PD's desk (`pd_desk.gd`), tonight's shared state (`night.gd`), the stage's layout (`layout.gd`) and small drawing helpers (`draw.gd`) |
 | `scripts/bar/night_events.gd` | The night's events, announced once each, for the stats, captions and diary |

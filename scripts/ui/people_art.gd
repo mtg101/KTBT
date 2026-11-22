@@ -168,15 +168,25 @@ static func portrait(look: Dictionary, key: String, mood: String = "") -> ImageT
 	var made: ImageTexture = null
 	var layer := Art.texture(art_id)
 	if layer != null:
-		var pixels := _pixels_of(art_id, layer, PORTRAIT_SIZE).duplicate()
-		for k in range(0, pixels.size(), 5):
-			if pixels[k + 3] == FIXED_SLOT:  # (lines: the ink itself, not its deepest shadow)
-				pixels[k + 2] = BASE_STEP
-		var picture := Image.create(PORTRAIT_SIZE.x, PORTRAIT_SIZE.y, false, Image.FORMAT_RGBA8)
-		_paint(picture, pixels, _colours(look))
-		made = ImageTexture.create_from_image(picture)
+		made = _paint_portrait(look, _pixels_of(art_id, layer, PORTRAIT_SIZE))
 	_portraits[cache_key] = made
 	return made
+
+
+## A portrait from a layer that isn't art yet (a casting photo's split, ai/portrait_maker.gd),
+## painted onto their colours as portrait() does. Not kept.
+static func paint_portrait(look: Dictionary, layer: Image) -> ImageTexture:
+	return _paint_portrait(look, _pixels_of("", ImageTexture.create_from_image(layer), PORTRAIT_SIZE, false))
+
+
+static func _paint_portrait(look: Dictionary, layer_pixels: PackedInt32Array) -> ImageTexture:
+	var pixels := layer_pixels.duplicate()
+	for k in range(0, pixels.size(), 5):
+		if pixels[k + 3] == FIXED_SLOT:  # (lines: the ink itself, not its deepest shadow)
+			pixels[k + 2] = BASE_STEP
+	var picture := Image.create(PORTRAIT_SIZE.x, PORTRAIT_SIZE.y, false, Image.FORMAT_RGBA8)
+	_paint(picture, pixels, _colours(look))
+	return ImageTexture.create_from_image(picture)
 
 
 ## Moving, facing us, without the side view's layers: they glide with a gentle bob (two
@@ -312,8 +322,8 @@ static func _paint(picture: Image, pixels: PackedInt32Array, colours: Dictionary
 static var _layers := {}  # a layer's drawn pixels, read once: [x, y, step, slot, fixed colour] each
 
 
-static func _pixels_of(id: String, layer: Texture2D, size: Vector2i = SIZE) -> PackedInt32Array:
-	if _layers.has(id):
+static func _pixels_of(id: String, layer: Texture2D, size: Vector2i = SIZE, keep: bool = true) -> PackedInt32Array:
+	if keep and _layers.has(id):
 		return _layers[id]
 	var image := layer.get_image()
 	if image.is_compressed():
@@ -327,7 +337,8 @@ static func _pixels_of(id: String, layer: Texture2D, size: Vector2i = SIZE) -> P
 				continue
 			pixels.append_array([x, y, clampi(roundi(pixel.r8 / 36.0), 0, 6), roundi(pixel.g8 / 36.0),
 				clampi(roundi(pixel.b8 / 8.0), 0, FIXED.size() - 1)])
-	_layers[id] = pixels
+	if keep:
+		_layers[id] = pixels
 	return pixels
 
 

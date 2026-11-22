@@ -82,6 +82,8 @@ const Text = preload("res://scripts/rules/text.gd")
 const Art = preload("res://scripts/ui/art.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const PortraitRules = preload("res://scripts/rules/portraits.gd")
+const PortraitSplit = preload("res://scripts/rules/portrait_split.gd")
+const PortraitMaker = preload("res://scripts/ai/portrait_maker.gd")
 const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
 const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
@@ -236,6 +238,16 @@ const CAMERA_RED := PdDesk.CAMERA_RED  # the camera's REC (the shock caption's r
 var _setup_open := false
 var _setting_up := false
 var _setup := {}
+var _setup_screen: Control  # (while it's open: the casting photos are shown on it as they come)
+## Faces of their own (ai/portrait_maker.gd): a new bar's owner's casting photos, taken in the gap
+## before the first night when the GPU's free. The bar waits for them as for the setup.
+var _maker: Node  # PortraitMaker, while ComfyUI's ours to use
+var _comfy_open := false
+var _casting := false  # photos being taken now
+var _casting_photos: Array = []  # this round's: [{"seed", "picture", "split", "score"}]
+var _casting_pick := -1  # which of them is the owner's face
+var _casting_rounds := 0
+var _faces_story := {}  # what happened, for the night's stats (_before_night["faces"])
 var _step_in_open := false  # they can, now: from the loading screen until the first customer arrives
 var _step_in_wanted := false  # ...and have (it opens as soon as it can)
 var _step_in_when := ""  # when they did: "loading", "recap" or "night" (for the stats)
@@ -525,6 +537,7 @@ func _open_saved_bar() -> void:
 	if not SaveUpgrades.upgrade(Game.bar).is_empty():  # a bar saved by an older version: what the game fills in itself, once
 		Game.save()
 	_owner = Game.bar["owner"].duplicate(true)
+	_own_face(_owner)  # (a face of their own, read in before anything draws it: "Previously on…"'s polaroids too)
 	_show_bar_name()
 	_show_look()
 	_people_view.dress(_owner_node, _owner_look())
@@ -729,10 +742,12 @@ func _invent_owner() -> void:
 		await _make_founding_regulars()
 	_show_look()
 	_show_cat()
+	await _cast_owner_face()  # (the AI's done with the bar for now: the GPU's free for the image model)
 	await _frame_done  # let the tent draw before the loading screen fades
-	while _setting_up and not _closed():  # (the PD's setting the show up: it starts when they're done)
+	while (_setting_up or _casting) and not _closed():  # (the PD's setting the show up, or a reshoot: it starts when they're done)
 		await get_tree().process_frame
 	_setup_open = false
+	_close_casting()
 	if _closed():
 		return
 	await _book_channel()  # (who's filming, and where it goes out: after the setup, which may have moved it)
@@ -2209,7 +2224,12 @@ func _open_setup() -> void:
 	var screen := ShowSetup.new()
 	add_child(screen)
 	screen.open(_setup if not _setup.is_empty() else {"rung": Ladder.FIRST})
+	_setup_screen = screen
+	screen.face_picked.connect(_pd_picks_owner_face)
+	screen.reshoot_wanted.connect(_reshoot_owner_face)
+	_tell_setup_casting()
 	_setup = await screen.finished
+	_setup_screen = null
 	_setting_up = false
 	if _closed():
 		return
@@ -5233,7 +5253,8 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 		_portraits_here = Art.ids("portrait").filter(func(id): return Art.has("portrait/" + str(id)))
 		_portraits_here.append("")  # (and never looked over again, even with none there)
 	var look: Dictionary = person["look"]
-	var picked := PortraitRules.pick(str(person.get("gender", "")), look, _portraits_here, int(person.get("age", 0)))
+	var own := _own_face(person)
+	var picked := {"key": own, "how": "own"} if own != "" else PortraitRules.pick(str(person.get("gender", "")), look, _portraits_here, int(person.get("age", 0)))
 	var how := str(picked["how"])
 	hover.portrait = PeopleArt.portrait(look, str(picked["key"]))
 	if hover.portrait == null:
@@ -5249,6 +5270,173 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 
 
 var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
+var _own_missing := {}  # faces of their own whose pictures weren't with the bar (noted once)
+
+
+## A face of their own (ai/portrait_maker.gd: person["face"]), its portrait id once its layer's
+## read from the bar's pictures into Art.own; "" for none, or if its picture's gone (the library's then).
+func _own_face(person: Dictionary) -> String:
+	var face = person.get("face", {})
+	if not face is Dictionary or str(face.get("key", "")) == "":
+		return ""
+	var key := str(face["key"])
+	if Art.own.has("portrait/" + key):
+		return key
+	var layer := SaveStore.load_picture(str(Game.bar.get("id", "")), str(face.get("file", "")))
+	if layer == null:
+		if not _own_missing.has(key):
+			_own_missing[key] = true
+			DebugLog.say("Faces", "%s's own face (%s) isn't with the bar: the library's instead" % [str(person.get("name", "?")), face.get("file", "?")])
+		return ""
+	Art.own["portrait/" + key] = layer
+	return key
+
+
+# --- Faces of their own ----------------------------------------------------------------------------
+# PLAN.md: the image model makes the owner a face of their own as a new bar's made (ai/portrait_maker.gd,
+# in the gap when the GPU's free: Ollama lets go, ComfyUI starts, three casting photos, each split by
+# rules/portrait_split.gd and the best picked, ComfyUI stops); the PD can step in on the setup screen
+# (pick another, or reshoot). Offline, off in the settings, without ComfyUI, or when every picture
+# fails, the owner keeps the library's face.
+
+## Why there'll be no face of their own ("" if there can be one).
+func _why_no_faces() -> String:
+	if not Hooks.fake_comfy.is_empty():
+		return ""
+	if str(_ai.settings.get("faces", "owner")) == "off":
+		return "off in the AI settings"
+	if _ai.offline:
+		return "offline: %s" % _ai.offline_reason
+	return ""
+
+
+## The owner's casting photos (see above). Never stops the bar: anything wrong, the library's face.
+func _cast_owner_face() -> void:
+	var why := _why_no_faces()
+	if why != "":
+		_faces_story = {"owner": "library", "why": why}
+		DebugLog.say("Faces", "the owner keeps the library's face: %s" % why)
+		_tell_setup_casting()
+		return
+	_casting = true
+	_tell_setup_casting()
+	_typing_label.text = "The casting photographer's setting up..."
+	var let_go: bool = await _ai.let_go()
+	DebugLog.say("Faces", "Ollama let go of the model" if let_go else "Ollama didn't let go of the model (it may not have had it loaded)")
+	if _closed():
+		_casting = false
+		return
+	_maker = PortraitMaker.new()
+	add_child(_maker)
+	var problem: String = await _maker.open()
+	_comfy_open = problem == ""
+	if _comfy_open and not _closed():
+		await _shoot_owner()
+	_typing_label.text = ""
+	if _casting_photos.is_empty():
+		var reason := problem if problem != "" else "every picture failed (%s)" % _maker.last_error
+		_faces_story = {"owner": "library", "why": reason}
+		DebugLog.say("Faces", "the owner keeps the library's face: %s" % reason)
+	_faces_story.merge(_maker.counts, true)
+	_casting = false
+	_tell_setup_casting()
+
+
+## A round of three casting photos of the owner; the best split's their face (by the game), unless
+## none came out (the face they had stays).
+func _shoot_owner() -> void:
+	_typing_label.text = "The casting photographer's taking the owner's photos..."
+	var prompt := PortraitRules.prompt_for(str(_owner.get("gender", "")), _owner.get("look", {}), int(_owner.get("age", 0)), str(_owner.get("appearance", "")))
+	DebugLog.say("Faces", "the owner's casting photos: %s" % prompt)
+	var photos: Array = await _maker.make(prompt, "owner", 3, (randi() % 90000 + 10000) * 10)
+	if _closed() or photos.is_empty():
+		return
+	_casting_rounds += 1
+	_casting_photos = photos
+	_use_owner_face(PortraitSplit.best(photos), "game")
+
+
+## The owner's face from this round's photo k, by "game" or "pd": kept with the bar (the layer, and
+## the model's picture for the moods to come), on them from now on.
+func _use_owner_face(k: int, by: String) -> void:
+	if k < 0 or k >= _casting_photos.size() or not Game.bar.has("id"):
+		return
+	var photo: Dictionary = _casting_photos[k]
+	var pic_seed := int(photo["seed"])
+	var id := str(Game.bar["id"])
+	var file := "portrait_owner_%d.png" % pic_seed
+	var layer: Image = photo["split"]["layer"]
+	if SaveStore.save_picture(id, file, layer) != OK:
+		DebugLog.say("Faces", "couldn't keep the owner's face with the bar: the library's instead")
+		return
+	SaveStore.save_picture(id, "portrait_owner_%d_picture.png" % pic_seed, photo["picture"])
+	_casting_pick = k
+	var key := PortraitRules.own_key(id, "owner", pic_seed)
+	Art.own["portrait/" + key] = ImageTexture.create_from_image(layer)
+	var face := {"key": key, "file": file, "picture": "portrait_owner_%d_picture.png" % pic_seed, "seed": pic_seed, "score": snappedf(float(photo["score"]), 0.001), "by": by}
+	_owner["face"] = face
+	Game.bar["owner"]["face"] = face.duplicate()
+	Game.save()
+	_faces_story.erase("why")
+	_faces_story.merge({"owner": "own", "by": by, "score": face["score"], "rounds": _casting_rounds}, true)
+	if _maker != null:
+		_faces_story.merge(_maker.counts, true)
+	DebugLog.say("Faces", "the owner's face: seed %d (score %.3f), picked by the %s" % [pic_seed, float(photo["score"]), by])
+	var hover: PortraitHover = _owner_node.get_node_or_null("Hover") as PortraitHover if is_instance_valid(_owner_node) else null
+	if hover != null:
+		hover.picked_for = {}  # (picked again, now with their own)
+	_update_owner_hover()
+
+
+## The PD picks another of the photos on the setup screen.
+func _pd_picks_owner_face(k: int) -> void:
+	if _casting or k == _casting_pick:
+		return
+	_use_owner_face(k, "pd")
+	_tell_setup_casting()
+
+
+## The PD wants three more photos (ComfyUI's still ours until the setup's closed).
+func _reshoot_owner_face() -> void:
+	if _casting or not _comfy_open or _maker == null or _closed():
+		return
+	_casting = true
+	_faces_story["reshoots"] = int(_faces_story.get("reshoots", 0)) + 1
+	DebugLog.say("Faces", "the PD wants the owner's photos reshot")
+	_tell_setup_casting()
+	await _shoot_owner()
+	_typing_label.text = ""
+	if _closed():
+		return
+	if _faces_story.get("owner", "") == "own":
+		_faces_story["by"] = "pd"  # (the PD's call to reshoot, the game's pick of the three)
+	_faces_story.merge(_maker.counts, true)
+	_casting = false
+	_tell_setup_casting()
+
+
+## Done with the image model: ComfyUI stopped (if it was ours), and what happened for the stats.
+func _close_casting() -> void:
+	if _maker != null:
+		_maker.close()
+		_faces_story.merge(_maker.counts, true)
+		_maker.queue_free()
+		_maker = null
+	_comfy_open = false
+	if not _faces_story.is_empty():
+		_before_night["faces"] = _faces_story.duplicate()
+
+
+## The setup screen's casting photos, as they are now.
+func _tell_setup_casting() -> void:
+	if _setup_screen == null or not is_instance_valid(_setup_screen):
+		return
+	var faces: Array = []
+	for photo in _casting_photos:
+		faces.append({"texture": PeopleArt.paint_portrait(_owner.get("look", {}), photo["split"]["layer"]), "score": float(photo["score"])})
+	var status := "shooting" if _casting else ("ready" if not faces.is_empty() else ("none" if not _faces_story.is_empty() else "waiting"))
+	_setup_screen.show_casting({"status": status, "why": str(_faces_story.get("why", "")), "faces": faces, "pick": _casting_pick,
+		"can_reshoot": _comfy_open and not _casting, "owner": _owner_display() if not _owner.is_empty() else "the owner"})
 var _faces_kept := {}  # name -> {"key", "look"}: everyone's portrait as given (_give_portrait), kept after they've gone
 var _zoomed_tonight := false  # the night's first big moment's had the zoom (its caption and face over the whole window)
 
