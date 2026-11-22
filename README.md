@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 835 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 847 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -123,6 +123,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/rules/channels.gd` | The show's people and places: the owner's niece or nephew who films it, and the channels it's booked on, named by the AI and checked |
 | `scripts/rules/ladder_sim.gd` | The ladder simulated: many shows through many seasons in a moment, no scene or AI, to see how it's paced |
 | `scripts/rules/socials.gd` | The customers' posts at 3am: which (0–3, from what happened), what the AI writes them from and the check of its words, the game's own words and hashtags, the check, and which moments want a snapshot |
+| `scripts/rules/viewers.gd` | The viewers' comments at 3am, by rung: what about (tonight's figure first), how many and their likes (from the night's score), what the AI writes them from and the check of its words, the game's own words |
 | `scripts/rules/show_seasons.gd` | The show's seasons of eight episodes: the finale, the season looked back on, the channel's verdict |
 | `scripts/save/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
 | `scripts/sound/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |
@@ -135,7 +136,8 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/diary_page.gd` | A page of the owner's diary: the episode, the day, the entry and a stamp, and the night's polaroids if it has them |
 | `scripts/ui/polaroid.gd` | A polaroid on the diary page: someone's portrait in a white frame, taped down at a tilt, their name written under it |
 | `scripts/ui/social_post.gd` | A customer's post on 달밤 (Dalbam, the game's own feed app): their handle, the snapshot in a phone photo's frame (or one drawn), the words and hashtags |
-| `scripts/ui/social_feed.gd` | The night's posts stuck round the diary page, at 3am and in the diary book |
+| `scripts/ui/social_feed.gd` | The night's posts stuck round the diary page, at 3am and in the diary book (and the viewers' comments, bottom right) |
+| `scripts/ui/viewer_comments.gd` | The viewers' comments on the episode: the phone stream's live chat, the channel's comments or TV's viewer board, with their hearts, likes or recommends |
 | `scripts/ui/dish_view.gd` | A dish or drink on the table in pixel art, painted from its shapes (see `rules/dish_art.gd`) on their colours' ramps, lit from above, a darker edge round it, lit by the hour |
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |

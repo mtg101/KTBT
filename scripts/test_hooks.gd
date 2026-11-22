@@ -76,6 +76,8 @@ static var channels := true
 static var titles := true
 ## false: 3am's posts have the game's own words (Socials.stitched_words), not the AI's.
 static var socials := true
+## false: 3am's viewer comments have the game's own words (Viewers.stitched_words), not the AI's.
+static var viewers := true
 
 # --- On screen ---------------------------------------------------------------------------------
 ## false: no speech bubbles.
@@ -118,6 +120,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	channels = false
 	titles = false
 	socials = false
+	viewers = false
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
 	transcript_folder = transcripts
@@ -162,6 +165,7 @@ static func restore() -> void:
 	channels = true
 	titles = true
 	socials = true
+	viewers = true
 	bubbles = true
 	captions = true
 	caption_pacing = true

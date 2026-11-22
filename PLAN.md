@@ -4,9 +4,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Social media posts:** customers post about their night and viewers comment on the show, stuck round the diary page at 3am. The game picks the facts, the AI writes the words, the game checks them (`Socials.check`); offline or failing the check, the game stitches them. Still to do, in order:
-  1. **Viewers' commentary:** a few comments on the night by the rung: live comments on the phone stream, comments under the episode on the channel, a viewer board on TV; likes and counts scaled from the ratings, and viewers talking about them ("두 자릿수!! double digits for a tent bar?!"). The posts show and mention the ratings, never change them (they come from the same facts).
-  2. **In "Previously on…" and the edit suite:** a beat cutting to a post or a comment ("the internet had opinions…"); posts listed as scenes to tick.
+- **Social media posts:** customers post about their night and viewers comment on the show, stuck round the diary page at 3am. The game picks the facts, the AI writes the words, the game checks them (`Socials.check`, `Viewers.check`); offline or failing the check, the game stitches them. Still to do:
+  1. **Look at the viewers' comments in play:** on each rung (the stream's live chat, the channel's comments, TV's viewer board), at the page's bottom right, with the AI writing them: that they read like fans, and sit clear of the page and the posts.
+  2. **In "Previously on…" and the edit suite:** a beat cutting to a post or a comment ("the internet had opinions…"); posts and comments listed as scenes to tick.
 
 ## Future ideas and improvements
 

@@ -197,6 +197,11 @@ const MEANINGS := {
 	"비": "bi: rain",
 	"소주": "soju: (the stamp for an ordinary night)",
 	"도둑냥": "dodungnyang: thief cat",
+	# The viewers' comments (rules/viewers.gd): where they're written, by rung, and a board's thumbs-up
+	"실시간 채팅": "silsigan chaeting: live chat, the comments going by under a live stream",
+	"댓글": "daetgeul: comments, written under a video",
+	"시청자 게시판": "sicheongja gesipan: the viewer board, where a TV show's viewers post about each episode",
+	"추천": "chucheon: recommends, a board post's thumbs-up",
 	"폭풍": "pokpung: storm",
 	"빵": "ppang: a burst (of laughter)",
 	"조기 마감": "jogi magam: closed early",

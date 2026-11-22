@@ -19,6 +19,7 @@ const Names = preload("res://scripts/rules/names.gd")
 const People = preload("res://scripts/rules/people.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Socials = preload("res://scripts/rules/socials.gd")
+const Viewers = preload("res://scripts/rules/viewers.gd")
 const Catalogue = preload("res://scripts/rules/catalogue.gd")
 const Signatures = preload("res://scripts/rules/signatures.gd")
 const Text = preload("res://scripts/rules/text.gd")
@@ -163,6 +164,11 @@ func reply(request: Dictionary) -> Variant:
 			var facts: Dictionary = request.get("facts", {})
 			return {"posts": (facts.get("posts", []) as Array).map(func(post): return {"handle": str(post.get("handle", "")),
 				"text": Socials.stitched_words(post, str(facts.get("cat", "")), dice), "tags": Socials.stitched_tags(str(post.get("about", "")), dice)})}
+		"viewers":  # (the viewers' comments, from the game's own words: rules/viewers.gd)
+			var dice := RandomNumberGenerator.new()
+			var facts: Dictionary = request.get("facts", {})
+			return {"comments": (facts.get("comments", []) as Array).map(func(comment): return {"viewer": str(comment.get("viewer", "")),
+				"text": Viewers.stitched_words(comment, facts, dice)})}
 		"closing":
 			return Story.closing_reason(str(request.get("weather", "")), randf())
 		"menu":

@@ -101,7 +101,7 @@ func _show_page() -> void:
 		_page.show_entry({"text": "Nothing written yet: the first entry comes at 3am.", "stamp": "soju", "season": 1, "season_episode": 1}, _whose)
 	else:
 		_page.show_entry(_entries[_at], _whose)
-	_feed.show_posts([] if _entries.is_empty() else _entries[_at].get("socials", []), _bar_id)
+	_feed.show_posts([] if _entries.is_empty() else _entries[_at].get("socials", []), _bar_id, {} if _entries.is_empty() else _entries[_at].get("viewers", {}))
 	_older.disabled = _at <= 0
 	_newer.disabled = _at >= _entries.size() - 1
 	_where.text = "%d of %d" % [_at + 1, _entries.size()] if not _entries.is_empty() else ""

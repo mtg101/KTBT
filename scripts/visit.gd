@@ -99,6 +99,7 @@ const NightEvents = preload("res://scripts/bar/night_events.gd")
 const Snapshots = preload("res://scripts/bar/snapshots.gd")
 const Socials = preload("res://scripts/rules/socials.gd")
 const SocialFeed = preload("res://scripts/ui/social_feed.gd")
+const Viewers = preload("res://scripts/rules/viewers.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 
 const HUNGRY_CHANCE := 0.15  # How often a customer is hungry enough to order two main dishes.
@@ -1764,6 +1765,9 @@ func _write_diary() -> void:
 	await _post_socials(entry)
 	if _closed():
 		return
+	await _viewers_comment(entry)
+	if _closed():
+		return
 	SaveStore.record_diary(Game.bar, entry)
 	if _season_ended.is_empty():
 		_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
@@ -1775,12 +1779,16 @@ func _write_diary() -> void:
 	_stats.story["diary_by"] = "ai" if by == "owner" else "game"
 	_stats.story["diary_stamp"] = str(entry["stamp"])
 	_diary_page.show_entry(entry, "%s's diary" % _owner["name"])
-	_feed.show_posts(entry.get("socials", []), str(Game.bar.get("id", "")))
+	_feed.show_posts(entry.get("socials", []), str(Game.bar.get("id", "")), entry.get("viewers", {}))
 	_sync_feed()
 	_show("[i][color=#%s]%s's diary, %s: %s[/color][/i]\n\n" % [MUTED.to_html(false), _owner["name"], ShowSeasons.words(_show_place), _esc(text)])
 	if not entry.get("socials", []).is_empty():
 		_show("[i][color=#%s]On %s %s tonight: %s[/color][/i]\n\n" % [MUTED.to_html(false), Socials.APP, Socials.APP_ENGLISH,
 			_esc(" · ".join(PackedStringArray(entry["socials"].map(func(post): return "%s %s %s" % [post["handle"], post["text"], " ".join(PackedStringArray(post["tags"]))]))))])
+	var viewers: Dictionary = entry.get("viewers", {})
+	if not (viewers.get("comments", []) as Array).is_empty():
+		_show("[i][color=#%s]Viewers, %s: %s[/color][/i]\n\n" % [MUTED.to_html(false), _esc(Viewers.title(viewers)),
+			_esc(" · ".join(PackedStringArray(viewers["comments"].map(func(comment): return "%s: %s (%s)" % [comment["viewer"], comment["text"], Viewers.likes_text(viewers, comment)]))))])
 	_writing_up = false
 	for button in _summary_buttons:
 		button.disabled = Game.autoplay != null  # (the crew open the next night, while they're running it)
@@ -1925,6 +1933,66 @@ func _write_socials(posts: Array, facts: Dictionary, counts: Dictionary) -> void
 		counts["words_ai" if post["by"] == "ai" else "words_game"] += 1
 	DebugLog.say("Socials", "words: the AI's %d, the game's %d%s" % [int(counts["words_ai"]), int(counts["words_game"]),
 		" (offline)" if _ai.offline else ("" if Hooks.socials else " (the AI's posts are off)")])
+
+
+## 3am, after the posts: viewers comment on tonight's episode, where the show's rung has them
+## (Viewers.pick: what about, how many, and their hearts, likes or recommends, all from the
+## night's score), the AI writing the words in one call (Viewers.validate_reply checks each one;
+## offline, or turned down, the game's own); each checked again (one that fails isn't shown).
+## Kept with the entry ("viewers"), counted, logged. They talk about the ratings, never change them.
+func _viewers_comment(entry: Dictionary) -> void:
+	var ratings: Dictionary = entry.get("ratings", {})
+	if ratings.is_empty():
+		return
+	var dice := RandomNumberGenerator.new()
+	dice.seed = hash("%s night %d viewers" % [Game.bar.get("id", ""), _night_number])
+	var plants := _stats.plants()
+	var taken: Array = plants.keys().filter(func(card): return int(plants[card][2]) > 0)
+	var info := {"rung": str(ratings.get("rung", _rung())), "score": float(ratings.get("rating", 0.0)), "record": bool(ratings.get("record", false)),
+		"owner": str(_owner.get("name", "")), "cat": str(_cat.get("name", "")), "taken_cards": taken}
+	var board := Viewers.pick(_events.timeline, info, dice)
+	var still_in := {}
+	for guest in _guests:
+		still_in[str(guest.customer["name"])] = guest.served.duplicate()
+	var facts := Viewers.check_facts(_events.timeline, info, Socials.served_tonight(_events.timeline, still_in))
+	var counts := {"words_ai": 0, "words_game": 0, "ai_turned_down": 0, "dropped": 0}
+	var words := {}
+	var by := "game"
+	if Hooks.viewers and not board["comments"].is_empty():
+		var ai_facts := Viewers.ai_facts(board, info)
+		var reply: Dictionary = await _ai.ask_json(Prompts.viewers_messages(ai_facts), Viewers.validate_reply.bind(board["comments"], facts), {"temperature": 0.9},
+			{"purpose": "viewers", "facts": ai_facts, "tries": 2})
+		if _closed():
+			return
+		words = reply.get("words", {})
+		by = "game" if _ai.offline else "ai"  # (offline: the canned AI's words are the game's own)
+		for why in reply.get("turned_down", []):
+			DebugLog.say("Viewers", "the AI's comment turned down, the game's instead: %s" % why)
+		counts["ai_turned_down"] = (reply.get("turned_down", []) as Array).size() if not reply.is_empty() else board["comments"].size()
+		if reply.is_empty():
+			DebugLog.say("Viewers", "the AI's comments couldn't be used (%s): the game's own words" % _ai.last_error)
+	var kept: Array = []
+	for comment in board["comments"]:
+		if words.has(str(comment["viewer"])):
+			comment["text"] = str(words[str(comment["viewer"])])
+			comment["by"] = by
+		var problem := Viewers.check(comment, facts)
+		if problem != "":
+			counts["dropped"] += 1
+			DebugLog.say("Viewers", "not shown (%s): %s" % [problem, Viewers.log_text(board, comment)])
+			continue
+		comment.erase("said")
+		counts["words_ai" if comment["by"] == "ai" else "words_game"] += 1
+		kept.append(comment)
+		DebugLog.say("Viewers", "%s: %s" % [board["place"], Viewers.log_text(board, comment)])
+	board["comments"] = kept
+	entry["viewers"] = board
+	_stats.socials["viewer_comments"] = kept.size()
+	for key in counts:
+		_stats.socials["viewer_" + str(key)] = counts[key]
+	DebugLog.say("Viewers", "%d on %s's %s (%s, tonight's figure %s); words: the AI's %d, the game's %d%s" % [kept.size(), Ladder.rung(str(board["rung"]))["name"],
+		Viewers.place_of(str(board["rung"]))["english"], board["crowd"], board["figure"], int(counts["words_ai"]), int(counts["words_game"]),
+		" (offline)" if _ai.offline else ("" if Hooks.viewers else " (the AI's comments are off)")])
 
 
 ## A snapshot for the posts, if what just happened could be one (Socials.wants_snap): of whoever

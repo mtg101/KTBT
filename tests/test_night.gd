@@ -15,6 +15,7 @@ const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Socials = preload("res://scripts/rules/socials.gd")
+const Viewers = preload("res://scripts/rules/viewers.gd")
 
 const SCENE := "res://scenes/visit.tscn"
 const TITLE := "res://scenes/title.tscn"
@@ -171,6 +172,15 @@ func test_the_customers_post_about_their_night_round_the_diary_page() -> void:
 	assert_array(feed.pictures()).contains(["snapshot"])
 	assert_str(scene._stats.panel_text(0, 0)).contains("Socials: posts %d" % entry["socials"].size())
 	assert_str(_transcript(runner)).contains("On 달밤 Dalbam tonight")
+	# The viewers comment on the episode, where the show's rung has them: the game's words, offline.
+	var board: Dictionary = entry["viewers"]
+	assert_str(str(board["rung"])).is_equal(str(entry["ratings"]["rung"]))
+	assert_int(board["comments"].size()).is_greater_equal(Viewers.FEWEST)
+	assert_str(str(board["comments"][0]["about"])).is_equal("ratings")
+	assert_bool(board["comments"].any(func(c): return c["about"] == "cat_theft")).is_true()
+	assert_int(feed.comment_count()).is_equal(board["comments"].size())
+	assert_str(scene._stats.panel_text(0, 0)).contains("viewer comments %d (words: AI 0, game %d)" % [board["comments"].size(), board["comments"].size()])
+	assert_str(_transcript(runner)).contains("Viewers, %s" % Viewers.place_of(str(board["rung"]))["hangul"])
 	# Kept with the bar, for the diary book.
 	assert_array(SaveStore.load_bar(str(Game.bar["id"]))["diary"][0]["socials"].map(func(p): return p["poster"])).contains([who])
 	# The stats up in the page's place: the posts come down with it, and back.

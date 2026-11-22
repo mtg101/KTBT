@@ -20,6 +20,8 @@ const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
 const Socials = preload("res://scripts/rules/socials.gd")
+const Viewers = preload("res://scripts/rules/viewers.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
 const Names = preload("res://scripts/rules/names.gd")
 
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
@@ -954,6 +956,43 @@ static func _social_names(facts: Dictionary) -> Array:
 		if given != "" and not names.has(given):
 			names.append(given)
 	return names
+
+
+## 3am: viewers comment on tonight's episode, where the show's rung has them (rules/viewers.gd):
+## each about what the game picked, as a fan writes, in one call for them all. English, the
+## Korean on a short list, tonight's figure the only number.
+static func viewers_messages(facts: Dictionary) -> Array:
+	var lines := PackedStringArray()
+	for comment in facts.get("comments", []):
+		lines.append("- %s, about: %s." % [comment["viewer"], comment["happened"]])
+	var names: Array = []
+	for named in [str(facts.get("owner", "")), str(facts.get("cat", ""))]:
+		if named != "":
+			names.append(named)
+	for comment in facts.get("comments", []):
+		var who := str(comment.get("who", ""))
+		if who != "" and not names.has(who):
+			names.append(who)
+	var cheer := str(facts.get("cheer", "")).rstrip("!")
+	var request := """A reality show set in %s's tent bar is on %s, and tonight's episode got %s (%s). Viewers are writing in the %s. Who's commenting, and about what:
+%s
+
+Write each viewer's comment: a fan of the show reacting to tonight's episode, the way people really comment (lower case is fine; excited, teasing, soft or dry), a single line, at most %d characters. Each comment is about what it says above, nothing more.
+
+Rules:
+- Write in English. The only Korean allowed: 대박 (amazing), 헐 (whoa), ㅋㅋㅋ (lol), and in the comment about tonight's figure, %s (%s).
+- The only number allowed is tonight's figure, written exactly as %s. No other numbers or digits at all.
+- No names but these: %s. No @mentions, no brands, no other apps, channels or shows.
+- Food or drink only if it's named above.
+
+Reply with ONLY a JSON object: {"comments": [{"viewer": "the viewer above, as it is", "text": "their comment"}, ...one for each viewer above]}""" % [
+		facts["owner"] if str(facts.get("owner", "")) != "" else "an owner", facts.get("show_on", "a phone stream"), facts.get("figure", ""), facts.get("band", ""),
+		facts.get("place", "comments"), "\n".join(lines), Viewers.MOST_CHARS, cheer, Glossary.hangul_tip(cheer), facts.get("figure", ""),
+		", ".join(PackedStringArray(names)) if not names.is_empty() else "none"]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
 
 
 ## 3am: the owner writes tonight's entry in their diary, from the facts the game picked (see

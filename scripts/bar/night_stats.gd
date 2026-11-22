@@ -62,7 +62,9 @@ var keepsakes := {}
 ## "pictures" (real snapshots kept with them), "drawn" (a picture that wasn't taken, drawn),
 ## "text" (words alone), "dropped" (failing the check), "picked", "words_ai" / "words_game" (whose
 ## words: the AI's, or the game's own), "ai_turned_down" (the AI's words for a post failing the
-## check, so the game's instead), "viewer_comments" (none yet: PLAN.md), "snapshots" (bar/snapshots.gd counts: asked, taken, failed, over, no_screen).
+## check, so the game's instead), "viewer_comments" (the viewers' comments shown: rules/viewers.gd,
+## visit.gd _viewers_comment), "viewer_words_ai" / "viewer_words_game", "viewer_ai_turned_down",
+## "viewer_dropped" (failing the check, not shown), "snapshots" (bar/snapshots.gd counts: asked, taken, failed, over, no_screen).
 var socials := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
@@ -988,18 +990,29 @@ func keepsakes_text() -> String:
 		int(keepsakes.get("polaroids", 0)), int(keepsakes.get("faces_kept", 0))]
 
 
-## 3am's posts: "Socials: posts 2 (words: AI 2, game 0) · pictures 1 (drawn 1) · viewer comments 0 · snapshots 3 of 4".
+## 3am's posts and comments: "Socials: posts 2 (words: AI 2, game 0) · pictures 1 (drawn 1) · viewer comments 3 (words: AI 2, game 1) · snapshots 3 of 4".
 func socials_text() -> String:
 	var snaps: Dictionary = socials.get("snapshots", {})
 	var why := PackedStringArray()
 	for count in [["failed", "FAILED"], ["over", "over the limit"], ["no_screen", "no screen"]]:
 		if int(snaps.get(count[0], 0)) > 0:
 			why.append("%s %d" % [count[1], int(snaps[count[0]])])
-	return "Socials: posts %d (words: AI %d, game %d%s) · pictures %d (drawn %d, words alone %d) · viewer comments %d · snapshots %d of %d%s%s" % [int(socials.get("posts", 0)),
+	return "Socials: posts %d (words: AI %d, game %d%s) · pictures %d (drawn %d, words alone %d) · viewer comments %s · snapshots %d of %d%s%s" % [int(socials.get("posts", 0)),
 		int(socials.get("words_ai", 0)), int(socials.get("words_game", 0)), (", AI's TURNED DOWN %d" % int(socials["ai_turned_down"])) if int(socials.get("ai_turned_down", 0)) > 0 else "",
-		int(socials.get("pictures", 0)), int(socials.get("drawn", 0)), int(socials.get("text", 0)), int(socials.get("viewer_comments", 0)),
+		int(socials.get("pictures", 0)), int(socials.get("drawn", 0)), int(socials.get("text", 0)), viewers_text(),
 		int(snaps.get("taken", 0)), int(snaps.get("asked", 0)), (" (%s)" % ", ".join(why)) if not why.is_empty() else "",
 		(" · NOT POSTED %d" % int(socials["dropped"])) if int(socials.get("dropped", 0)) > 0 else ""]
+
+
+## The viewers' comments, for socials_text: "3 (words: AI 2, game 1, AI's TURNED DOWN 1, NOT SHOWN 1)", or "0".
+func viewers_text() -> String:
+	var shown := int(socials.get("viewer_comments", 0))
+	var turned_down := int(socials.get("viewer_ai_turned_down", 0))
+	var dropped := int(socials.get("viewer_dropped", 0))
+	if shown == 0 and turned_down == 0 and dropped == 0:
+		return "0"
+	return "%d (words: AI %d, game %d%s%s)" % [shown, int(socials.get("viewer_words_ai", 0)), int(socials.get("viewer_words_game", 0)),
+		(", AI's TURNED DOWN %d" % turned_down) if turned_down > 0 else "", (", NOT SHOWN %d" % dropped) if dropped > 0 else ""]
 
 
 ## The clipart on stage tonight, most used first.

@@ -374,7 +374,16 @@ static func check(post: Dictionary, facts: Dictionary) -> String:
 		if named != "" and RegEx.create_from_string("\\b%s\\b" % _regex_escape(named)).search(lowered) != null \
 				and not served.any(func(d): return str(d).to_lower() == named or Menu.resolve(str(d)) == str(item.get("id", ""))):
 			return "food they weren't served: %s" % item["name"]
-	var known: Array = facts.get("known", [])
+	var stranger := someone_new(text, facts.get("known", []))
+	if stranger != "":
+		return "someone not in the facts: %s" % stranger
+	return ""
+
+
+## The first name in some words that isn't one of the known names (whole or a part of one), or
+## "": a capitalised word that isn't a sentence's first (unless it's romanised like a name,
+## "Ji-ho", or a surname) or a Korean word the glossary knows. The viewers' comments use it too.
+static func someone_new(text: String, known: Array) -> String:
 	for word in RegEx.create_from_string("\\b[A-Z][a-z]+(-[a-z]+)?\\b").search_all(text):
 		var named := word.get_string()
 		if named in ["NOT", "I"] or known.any(func(k): return str(k).contains(named)):
@@ -384,7 +393,7 @@ static func check(post: Dictionary, facts: Dictionary) -> String:
 			continue  # (a sentence's first word, capitalised: a name only if it's romanised like one, "Ji-ho")
 		if not Glossary.words_in(named).is_empty():
 			continue
-		return "someone not in the facts: %s" % named
+		return named
 	return ""
 
 
