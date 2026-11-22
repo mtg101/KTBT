@@ -179,6 +179,311 @@
 		"source": "drawn in code by tools/art/cat.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"clipart/arrow_0": {
+		"file": "clipart/arrow_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/arrow_1": {
+		"file": "clipart/arrow_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/bang_0": {
+		"file": "clipart/bang_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/bang_1": {
+		"file": "clipart/bang_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/blush_0": {
+		"file": "clipart/blush_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/blush_1": {
+		"file": "clipart/blush_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/crow_0": {
+		"file": "clipart/crow_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/crow_1": {
+		"file": "clipart/crow_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/crow_2": {
+		"file": "clipart/crow_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/crow_3": {
+		"file": "clipart/crow_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/flames_0": {
+		"file": "clipart/flames_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/flames_1": {
+		"file": "clipart/flames_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/flames_2": {
+		"file": "clipart/flames_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/flowers_0": {
+		"file": "clipart/flowers_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/flowers_1": {
+		"file": "clipart/flowers_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/haha_0": {
+		"file": "clipart/haha_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/haha_1": {
+		"file": "clipart/haha_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/haha_2": {
+		"file": "clipart/haha_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/halo_0": {
+		"file": "clipart/halo_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/halo_1": {
+		"file": "clipart/halo_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/halo_2": {
+		"file": "clipart/halo_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/hearts_0": {
+		"file": "clipart/hearts_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/hearts_1": {
+		"file": "clipart/hearts_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/hearts_2": {
+		"file": "clipart/hearts_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/hearts_3": {
+		"file": "clipart/hearts_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/laugh_tears_0": {
+		"file": "clipart/laugh_tears_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/laugh_tears_1": {
+		"file": "clipart/laugh_tears_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/laugh_tears_2": {
+		"file": "clipart/laugh_tears_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/lightning_0": {
+		"file": "clipart/lightning_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/lightning_1": {
+		"file": "clipart/lightning_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/mind_blown_0": {
+		"file": "clipart/mind_blown_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/mind_blown_1": {
+		"file": "clipart/mind_blown_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/mind_blown_2": {
+		"file": "clipart/mind_blown_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/mind_blown_3": {
+		"file": "clipart/mind_blown_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/rain_cloud_0": {
+		"file": "clipart/rain_cloud_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/rain_cloud_1": {
+		"file": "clipart/rain_cloud_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/rain_cloud_2": {
+		"file": "clipart/rain_cloud_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/siren_0": {
+		"file": "clipart/siren_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/siren_1": {
+		"file": "clipart/siren_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/siren_2": {
+		"file": "clipart/siren_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/siren_3": {
+		"file": "clipart/siren_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/soul_0": {
+		"file": "clipart/soul_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/soul_1": {
+		"file": "clipart/soul_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/soul_2": {
+		"file": "clipart/soul_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/soul_3": {
+		"file": "clipart/soul_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/stars_0": {
+		"file": "clipart/stars_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/stars_1": {
+		"file": "clipart/stars_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/stars_2": {
+		"file": "clipart/stars_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/stars_3": {
+		"file": "clipart/stars_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/sunbeams_0": {
+		"file": "clipart/sunbeams_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/sunbeams_1": {
+		"file": "clipart/sunbeams_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/sweat_0": {
+		"file": "clipart/sweat_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/sweat_1": {
+		"file": "clipart/sweat_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/sweat_2": {
+		"file": "clipart/sweat_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tears_0": {
+		"file": "clipart/tears_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tears_1": {
+		"file": "clipart/tears_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tears_2": {
+		"file": "clipart/tears_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tumbleweed_0": {
+		"file": "clipart/tumbleweed_0.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tumbleweed_1": {
+		"file": "clipart/tumbleweed_1.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tumbleweed_2": {
+		"file": "clipart/tumbleweed_2.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"clipart/tumbleweed_3": {
+		"file": "clipart/tumbleweed_3.png",
+		"source": "drawn in code by tools/art/clipart.py",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"menu/floor": {
 		"file": "menus/floor.png",
 		"source": "drawn in code by tools/art/tent.py",

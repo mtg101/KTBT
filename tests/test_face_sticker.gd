@@ -54,3 +54,28 @@ func test_it_goes_with_its_caption_and_thumps_in_after_it() -> void:
 	assert_float(sticker.get_node("Faces").scale.x).is_greater(1.0)  # (big, about to thump down)
 	await await_millis(300)
 	assert_bool(is_instance_valid(caption) or is_instance_valid(sticker)).is_false()  # (gone with its caption)
+
+
+func test_the_edit_s_clipart_lands_on_each_face_sized_to_it() -> void:
+	var two: FaceSticker = auto_free(FaceSticker.new())
+	two.setup([_face("Kim Ji-ho", "sweet"), _face("Park Min-seo", "sweet")], Color("ff8fc0"), 0.7, false, "flowers", 2.6)
+	add_child(two)
+	two.time_scale = 0.01
+	two.slam(0.14)
+	var faces := two.get_node("Faces").get_children()
+	for face in faces:
+		var clip := (face as Control).get_node_or_null("Clipart") as Control
+		assert_object(clip).is_not_null()  # (on both of them)
+		assert_bool(clip.show_behind_parent).is_true()  # flowers: behind the face, peeking round its edge
+		assert_float(clip.size.x).is_greater((face.get_node("Picture") as Control).size.x)
+	var zoomed: FaceSticker = auto_free(FaceSticker.new())
+	zoomed.setup([_face("Kim Ji-ho", "sad")], Color("6fa8ff"), 0.2, true, "rain_cloud", 3.6)
+	add_child(zoomed)
+	zoomed.slam(0.14)
+	var cloud := zoomed.find_child("Clipart", true, false) as Control
+	assert_int(cloud.pixel).is_greater(6)  # (bigger on a zoom, with the face)
+	var plain: FaceSticker = auto_free(FaceSticker.new())
+	plain.setup([_face("Kim Ji-ho", "calm")], Color.WHITE, 0.2)
+	add_child(plain)
+	plain.slam(0.14)
+	assert_object(plain.find_child("Clipart", true, false)).is_null()  # (no clipart: none)

@@ -13,6 +13,7 @@ const Looks = preload("res://scripts/rules/looks.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const CatRules = preload("res://scripts/rules/cat_rules.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
+const Clipart = preload("res://scripts/rules/clipart.gd")
 
 ## Each pixel of an image is this many on the stage (the stage's pixel scale: ART.md).
 const SCALE := 3
@@ -81,6 +82,8 @@ static func ids(kind: String) -> Array:
 					for hair in Looks.HAIR_STYLES:
 						portraits.append_array(["%s_%s_%s" % [gender, age, hair], "%s_%s_%s_glasses" % [gender, age, hair]])
 			return portraits
+		"clipart":  # the edit's clipart stuck to people on stage, each frame of each (rules/clipart.gd CLIPS; tools/art/clipart.py)
+			return Clipart.ids()
 		"reaction":  # each portrait's face in each TV mood, a close-up ("w_60s_perm_glasses_shock": captions.gd REACTIONS;
 			# tools/art/portraits.py, from the image model's redrawing of the portrait, in the same encoding)
 			var faces: Array = []

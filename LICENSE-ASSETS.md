@@ -30,6 +30,67 @@ Every image in `art/` is listed here, with where it came from and its licence (a
 
 | File | What | Source | Licence |
 | --- | --- | --- | --- |
+| `art/clipart/siren_3.png` | clipart/siren_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/siren_2.png` | clipart/siren_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/siren_1.png` | clipart/siren_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/siren_0.png` | clipart/siren_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/stars_3.png` | clipart/stars_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/stars_2.png` | clipart/stars_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/stars_1.png` | clipart/stars_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/stars_0.png` | clipart/stars_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/flames_2.png` | clipart/flames_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/flames_1.png` | clipart/flames_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/flames_0.png` | clipart/flames_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/soul_3.png` | clipart/soul_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/soul_2.png` | clipart/soul_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/soul_1.png` | clipart/soul_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/soul_0.png` | clipart/soul_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/arrow_1.png` | clipart/arrow_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/arrow_0.png` | clipart/arrow_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/halo_2.png` | clipart/halo_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/halo_1.png` | clipart/halo_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/halo_0.png` | clipart/halo_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/sunbeams_1.png` | clipart/sunbeams_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/sunbeams_0.png` | clipart/sunbeams_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/laugh_tears_2.png` | clipart/laugh_tears_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/laugh_tears_1.png` | clipart/laugh_tears_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/laugh_tears_0.png` | clipart/laugh_tears_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/haha_2.png` | clipart/haha_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/haha_1.png` | clipart/haha_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/haha_0.png` | clipart/haha_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/mind_blown_3.png` | clipart/mind_blown_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/mind_blown_2.png` | clipart/mind_blown_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/mind_blown_1.png` | clipart/mind_blown_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/mind_blown_0.png` | clipart/mind_blown_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/bang_1.png` | clipart/bang_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/bang_0.png` | clipart/bang_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/lightning_1.png` | clipart/lightning_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/lightning_0.png` | clipart/lightning_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/flowers_1.png` | clipart/flowers_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/flowers_0.png` | clipart/flowers_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/blush_1.png` | clipart/blush_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/blush_0.png` | clipart/blush_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/hearts_3.png` | clipart/hearts_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/hearts_2.png` | clipart/hearts_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/hearts_1.png` | clipart/hearts_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/hearts_0.png` | clipart/hearts_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tears_2.png` | clipart/tears_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tears_1.png` | clipart/tears_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tears_0.png` | clipart/tears_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/rain_cloud_2.png` | clipart/rain_cloud_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/rain_cloud_1.png` | clipart/rain_cloud_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/rain_cloud_0.png` | clipart/rain_cloud_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tumbleweed_3.png` | clipart/tumbleweed_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tumbleweed_2.png` | clipart/tumbleweed_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tumbleweed_1.png` | clipart/tumbleweed_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/tumbleweed_0.png` | clipart/tumbleweed_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/sweat_2.png` | clipart/sweat_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/sweat_1.png` | clipart/sweat_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/sweat_0.png` | clipart/sweat_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/crow_3.png` | clipart/crow_3 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/crow_2.png` | clipart/crow_2 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/crow_1.png` | clipart/crow_1 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
+| `art/clipart/crow_0.png` | clipart/crow_0 | drawn in code by tools/art/clipart.py | CC BY-SA 4.0 (this project) |
 | `art/reactions/w_70s_ponytail_warm.png` | reaction/w_70s_ponytail_warm | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI (edit, from portrait_w_70s_ponytail_8642.png), seed 48710, then portraits.py's close-up: "Same person, same face, same hair, no glasses (bare eyes, as in the picture), same red top, same flat green background, same framing and the same flat cel-shaded illustration style. Change only the facial expression: deeply touched, a soft warm smile, eyes a little teary." | CC BY-SA 4.0 (this project) |
 | `art/reactions/w_70s_ponytail_sweet.png` | reaction/w_70s_ponytail_sweet | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI (edit, from portrait_w_70s_ponytail_8642.png), seed 48700, then portraits.py's close-up: "Same person, same face, same hair, no glasses (bare eyes, as in the picture), same red top, same flat green background, same framing and the same flat cel-shaded illustration style. Change only the facial expression: shy and flustered, pink blushing cheeks, a small bashful smile, eyes glancing aside." | CC BY-SA 4.0 (this project) |
 | `art/reactions/w_70s_ponytail_shock.png` | reaction/w_70s_ponytail_shock | FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI (edit, from portrait_w_70s_ponytail_8642.png), seed 48681, then portraits.py's close-up: "Same person, same face, same hair, no glasses (bare eyes, as in the picture), same red top, same flat green background, same framing and the same flat cel-shaded illustration style. Change only the facial expression: wide-eyed with shock, eyebrows raised high, mouth dropped open." | CC BY-SA 4.0 (this project) |

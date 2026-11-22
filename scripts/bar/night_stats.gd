@@ -50,6 +50,9 @@ var portraits := {}
 ## faces, "mood" (the caption's own face), "calm" (the plain one, asked for), "stood_in" (the
 ## plain one, the mood's face missing); "none": a caption that wanted a face and had nobody's.
 var stings := {}
+## The edit's clipart stuck to people on stage (rules/clipart.gd, ui/clipart_sticker.gd): each
+## clipart -> how many captions it went on; "missing": one picked whose art wasn't there.
+var clipart := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
 var ratings_so_far := {}
@@ -869,6 +872,8 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append(portraits_text())
 	if not stings.is_empty():
 		lines.append(stings_text())
+	if not clipart.is_empty():
+		lines.append(clipart_text())
 	if art.get("street", {}) is Dictionary and not art.get("street", {}).is_empty():
 		var tonights: Dictionary = art["street"]
 		lines.append("Street: lamps %d · stars %d · moon %s · road %s" % [int(tonights.get("lamps", 0)), int(tonights.get("stars", 0)), str(tonights.get("moon", "?")), str(tonights.get("road", "?"))])
@@ -955,6 +960,14 @@ func stings_text() -> String:
 		int(stings.get("mood", 0)), int(stings.get("calm", 0)), int(stings.get("stood_in", 0)), (" · NONE %d" % int(stings["none"])) if int(stings.get("none", 0)) > 0 else ""]
 
 
+## The clipart on stage tonight, most used first.
+func clipart_text() -> String:
+	var shown := clipart.keys().filter(func(clip): return clip != "missing")
+	shown.sort_custom(func(a, b): return int(clipart[a]) > int(clipart[b]) or (int(clipart[a]) == int(clipart[b]) and str(a) < str(b)))
+	return "Clipart on stage: %s%s" % [", ".join(PackedStringArray(shown.map(func(clip): return "%s %d" % [clip, int(clipart[clip])]))) if not shown.is_empty() else "none",
+		(" · MISSING %d" % int(clipart["missing"])) if int(clipart.get("missing", 0)) > 0 else ""]
+
+
 ## Everything, for the log file. context: which bar and night, AI settings and so on.
 func summary(context: Dictionary) -> Dictionary:
 	return {
@@ -967,6 +980,7 @@ func summary(context: Dictionary) -> Dictionary:
 		"poses": poses,
 		"portraits": portraits.duplicate(),
 		"stings": stings.duplicate(),
+		"clipart": clipart.duplicate(),
 		"gestures": gestures.duplicate(),
 		"highlights": highlights(),
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},

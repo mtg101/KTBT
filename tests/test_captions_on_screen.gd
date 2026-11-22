@@ -95,3 +95,46 @@ func test_a_caption_with_faces_has_them_slapped_on_and_a_zoom_clears_the_talk() 
 	captions.show_caption("cheers", {"seated": 2})  # (the next caption: the zoom's gone with it)
 	assert_object(captions.shown_zoom).is_null()
 	assert_dict(captions.night.stats.stings).is_equal({"beside": 1, "zoom": 1, "mood": 1, "stood_in": 1})
+
+
+func test_whoever_s_face_is_on_it_gets_the_clipart_on_stage() -> void:
+	Hooks.caption_pacing = false
+	var captions := _captions()
+	var one: Control = auto_free(Control.new())
+	var two: Control = auto_free(Control.new())
+	captions.layer.add_child(one)
+	captions.layer.add_child(two)
+	var faces := [_face("Kim Ji-ho", "mood"), _face("Park Min-seo", "mood")]
+	faces[0]["node"] = one
+	faces[1]["node"] = two
+	captions.show_caption("another_round", {"name": "Kim Ji-ho", "friend": "Park Min-seo", "drinks": 3}, null, Vector2(300, 200), faces)
+	assert_object(one.get_node_or_null("Clipart")).is_not_null()  # both of them: the stars
+	assert_object(two.get_node_or_null("Clipart")).is_not_null()
+	assert_str(one.get_node("Clipart").clip).is_equal("stars")
+	assert_dict(captions.night.stats.clipart).is_equal({"stars": 1})
+	# The next caption takes the last one's off; a plain face (a new face) gets none.
+	var calm := _face("Kim Ji-ho", "calm")
+	calm["mood"] = "calm"
+	calm["node"] = one
+	captions.show_caption("new_face", {"name": "Kim Ji-ho"}, null, Vector2(300, 200), [calm])
+	assert_object(one.get_node_or_null("Clipart")).is_null()
+	assert_array(captions.stuck).is_empty()
+	# A reaction's: its mood's; after a zoom, it waits for the zoom to go.
+	var window: Control = auto_free(Control.new())
+	add_child(window)
+	captions.zoom_layer = window
+	var shocked := _face("Kim Ji-ho", "mood")
+	shocked["node"] = one
+	captions.pop({"hangul": "충격!", "english": "SHE QUIT?!"}, "😱", "ff4f6d", "dun", false, one, Vector2(-1, -1), 3.6, [shocked], true)
+	var sticker: Control = one.get_node("Clipart")
+	assert_bool(["lightning", "bang", "mind_blown"].has(sticker.clip)).is_true()
+	assert_float(sticker.modulate.a).is_equal(0.0)  # (not yet: the zoom's up)
+
+
+func test_the_clipart_goes_on_the_face_even_with_nobody_on_stage() -> void:
+	Hooks.caption_pacing = false
+	var captions := _captions()
+	captions.show_caption("cheers", {"seated": 2}, null, Vector2(300, 200), [_face("Kim Ji-ho", "mood")])  # (no node: they've gone)
+	assert_array(captions.stuck).is_empty()  # none on stage...
+	assert_str(captions.shown.sticker.clip).is_not_empty()  # ...but on their face on the pop
+	assert_int(captions.night.stats.clipart.values().reduce(func(a, b): return a + b, 0)).is_equal(1)  # (counted once a caption)

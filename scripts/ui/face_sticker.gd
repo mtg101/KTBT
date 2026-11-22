@@ -7,8 +7,11 @@ extends Control
 ## a dark TV frame; their name on a tag across the bottom. Part of the caption (caption.gd
 ## setup): it pops in, holds and fades with it, over whoever it's about. The zoom is the same,
 ## bigger, in the middle of the dimmed window (captions_on_screen.gd). Never takes a click.
+## The edit's clipart, if the caption has any, on each face too (ui/clipart_sticker.gd, sized
+## to the face), landing with it.
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const ClipartSticker = preload("res://scripts/ui/clipart_sticker.gd")
 const SCALE := 2  # beside a caption: the portrait's 64 x 80 at 128 x 160
 const ZOOM_SCALE := 5  # the zoom's: 320 x 400
 ## Each mood's looks, picked from by the caption's roll.
@@ -24,11 +27,17 @@ var faces_shown := 0
 var _colour := Color.WHITE
 var _mood := ""
 var _inner: Control  # the faces, free to tilt and thump (a container would straighten them)
+var clip := ""  # the edit's clipart on each face ("": none)
+var clip_hold := 2.6  # for how long (the caption's beat)
+var _clip_spots: Array = []  # [the face's holder, its picture's rectangle], one a face
 
 
 ## faces: [{"texture", "name", "mood"}], one or two; colour: the caption's; roll: the caption's
-## dice (which look, which way it leans); zoomed: the zoom's size.
-func setup(faces: Array, colour: Color, roll: float, zoomed := false) -> void:
+## dice (which look, which way it leans); zoomed: the zoom's size; clip: the edit's clipart on
+## each face ("" for none), for hold seconds.
+func setup(faces: Array, colour: Color, roll: float, zoomed := false, clip_name := "", hold := 2.6) -> void:
+	clip = clip_name
+	clip_hold = hold
 	name = "FaceSticker"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_colour = colour
@@ -78,6 +87,7 @@ func _face(face: Dictionary, scale_by: int, zoomed: bool) -> Control:
 	picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(picture)
 	holder.draw.connect(_draw_look.bind(holder, Rect2(picture.position, picture_size)))
+	_clip_spots.append([holder, Rect2(picture.position, picture_size)])
 	var tag := PanelContainer.new()
 	tag.name = "Tag"
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -130,6 +140,22 @@ func slam(delay: float) -> void:
 	tween.tween_interval(delay * time_scale)
 	tween.tween_property(_inner, "modulate:a", 1.0, 0.05 * time_scale)
 	tween.parallel().tween_property(_inner, "scale", Vector2.ONE, 0.22 * time_scale).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_stick_clipart(delay)
 	if _mood == "shock":
 		for shake in [7.0, -6.0, 4.0, 0.0]:
 			tween.tween_property(_inner, "position:x", shake, 0.04 * time_scale)
+
+
+## The edit's clipart on each face, sized to it, landing with the faces (after delay).
+func _stick_clipart(delay: float) -> void:
+	if clip == "":
+		return
+	for spot in _clip_spots:
+		var holder: Control = spot[0]
+		var picture: Rect2 = spot[1]
+		var sticker := ClipartSticker.new()
+		if not sticker.setup(clip, ClipartSticker.pixel_for_face(clip, picture.size.x)):
+			sticker.free()
+			return
+		sticker.time_scale = time_scale
+		sticker.stick(holder, clip_hold, delay, picture)

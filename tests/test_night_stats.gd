@@ -524,3 +524,13 @@ func test_the_faces_on_captions_are_in_the_stats() -> void:
 	stats.stings["none"] = 2
 	assert_str(stats.panel_text(0, 0)).contains("calm standing in 0 · NONE 2")
 	assert_dict(stats.summary({})["stings"]).is_equal({"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0, "none": 2})
+
+
+func test_the_clipart_on_stage_is_in_the_stats() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).not_contains("Clipart on stage:")  # (none yet: nothing said)
+	stats.clipart = {"hearts": 1, "crow": 3, "siren": 1}
+	assert_str(stats.panel_text(0, 0)).contains("Clipart on stage: crow 3, hearts 1, siren 1")
+	stats.clipart["missing"] = 2
+	assert_str(stats.panel_text(0, 0)).contains("siren 1 · MISSING 2")
+	assert_dict(stats.summary({})["clipart"]).is_equal({"hearts": 1, "crow": 3, "siren": 1, "missing": 2})

@@ -4419,7 +4419,7 @@ func _tv_face(person_name: String, mood: String) -> Dictionary:
 		how = "mood" if moody != null else "stood_in"
 		if moody != null:
 			texture = moody
-	return {"texture": texture, "name": str(person.get("name", "")), "mood": mood, "how": how}
+	return {"texture": texture, "name": str(person.get("name", "")), "mood": mood, "how": how, "node": node}  # (node: for the clipart on stage)
 
 
 ## Whose node it is: the owner's or a customer's name ("" for anyone else, or nobody).
