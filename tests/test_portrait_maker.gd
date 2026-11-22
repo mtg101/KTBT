@@ -68,3 +68,32 @@ func test_pictures_are_made_and_split_and_counted() -> void:
 	assert_int(maker.counts["failed"]).is_equal(1)
 	assert_bool(maker.counts.has("started")).is_false()  # (nothing started, so nothing to stop)
 	assert_bool(maker.counts.has("seconds")).is_true()
+
+
+func test_a_test_pictures_split_is_kept_and_the_same_as_a_fresh_one() -> void:
+	Hooks.kept_splits = {}
+	Hooks.fake_comfy = [Image.load_from_file(ProjectSettings.globalize_path(FIXTURE))]
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	assert_str(await maker.open()).is_empty()
+	var made: Array = await maker.make("a portrait", "owner", 2, 700)
+	var fresh: Dictionary = made[0]["split"]
+	var kept: Dictionary = made[1]["split"]
+	assert_bool(fresh.get("kept", false)).override_failure_message("the first one wasn't split").is_false()
+	assert_bool(kept.get("kept", false)).override_failure_message("the second one was split again").is_true()
+	for part in ["part", "step", "score", "shares", "resized"]:
+		assert_that(kept[part]).override_failure_message("kept %s isn't the fresh one's" % part).is_equal(fresh[part])
+	assert_bool((kept["layer"] as Image).get_data() == (fresh["layer"] as Image).get_data()).override_failure_message("kept layer isn't the fresh one's").is_true()
+	# What's handed back is a copy: drawing on it leaves the kept one alone.
+	(kept["layer"] as Image).fill(Color.RED)
+	var again: Array = await maker.make("a portrait", "owner", 1, 702)
+	assert_bool((again[0]["split"]["layer"] as Image).get_data() == (fresh["layer"] as Image).get_data()).override_failure_message("the kept layer was changed").is_true()
+	# Scored as someone else (glasses and balding asked for, and not there): the same split, its own score.
+	var other: Array = await maker.make("a portrait", "m_50s_balding_glasses", 1, 703)
+	maker.close()
+	var theirs: Dictionary = other[0]["split"]
+	assert_bool(theirs.get("kept", false)).is_true()
+	assert_float(float(theirs["score"])).is_equal(PortraitSplit.score(fresh["part"], "m_50s_balding_glasses"))
+	assert_float(float(theirs["score"])).is_greater(float(fresh["score"]))
+	assert_int(Hooks.kept_splits.size()).is_equal(1)
+	Hooks.kept_splits = {}

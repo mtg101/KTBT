@@ -10,8 +10,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   3. **Counted and logged:** the night's stats (`night_stats.gd`, the faces after closing line): moods made, failed, still the calm face's, people still to do, with `comfy_text`'s ComfyUI started/stopped and the seconds. The TV box's "in the mood" count then includes faces of their own. The notes ("Faces"): each picture (who, mood, seed, made in, split in, score), each mood's pick or fallback and why, the upload, ComfyUI started and stopped. Tests: a scene test of a night closing with fake pictures (a regular's moods made, kept, read back as a saved bar opens, their TV box "mood"; a failed mood standing in with the calm face; the cap carrying over to the next night; a recast starting again); the stats line. Docs: CONCEPT (how it works), ART.md (the moods of their own), ARCHITECTURE, TESTS, DEVLOG.
 - things i noticed
   - couple of red text lines starting tests (tests run and pass but...) 
-  - some tests take like 20s... 
-  - the whole run takes 4m30s!
+  - and they still take 3mins...
 
 ## Future ideas and improvements
 

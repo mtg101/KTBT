@@ -78,6 +78,9 @@ static var fake_comfy: Array = []
 ## How cleanly a regular's best casting photo must split to be their face (NAN: the rule's,
 ## rules/portraits.gd CLEAN_ENOUGH): tests set INF (any) or -INF (none).
 static var clean_enough := NAN
+## The test's pictures' splits, kept for the whole run (ai/portrait_maker.gd _split): never cleared
+## between tests, since the same picture always splits the same. Only used with fake_comfy.
+static var kept_splits := {}
 ## false: last night's episode titles come from the game's templates (Story.stitched_titles), not the AI.
 static var titles := true
 ## false: 3am's posts have the game's own words (Socials.stitched_words), not the AI's.

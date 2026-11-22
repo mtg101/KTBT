@@ -195,8 +195,8 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 			return made
 		counts["made"] = int(counts.get("made", 0)) + 1
 		var shares: Dictionary = split.get("shares", {})
-		DebugLog.say("Faces", "%s, seed %d: made in %.1fs, split in %.1fs, score %.3f (hair %d%%, skin %d%%, cloth %d%%, lines %d%%)" % [person, pic_seed, took,
-			int(split.get("ms", 0)) / 1000.0, float(split.get("score", 99.0)), roundi(float(shares.get("hair", 0)) * 100), roundi(float(shares.get("skin", 0)) * 100),
+		DebugLog.say("Faces", "%s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (hair %d%%, skin %d%%, cloth %d%%, lines %d%%)" % [person, pic_seed, took,
+			int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else "", float(split.get("score", 99.0)), roundi(float(shares.get("hair", 0)) * 100), roundi(float(shares.get("skin", 0)) * 100),
 			roundi(float(shares.get("cloth", 0)) * 100), roundi(float(shares.get("lines", 0)) * 100)])
 		made.append({"seed": pic_seed, "picture": picture, "split": split, "score": float(split.get("score", 99.0))})
 	return made
@@ -243,14 +243,39 @@ func _picture(prompt: String, person: String, pic_seed: int, k: int) -> Image:
 	return null
 
 
-## The split on a worker thread, the game carrying on meanwhile.
+## The split on a worker thread, the game carrying on meanwhile. The test's pictures
+## (Hooks.fake_comfy) are the same few over and over, so each one's split is kept the first time
+## (Hooks.kept_splits, by the picture's pixels) and a copy handed back after, scored afresh for who
+## it's for (the score's the only part that depends on them, and quick), marked "kept": about 2.5
+## seconds a face saved, the split itself checked against the Python's by test_portrait_split.
 func _split(picture: Image, person: String) -> Dictionary:
+	var key := ""
+	if not Hooks.fake_comfy.is_empty():
+		key = "%dx%d|%d" % [picture.get_width(), picture.get_height(), hash(picture.get_data())]
+		if Hooks.kept_splits.has(key):
+			await get_tree().process_frame
+			var kept := copy_split(Hooks.kept_splits[key])
+			kept["score"] = PortraitSplit.score(kept["part"], person)
+			kept["kept"] = true
+			kept["ms"] = 0
+			return kept
 	var out := {}
 	var task := WorkerThreadPool.add_task(func(): out.merge(PortraitSplit.split(picture, person)))
 	while not WorkerThreadPool.is_task_completed(task):
 		await get_tree().process_frame
 	WorkerThreadPool.wait_for_task_completion(task)
+	if key != "":
+		Hooks.kept_splits[key] = copy_split(out)
 	return out
+
+
+## A split nothing else shares: its layer and its parts copied, so changing one leaves the other.
+static func copy_split(split: Dictionary) -> Dictionary:
+	var copy := {}
+	for k in split:
+		var value = split[k]
+		copy[k] = value.duplicate() if value is Image or typeof(value) >= TYPE_DICTIONARY else value
+	return copy
 
 
 func _answers() -> bool:
