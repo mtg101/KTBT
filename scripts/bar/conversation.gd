@@ -111,8 +111,20 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s, and talk to each other casually from now on, like friends?" % [speaker, addressee, moment_term.capitalize()]
 	var hint := ""
 	var game := ""
+	# A PD's plant card has just happened to the speaker (on a chat's first line too: a card that
+	# gets two people talking is why they're talking, 18 Nov). It's the whole of this line's
+	# direction: given alongside the chat's topic and "a little while ago…", it was ignored (18 Nov:
+	# the power cut, and the chat carried on about gochujang). What lingers starts on the next line.
+	# It comes first, before a pour, a table game, the stunned moment or the cat: those wait (22 Nov:
+	# the ex walked past, and Ji-yoon's next three lines were a refill and a drinking game).
+	if speaking != null and speaking.plant_moment != "":
+		if not first and chat.pd_topic_lines > 0 and direction == chat.pd_topic:
+			chat.pd_topic_lines += 1  # (not used up on this line)
+		direction = speaking.plant_moment + " " + Talk.JUST_HAPPENED + (" " + "This is the first thing they've ever said to each other." if first else "")
+		hint = "plant_" + speaking.plant_card
+		speaking.plant_moment = ""
 	# Now and then, once a chat: something to share (a bite, a refill).
-	if not first and moment_term == "" and not chat.shared and speaking != null and int(food[0]) > 0:
+	if hint == "" and not first and moment_term == "" and not chat.shared and speaking != null and int(food[0]) > 0:
 		var sharing := Talk.sharing_moment(speaker, addressee, close, int(food[0]) > int(food[1]), bool(food[2]), randf(), randf())
 		if sharing != "":
 			direction = sharing + " " + direction
@@ -132,7 +144,7 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 		chat.game_lines -= 1
 	# Something just said has stunned them.
 	var heard: String = night.owner_stunned if owner_speaks else (speaking.stunned if speaking != null else "")
-	if heard != "" and not first:
+	if heard != "" and not first and not hint.begins_with("plant_"):  # (after a card's line: it waits)
 		direction = heard + " " + direction
 		hint = "stunned"
 		if owner_speaks:
@@ -149,16 +161,6 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 				night.owner_cat_moment = ""
 			else:
 				speaking.cat_moment = ""
-	# A PD's plant card has just happened to the speaker (on a chat's first line too: a card that
-	# gets two people talking is why they're talking, 18 Nov). It's the whole of this line's
-	# direction: given alongside the chat's topic and "a little while ago…", it was ignored (18 Nov:
-	# the power cut, and the chat carried on about gochujang). What lingers starts on the next line.
-	if hint == "" and speaking != null and speaking.plant_moment != "":
-		if not first and chat.pd_topic_lines > 0 and direction == chat.pd_topic:
-			chat.pd_topic_lines += 1  # (not used up on this line)
-		direction = speaking.plant_moment + " " + Talk.JUST_HAPPENED + (" " + "This is the first thing they've ever said to each other." if first else "")
-		hint = "plant_" + speaking.plant_card
-		speaking.plant_moment = ""
 	# The PD's camera has just turned to the speaker.
 	if hint == "" and not first and speaking != null and speaking.camera_moment != "":
 		direction = speaking.camera_moment + " " + direction

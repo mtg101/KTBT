@@ -652,8 +652,8 @@ const HINT_TELLS := {
 	"plant_rain": ["rain", "pour", "umbrella", "wet", "soaked", "downpour", "drumming", "tarp"],
 	"plant_phone": ["phone", "call", "ring", "answer", "text", "message", "mum", "mom", "boss", "eomma", "brother", "number", "ignore"],
 	"plant_first_snow": ["snow", "first snow", "wish", "winter", "snowflake"],
-	"plant_text": ["text", "message", "read", "says", "wrote", "phone", "who was that"],
-	"plant_ex_walks_past": ["ex", "was that", "saw", "outside", "used to", "go after", "my heart", "with someone", "flowers", "wedding", "dog"],
+	"plant_text": ["text", "message", "read", "says", "wrote", "phone", "who was that", "chat", "group chat", "going on", "what happened"],  # (22 Nov: "what's going on with that group chat?" counted as a miss)
+	"plant_ex_walks_past": ["ex", "was that", "saw", "outside", "used to", "go after", "my heart", "with someone", "flowers", "wedding", "dog", "what's he", "what's she", "doing here", "he's here", "she's here"],  # (22 Nov: "what's he doing here?" counted as a miss)
 	"plant_round_on": ["thank", "thanks", "on me", "round", "generous", "jjan", "geonbae", "cheers", "kind of you", "congratulations", "promoted", "birthday", "quit", "celebrate"],
 	"plant_small_world": ["small world", "same", "no way", "remember", "school", "classmate", "sunbae", "hoobae", "teacher", "company", "jeju", "busan", "bathhouse", "boss", "goshiwon", "neighbour", "neighbor"],
 	"plant_noraebang": ["song", "sing", "ballad", "noraebang", "karaoke", "music", "voice", "this song", "trot", "duet", "theme", "off-key", "tune"],

@@ -382,8 +382,8 @@ func test_the_pds_camera_is_counted() -> void:
 	# The plant cards: played, and whether the lines given them took them up.
 	assert_str(stats.panel_text(0, 0)).contains("Plants: none played tonight")
 	stats.events.append({"kind": "plant_played", "card": "phone", "name": "Kim Ji-ho", "at": 1410})
-	stats.record_hint("plant_phone", "Sorry, I have to take this call.")
-	stats.record_hint("plant_phone", "Anyway.")
+	assert_bool(stats.record_hint("plant_phone", "Sorry, I have to take this call.")).is_true()  # (said back, for the notes)
+	assert_bool(stats.record_hint("plant_phone", "Anyway.")).is_false()
 	assert_str(stats.panel_text(0, 0)).contains("Plants: played 1 · turned to first 0 · phone taken up 1/2")
 	assert_array(stats.highlights()).contains(["11:30pm  plant: phone (Kim Ji-ho)"])
 	assert_array(stats.summary({})["pd"]["plants"]["phone"]).is_equal([1, 2, 1, 0])

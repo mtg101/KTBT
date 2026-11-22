@@ -3764,7 +3764,8 @@ func _next_line(guest: Guest) -> void:
 		_narrate("(The conversation with %s fizzled out: %s.)" % [guest.customer["name"], _ai.last_error])
 		guest.stay_left = 0.0
 		return
-	_stats.record_hint(hint, str(reply["line"]), _tent_cat.tells())
+	_log_card_line(_owner_label() if owner_speaks else str(guest.customer["name"]), hint, _stats.record_hint(hint, str(reply["line"]), _tent_cat.tells()), str(reply["line"]),
+		"to %s" % (guest.customer["name"] if owner_speaks else _owner_label()))
 	if i == 0 and owner_speaks:
 		_stats.record_opening("owner", str(reply["line"]))
 	await _say(guest, owner_speaks, str(reply["line"]))
@@ -4080,7 +4081,8 @@ func _chat_line(chat: Chat, speaker: String, addressee: String, first: bool) -> 
 	_stats.chat_lines += 1
 	_stats.record_camera_line(_camera.on_camera(chat.people, chat.owner_in))
 	_stats.record_written_line(speaker, chat.people.map(func(g): return str(g.customer["name"])), line)
-	_stats.record_hint(hint, line, _tent_cat.tells())
+	_log_card_line(speaker, hint, _stats.record_hint(hint, line, _tent_cat.tells()), line,
+		"in a chat with %s" % ", ".join(PackedStringArray(chat.people.map(func(g): return str(g.customer["name"])).filter(func(n): return n != speaker) + ([_owner_label()] if chat.owner_in and not owner_speaks else []))))
 	_stats.record_line(line, names)
 	if guest != null:
 		_night_lines.append({"speaker": speaker, "text": line})
@@ -5694,6 +5696,15 @@ func _plant_in(transcript: Array, guest: Variant) -> void:
 	for what in said:
 		if not transcript.any(func(entry): return str(entry.get("action", "")) == what):
 			transcript.append({"action": what})
+
+
+## A line given a PD's card (hint "plant_…"), in the notes: who said it, where, whether it
+## seems to have taken the card up, and the line, so a card that went by unmentioned shows.
+## where: "to Kim Soo-ok", "in a chat with Kang Tae-oh".
+func _log_card_line(who: String, hint: String, taken: bool, line: String, where: String) -> void:
+	if not hint.begins_with("plant_"):
+		return
+	DebugLog.say("Plants", "%s's line on the %s card, %s: %s «%s»" % [who, hint.trim_prefix("plant_"), where, "taken up" if taken else "not taken up (by the words)", Text.shorten(line, 90)])
 
 
 ## Someone something's just happened to (a plant card) who's chatting at the counter, or null.

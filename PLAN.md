@@ -4,11 +4,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- not sure yet...
-  - are events being picked up in talks?
-  - should we go for AI created portraits in the game next as a big thing?
-  - yeah lots of incrementals but feels like we should leave those for now...
-    - not point more cards until events get properly reacted to!
+- **AI generated owner/regular portraits:**
+  - lots of other increnmental stuff in this plan but... but generating images during the game is new!
+  - switching AI models, in-game image creation... this is fun!
 
 ## Future ideas and improvements
 
@@ -51,6 +49,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - repeating words: chijeu chijeu, gogi gogi gogi, etc
     - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
     - myers briggs (and other astrology ;) 
+    - everyone is welcome - Midnight Diner style - doesn't matter who you are what you do, everyone is welcome
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
 - **More social media:** after the posts stage: posts popping up live during the show; the triple+ replay for big events; and for thinking about, how a video post of the night would be made.
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.

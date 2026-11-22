@@ -6,6 +6,7 @@ extends "res://tests/support/bar_test.gd"
 const PixelFont = preload("res://scripts/ui/pixel_font.gd")
 const Bonds = preload("res://scripts/rules/bonds.gd")
 const Memories = preload("res://scripts/rules/memories.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const Seasons = preload("res://scripts/rules/seasons.gd")
 const Visit = preload("res://scripts/visit.gd")
@@ -2507,6 +2508,21 @@ func test_whoever_a_card_just_happened_to_gets_the_next_turn() -> void:
 	scene._plant_on(guest, "text", "A text.", "a text")
 	assert_bool(guest.card_turn).is_false()  # (a new card: a new turn)
 	guest.plant_moment = ""
+
+
+func test_a_cards_line_is_in_the_notes() -> void:
+	# 22 Nov: whether a card was taken up could only be worked out from the transcripts.
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	DebugLog.everything_to_console = true
+	DebugLog.printed = []
+	scene._log_card_line("Hwang Ji-yoon", "plant_ex_walks_past", false, "I'll get you a glass, how's your beer?", "in a chat with Kang Tae-oh")
+	scene._log_card_line("Hwang Ji-yoon", "pour", true, "Here, let me top you up.", "in a chat with Kang Tae-oh")  # (not a card: no note)
+	DebugLog.everything_to_console = false
+	var notes: Array = DebugLog.printed.filter(func(l): return str(l).begins_with("Plants:"))
+	DebugLog.printed = []
+	assert_int(notes.size()).is_equal(1)
+	assert_str(str(notes[0])).contains("Hwang Ji-yoon's line on the ex_walks_past card, in a chat with Kang Tae-oh: not taken up").contains("how's your beer")
 
 
 func test_a_worn_phrase_is_let_through_after_two_tries() -> void:

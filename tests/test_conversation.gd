@@ -143,6 +143,32 @@ func test_a_plant_card_is_the_next_lines_moment_once() -> void:
 	assert_str(guest.plant_moment).is_empty()
 
 
+func test_in_a_chat_a_card_comes_before_a_pour_a_game_stunned_or_the_cat() -> void:
+	# 22 Nov: the ex walked past Ji-yoon, and her next three lines were a refill and a drinking game.
+	var night := Night.new()
+	var chat := CounterChats.Chat.new()
+	var guest := Someone.new()
+	chat.people = [guest, Someone.new()]
+	chat.game = "369"  # (a table game in the air)
+	chat.game_lines = 2
+	guest.stunned = "They've just said they quit their job."
+	guest.cat_moment = "The cat's jumped up onto their lap."
+	guest.plant_moment = Plants.moment("ex_walks_past", "Hwang Ji-yoon", "", "dressed for a wedding", "female")
+	guest.plant_card = "ex_walks_past"
+	var dice := RandomNumberGenerator.new()
+	var said := Conversation.chat_line(night, chat, "Hwang Ji-yoon", "Kang Tae-oh", false, guest, false, false, "", false, [3, 0, true], 3, true, dice)
+	assert_str(str(said["hint"])).is_equal("plant_ex_walks_past")
+	assert_str(str(said["direction"])).contains("dressed for a wedding").not_contains(str(Talk.TABLE_GAMES["369"]["situation"]))
+	assert_str(guest.plant_moment).is_empty()
+	# The rest wait for the lines after: nothing used up on the card's line.
+	assert_bool(chat.shared).is_false()
+	assert_int(chat.game_lines).is_equal(2)
+	assert_str(guest.stunned).is_not_empty()
+	assert_str(guest.cat_moment).is_not_empty()
+	var next := Conversation.chat_line(night, chat, "Hwang Ji-yoon", "Kang Tae-oh", false, guest, false, false, "", false, [3, 0, true], 3, true, dice)
+	assert_str(str(next["hint"])).is_equal("stunned")
+
+
 func test_the_pds_cue_card_is_the_topic_for_a_few_lines() -> void:
 	var night := Night.new()
 	var guest := Someone.new()

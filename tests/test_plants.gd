@@ -88,6 +88,10 @@ func test_a_cards_moment_is_about_whoever_it_happens_to() -> void:
 	assert_bool(Talk.hint_taken("plant_rain", "Look at that rain!")).is_true()
 	assert_bool(Talk.hint_taken("plant_regular_in", "The producer rang me, can you believe it?")).is_true()
 	assert_bool(Talk.hint_taken("plant_phone", "Another soju, please.")).is_false()
+	# (22 Nov: real reactions the words missed, counted as not taken up.)
+	assert_bool(Talk.hint_taken("plant_ex_walks_past", "What's he doing here?")).is_true()
+	assert_bool(Talk.hint_taken("plant_text", "Annyeong? What's going on with that group chat of ours?")).is_true()
+	assert_bool(Talk.hint_taken("plant_ex_walks_past", "I'll get you a glass, how's your beer?")).is_false()
 
 
 func test_every_hand_has_a_write_in() -> void:

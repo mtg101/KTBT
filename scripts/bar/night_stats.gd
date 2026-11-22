@@ -282,14 +282,16 @@ func record_event(kind: String, facts: Dictionary, _about: Variant = null, _spot
 
 
 ## A line said with a hint in its direction (see Talk.moment_kind): counted, and whether
-## the line seems to have taken it up.
-func record_hint(kind: String, line: String, extra_tells: Array = []) -> void:
+## the line seems to have taken it up (returned: whether it did).
+func record_hint(kind: String, line: String, extra_tells: Array = []) -> bool:
 	if kind == "":
-		return
+		return false
 	extra_tells = extra_tells + written_tells.get(kind.trim_prefix("plant_"), [])
 	hints_given[kind] = int(hints_given.get(kind, 0)) + 1
 	if Talk.hint_taken(kind, line, extra_tells) or kind == "plant_interview":  # (an interview's next line is the answer, to camera: taken up by being said)
 		hints_taken[kind] = int(hints_taken.get(kind, 0)) + 1
+		return true
+	return false
 
 
 ## A line of this kind ("order" or "owner"): counts how it starts (its first two words).
