@@ -3,10 +3,11 @@ extends RefCounted
 ## on 달밤 (Dalbam, "a moonlit night"), the feed app of the game's own, never a real one. The
 ## game picks the facts (pick: 0 to 3 posts from tonight's events: the big moments, the cat's
 ## thefts, a new regular, a full house, first snow, a PD's card taken up, a long wait for food;
-## a quiet night, a quiet feed), and the words, for now, are the game's own (stitched from
-## TEMPLATES; the canned AI answers "socials" with them too); check() is what any words must
-## pass: their length, no numbers, no brands, the poster's own handle, hashtags only from
-## HASHTAGS, Korean only with its meaning, food only what they were served. Each post is a
+## a quiet night, a quiet feed), and the AI writes the words, one call a night for all of
+## them, each in its poster's voice (ai_facts, Prompts.socials_messages, validate_reply); offline,
+## or where its words fail the check, they're the game's own (stitched from TEMPLATES; the canned
+## AI answers "socials" with them too). check() is what any words must pass: their length, no numbers, no brands, the poster's own handle, hashtags only from
+## HASHTAGS, Korean only with its meaning, food only what they were served (or mentioned). Each post is a
 ## selfie, a food pic, the cat, or text alone; the pictures are real snapshots of the stage when
 ## it happened (bar/snapshots.gd, wants_snap says when), stuck round the 3am diary page
 ## (ui/social_feed.gd) and kept with the entry.
@@ -15,6 +16,7 @@ const Names = preload("res://scripts/rules/names.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
+const Plants = preload("res://scripts/rules/plants.gd")
 const Menu = preload("res://scripts/rules/menu.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
 
@@ -42,6 +44,16 @@ const TAGS_OF := {"cat_theft": ["#tentcat", "#고양이"], "first_snow": ["#firs
 	"long_wait": ["#야식", "#latenightfood"], "food": ["#야식", "#latenightfood"], "full_house": ["#만석", "#fullhouse"],
 	"card": ["#plotTwist", "#whatanight"], "moment": ["#nofilter", "#mood", "#whatanight"]}
 const COMMON_TAGS := ["#pojangmacha", "#tentbar", "#latenight", "#포차"]
+
+## What happened, for the AI to write a post about (a moment's and a card's are tonight's own).
+const HAPPENED := {"cat_theft": "{cat}, the tent's cat, stole the {dish} right off their plate",
+	"first_snow": "the first snow of the winter fell on the tarp while they were in",
+	"new_regular": "they're becoming a regular: the owner knew them, and their order",
+	"long_wait": "their {dish} took a long time to come (one cook, a busy tent), and was worth the wait",
+	"food": "they had the {dish}", "full_house": "they got the last free stool: every stool in the tent was taken",
+	"card": "something out of a drama happened at the counter", "moment": "a big moment at the counter"}
+## What each kind of post shows, for the AI.
+const SHOWS := {"selfie": "a selfie of them at the counter", "food": "a photo of their {dish}", "cat": "a photo of the cat, {cat}", "text": "words alone, no picture"}
 
 ## The game's own words, by kind (a moment's by its mood). {dish}, {cat}: tonight's.
 const TEMPLATES := {
@@ -100,6 +112,8 @@ static func pick(events: Array, info: Dictionary, dice: RandomNumberGenerator) -
 					var moment := _candidate("moment", said_by, at, event)
 					moment["worth"] = int(WORTH["moment"]) + 5 * int(event.get("size", 0))
 					moment["mood"] = str(event.get("mood", "funny"))
+					var said := str(event.get("said", ""))
+					moment["what"] = "a big moment at the counter (it felt %s)%s" % [moment["mood"], (": they said \"%s\"" % said) if said != "" else ""]
 					found.append(moment)
 			"cat_stole":
 				var stolen := _candidate("cat_theft", who, at, event)
@@ -113,7 +127,10 @@ static func pick(events: Array, info: Dictionary, dice: RandomNumberGenerator) -
 					found.append(_candidate("first_snow", str(watchers[dice.randi() % watchers.size()]), at, event))
 			"plant_played":
 				if who != "" and who != owner_name and taken.has(str(event.get("card", ""))):
-					found.append(_candidate("card", who, at, event))
+					var card := _candidate("card", who, at, event)
+					if Plants.CARDS.has(str(event.get("card", ""))):
+						card["what"] = Plants.happened(str(event["card"]), who, "", str(event.get("what", "")))
+					found.append(card)
 			"dish_served":
 				var dish_id := Menu.resolve(str(event.get("dish", "")))
 				if Menu.find(dish_id).get("kind", "") != "food":
@@ -172,13 +189,97 @@ static func _post(candidate: Dictionary, poster: String, info: Dictionary, faces
 		shot = "text"  # (no face kept for them: words alone)
 	var post := {"about": about, "poster": poster, "handle": handle(poster), "shot": shot, "at": int(candidate["at"]),
 		"mood": str(candidate.get("mood", "")), "dish": str(candidate.get("dish", "")), "dish_id": str(candidate.get("dish_id", "")),
-		"snap": str(candidate["snap"]) if shot != "text" else "", "picture": "",
+		"snap": str(candidate["snap"]) if shot != "text" else "", "picture": "", "what": str(candidate.get("what", "")),
 		"face": {} if face.is_empty() else {"key": str(face.get("key", "")), "look": (face.get("look", {}) as Dictionary).duplicate(true), "mood": str(candidate.get("mood", "calm")) if about == "moment" else "calm"}}
 	if post["dish_id"] == "" and post["dish"] != "":
 		post["dish_id"] = Menu.resolve(str(post["dish"]))
 	post["text"] = stitched_words(post, str(info.get("cat", "")), dice)
 	post["tags"] = stitched_tags(about, dice)
 	return post
+
+
+## Who someone is, for their post's voice: a customer as the game made them (job, age, mood,
+## why they came, how they talk).
+static func voice(customer: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for field in ["age", "job"]:
+		if str(customer.get(field, "")) != "":
+			parts.append(str(customer[field]))
+	var text := ", ".join(parts)
+	if str(customer.get("mood", "")) != "":
+		text += ". Mood tonight: %s" % customer["mood"]
+	if str(customer.get("reason", "")) != "":
+		text += ". Why they came: %s" % str(customer["reason"]).strip_edges().trim_suffix(".")
+	if str(customer.get("speech_style", "")) != "":
+		text += ". Talks: %s" % customer["speech_style"]
+	return Text.as_sentence(text) if text != "" else ""
+
+
+## What the AI writes tonight's posts from: the game's facts, nothing else. info: "owner",
+## "cat", "weather", "voices" (name -> voice()).
+static func ai_facts(posts: Array, info: Dictionary) -> Dictionary:
+	var cat_name := str(info.get("cat", ""))
+	var voices: Dictionary = info.get("voices", {})
+	var listed: Array = []
+	for post in posts:
+		var dish := str(post.get("dish", "")).to_lower()
+		var happened := str(post.get("what", ""))
+		if happened == "":
+			happened = str(HAPPENED.get(str(post.get("about", "")), HAPPENED["food"]))
+		var poster := str(post.get("poster", ""))
+		listed.append({"handle": str(post["handle"]), "poster": poster, "about": str(post["about"]), "shot": str(post["shot"]),
+			"mood": str(post.get("mood", "")), "dish": str(post.get("dish", "")),
+			"happened": happened.replace("{cat}", cat_name if cat_name != "" else "the cat").replace("{dish}", dish if dish != "" else "food"),
+			"shows": str(SHOWS.get(str(post["shot"]), "")).replace("{cat}", cat_name if cat_name != "" else "the cat").replace("{dish}", dish if dish != "" else "food"),
+			"voice": str(voices.get(poster, voices.get(Names.given_name(poster), "")))})
+	return {"owner": str(info.get("owner", "")), "cat": cat_name, "weather": str(info.get("weather", "")), "posts": listed}
+
+
+## Checks the AI's posts (Prompts.socials_messages): "" if they'll do. Each post's words are
+## tidied and go through check(); the ones that pass go in data["words"] (handle -> {"text",
+## "tags"}), the ones that don't in data["turned_down"] ("@handle: why"), and get the game's
+## own words. Turned down only if it isn't posts at all, or none of them pass.
+static func validate_reply(data: Variant, posts: Array, facts: Dictionary) -> String:
+	if typeof(data) != TYPE_DICTIONARY or typeof(data.get("posts")) != TYPE_ARRAY:
+		return "it didn't include \"posts\""
+	var by_handle := {}
+	for written in data["posts"]:
+		if typeof(written) == TYPE_DICTIONARY:
+			var at := str(written.get("handle", "")).strip_edges()
+			by_handle[at if at.begins_with("@") else "@" + at] = written
+	var words := {}
+	var turned_down: Array = []
+	for post in posts:
+		var at := str(post["handle"])
+		if not by_handle.has(at):
+			turned_down.append("%s: no post for them" % at)
+			continue
+		var written: Dictionary = by_handle[at]
+		var text := Text.unquote(Text.tidy_text(str(written.get("text", ""))))
+		if text.begins_with(at):  # (their own handle on the front: it's on the card already)
+			text = text.trim_prefix(at).lstrip(": ").strip_edges()
+		var tags: Array = []
+		var raw_tags: Variant = written.get("tags", [])
+		for tag in (raw_tags if raw_tags is Array else str(raw_tags).split(" ", false)):
+			var hashed := str(tag).strip_edges()
+			hashed = hashed if hashed.begins_with("#") else "#" + hashed
+			if HASHTAGS.has(hashed) and not tags.has(hashed):
+				tags.append(hashed)  # (one not on the list is left off, not a reason to turn the post down)
+		if tags.is_empty():
+			tags.append(COMMON_TAGS[0])
+		var trial: Dictionary = post.duplicate(true)
+		trial["text"] = text
+		trial["tags"] = tags.slice(0, 3)
+		var problem := check(trial, facts)
+		if problem != "":
+			turned_down.append("%s: %s (\"%s\")" % [at, problem, text])
+			continue
+		words[at] = {"text": text, "tags": trial["tags"]}
+	data["words"] = words
+	data["turned_down"] = turned_down
+	if words.is_empty() and not posts.is_empty():
+		return "none of the posts could be used: %s" % "; ".join(PackedStringArray(turned_down))
+	return ""
 
 
 ## A post's words, the game's own (TEMPLATES).
@@ -241,17 +342,34 @@ static func check(post: Dictionary, facts: Dictionary) -> String:
 	for mention in RegEx.create_from_string("@[A-Za-z0-9._]+").search_all(text):
 		return "a mention of someone: %s" % mention.get_string()
 	var dish := str(post.get("dish", ""))
-	if dish != "" and not (facts.get("served", {}).get(poster, []) as Array).has(dish):
+	var served: Array = facts.get("served", {}).get(poster, [])
+	if dish != "" and not served.has(dish):
 		return "food they weren't served: %s" % dish
+	var lowered := text.to_lower()
+	for item in Menu.items():  # (a dish in the words: only one of theirs)
+		var named := str(item.get("name", "")).to_lower()
+		if named != "" and RegEx.create_from_string("\\b%s\\b" % _regex_escape(named)).search(lowered) != null \
+				and not served.any(func(d): return str(d).to_lower() == named or Menu.resolve(str(d)) == str(item.get("id", ""))):
+			return "food they weren't served: %s" % item["name"]
 	var known: Array = facts.get("known", [])
 	for word in RegEx.create_from_string("\\b[A-Z][a-z]+(-[a-z]+)?\\b").search_all(text):
 		var named := word.get_string()
 		if named in ["NOT", "I"] or known.any(func(k): return str(k).contains(named)):
 			continue
+		var before := text.substr(0, word.get_start()).strip_edges()
+		if named.find("-") < 0 and not Names.SURNAMES.has(named.to_lower()) and (before == "" or before.right(1) in [".", "!", "?", "…"]):
+			continue  # (a sentence's first word, capitalised: a name only if it's romanised like one, "Ji-ho")
 		if not Glossary.words_in(named).is_empty():
 			continue
 		return "someone not in the facts: %s" % named
 	return ""
+
+
+static func _regex_escape(text: String) -> String:
+	var escaped := ""
+	for c in text:
+		escaped += ("\\" + c) if ".^$*+?()[]{}|\\".contains(c) else c
+	return escaped
 
 
 ## The first run of Hangul without a meaning the game knows, or "".

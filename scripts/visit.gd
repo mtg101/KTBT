@@ -258,6 +258,7 @@ var _waiting_group: Array = []  # (alongside _waiting) {} for someone on their o
 var _night_groups: Array = []  # tonight's pairs who came in together (for their bond, at closing)  # tonight's chats (by the chat): {"names", "lines", "owner_in"}, for regulars remembering each other at closing
 var _jobs_tonight: Array = []  # tonight's customers' jobs and looks, so newcomers are different
 var _looks_tonight: Array = []
+var _voices_tonight := {}  # name -> who they are, as the game made them (Socials.voice): their posts' voice at 3am
 const VARIETY_LOOKS := 5  # how many recent looks the AI is shown
 ## A customer invented ahead (see _prepare_customer) is used if they arrive within this many
 ## game minutes; any later, they're from another hour (a 7pm salaryman isn't a 2am one).
@@ -1234,6 +1235,7 @@ func _start_night() -> void:
 	_night_groups.clear()
 	_jobs_tonight.clear()
 	_looks_tonight.clear()
+	_voices_tonight.clear()
 	_last_orders = false
 	_closing_early = false
 	_closing_to_say = false
@@ -1759,7 +1761,9 @@ func _write_diary() -> void:
 		"ratings": _night_ratings.duplicate(true),
 		"season": int(_show_place["season"]), "season_episode": int(_show_place["episode"]), "finale": bool(_show_place["finale"])}
 	_keep_faces(entry)
-	_post_socials(entry)
+	await _post_socials(entry)
+	if _closed():
+		return
 	SaveStore.record_diary(Game.bar, entry)
 	if _season_ended.is_empty():
 		_draft_titles(Game.bar["diary"][-1])  # (in the background: for the edit, next time)
@@ -1829,10 +1833,11 @@ func _keep_faces(entry: Dictionary) -> void:
 	DebugLog.say("Keepsakes", "polaroids: %s; %d faces kept with the entry" % [", ".join(PackedStringArray(photos.map(func(p): return "%s (%s)" % [p["name"], p["mood"]]))) if not photos.is_empty() else "none", faces.size()])
 
 
-## 3am: the customers post about their night (Socials.pick, from tonight's events: the game's own
-## words for now), each checked (Socials.check: one that fails isn't posted); the snapshots of
-## the ones picked (bar/snapshots.gd) kept beside the bar's save, named in the posts; a picture
-## that wasn't taken is drawn. Kept with the entry, counted, logged.
+## 3am: the customers post about their night (Socials.pick, from tonight's events), the AI writing
+## the words, one call for all of them, each in its poster's voice (_write_socials: the game's own
+## where it's offline or its words fail the check); each checked again (Socials.check: one that
+## fails isn't posted); the snapshots of the ones picked (bar/snapshots.gd) kept beside the bar's
+## save, named in the posts; a picture that wasn't taken is drawn. Kept with the entry, counted, logged.
 func _post_socials(entry: Dictionary) -> void:
 	var posts_dice := RandomNumberGenerator.new()
 	posts_dice.seed = hash("%s night %d posts" % [Game.bar.get("id", ""), _night_number])
@@ -1850,7 +1855,11 @@ func _post_socials(entry: Dictionary) -> void:
 		elif str(event.get("kind", "")) == "sat_down" and not posters.has(who):
 			posters.append(who)
 	var facts := {"posters": posters, "served": served, "known": posters + [str(_owner.get("name", "")), str(_cat.get("name", ""))]}
-	var counts := {"posts": 0, "pictures": 0, "drawn": 0, "text": 0, "dropped": 0, "viewer_comments": 0, "picked": posts.size()}
+	var counts := {"posts": 0, "pictures": 0, "drawn": 0, "text": 0, "dropped": 0, "viewer_comments": 0, "picked": posts.size(),
+		"words_ai": 0, "words_game": 0, "ai_turned_down": 0}
+	await _write_socials(posts, facts, counts)
+	if _closed():
+		return
 	var kept: Array = []
 	for post in posts:
 		var problem := Socials.check(post, facts)
@@ -1873,6 +1882,7 @@ func _post_socials(entry: Dictionary) -> void:
 		else:
 			counts["text"] += 1
 		post.erase("snap")
+		post.erase("what")
 		kept.append(post)
 		DebugLog.say("Socials", "posted: %s" % Socials.log_text(post))
 	counts["posts"] = kept.size()
@@ -1882,6 +1892,38 @@ func _post_socials(entry: Dictionary) -> void:
 	_stats.socials = counts
 	if kept.is_empty():
 		DebugLog.say("Socials", "a quiet feed tonight: no posts (%d picked, %d not posted)" % [posts.size(), int(counts["dropped"])])
+
+
+## The posts' words: the AI's, one call for them all (Prompts.socials_messages), each in its
+## poster's voice and checked (Socials.validate_reply); offline, or where a post's words were
+## turned down, the game's own (as Socials.pick stitched them; offline, the canned AI answers
+## with the same templates). Each post's "by" says whose: "ai", or "game" (offline counts as the game's).
+func _write_socials(posts: Array, facts: Dictionary, counts: Dictionary) -> void:
+	var words := {}
+	var by := "ai"
+	if Hooks.socials and not posts.is_empty():
+		var ai_facts := Socials.ai_facts(posts, {"owner": str(_owner.get("name", "")), "cat": str(_cat.get("name", "")),
+			"weather": _night_weather, "voices": _voices_tonight})
+		var reply: Dictionary = await _ai.ask_json(Prompts.socials_messages(ai_facts), Socials.validate_reply.bind(posts, facts), {"temperature": 0.9},
+			{"purpose": "socials", "facts": ai_facts, "tries": 2})
+		if _closed():
+			return
+		words = reply.get("words", {})
+		by = "game" if _ai.offline else "ai"  # (offline: the canned AI's words are the game's own)
+		for why in reply.get("turned_down", []):
+			DebugLog.say("Socials", "the AI's words turned down, the game's instead: %s" % why)
+		counts["ai_turned_down"] = (reply.get("turned_down", []) as Array).size() if not reply.is_empty() else posts.size()
+		if reply.is_empty():
+			DebugLog.say("Socials", "the AI's posts couldn't be used (%s): the game's own words" % _ai.last_error)
+	for post in posts:
+		var written: Dictionary = words.get(str(post["handle"]), {})
+		if not written.is_empty():
+			post["text"] = str(written["text"])
+			post["tags"] = (written["tags"] as Array).duplicate()
+		post["by"] = by if not written.is_empty() else "game"
+		counts["words_ai" if post["by"] == "ai" else "words_game"] += 1
+	DebugLog.say("Socials", "words: the AI's %d, the game's %d%s" % [int(counts["words_ai"]), int(counts["words_game"]),
+		" (offline)" if _ai.offline else ("" if Hooks.socials else " (the AI's posts are off)")])
 
 
 ## A snapshot for the posts, if what just happened could be one (Socials.wants_snap): of whoever
@@ -3208,6 +3250,7 @@ func _sits_down(guest: Guest, from_x: float, with: Guest) -> void:
 	if not _jobs_tonight.has(str(customer["job"])):
 		_jobs_tonight.append(str(customer["job"]))
 	_looks_tonight.append(str(customer["appearance"]))
+	_voices_tonight[str(customer["name"])] = Socials.voice(customer)
 	# The game decides their mood for company and how long they'll stay.
 	guest.company = Hooks.company_override if Hooks.company_override != "" else People.company(randf())
 	customer["company"] = guest.company

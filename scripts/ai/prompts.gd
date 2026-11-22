@@ -19,6 +19,8 @@ const Signatures = preload("res://scripts/rules/signatures.gd")
 const FIRST_SNOW := Seasons.FIRST_SNOW
 const Text = preload("res://scripts/rules/text.gd")
 const Regulars = preload("res://scripts/rules/regulars.gd")
+const Socials = preload("res://scripts/rules/socials.gd")
+const Names = preload("res://scripts/rules/names.gd")
 
 const STYLE_GUIDE := """You are the writers' room for KTBT (Korean Tent Bar Tropes), a cosy simulation set in a pojangmacha: a street tent bar under a Seoul overpass. Plastic stools, green bottles on every table, steam rising off the pots, bare bulbs swinging in the wind.
 
@@ -910,6 +912,48 @@ Only what was actually said: nothing invented.""" % [transcript_text(lines), ("\
 		{"role": "system", "content": STYLE_GUIDE},
 		{"role": "user", "content": request},
 	]
+
+
+## 3am: tonight's customers post about their night on 달밤 (Dalbam, the game's own feed app),
+## one call for all the posts: the game picked who posts and what about (Socials.pick, ai_facts),
+## the AI writes the words, each in its poster's voice; Socials.validate_reply checks them.
+static func socials_messages(facts: Dictionary) -> Array:
+	var lines := PackedStringArray()
+	for post in facts.get("posts", []):
+		lines.append("- %s (%s%s). Posting about: %s. The post: %s." % [post["handle"], post["poster"],
+			(": " + str(post["voice"]).trim_suffix(".")) if str(post.get("voice", "")) != "" else "", post["happened"], post["shows"]])
+	var request := """Tonight at %s's tent bar%s, some of the customers are posting about their night on Dalbam, a social media app. Who's posting, and about what:
+%s
+
+Write each one's post, in their own voice: the way that person would post (a tired nurse, a giddy student and a gruff ajusshi don't post alike), short and casual, like a real post at the end of a night out: lower case is fine, a little dry, funny or soft, a single line, at most %d characters. Each post is about what it says above, nothing more.
+
+Rules:
+- Write the words in English. No Korean in the words: Korean only in the hashtags below.
+- No numbers or digits at all (no times, prices, counts or ratings).
+- No names but these: %s. No @mentions, no brands, no other apps or shows.
+- Food or drink only if it's named above for that post.
+- One to three hashtags each, only from this list: %s
+
+Reply with ONLY a JSON object: {"posts": [{"handle": "the handle above, as it is", "text": "the post's words", "tags": ["#tag", ...]}, ...one for each handle above]}""" % [
+		facts.get("owner", "the owner"), (" (" + str(facts["weather"]) + " tonight)") if str(facts.get("weather", "")) != "" else "", "\n".join(lines),
+		Socials.MOST_CHARS, ", ".join(PackedStringArray(_social_names(facts))), " ".join(PackedStringArray(Socials.HASHTAGS))]
+	return [
+		{"role": "system", "content": STYLE_GUIDE},
+		{"role": "user", "content": request},
+	]
+
+
+## The names a post may use: the owner's and the cat's, and the posters' own given names.
+static func _social_names(facts: Dictionary) -> Array:
+	var names: Array = []
+	for named in [str(facts.get("owner", "")), str(facts.get("cat", ""))]:
+		if named != "":
+			names.append(named)
+	for post in facts.get("posts", []):
+		var given := Names.given_name(str(post.get("poster", "")))
+		if given != "" and not names.has(given):
+			names.append(given)
+	return names
 
 
 ## 3am: the owner writes tonight's entry in their diary, from the facts the game picked (see

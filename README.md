@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 831 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 834 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -122,7 +122,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/rules/ladder.gd` | The platform ladder: three rungs, a phone stream, an online video channel and network TV, each showing the night's score in its own units and judging a season against its own targets |
 | `scripts/rules/channels.gd` | The show's people and places: the owner's niece or nephew who films it, and the channels it's booked on, named by the AI and checked |
 | `scripts/rules/ladder_sim.gd` | The ladder simulated: many shows through many seasons in a moment, no scene or AI, to see how it's paced |
-| `scripts/rules/socials.gd` | The customers' posts at 3am: which (0–3, from what happened), their words and hashtags, the check, and which moments want a snapshot |
+| `scripts/rules/socials.gd` | The customers' posts at 3am: which (0–3, from what happened), what the AI writes them from and the check of its words, the game's own words and hashtags, the check, and which moments want a snapshot |
 | `scripts/rules/show_seasons.gd` | The show's seasons of eight episodes: the finale, the season looked back on, the channel's verdict |
 | `scripts/save/save_store.gd` | Reads, writes and deletes each bar's save file, safely |
 | `scripts/sound/ambience.gd` | The tent's background sound: loops and one-off sounds made in code, following the scene |

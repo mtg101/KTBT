@@ -74,6 +74,8 @@ static var recaps := true
 static var channels := true
 ## false: last night's episode titles come from the game's templates (Story.stitched_titles), not the AI.
 static var titles := true
+## false: 3am's posts have the game's own words (Socials.stitched_words), not the AI's.
+static var socials := true
 
 # --- On screen ---------------------------------------------------------------------------------
 ## false: no speech bubbles.
@@ -115,6 +117,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	recaps = false
 	channels = false
 	titles = false
+	socials = false
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
 	transcript_folder = transcripts
@@ -158,6 +161,7 @@ static func restore() -> void:
 	recaps = true
 	channels = true
 	titles = true
+	socials = true
 	bubbles = true
 	captions = true
 	caption_pacing = true

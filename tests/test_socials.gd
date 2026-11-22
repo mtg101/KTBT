@@ -13,6 +13,7 @@ const DiaryBook = preload("res://scripts/ui/diary_book.gd")
 const NightStats = preload("res://scripts/bar/night_stats.gd")
 const CannedAi = preload("res://scripts/ai/canned_ai.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
+const Prompts = preload("res://scripts/ai/prompts.gd")
 
 const TEST_FOLDER := "user://test_saves_socials/"
 const STUDENT := {"age_range": "20s", "hair": "long", "hair_colour": "black", "clothes": "hoodie", "colour": "charcoal", "glasses": true, "skin": 2}
@@ -155,7 +156,7 @@ func test_every_template_passes_the_check() -> void:
 			for words in choices:
 				var post := {"about": about, "poster": "Kim Ji-ho", "handle": Socials.handle("Kim Ji-ho"), "shot": "text",
 					"text": str(words).replace("{cat}", CAT).replace("{dish}", "tteokbokki"), "tags": Socials.stitched_tags(about, dice)}
-				assert_str(Socials.check(post, _facts([post]))).override_failure_message("%s: %s" % [about, words]).is_empty()
+				assert_str(Socials.check(post, _facts([post], {"Kim Ji-ho": ["Tteokbokki"]}))).override_failure_message("%s: %s" % [about, words]).is_empty()
 
 
 func test_the_check_turns_down_what_a_post_mustnt_say() -> void:
@@ -164,7 +165,8 @@ func test_the_check_turns_down_what_a_post_mustnt_say() -> void:
 	var facts := _facts([good], {"Kim Ji-ho": ["Tteokbokki"]})
 	assert_str(Socials.check(good, facts)).is_empty()
 	var bad := {
-		"text": ["", "x".repeat(Socials.MOST_CHARS + 1), "had 3 bottles tonight", "a cold cass at the tent", "hi @minseo_eats", "Min-seo was there too", "오늘 대박사건"],
+		"text": ["", "x".repeat(Socials.MOST_CHARS + 1), "had 3 bottles tonight", "a cold cass at the tent", "hi @minseo_eats", "Min-seo was there too", "오늘 대박사건",
+			"the pajeon was even better", "late night. Choi said hi", "so tired. Do-yun kept talking"],
 		"tags": [["#ad"], ["#포차", "#꿀잼"]],
 		"handle": ["@someone_else"], "poster": ["Han Seo-yeon"], "dish": ["Ramyeon"], "shot": ["video"],
 	}
@@ -173,6 +175,62 @@ func test_the_check_turns_down_what_a_post_mustnt_say() -> void:
 			var post := good.duplicate(true)
 			post[field] = value
 			assert_str(Socials.check(post, facts)).override_failure_message("%s = %s got through" % [field, value]).is_not_empty()
+
+
+func test_a_sentence_starting_with_a_capital_isnt_someone_new() -> void:
+	var post := {"about": "food", "poster": "Kim Ji-ho", "handle": Socials.handle("Kim Ji-ho"), "shot": "food", "dish": "Tteokbokki",
+		"text": "Best tteokbokki of my life. Honestly? Worth the cold. Ji-ho out", "tags": ["#야식"]}
+	assert_str(Socials.check(post, _facts([post], {"Kim Ji-ho": ["Tteokbokki"]}))).is_empty()
+
+
+# --- The AI writes the posts -------------------------------------------------------------------
+
+func _night_posts() -> Array:
+	var events := [_sat("Kim Ji-ho", 1100), _sat("Lee Do-yun", 1110),
+		{"kind": "big_moment", "at": 1200, "who": "Ji-ho", "mood": "shock", "size": 5, "said": "I quit my job today"},
+		{"kind": "cat_stole", "at": 1300, "name": "Lee Do-yun", "cat": CAT, "dish": "Odeng"}]
+	return Socials.pick(events, _info(["Kim Ji-ho", "Lee Do-yun"]), _dice())
+
+
+func test_the_ai_is_told_who_posts_about_what_in_whose_voice() -> void:
+	var posts := _night_posts()
+	var voice := Socials.voice({"age": "late 20s", "job": "junior accountant", "mood": "giddy", "reason": "quit her job today", "speech_style": "fast, lots of exclamation"})
+	assert_str(voice).contains("junior accountant").contains("giddy").contains("quit her job today").contains("fast, lots of exclamation")
+	var facts := Socials.ai_facts(posts, {"owner": OWNER, "cat": CAT, "weather": "drizzle", "voices": {"Kim Ji-ho": voice}})
+	assert_int(facts["posts"].size()).is_equal(2)
+	var moment: Dictionary = facts["posts"][0]
+	assert_str(str(moment["happened"])).contains("I quit my job today").contains("shock")
+	assert_str(str(moment["voice"])).is_equal(voice)
+	assert_str(str(facts["posts"][1]["happened"])).contains(CAT).contains("odeng")
+	assert_str(str(facts["posts"][1]["shows"])).contains(CAT)
+	var prompt: String = Prompts.socials_messages(facts)[-1]["content"]
+	for post in posts:
+		assert_str(prompt).contains(str(post["handle"]))
+	assert_str(prompt).contains(voice.trim_suffix(".")).contains("#포차").contains(str(Socials.MOST_CHARS)).contains(OWNER).contains("Ji-ho")
+	assert_str(prompt).contains("No numbers")
+
+
+func test_the_ais_posts_are_checked_one_by_one() -> void:
+	var posts := _night_posts()
+	var facts := _facts(posts, {"Lee Do-yun": ["Odeng"]})
+	var good := {"posts": [
+		{"handle": posts[0]["handle"], "text": "\"%s: quit my job. told a tent bar first. no regrets\"" % posts[0]["handle"], "tags": ["nofilter", "#plotTwist", "#notalist"]},
+		{"handle": posts[1]["handle"], "text": "%s took my odeng and i said thank you" % CAT, "tags": ["#tentcat"]}]}
+	assert_str(Socials.validate_reply(good, posts, facts)).is_empty()
+	var words: Dictionary = good["words"]
+	assert_str(str(words[posts[0]["handle"]]["text"])).is_equal("quit my job. told a tent bar first. no regrets")  # (their handle and quotes off the front)
+	assert_array(words[posts[0]["handle"]]["tags"]).is_equal(["#nofilter", "#plotTwist"])  # (a # put on; one not on the list left off)
+	assert_array(good["turned_down"]).is_empty()
+	# One post's words fail the check: the rest are kept, that one gets the game's.
+	var one_bad := {"posts": [{"handle": posts[0]["handle"], "text": "quit after 7 years", "tags": []},
+		{"handle": posts[1]["handle"], "text": "robbed by a cat. %s, you thief" % CAT, "tags": []}]}
+	assert_str(Socials.validate_reply(one_bad, posts, facts)).is_empty()
+	assert_array(one_bad["words"].keys()).is_equal([posts[1]["handle"]])
+	assert_array(one_bad["words"][posts[1]["handle"]]["tags"]).is_equal([Socials.COMMON_TAGS[0]])  # (none on the list: the tent's)
+	assert_str(str(one_bad["turned_down"][0])).contains("a number")
+	# Not posts at all, or none usable: turned down (and asked again).
+	assert_str(Socials.validate_reply({"text": "hi"}, posts, facts)).is_not_empty()
+	assert_str(Socials.validate_reply({"posts": [{"handle": "@nobody", "text": "hi"}]}, posts, facts)).contains("none of the posts")
 
 
 func test_the_canned_ai_writes_posts_from_the_same_words() -> void:
@@ -313,6 +371,7 @@ func test_the_feed_puts_up_to_three_round_the_page_and_the_diary_book_shows_them
 
 func test_the_night_stats_count_the_posts() -> void:
 	var stats := NightStats.new()
-	stats.socials = {"posts": 2, "pictures": 1, "drawn": 1, "text": 0, "dropped": 1, "viewer_comments": 0, "snapshots": {"asked": 4, "taken": 3, "no_screen": 1}}
-	assert_str(stats.socials_text()).is_equal("Socials: posts 2 · pictures 1 (drawn 1, words alone 0) · viewer comments 0 · snapshots 3 of 4 (no screen 1) · NOT POSTED 1")
+	stats.socials = {"posts": 2, "pictures": 1, "drawn": 1, "text": 0, "dropped": 1, "viewer_comments": 0, "snapshots": {"asked": 4, "taken": 3, "no_screen": 1},
+		"words_ai": 2, "words_game": 1, "ai_turned_down": 1}
+	assert_str(stats.socials_text()).is_equal("Socials: posts 2 (words: AI 2, game 1, AI's TURNED DOWN 1) · pictures 1 (drawn 1, words alone 0) · viewer comments 0 · snapshots 3 of 4 (no screen 1) · NOT POSTED 1")
 	assert_str(stats.panel_text(0, 0)).contains("Socials: posts 2")

@@ -137,6 +137,7 @@ func test_the_night_s_biggest_moment_gets_an_end_card_and_the_diary_its_polaroid
 
 func test_the_customers_post_about_their_night_round_the_diary_page() -> void:
 	Hooks.cat_wanders = false
+	Hooks.socials = true  # (offline: the canned AI answers with the game's own words)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	scene._arrive(scene._clock)
@@ -162,7 +163,9 @@ func test_the_customers_post_about_their_night_round_the_diary_page() -> void:
 	assert_str(str(theft[0]["poster"])).is_equal(who)
 	assert_str(str(theft[0]["text"])).contains(str(Game.bar["cat"]["name"]))
 	assert_str(str(theft[0]["picture"])).is_not_empty()
-	assert_bool(theft[0].has("snap")).is_false()  # (only what's kept)
+	assert_bool(theft[0].has("snap") or theft[0].has("what")).is_false()  # (only what's kept)
+	assert_str(str(theft[0]["by"])).is_equal("game")
+	assert_str(scene._stats.panel_text(0, 0)).contains("words: AI 0, game %d" % int(scene._stats.socials["picked"]))
 	assert_object(SaveStore.load_picture(str(Game.bar["id"]), str(theft[0]["picture"]))).is_not_null()
 	assert_array(feed.posters()).contains([who])
 	assert_array(feed.pictures()).contains(["snapshot"])
