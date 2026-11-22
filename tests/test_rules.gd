@@ -2659,13 +2659,18 @@ func test_each_caption_kind_has_its_face_in_the_tv_box() -> void:
 		assert_bool(Captions.CAPTIONS.has(kind)).override_failure_message(kind).is_true()
 		var mood := str(Captions.FACES[kind])
 		assert_bool(mood == "calm" or Captions.REACTIONS.has(mood)).override_failure_message("%s: %s" % [kind, mood]).is_true()
-	for kind in Captions.OWNER_FACES:
+	for kind in Captions.OWNER_FACES + Captions.CAT_FACES:
 		assert_bool(Captions.FACES.has(kind)).is_true()
-	assert_dict(Captions.faces_for("stove", {"dishes": 4})).is_equal({"mood": "shock", "owner": true, "names": []})
-	assert_dict(Captions.faces_for("solo", {})).is_equal({"mood": "sad", "owner": false, "names": []})  # (whoever it's over)
-	assert_dict(Captions.faces_for("couple", {"name": "Kim Ji-ho", "friend": "Park Min-seo"})).is_equal({"mood": "sweet", "owner": false, "names": ["Kim Ji-ho", "Park Min-seo"]})
-	assert_dict(Captions.faces_for("cat_thief", {"cat": "Garae", "name": "Kim Ji-ho"})).is_equal({"mood": "shock", "owner": false, "names": ["Kim Ji-ho"]})  # (the victim, not the cat)
+	assert_dict(Captions.faces_for("stove", {"dishes": 4})).is_equal({"mood": "shock", "owner": true, "cat": false, "names": []})
+	assert_dict(Captions.faces_for("solo", {})).is_equal({"mood": "sad", "owner": false, "cat": false, "names": []})  # (whoever it's over)
+	assert_dict(Captions.faces_for("couple", {"name": "Kim Ji-ho", "friend": "Park Min-seo"})).is_equal({"mood": "sweet", "owner": false, "cat": false, "names": ["Kim Ji-ho", "Park Min-seo"]})
 	assert_dict(Captions.faces_for("full_house", {})).is_empty()  # (the bar as a whole)
-	assert_dict(Captions.faces_for("cat_out", {"cat": "Garae"})).is_empty()  # (the cat: no portrait yet)
+
+
+func test_the_cats_captions_have_its_face_and_whoever_its_with() -> void:
+	assert_dict(Captions.faces_for("cat_thief", {"cat": "Garae", "name": "Kim Ji-ho"})).is_equal({"mood": "shock", "owner": false, "cat": true, "names": ["Kim Ji-ho"]})  # (the thief, and the victim)
+	assert_dict(Captions.faces_for("cat_lap", {"cat": "Garae", "name": "Kim Ji-ho"})).is_equal({"mood": "sweet", "owner": false, "cat": true, "names": ["Kim Ji-ho"]})
+	assert_dict(Captions.faces_for("cat_out", {"cat": "Garae"})).is_equal({"mood": "funny", "owner": false, "cat": true, "names": []})  # (just the cat)
+	assert_dict(Captions.faces_for("cat_back", {"cat": "Garae"})).is_equal({"mood": "warm", "owner": false, "cat": true, "names": []})
 	var friendlier := Captions.for_event("friendlier", {"a": "Kim Ji-ho", "b": "Park Min-seo", "term": "unni"})
 	assert_array(Captions.faces_for(str(friendlier["kind"]), friendlier["fill"])["names"]).is_equal(["Kim Ji-ho", "Park Min-seo"])

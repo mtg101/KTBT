@@ -43,12 +43,13 @@ var card_turns := 0  # someone a card had just happened to, turned to first (bef
 var worn_let_through := 0  # lines let through with a worn-out phrase, rather than a chat given up
 var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
 ## Portraits in people's hovers (visit.gd _give_portrait): "matched" (their own), "fallback" (the
-## nearest the library had), "none" (no portrait), one each per person; "seen": hovers opened with one.
+## nearest the library had), "none" (no portrait), one each per person; "seen": hovers opened with one;
+## the cat's: "cat_face" (its coat's portrait) or "cat_none", and "cat_seen" (its hover opened with it).
 var portraits := {}
 ## Faces on the captions (captions_on_screen.gd, ui/face_sticker.gd): "beside" (slapped onto a
 ## caption over the stage) and "zoom" (the caption and its face over the whole window); their
 ## faces, "mood" (the caption's own face), "calm" (the plain one, asked for), "stood_in" (the
-## plain one, the mood's face missing); "none": a caption that wanted a face and had nobody's.
+## plain one, the mood's face missing), "cat" (the cat's one face); "none": a caption that wanted a face and had nobody's.
 var stings := {}
 ## The edit's clipart stuck to people on stage (rules/clipart.gd, ui/clipart_sticker.gd): each
 ## clipart -> how many captions it went on; "missing": one picked whose art wasn't there.
@@ -958,14 +959,19 @@ func panel_text(seated: int, cooking: int) -> String:
 
 ## Portraits tonight: whose were their own, the nearest there was, or none, and hovers seen.
 func portraits_text() -> String:
-	return "Portraits: matched %d · fallback %d%s · seen in a hover %d" % [int(portraits.get("matched", 0)), int(portraits.get("fallback", 0)),
-		(" · NONE %d" % int(portraits["none"])) if int(portraits.get("none", 0)) > 0 else "", int(portraits.get("seen", 0))]
+	var cat := ""
+	if portraits.has("cat_face"):
+		cat = " · the cat's face, seen %d" % int(portraits.get("cat_seen", 0))
+	elif portraits.has("cat_none"):
+		cat = " · the cat: NO FACE"
+	return "Portraits: matched %d · fallback %d%s · seen in a hover %d%s" % [int(portraits.get("matched", 0)), int(portraits.get("fallback", 0)),
+		(" · NONE %d" % int(portraits["none"])) if int(portraits.get("none", 0)) > 0 else "", int(portraits.get("seen", 0)), cat]
 
 
 ## Faces on the captions tonight: beside them and zooms, and which faces.
 func stings_text() -> String:
-	return "Faces on captions: beside %d · zooms %d · in the mood %d · calm %d · calm standing in %d%s" % [int(stings.get("beside", 0)), int(stings.get("zoom", 0)),
-		int(stings.get("mood", 0)), int(stings.get("calm", 0)), int(stings.get("stood_in", 0)), (" · NONE %d" % int(stings["none"])) if int(stings.get("none", 0)) > 0 else ""]
+	return "Faces on captions: beside %d · zooms %d · in the mood %d · calm %d · calm standing in %d · the cat's %d%s" % [int(stings.get("beside", 0)), int(stings.get("zoom", 0)),
+		int(stings.get("mood", 0)), int(stings.get("calm", 0)), int(stings.get("stood_in", 0)), int(stings.get("cat", 0)), (" · NONE %d" % int(stings["none"])) if int(stings.get("none", 0)) > 0 else ""]
 
 
 ## 3am's keepsakes: the end card (or why not), the diary's polaroids, the faces kept.

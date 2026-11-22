@@ -939,6 +939,9 @@ func _show_cat() -> void:
 	_cat = Game.bar["cat"].duplicate()
 	_tent_cat.paint(_cat_label())
 	_cat_node.tooltip_text = _cat_tooltip()
+	var hover := _cat_node as PortraitHover
+	if not hover.shown.is_connected(_cat_face_seen):
+		hover.shown.connect(_cat_face_seen)
 	_narrate("%s, the tent's %s cat, is %s." % [_cat["name"], _cat["coat"], CatRules.CAT_PERSONALITIES.get(_cat["personality"], _cat["personality"]).get_slice(":", 0)])
 
 
@@ -1156,6 +1159,7 @@ func _start_night() -> void:
 	if owner_hover != null and owner_hover.picked_how != "":  # (their face came as the bar opened, before tonight's stats: counted in them too)
 		_stats.portraits[owner_hover.picked_how] = int(_stats.portraits.get(owner_hover.picked_how, 0)) + 1
 		DebugLog.say("Portraits", "the owner's face counted in tonight's stats (%s)" % owner_hover.picked_how)
+	_count_cat_face()
 	_stats.transcript_use = {"size": _transcript_view.font_size, "compact": _transcript_view.compact}  # (how it's set as the night opens)
 	if Game.autoplay != null:  # (a night the crew open: in its stats)
 		_stats.crew_run = {"from": Game.autoplay.started_from(), "nights": Game.autoplay.nights, "night": Game.autoplay.progress_text()}
@@ -4441,9 +4445,13 @@ func _tv_faces(kind: String, fill: Dictionary, about: Variant) -> Array:
 	var names: Array = wanted["names"]
 	if bool(wanted["owner"]):
 		names = [str(_owner.get("name", ""))]
-	elif names.is_empty():
+	elif names.is_empty() and not bool(wanted["cat"]):
 		names = [_name_of_node(about)]
 	var faces: Array = []
+	if bool(wanted["cat"]):
+		var cat_face := _cat_face(str(wanted["mood"]))
+		if not cat_face.is_empty():
+			faces.append(cat_face)
 	for person_name in names:
 		var face := _tv_face(str(person_name), str(wanted["mood"]))
 		if not face.is_empty():
@@ -4486,6 +4494,32 @@ func _tv_face(person_name: String, mood: String) -> Dictionary:
 		if moody != null:
 			texture = moody
 	return {"texture": texture, "name": str(person.get("name", "")), "mood": mood, "how": how, "node": node}  # (node: for the clipart on stage)
+
+
+## The cat's face for a caption (CAT_FACES): its one portrait, whatever the mood ("how": "cat"), no node
+## (the edit's clipart is for people); {} without a cat, or a portrait for its coat.
+func _cat_face(mood: String) -> Dictionary:
+	if _cat.is_empty() or _tent_cat.node == null:
+		return {}
+	var hover := _cat_node as PortraitHover
+	if hover == null or hover.portrait == null:
+		return {}
+	return {"texture": hover.portrait, "name": str(_cat["name"]), "mood": mood, "how": "cat", "node": null}
+
+
+## The cat's face in tonight's stats (it came as the bar opened, before them): "cat_face" or "cat_none".
+func _count_cat_face() -> void:
+	if _cat.is_empty() or _tent_cat.node == null:
+		return
+	var hover := _cat_node as PortraitHover
+	var key := "cat_face" if hover != null and hover.portrait != null else "cat_none"
+	_stats.portraits[key] = 1
+	DebugLog.say("Portraits", "the cat's face counted in tonight's stats (%s)" % key)
+
+
+## The cat's hover opened with its face: counted.
+func _cat_face_seen() -> void:
+	_stats.portraits["cat_seen"] = int(_stats.portraits.get("cat_seen", 0)) + 1
 
 
 ## The face of someone who's left, from the portraits kept tonight (_faces_kept: a full name or

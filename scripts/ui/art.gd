@@ -52,6 +52,8 @@ static func ids(kind: String) -> Array:
 				for limb in ["side_legs_%d", "side_arm_%d", "side_arm_far_%d", "side_arm_bare_%d", "side_arm_bare_far_%d", "side_briefcase_%d"]:
 					layers.append(limb % frame)
 			return layers
+		"cat_portrait":  # the cat's face, one per coat, in its own colours (its hover and captions; tools/art/cat_portraits.py)
+			return CatRules.CAT_COATS.keys()
 		"cat":  # the cat, in each coat and pose (drawn in code by tools/art/cat.py; pixel_cat.gd shows them)
 			var cats: Array = []
 			for coat in CatRules.CAT_COATS:

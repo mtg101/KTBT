@@ -634,6 +634,34 @@ func test_a_new_bar_gets_a_cat() -> void:
 	assert_str(_transcript(runner)).contains("%s, the tent's %s cat" % [cat["name"], cat["coat"]])
 
 
+func test_the_cat_has_its_face_in_its_hover_and_on_its_captions() -> void:
+	Hooks.stay_minutes_override = 600
+	Hooks.cat_wanders = false
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var cat: Dictionary = Game.bar["cat"]
+	var hover = scene._cat_node
+	assert_object(hover.portrait).override_failure_message(str(cat["coat"])).is_not_null()
+	assert_vector(hover.portrait.get_size()).is_equal(Vector2(64, 80))  # (as the people's)
+	var tip: Control = auto_free(hover._make_custom_tooltip(hover.tooltip_text))
+	assert_object(tip.get_node("Portrait")).is_not_null()
+	assert_int(int(scene._stats.portraits.get("cat_face", 0))).is_equal(1)
+	assert_int(int(scene._stats.portraits.get("cat_seen", 0))).is_equal(1)
+	# Going out: just its face.
+	var out: Array = scene._tv_faces("cat_out", {"cat": cat["name"]}, scene._cat_node)
+	assert_int(out.size()).is_equal(1)
+	assert_str(str(out[0]["name"])).is_equal(str(cat["name"]))
+	assert_str(str(out[0]["how"])).is_equal("cat")
+	assert_object(out[0]["node"]).is_null()  # (no clipart stuck on a cat)
+	# On a lap: its face, then theirs.
+	_crowd(scene, 1)
+	assert_bool(await _wait_until(func(): return not scene._guests.is_empty() and scene._guests[0].node.get_node("Hover").portrait != null)).is_true()
+	var guest = scene._guests[0]
+	var lap: Array = scene._tv_faces("cat_lap", {"cat": cat["name"], "name": guest.customer["name"]}, guest.node)
+	assert_array(lap.map(func(f): return str(f["name"]))).is_equal([str(cat["name"]), str(guest.customer["name"])])
+	assert_str(str(lap[0]["mood"])).is_equal("sweet")
+
+
 func test_the_ai_names_the_cat() -> void:
 	CannedAi.scripted = [ANY_OWNER, A_BAR_NAME, A_CAT_NAME]
 	await _open_bar()

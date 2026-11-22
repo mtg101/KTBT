@@ -179,6 +179,36 @@
 		"source": "drawn in code by tools/art/cat.py",
 		"licence": "CC BY-SA 4.0 (this project)"
 	},
+	"cat_portrait/black": {
+		"file": "cat_portraits/black.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9102, then cat_portraits.py: \"Head and shoulders portrait of a black cat, glossy jet black fur, bright yellow-green eyes, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat_portrait/calico": {
+		"file": "cat_portraits/calico.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9102, then cat_portraits.py: \"Head and shoulders portrait of a calico cat, mostly white fur with big patches of orange and black, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat_portrait/ginger": {
+		"file": "cat_portraits/ginger.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9101, then cat_portraits.py: \"Head and shoulders portrait of a ginger cat, bright orange fur with paler stripes and a cream chin, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat_portrait/grey": {
+		"file": "cat_portraits/grey.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9100, then cat_portraits.py: \"Head and shoulders portrait of a grey cat, smooth solid blue-grey fur, amber eyes, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat_portrait/tabby": {
+		"file": "cat_portraits/tabby.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9100, then cat_portraits.py: \"Head and shoulders portrait of a brown tabby cat, warm brown fur with bold dark brown tabby stripes and an M on the forehead, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
+	"cat_portrait/white": {
+		"file": "cat_portraits/white.png",
+		"source": "FLUX.2 Klein 4B (fp8), Apache 2.0 via ComfyUI, seed 9100, then cat_portraits.py: \"Head and shoulders portrait of a white cat, fluffy pure white fur, pink nose and pink inner ears, blue eyes, sitting and facing the viewer, ears up, neutral friendly expression. Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Plain flat green background, no text.\"",
+		"licence": "CC BY-SA 4.0 (this project)"
+	},
 	"clipart/arrow_0": {
 		"file": "clipart/arrow_0.png",
 		"source": "drawn in code by tools/art/clipart.py",

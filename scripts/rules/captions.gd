@@ -176,8 +176,9 @@ const CAPTIONS := {
 ## The faces on the captions (PLAN.md, "Using portraits"): the caption's kind -> the face slapped on,
 ## a TV mood (REACTIONS: a reaction face, art/reactions) or "calm" (their plain portrait). Whose:
 ## who the caption fills in ("name", and "friend" for two: both side by side), else whoever it's
-## over; OWNER_FACES are always the owner's. Kinds not here get no box (the bar as a whole, the
-## cat until it has a portrait, the PD's own call).
+## over; OWNER_FACES are always the owner's, CAT_FACES the cat's first (its one portrait for every
+## mood: art/cat_portraits), then whoever it's with. Kinds not here get no box (the bar as a whole,
+## the PD's own call).
 const FACES := {
 	# The owner
 	"stove": "shock", "multitask": "funny", "owner_joins": "funny", "order_up": "warm", "last_orders": "warm",
@@ -194,14 +195,15 @@ const FACES := {
 	"plant_phone": "shock", "plant_text_from": "shock", "plant_text": "shock", "plant_ex_walks_past": "shock",
 	"plant_small_world": "shock", "plant_power_goes": "shock", "plant_rain": "shock", "plant_noraebang": "sad",
 	"plant_ppl": "awkward", "plant_cue_card": "awkward", "plant_interview": "awkward", "plant_round_on": "funny",
-	# The cat's doing, someone else's face
-	"cat_thief": "shock", "cat_lap": "sweet",
+	# The cat: its face, and whoever's lap it's on or whose skewer it stole
+	"cat_thief": "shock", "cat_lap": "sweet", "cat_out": "funny", "cat_back": "warm",
 }
 const OWNER_FACES := ["stove", "multitask", "owner_joins", "order_up", "last_orders", "quiet", "closing_early", "closing_reason"]
+const CAT_FACES := ["cat_thief", "cat_lap", "cat_out", "cat_back"]
 
 
 ## Whose faces are slapped onto a caption and in what mood: {"mood", "owner": always the owner's,
-## "names": [the one or two people it fills in]}; {} for a kind with no box.
+## "cat": the cat's first, "names": [the one or two people it fills in]}; {} for a kind with no box.
 static func faces_for(kind: String, fill: Dictionary) -> Dictionary:
 	if not FACES.has(kind):
 		return {}
@@ -209,7 +211,7 @@ static func faces_for(kind: String, fill: Dictionary) -> Dictionary:
 	for key in ["name", "friend"]:
 		if str(fill.get(key, "")) != "":
 			names.append(str(fill[key]))
-	return {"mood": str(FACES[kind]), "owner": OWNER_FACES.has(kind), "names": [] if OWNER_FACES.has(kind) else names}
+	return {"mood": str(FACES[kind]), "owner": OWNER_FACES.has(kind), "cat": CAT_FACES.has(kind), "names": [] if OWNER_FACES.has(kind) else names}
 
 
 ## A kind with a "chance" (the ones that come up all night: a new face, a bill) is shown only

@@ -269,6 +269,12 @@ func test_everything_gets_counted() -> void:
 	stats.portraits["none"] = 2
 	assert_str(stats.panel_text(0, 0)).contains("Portraits: matched 4 · fallback 1 · NONE 2 · seen in a hover 3")
 	assert_dict(stats.summary({})["portraits"]).is_equal({"matched": 4, "fallback": 1, "seen": 3, "none": 2})
+	stats.portraits["cat_face"] = 1
+	stats.portraits["cat_seen"] = 5
+	assert_str(stats.panel_text(0, 0)).contains("seen in a hover 3 · the cat's face, seen 5")
+	stats.portraits.erase("cat_face")
+	stats.portraits["cat_none"] = 1
+	assert_str(stats.panel_text(0, 0)).contains("seen in a hover 3 · the cat: NO FACE")
 	stats.art["lit"] = 40
 	stats.art["pools"] = 0.84  # (the brightest a bulb's pool was over the counter's far end: pixel_light.gd)
 	assert_str(stats.panel_text(0, 0)).contains("lit by the hour 40 (a bulb's pool +0.8 steps over the counter's end) · words in pixels 0")
@@ -527,8 +533,10 @@ func test_the_faces_on_captions_are_in_the_stats() -> void:
 	stats.stings = {"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0}
 	assert_str(stats.panel_text(0, 0)).contains("Faces on captions: beside 3 · zooms 1 · in the mood 4 · calm 1 · calm standing in 0")
 	stats.stings["none"] = 2
-	assert_str(stats.panel_text(0, 0)).contains("calm standing in 0 · NONE 2")
-	assert_dict(stats.summary({})["stings"]).is_equal({"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0, "none": 2})
+	assert_str(stats.panel_text(0, 0)).contains("calm standing in 0 · the cat's 0 · NONE 2")
+	stats.stings["cat"] = 2
+	assert_str(stats.panel_text(0, 0)).contains("calm standing in 0 · the cat's 2 · NONE 2")
+	assert_dict(stats.summary({})["stings"]).is_equal({"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0, "none": 2, "cat": 2})
 
 
 func test_the_clipart_on_stage_is_in_the_stats() -> void:

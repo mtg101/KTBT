@@ -4,7 +4,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **The cat's portrait:** a face for the cat too, for its hover and slapped onto its captions (coming and going, a lap, a theft): one per coat (`rules/cat_rules.gd` CAT_COATS), from Klein in the portraits' style; with only a few coats, maybe kept in the picture's own colours rather than split for repainting.
 - **Social media posts:** at end of night to start with
   - customers post about their experience (selfie, food pics, comments about food and nights events)
   - viewers can post commentary about the night
@@ -14,6 +13,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Richer play
 
+- **Regulars have generated portraits:**
+  - regulars get their own AI-generated portraits
+  - initial regulars while the bar is being created
+  - new regulars at end of night
+  - owner also gets generated portrait at bar creation
+  - game launched ComfyUI in the background and generates and saves alongside bar save
 - **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").

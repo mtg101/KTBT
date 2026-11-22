@@ -127,6 +127,13 @@ func test_a_manifest_only_has_what_the_game_draws_with_its_sources_and_licences(
 	])
 
 
+func test_the_cats_portraits_are_one_per_coat() -> void:
+	assert_array(Art.ids("cat_portrait")).contains_exactly_in_any_order(["ginger", "black", "white", "tabby", "calico", "grey"])
+	Art.reset()
+	for coat in Art.ids("cat_portrait"):  # (all six in the game's art: tools/art/cat_portraits.py)
+		assert_bool(Art.has("cat_portrait/" + str(coat))).override_failure_message(str(coat)).is_true()
+
+
 func test_portraits_are_by_gender_age_hairstyle_and_glasses() -> void:
 	var ids := Art.ids("portrait")
 	assert_array(ids).contains(["w_20s_long", "w_60s_perm_glasses", "m_70s_balding", "m_30s_two_block_glasses"])

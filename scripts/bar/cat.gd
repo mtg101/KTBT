@@ -13,6 +13,8 @@ const Layout = preload("res://scripts/bar/layout.gd")
 const PixelLight = preload("res://scripts/ui/pixel_light.gd")
 const PixelCat = preload("res://scripts/ui/pixel_cat.gd")
 const Art = preload("res://scripts/ui/art.gd")
+const PortraitHover = preload("res://scripts/ui/portrait_hover.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 
 const MOVE_MINUTES := Vector2(25, 60)  # how long the cat stays put
 
@@ -20,7 +22,7 @@ var info := {}  # who it is: name, coat, personality (and its Hangul): {} for a 
 var spot := "stove"
 var with_guest: Variant = null  # the customer it's on, at the feet of, or begging from (the tent's Guest)
 var next_move := 0.0  # game minutes until it moves on
-var node: Control
+var node: Control  # (a PortraitHover: its tooltip shows the cat's face, if there's one for its coat)
 var picture: PixelCat  # the cat in pixel art (pixel_cat.gd), if there's art for its coat; else its shapes
 var tween: Tween
 var dice: RandomNumberGenerator  # the scenery's (it never shifts the game's own rolls)
@@ -111,7 +113,7 @@ func _prowl() -> void:
 
 ## A grey-box cat: body, head, ears and tail, in its coat colour (calico and tabby get patches).
 func build(stage: Control) -> void:
-	node = Control.new()
+	node = PortraitHover.new()
 	node.name = "Cat"
 	node.position = Vector2(150, 222)
 	node.size = Vector2(46, 28)
@@ -158,6 +160,12 @@ func paint(label: String) -> void:
 	picture.coat = str(info["coat"]) if pixels else ""
 	if pixels:
 		picture.settle(_rest_pose())
+	# Its face, for its hover and the captions about it (art/cat_portraits, by coat).
+	var hover := node as PortraitHover
+	hover.portrait = Art.texture("cat_portrait/" + str(info["coat"]))
+	hover.picked_key = str(info["coat"]) if hover.portrait != null else ""
+	hover.picked_how = "cat" if hover.portrait != null else "none"
+	DebugLog.say("Portraits", "the cat, %s: %s" % [info["name"], ("its %s face" % info["coat"]) if hover.portrait != null else "no portrait"])
 	for part in ["Tail", "Body", "Head", "EarLeft", "EarRight"]:
 		(node.get_node(part) as CanvasItem).visible = not pixels
 	patch.visible = patch.visible and not pixels
