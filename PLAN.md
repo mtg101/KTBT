@@ -4,10 +4,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Social media posts:** 
-  - customers can post about their experience (selfie, food pics, comments about food and nights events)
-  - viewers can post commentary about the night
-  - can be used at end of night and in the previously on
+- **Social media posts:** customers post about their night and viewers comment on the show, stuck round the diary page at 3am (the whole window, the page in the middle). The game picks the facts, the AI writes the words, the game checks them; offline or failing the check, the game stitches them. In order:
+  1. **The posts, game-only:** `rules/socials.gd` picks 0–3 customer posts from the night's facts (big moments, the cat's thefts, a new regular, a full house, first snow, cards taken up, a long wait for food), a quiet night a quiet feed; each a selfie, a food pic or text alone, its words from the canned AI's templates. **Real snapshots:** when it happens, a small crop of the stage itself (the dish as it's set down, the customer at their stool, the cat mid-theft), in a phone photo's frame, the poster's portrait on a selfie; no bubbles or captions in the shot (to check how). Stuck round the diary page beside the polaroids; kept with the entry (pictures beside the save) and shown in the diary book. An app of the game's own, never a real one; handles and hashtags pass the checks (no brands, no invented people, Hangul only with its meaning: hashtags English or from a fixed list). Counted in the stats ("Socials: posts · pictures · viewer comments"), logged, tested; runs on the laptop too.
+  2. **The AI writes the posts:** one call a night for all of them, each in its poster's voice; checked for length, numbers not in the facts, brands, invented people, food nobody ordered, made-up Korean.
+  3. **Viewers' commentary:** a few comments on the night by the rung: live comments on the phone stream, comments under the episode on the channel, a viewer board on TV; likes and counts scaled from the ratings, and viewers talking about them ("두 자릿수!! double digits for a tent bar?!"). The posts show and mention the ratings, never change them (they come from the same facts).
+  4. **In "Previously on…" and the edit suite:** a beat cutting to a post or a comment ("the internet had opinions…"); posts listed as scenes to tick.
 
 ## Future ideas and improvements
 
@@ -51,12 +52,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
     - myers briggs (and other astrology ;) 
     - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **Social media responses:** at end of day summary, alongside diary, affects ratings
-  - 0-3 a night depending on events?
-  - text + images: food, selfie at bar, portraits can be used, etc
-  - future: pops up live during show
-  - the triple+ replay for big events
-  - for thinking about: how would you make a video social media post for the end of the night?
+- **More social media:** after the posts stage: posts popping up live during the show; the triple+ replay for big events; and for thinking about, how a video post of the night would be made.
 - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
   - good for both sandbox mode and makes testing specific features easier
 - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
