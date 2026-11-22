@@ -4,10 +4,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Social media posts:** at end of night to start with
-  - customers post about their experience (selfie, food pics, comments about food and nights events)
+- **Social media posts:** 
+  - customers can post about their experience (selfie, food pics, comments about food and nights events)
   - viewers can post commentary about the night
-  - maybe one of each appears alongside the diary?
+  - can be used at end of night and in the previously on
 
 ## Future ideas and improvements
 
