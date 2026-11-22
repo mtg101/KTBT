@@ -5,12 +5,16 @@ extends Control
 ## the episode's title (three the AI drafted, or their own) and the cliffhanger (two or three
 ## the night can answer, or their own, which plays but nudges nobody in). Nothing's running
 ## while it's open, so there's no timer. "Cut it" (Enter) airs it; Esc leaves it to the writers.
+## Each scene has the faces of who it's about beside it (a moment's in its mood), from the faces
+## last night's diary entry kept (none for nights from before they were).
 
 const Story = preload("res://scripts/rules/story.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Glossary = preload("res://scripts/rules/glossary.gd")
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const NightRules = preload("res://scripts/rules/night_rules.gd")
+const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
+const Polaroid = preload("res://scripts/ui/polaroid.gd")
 
 ## The cut: {"title", "title_by", "cliffhanger" (if the PD chose one), "cliffhanger_by",
 ## "own_teaser"}; {} leaves it all to the writers.
@@ -31,6 +35,9 @@ var own_title: LineEdit
 var own_teaser: LineEdit
 var problem: Label
 var _done := false
+const FACE_SIZE := Vector2(48, 60)  # a portrait's 64 x 80, small, beside a scene
+const FACES_MOST := 2  # faces beside one scene
+var scenes_with_faces := 0  # for the stats and the log
 
 
 func _init() -> void:
@@ -41,8 +48,9 @@ func _init() -> void:
 
 
 ## Opens it on last night's episode: which it was ("season 1, episode 4": ShowSeasons.words), the drafted titles (the writers' first), the
-## writers' teaser, the cliffhangers the night can answer, and the scenes it could be made of.
-func open(episode: String, titles: Array, writers_teaser: String, options: Array, scenes: Array = []) -> void:
+## writers' teaser, the cliffhangers the night can answer, the scenes it could be made of, and
+## the faces its diary entry kept (name -> {"key", "look"}).
+func open(episode: String, titles: Array, writers_teaser: String, options: Array, scenes: Array = [], faces: Dictionary = {}) -> void:
 	_titles = titles.duplicate(true)
 	_options = options.duplicate(true)
 	_scenes = scenes.duplicate(true)
@@ -86,7 +94,7 @@ func open(episode: String, titles: Array, writers_teaser: String, options: Array
 			tick.add_theme_color_override("checkbox_unchecked_color", Ktv.MUTED)
 			tick.add_theme_color_override("checkbox_checked_color", RED)
 			tick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			tick.custom_minimum_size = Vector2(WIDTH, 0)
+			tick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var when := NightRules.clock_text(int(scene["at"])) if int(scene["at"]) >= 0 else "all night"
 			tick.text = "%s · %s%s" % [when, {"pin": "📌 ", "moment": "💥 "}.get(str(scene["kind"]), ""), Text.shorten(str(scene["text"]), 150)]
 			if str(scene["kind"]) == "pin" and _ticked.size() < Story.MAX_SCENES:
@@ -94,7 +102,16 @@ func open(episode: String, titles: Array, writers_teaser: String, options: Array
 				_ticked.append(k)
 			tick.toggled.connect(_on_scene_ticked.bind(k))
 			_scene_ticks.append(tick)
-			box.add_child(tick)
+			var row := HBoxContainer.new()  # (the faces, then the scene)
+			row.name = "SceneRow%d" % k
+			row.custom_minimum_size = Vector2(WIDTH, 0)
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_theme_constant_override("separation", 6)
+			var shown := _add_faces(row, scene, faces)
+			if shown > 0:
+				scenes_with_faces += 1
+			row.add_child(tick)
+			box.add_child(row)
 		_first_ticks = _ticked.duplicate()
 	box.add_child(_heading("THE CLIFFHANGER"))
 	box.add_child(_pick("«%s»    (the writers')" % writers_teaser, _cliff_picks))
@@ -114,6 +131,39 @@ func open(episode: String, titles: Array, writers_teaser: String, options: Array
 	buttons.add_child(_button("WritersHaveIt", "Leave it to the writers  (Esc)", leave_it))
 	(_title_picks[0] as CheckBox).button_pressed = true
 	(_cliff_picks[0] as CheckBox).button_pressed = true
+
+
+## The faces of who a scene's about (up to FACES_MOST), small, before it: a moment's in its
+## mood, anyone else calm; their name on hover. How many it got.
+func _add_faces(row: HBoxContainer, scene: Dictionary, faces: Dictionary) -> int:
+	var shown := 0
+	var mood := str(scene.get("mood", "calm")) if str(scene.get("kind", "")) == "moment" else "calm"
+	for person in scene.get("who", []):
+		if shown >= FACES_MOST:
+			break
+		var face := Keepsakes.face(faces, str(person), mood)
+		var picture := Polaroid.picture_of(face) if not face.is_empty() else null
+		if picture == null:
+			continue
+		var rect := TextureRect.new()
+		rect.name = "SceneFace"
+		rect.texture = picture
+		rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rect.custom_minimum_size = FACE_SIZE
+		rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		rect.mouse_filter = Control.MOUSE_FILTER_PASS
+		rect.tooltip_text = Text.tip(str(face["name"]))
+		rect.set_meta("who", str(face["name"]))
+		row.add_child(rect)
+		shown += 1
+	if not faces.is_empty() and shown < FACES_MOST:  # (the scenes still line up, faces or not)
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2((FACES_MOST - shown) * (FACE_SIZE.x + 6) - 6, 0)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(gap)
+	return shown
 
 
 func _heading(text: String) -> Label:

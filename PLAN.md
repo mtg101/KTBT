@@ -5,8 +5,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 ## Next stages
 
 - **Portraits, the rest of their uses** (everyone has a face, on their hover and slapped onto the captions; how they're made and picked is in ART.md). In this order:
-  - **"Previously on…" and the edit suite:** faces on the recap's card, and in the edit suite's scenes (who each cut's about), from the faces each diary entry keeps (`faces`: name -> portrait and colours; entries from before 22 Nov have none).
-  - **Later:** the social media posts (below), and the cat's own portrait (below).
+  - **Next:** the social media posts (below), and the cat's own portrait (below).
   - **Known flaws to fix sometime:** brows are drawn as lines, so they stay dark under grey or white hair; buzz cuts look like plain short hair; hats aren't drawn (the head's bare).
 
 ## Future ideas and improvements

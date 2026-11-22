@@ -1,11 +1,13 @@
 extends GdUnitTestSuite
-## Tests for scripts/rules/keepsakes.gd (the end card's moment, the diary's polaroids) and the
-## polaroids on the page (scripts/ui/polaroid.gd, scripts/ui/diary_page.gd).
+## Tests for scripts/rules/keepsakes.gd (the end card's moment, the diary's polaroids, a kept
+## face) and the polaroids on the page (scripts/ui/polaroid.gd, scripts/ui/diary_page.gd) and in
+## "Previously on…" (scripts/ui/recap_screen.gd).
 
 const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
 const DiaryPage = preload("res://scripts/ui/diary_page.gd")
 const Polaroid = preload("res://scripts/ui/polaroid.gd")
 const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const RecapScreen = preload("res://scripts/ui/recap_screen.gd")
 
 const STUDENT := {"age_range": "20s", "hair": "long", "hair_colour": "black", "clothes": "hoodie", "colour": "charcoal", "glasses": true, "skin": 2}
 const FACE := {"key": "w_20s_long_glasses", "look": STUDENT}
@@ -97,3 +99,45 @@ func test_the_diary_page_shows_the_entry_s_polaroids_and_older_entries_have_none
 	assert_array(page.photo_names()).is_empty()
 	assert_float((page.get_node("Entry") as Control).size.x).is_equal(plain_width)
 	assert_vector((page.get_node("Stamp") as Control).position).is_equal(DiaryPage.STAMP_AT)
+
+
+func test_a_kept_face_by_a_full_or_given_name_in_their_moment_s_mood() -> void:
+	var faces := {"Kim Ji-ho": FACE, "Park Min-seo": FACE}
+	assert_dict(Keepsakes.face(faces, "Ji-ho", "shock")).is_equal({"name": "Kim Ji-ho", "key": FACE["key"], "look": STUDENT, "mood": "shock"})
+	assert_dict(Keepsakes.face(faces, "Lee Do-yun")).is_empty()  # (nobody kept)
+	assert_dict(Keepsakes.face({}, "Kim Ji-ho")).is_empty()  # (an entry from before faces were kept)
+	assert_dict(Keepsakes.face({"Kim Ji-ho": {"key": "", "look": STUDENT}}, "Kim Ji-ho")).is_empty()  # (kept with no face)
+	var moments := [{"who": "Ji-ho", "mood": "shock"}, {"who": "Lee Do-yun", "mood": "sad"}]
+	assert_str(Keepsakes.last_mood(moments, "Kim Ji-ho", faces)).is_equal("shock")
+	assert_str(Keepsakes.last_mood(moments, "Park Min-seo", faces)).is_equal("calm")  # (no moment of hers)
+	assert_str(Keepsakes.last_mood(moments, "Lee Do-yun", faces)).is_equal("calm")  # (no face kept: not hers to show)
+	# The picture: in the mood, or calm if that face isn't drawn.
+	assert_object(Polaroid.picture_of(Keepsakes.face(faces, "Ji-ho", "shock"))).is_not_null()
+	assert_object(Polaroid.picture_of(Keepsakes.face(faces, "Ji-ho", "no_such_mood"))).is_same(PeopleArt.portrait(STUDENT, str(FACE["key"])))
+	assert_object(Polaroid.picture_of({})).is_null()
+
+
+func test_previously_on_shows_who_each_beat_s_about_and_last_night_s_polaroids_on_the_card() -> void:
+	var screen := RecapScreen.new()
+	screen.time_scale = 0.02
+	add_child(screen)
+	var faces := {"Kim Ji-ho": FACE, "Park Min-seo": FACE}
+	var photos := [{"name": "Kim Ji-ho", "mood": "shock", "key": FACE["key"], "look": STUDENT}, {"name": "Park Min-seo", "mood": "calm", "key": FACE["key"], "look": STUDENT}]
+	screen.play(["Ji-ho quits.", "Do-yun stays away.", "Min-seo laughs."], "Will he come back?", 5, "Golmok Pocha", false,
+		{"people": {"Kim Ji-ho": "김지호", "Lee Do-yun": "이도윤", "Park Min-seo": "박민서"}, "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!"}],
+		"faces": faces, "photos": photos, "place": {"season": 1, "episode": 5}})
+	await screen.finished
+	assert_array(screen.beat_faces).is_equal(["Kim Ji-ho", "Park Min-seo"])  # (Do-yun's beat: no face kept, so none)
+	assert_array(screen.card_faces).is_equal(["Kim Ji-ho", "Park Min-seo"])
+	assert_object(screen.find_child("RecapCardPhoto1", true, false)).is_not_null()
+
+
+func test_previously_on_from_before_faces_were_kept_has_none() -> void:
+	var screen := RecapScreen.new()
+	screen.time_scale = 0.02
+	add_child(screen)
+	screen.play(["Ji-ho quits."], "Will he come back?", 5, "Golmok Pocha", false, {"people": {"Kim Ji-ho": "김지호"}, "place": {"season": 1, "episode": 5}})
+	await screen.finished
+	assert_array(screen.beat_faces).is_empty()
+	assert_array(screen.card_faces).is_empty()
+	assert_object(screen.find_child("RecapFace", true, false)).is_null()

@@ -2042,7 +2042,9 @@ func _cut_episode() -> Dictionary:
 	var suite := EditSuite.new()
 	add_child(suite)
 	suite.open(ShowSeasons.words(ShowSeasons.of(entry)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
-		Story.scene_options(entry.get("facts", {})))
+		Story.scene_options(entry.get("facts", {})), entry.get("faces", {}))
+	var scene_faces := [suite.scenes_with_faces, Story.scene_options(entry.get("facts", {})).size()]  # (scenes with faces, of all: for the stats)
+	DebugLog.say("Keepsakes", "the edit suite: %d of %d scenes with faces (%d faces kept with the entry)" % [suite.scenes_with_faces, Story.scene_options(entry.get("facts", {})).size(), (entry.get("faces", {}) as Dictionary).size()])
 	if _autopilot != null:
 		_autopilot_cuts.call_deferred(suite, entry.get("titles", []).size(), Story.cliffhanger_options(entry.get("facts", {})).size(), Story.scene_options(entry.get("facts", {})).size())
 	var cut: Dictionary = await suite.finished
@@ -2070,7 +2072,8 @@ func _cut_episode() -> Dictionary:
 	Game.save()
 	var noted := {"stepped_in": _step_in_when, "title_by": str(cut.get("title_by", "writers")), "cliffhanger_by": str(cut.get("cliffhanger_by", "writers")),
 		"scenes_by": str(cut.get("scenes_by", "writers")), "rewrite": rewrite,
-		"own_teaser": bool(cut.get("own_teaser", false)), "left_to_writers": not cut.has("title_by"), "title": Story.title_text(airing.get("title", {}))}
+		"own_teaser": bool(cut.get("own_teaser", false)), "left_to_writers": not cut.has("title_by"), "title": Story.title_text(airing.get("title", {})),
+		"scene_faces": scene_faces}
 	if _night_open:
 		_stats.story["edit"] = noted
 	else:
@@ -2181,11 +2184,24 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 		"step_in": not opener and _step_in_open,
 		"ratings": "" if opener else _last_ratings_text(),
 		"place": ShowSeasons.tonight(Game.bar.get("show", ShowSeasons.fresh()))}
+	var last_entry: Dictionary = Game.bar.get("diary", [{}])[-1] if not Game.bar.get("diary", []).is_empty() else {}
+	if not opener:  # (last night's faces, as its diary entry kept them: none from before 22 Nov)
+		extras["faces"] = last_entry.get("faces", {})
+		extras["photos"] = last_entry.get("photos", [])
 	if not opener and not facts["last"].get("pinned", []).is_empty():
 		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(extras["place"]["episode"]), str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
 	_recap_screen = null
+	if not opener:
+		var shown := {"beats": screen.beat_faces.duplicate(), "card": screen.card_faces.duplicate(), "kept": (extras.get("faces", {}) as Dictionary).size()}
+		if _night_open:  # (recut early in the night)
+			_stats.story["recap_faces"] = shown
+		else:
+			_before_night["recap_faces"] = shown
+		DebugLog.say("Keepsakes", "Previously on…: faces beside the beats %s; on the card %s (%d faces kept with last night's entry)" % [
+			", ".join(PackedStringArray(screen.beat_faces)) if not screen.beat_faces.is_empty() else "none",
+			", ".join(PackedStringArray(screen.card_faces)) if not screen.card_faces.is_empty() else "none", (extras.get("faces", {}) as Dictionary).size()])
 	if _step_in_wanted:
 		return  # (stopped for the PD to cut it: what airs is logged when it plays again)
 	var titled := "" if recap.get("title", {}).is_empty() else " (%s)" % Story.title_text(recap["title"])

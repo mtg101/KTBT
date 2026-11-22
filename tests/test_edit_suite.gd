@@ -91,3 +91,29 @@ func test_the_pins_as_they_were_need_no_rewrite() -> void:
 	again.tick_scene(2, false)  # (nothing ticked: the writers choose)
 	again.cut()
 	assert_bool(_cuts[1].has("scenes")).is_false()
+
+
+const LOOK := {"age_range": "20s", "hair": "long", "hair_colour": "black", "clothes": "hoodie", "colour": "charcoal", "glasses": true, "skin": 2}
+
+
+func test_each_scene_has_the_faces_of_who_it_s_about() -> void:
+	var suite := EditSuite.new()
+	add_child(suite)
+	var face := {"key": "w_20s_long_glasses", "look": LOOK}
+	suite.open("season 2, episode 4", TITLES, "What will Ji-ho do now?", OPTIONS, SCENES, {"Kim Ji-ho": face, "Lee Da-eun": face})
+	assert_int(suite.scenes_with_faces).is_equal(3)  # (Ji-ho's pin and moment, Da-eun's pin: the stools and Tae-oh have no face kept)
+	var row := suite.find_child("SceneRow1", true, false) as HBoxContainer
+	var pictured := row.find_children("SceneFace", "TextureRect", false, false)
+	assert_int(pictured.size()).is_equal(1)
+	assert_str(str(pictured[0].get_meta("who"))).is_equal("Kim Ji-ho")
+	assert_str((pictured[0] as TextureRect).tooltip_text).contains("Kim Ji-ho")  # (who it is, on hover)
+	assert_int(suite.find_child("SceneRow3", true, false).find_children("SceneFace", "TextureRect", false, false).size()).is_equal(0)
+	# Still ticked and cut as ever.
+	assert_array(suite.ticked_scenes().map(func(s): return s["at"])).is_equal([1260, 1300])
+	suite.queue_free()
+
+
+func test_an_entry_from_before_faces_were_kept_has_none() -> void:
+	var suite := _suite()  # (no faces passed: as from before 22 Nov)
+	assert_int(suite.scenes_with_faces).is_equal(0)
+	assert_array(suite.find_children("SceneFace", "TextureRect", true, false)).is_empty()

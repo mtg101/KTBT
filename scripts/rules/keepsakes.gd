@@ -77,6 +77,27 @@ static func polaroids(events: Array, faces: Dictionary, end_at: int, owner_name:
 	return photos
 
 
+## Someone's kept face, for showing it after the night's gone ("Previously on…", the edit
+## suite): a diary entry's faces (name -> {"key", "look"}), the person by a full or a given name,
+## and the mood wanted. {"name" (their full name), "key", "look", "mood"}; {} for nobody kept
+## (or an entry from before faces were kept).
+static func face(faces: Dictionary, person_name: String, mood := "calm") -> Dictionary:
+	var full := whose(person_name, faces)
+	if full == "" or not faces[full] is Dictionary or str(faces[full].get("key", "")) == "":
+		return {}
+	return {"name": full, "key": str(faces[full]["key"]), "look": (faces[full].get("look", {}) as Dictionary).duplicate(true), "mood": mood if mood != "" else "calm"}
+
+
+## The mood someone's face is shown in for last night: their own biggest moment's in the
+## entry's moments (StoryKeeper facts: {"who", "mood"}), or "calm" (a mood with no face is drawn calm).
+static func last_mood(moments: Array, person_name: String, faces: Dictionary) -> String:
+	var full := whose(person_name, faces)
+	for moment in moments:
+		if full != "" and whose(str(moment.get("who", "")), faces) == full and str(moment.get("mood", "")) != "":
+			return str(moment["mood"])
+	return "calm"
+
+
 ## Someone's face for their polaroid: their own biggest moment's mood (as it aired), or "calm".
 static func mood_of(events: Array, person_name: String, faces: Dictionary) -> String:
 	var theirs: Array = events.filter(func(e): return str(e.get("kind", "")) == "big_moment" and whose(str(e.get("who", "")), faces) == person_name)

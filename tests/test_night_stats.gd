@@ -249,6 +249,11 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s · recap stormy (ai)")
 	stats.story["loading_tent"] = "placeholder, then the bar's"  # (the loading screen's tent: see loading_screen.gd)
 	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s (tent: placeholder, then the bar's) · recap stormy (ai)")
+	stats.story["recap_faces"] = {"beats": ["Kim Ji-ho", "Park Min-seo"], "card": ["Kim Ji-ho"], "kept": 4}  # (last night's faces in "Previously on…")
+	assert_str(stats.panel_text(0, 0)).contains("recap stormy (ai) · faces beside the beats 2, on the card 1 (of 4 kept)")
+	stats.story["edit"] = {"stepped_in": "loading", "title_by": "pd", "cliffhanger_by": "writers", "title": "Salt", "scene_faces": [3, 5]}
+	assert_str(stats.panel_text(0, 0)).contains(" · scenes the writers' · scenes with faces 3/5")
+	stats.story.erase("edit")
 	assert_str(stats.panel_text(0, 0)).contains("Diary: stamp early (game)")
 	assert_str(stats.panel_text(0, 0)).not_contains("Art:")  # (nothing recorded: nothing said)
 	stats.art = {"images": ["touch/lucky_cat"], "drawn": ["touch/lanterns", "touch/radio"], "broken": []}

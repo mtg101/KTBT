@@ -14,7 +14,6 @@ const Ratings = preload("res://scripts/rules/ratings.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const Ladder = preload("res://scripts/rules/ladder.gd")
 const Names = preload("res://scripts/rules/names.gd")
-const PeopleArt = preload("res://scripts/ui/people_art.gd")
 const Polaroid = preload("res://scripts/ui/polaroid.gd")
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
@@ -209,11 +208,7 @@ func _show_photos(photos: Array) -> void:
 	for photo in photos:
 		if not photo is Dictionary or _photos.get_child_count() >= PHOTO_TILTS.size():
 			continue
-		var look: Dictionary = photo.get("look", {})
-		var mood := str(photo.get("mood", "calm"))
-		var picture: Texture2D = PeopleArt.portrait(look, str(photo.get("key", "")), "" if mood == "calm" else mood)
-		if picture == null:
-			picture = PeopleArt.portrait(look, str(photo.get("key", "")))
+		var picture := Polaroid.picture_of(photo)
 		if picture == null:
 			continue
 		var polaroid := Polaroid.new()

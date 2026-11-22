@@ -15,6 +15,20 @@ const INK := Color("2b3a67")  # (the diary's)
 var who := ""  # whose (their full name), for the tests and the log
 
 
+const PeopleArt = preload("res://scripts/ui/people_art.gd")
+
+
+## A kept face's picture (Keepsakes.face, or a diary entry's photo: {"key", "look", "mood"}): in
+## its mood, or calm if that face isn't drawn; null if neither is.
+static func picture_of(face: Dictionary) -> Texture2D:
+	var look: Dictionary = face.get("look", {})
+	var mood := str(face.get("mood", "calm"))
+	var picture: Texture2D = PeopleArt.portrait(look, str(face.get("key", "")), "" if mood == "calm" else mood)
+	if picture == null:
+		picture = PeopleArt.portrait(look, str(face.get("key", "")))
+	return picture
+
+
 ## picture: their portrait; written: the name under it (their given name, as the owner writes
 ## it); tilt: radians.
 func setup(picture: Texture2D, full_name: String, written: String, tilt: float) -> void:

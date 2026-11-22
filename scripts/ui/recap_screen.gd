@@ -5,7 +5,10 @@ extends Control
 ## the name of whoever it's about in a pink tag (in Hangul too) and, for a big moment, its TV
 ## reaction stuck on beside it (충격!); the last beat gets the dramatic triple zoom, one jolt for
 ## each "dun" of the sting. Then the teaser throbs like a heartbeat (두근두근), and the episode
-## card (제12화) sweeps in on ribbons. Skip ends it any time. (See visit.gd _play_recap.)
+## card (제12화) sweeps in on ribbons. Whoever a beat's about has their polaroid beside the
+## beat (in their big moment's mood), and last night's polaroids are pinned on the episode card,
+## from the faces its diary entry kept (none for nights from before they were). Skip ends it any
+## time. (See visit.gd _play_recap.)
 
 signal finished
 signal step_in  ## the PD stepping in to cut it (see show_step_in)
@@ -16,6 +19,8 @@ const Ktv = preload("res://scripts/ui/ktv_style.gd")
 const Captions = preload("res://scripts/rules/captions.gd")
 const Names = preload("res://scripts/rules/names.gd")
 const Story = preload("res://scripts/rules/story.gd")
+const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
+const Polaroid = preload("res://scripts/ui/polaroid.gd")
 
 const NIGHT_TOP := Color("0d0b24")
 const NIGHT_BOTTOM := Color("2a1a40")
@@ -54,6 +59,12 @@ var _scratches: Array = []
 var _style: Dictionary = {}
 const QUOTE_MOST := 110  # characters of a pinned line under a beat
 var _side := 1.0  # beats slide in from alternate sides
+var _face: Control  # the beat's person's polaroid, beside it
+const FACE_AT := Vector2(70, 430)  # (left of the beat, clear of the sticker on the right)
+const CARD_PHOTOS_AT := [Vector2(230, 330), Vector2(1540, 330)]  # (either side of the episode number)
+const CARD_TILTS := [-0.1, 0.09]
+var beat_faces: Array = []  # whose faces were shown beside the beats (full names, in order), for the stats and tests
+var card_faces: Array = []  # ...and pinned on the episode card
 var _done := false
 
 
@@ -219,7 +230,8 @@ func _init() -> void:
 
 
 ## Plays it: the title, the beats, the teaser, the episode card. Emits finished at the end (or
-## when skipped). extras: "people" (name -> Hangul), "moments" (the TV reactions, with who and
+## when skipped). extras: "faces" and "photos" (last night's diary entry's: the faces beside
+## the beats, the polaroids on the card), "people" (name -> Hangul), "moments" (the TV reactions, with who and
 ## mood), "weather" (snow, or petals otherwise) and "quotes" (the lines the PD pinned last time,
 ## {"speaker", "text"}: one under each beat, in order) and "ratings" (last time's, "RATINGS 6.4%",
 ## by the episode's title) and "place" (tonight's place in the seasons, ShowSeasons.tonight: the
@@ -282,6 +294,7 @@ func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: 
 	_fade(_vignette, 0.0)
 	_title.visible = false
 	_card.visible = true
+	_pin_card_photos(extras.get("photos", []))
 	_flash_white()
 	_slam(_episode_ko, -0.06)
 	for k in 3:
@@ -433,6 +446,8 @@ func _bounce() -> void:
 ## they had a big moment last time, its TV reaction stuck on beside the beat.
 func _show_who(beat: String, extras: Dictionary) -> void:
 	_who.visible = false
+	if is_instance_valid(_face):
+		_face.queue_free()
 	if is_instance_valid(_sticker):
 		_sticker.queue_free()
 	var people: Dictionary = extras.get("people", {})
@@ -446,6 +461,7 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 		_who.position = Vector2(SIZE.x / 2 - 220, 330)
 		_who.rotation = 0.04
 		_slam(_who, 0.04)
+		_show_face(str(full), extras)
 		for moment in extras.get("moments", []):
 			if str(moment.get("who", "")) != str(full) or not Captions.REACTIONS.has(str(moment.get("mood", ""))):
 				continue
@@ -463,7 +479,47 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 		return
 
 
+## The beat's person's polaroid, slammed on beside it: their face from last night's entry
+## (extras "faces"), in the mood of their big moment last time (extras "moments"), or calm.
+## Nothing for someone with no face kept.
+func _show_face(full: String, extras: Dictionary) -> void:
+	var faces: Dictionary = extras.get("faces", {})
+	var face := Keepsakes.face(faces, full, Keepsakes.last_mood(extras.get("moments", []), full, faces))
+	var picture := Polaroid.picture_of(face) if not face.is_empty() else null
+	if picture == null:
+		return
+	var polaroid := Polaroid.new()
+	polaroid.setup(picture, str(face["name"]), Names.given_name(str(face["name"])), -0.08)
+	polaroid.name = "RecapFace"
+	polaroid.position = FACE_AT
+	_stage.add_child(polaroid)
+	_slam(polaroid, -0.08)
+	_face = polaroid
+	beat_faces.append(str(face["name"]))
+
+
+## Last night's polaroids (its diary entry's "photos", as the diary page shows them) pinned on
+## either side of the episode number.
+func _pin_card_photos(photos: Array) -> void:
+	for photo in photos:
+		if not photo is Dictionary or card_faces.size() >= CARD_PHOTOS_AT.size():
+			continue
+		var picture := Polaroid.picture_of(photo)
+		if picture == null:
+			continue
+		var k := card_faces.size()
+		var polaroid := Polaroid.new()
+		polaroid.setup(picture, str(photo.get("name", "")), Names.given_name(str(photo.get("name", ""))), float(CARD_TILTS[k]))
+		polaroid.name = "RecapCardPhoto%d" % k
+		polaroid.position = CARD_PHOTOS_AT[k]
+		_card.add_child(polaroid)
+		_slam(polaroid, float(CARD_TILTS[k]))
+		card_faces.append(str(photo.get("name", "")))
+
+
 func _clear_beat() -> void:
+	if is_instance_valid(_face):
+		_fade(_face, 0.0)
 	_fade(_subtitle, 0.0)
 	_fade(_who, 0.0)
 	_fade(_quote, 0.0)
