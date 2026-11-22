@@ -4365,7 +4365,7 @@ func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: 
 	_captions_part.show_caption(kind, fill, about, spot, _tv_faces(kind, fill, about))
 
 
-## A caption's TV box faces (Captions.faces_for: whose, in what mood): the owner's, the one or
+## The faces slapped onto a caption (Captions.faces_for: whose, in what mood): the owner's, the one or
 ## two people it names, or whoever it's over; [] for a kind with none, or nobody here with a
 ## face (counted as "none").
 func _tv_faces(kind: String, fill: Dictionary, about: Variant) -> Array:
@@ -4388,7 +4388,7 @@ func _tv_faces(kind: String, fill: Dictionary, about: Variant) -> Array:
 	return faces
 
 
-## Someone's face for a TV box, in a mood ("calm": their plain portrait): {"texture", "name",
+## Someone's face for a caption, in a mood ("calm": their plain portrait): {"texture", "name", "mood",
 ## "how": "mood", "calm", or "stood_in" (the plain one, without a face for that mood)}, or {}
 ## without a portrait (or nobody by that name here: a full name or a given name will do).
 func _tv_face(person_name: String, mood: String) -> Dictionary:
@@ -4419,7 +4419,7 @@ func _tv_face(person_name: String, mood: String) -> Dictionary:
 		how = "mood" if moody != null else "stood_in"
 		if moody != null:
 			texture = moody
-	return {"texture": texture, "name": str(person.get("name", "")), "how": how}
+	return {"texture": texture, "name": str(person.get("name", "")), "mood": mood, "how": how}
 
 
 ## Whose node it is: the owner's or a customer's name ("" for anyone else, or nobody).
@@ -4870,7 +4870,7 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 
 
 var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
-var _zoomed_tonight := false  # the night's first big moment's had the zoom (a TV box over the whole window)
+var _zoomed_tonight := false  # the night's first big moment's had the zoom (its caption and face over the whole window)
 
 
 func _hover_text(guest: Guest) -> String:

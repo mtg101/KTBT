@@ -2,9 +2,11 @@ class_name Caption
 extends Control
 ## A Korean variety-show caption (자막): big outlined Hangul over a coloured English tag, an
 ## icon, a slight tilt, popping in with an overshoot, held a moment, then fading. Placed by
-## whoever it's about (see visit.gd _caption); the words come from Captions.CAPTIONS.
+## whoever it's about (see visit.gd _caption); the words come from Captions.CAPTIONS. With a
+## face (ui/face_sticker.gd), it's slapped on beside the words, thumped in just after them.
 
 const Ktv = preload("res://scripts/ui/ktv_style.gd")
+const FaceSticker = preload("res://scripts/ui/face_sticker.gd")
 const INK := Ktv.INK
 const HANGUL_SIZE := 50
 const ENGLISH_SIZE := 24
@@ -16,9 +18,11 @@ var stage_width := 1872.0
 var _box: VBoxContainer
 var _row: HBoxContainer
 var _placed := false
+var sticker: FaceSticker  # its face, if it has one
 
 
-func setup(words: Dictionary, icon: String, colour: Color) -> void:
+## face: its face (set up, not yet in the tree), or null; face_first: on the left of the words.
+func setup(words: Dictionary, icon: String, colour: Color, face: FaceSticker = null, face_first := true) -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
 	_row = row
@@ -47,6 +51,14 @@ func setup(words: Dictionary, icon: String, colour: Color) -> void:
 	var english := _label(str(words.get("english", "")), ENGLISH_SIZE, Color.WHITE, 6)
 	english.name = "English"
 	tag.add_child(english)
+	mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if face != null:
+		sticker = face
+		row.add_child(face)
+		if face_first:
+			row.move_child(face, 0)
+		face.time_scale = time_scale
 	rotation = randf_range(-0.09, 0.09)
 	_place()
 
@@ -76,6 +88,8 @@ func pop(hold_seconds: float) -> void:
 	tween.tween_interval(maxf(0.0, hold_seconds - 1.3) * time_scale)
 	tween.tween_property(self, "modulate:a", 0.0, 0.4 * time_scale)
 	tween.tween_callback(queue_free)
+	if sticker != null:
+		sticker.slam(0.14)
 
 
 func _label(text: String, font_size: int, colour: Color, outline: int) -> Label:

@@ -516,11 +516,11 @@ func test_the_transcripts_toolbar_is_in_the_stats() -> void:
 	assert_int(int(stats.summary({})["pd"]["transcript"]["caught"])).is_equal(9)
 
 
-func test_the_tv_boxes_are_in_the_stats() -> void:
+func test_the_faces_on_captions_are_in_the_stats() -> void:
 	var stats := NightStats.new()
-	assert_str(stats.panel_text(0, 0)).not_contains("TV boxes:")  # (none yet: nothing said)
-	stats.stings = {"inset": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0}
-	assert_str(stats.panel_text(0, 0)).contains("TV boxes: insets 3 · zooms 1 · faces: in the mood 4 · calm 1 · calm standing in 0")
+	assert_str(stats.panel_text(0, 0)).not_contains("Faces on captions:")  # (none yet: nothing said)
+	stats.stings = {"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0}
+	assert_str(stats.panel_text(0, 0)).contains("Faces on captions: beside 3 · zooms 1 · in the mood 4 · calm 1 · calm standing in 0")
 	stats.stings["none"] = 2
 	assert_str(stats.panel_text(0, 0)).contains("calm standing in 0 · NONE 2")
-	assert_dict(stats.summary({})["stings"]).is_equal({"inset": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0, "none": 2})
+	assert_dict(stats.summary({})["stings"]).is_equal({"beside": 3, "zoom": 1, "mood": 4, "calm": 1, "stood_in": 0, "none": 2})

@@ -2282,7 +2282,7 @@ func test_a_big_moment_gets_a_tv_reaction() -> void:
 	CannedAi.scripted = []
 
 
-func test_big_moments_and_captions_cut_to_their_faces() -> void:
+func test_big_moments_and_captions_have_their_faces_slapped_on() -> void:
 	Hooks.caption_pacing = false
 	var runner := await _open_bar()
 	var scene = runner.scene()
@@ -2293,28 +2293,29 @@ func test_big_moments_and_captions_cut_to_their_faces() -> void:
 	var who := str(guest.customer["name"])
 	var owner_name := str(Game.bar["owner"]["name"])
 	var lines := [{"speaker": who, "text": "I quit my job today."}, {"speaker": owner_name, "text": "You did what?"}]
-	# The night's first big moment: the zoom, their shocked face over the whole window. (Aired
-	# straight from the AI's answer: the reaction check itself is test_a_big_moment_gets_a_tv_reaction's.)
+	# The night's first big moment: the zoom, their shocked face on its caption over the whole window.
+	# (Aired straight from the AI's answer: the reaction check itself is test_a_big_moment_gets_a_tv_reaction's.)
 	scene._air_moment(0, [{"mood": "shock", "caption": "THEY QUIT?!"}], {"who": who, "topic": ""}, lines, [who, owner_name], 0.0)
-	var box = scene._captions_part.shown_box
-	assert_object(box).is_not_null()
-	assert_bool(box.zoomed and box.get_parent() == scene).is_true()
-	assert_str(str(box.find_child("Name", true, false).text)).is_equal(who)
+	var zoomed = scene._captions_part.shown
+	assert_bool(scene._captions_part.shown_zoom != null and scene._captions_part.shown_zoom.get_parent() == scene).is_true()
+	assert_object(zoomed.sticker).is_not_null()
+	assert_str(str(zoomed.sticker.find_child("Name", true, false).text)).is_equal(who)
 	var key := str(guest.node.get_node("Hover").picked_key)
-	assert_object(box.find_child("Picture", true, false).texture).is_equal(PeopleArt.portrait(guest.customer["look"], key, "shock"))
-	# The next: an inset over the stage.
+	assert_object(zoomed.sticker.find_child("Picture", true, false).texture).is_equal(PeopleArt.portrait(guest.customer["look"], key, "shock"))
+	# The next: on its caption, over the stage.
 	scene._air_moment(0, [{"mood": "sad", "caption": "OH NO"}], {"who": who, "topic": ""}, lines, [who, owner_name], 0.0)
-	assert_object(scene._captions_part.shown_box).is_not_null()
-	assert_bool(scene._captions_part.shown_box != box and not scene._captions_part.shown_box.zoomed).is_true()
+	assert_object(scene._captions_part.shown_zoom).is_null()
+	assert_object(scene._captions_part.shown.sticker).is_not_null()
+	assert_bool(scene._captions_part.shown.get_parent() == scene._caption_layer).is_true()
 	# A game caption about the owner: the owner's face, in its mood.
 	scene._caption("stove", scene._owner_node, {"dishes": 4})
-	assert_str(str(scene._captions_part.shown_box.find_child("Name", true, false).text)).is_equal(owner_name)
-	# One about the bar as a whole: no box.
+	assert_str(str(scene._captions_part.shown.sticker.find_child("Name", true, false).text)).is_equal(owner_name)
+	# One about the bar as a whole: no face.
 	scene._caption("dawn")
-	assert_object(scene._captions_part.shown_box).is_null()
+	assert_object(scene._captions_part.shown.sticker).is_null()
 	assert_int(int(scene._stats.stings.get("zoom", 0))).is_equal(1)
-	assert_int(int(scene._stats.stings.get("inset", 0))).is_greater_equal(2)  # (and any routine caption about someone, as the night goes on)
-	assert_str(scene._stats.panel_text(0, 0)).contains("TV boxes: insets")
+	assert_int(int(scene._stats.stings.get("beside", 0))).is_greater_equal(2)  # (and any routine caption about someone, as the night goes on)
+	assert_str(scene._stats.panel_text(0, 0)).contains("Faces on captions: beside")
 
 
 func test_a_reaction_check_waits_for_the_owner_instead_of_being_lost() -> void:

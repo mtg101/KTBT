@@ -69,6 +69,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **Babble (first):** Animal Crossing-style syllables per word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous), from a few CC0 sounds. No AI, runs anywhere.
   - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.
   - **AI voices:** a local text-to-speech service beside Ollama, on the CPU so it doesn't fight the LLM: **Kokoro** (82M, Apache-2.0, good quality) or **Piper** (fast, GPL-3.0 engine, voices with their own licences). Check first how they say Korean names and words.
+- **Opening style:** is it always the same rotating splat?
 
 
 ### Technical

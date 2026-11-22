@@ -173,7 +173,7 @@ const CAPTIONS := {
 }
 
 
-## The TV box's faces (PLAN.md, "Using portraits"): the caption's kind -> the face in its box,
+## The faces on the captions (PLAN.md, "Using portraits"): the caption's kind -> the face slapped on,
 ## a TV mood (REACTIONS: a reaction face, art/reactions) or "calm" (their plain portrait). Whose:
 ## who the caption fills in ("name", and "friend" for two: both side by side), else whoever it's
 ## over; OWNER_FACES are always the owner's. Kinds not here get no box (the bar as a whole, the
@@ -200,7 +200,7 @@ const FACES := {
 const OWNER_FACES := ["stove", "multitask", "owner_joins", "order_up", "last_orders", "quiet", "closing_early", "closing_reason"]
 
 
-## Whose faces a caption's TV box shows and in what mood: {"mood", "owner": always the owner's,
+## Whose faces are slapped onto a caption and in what mood: {"mood", "owner": always the owner's,
 ## "names": [the one or two people it fills in]}; {} for a kind with no box.
 static func faces_for(kind: String, fill: Dictionary) -> Dictionary:
 	if not FACES.has(kind):

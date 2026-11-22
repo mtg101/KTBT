@@ -45,10 +45,10 @@ var poses := 0  # big moments shown in someone's pose (people_view.gd pose)
 ## Portraits in people's hovers (visit.gd _give_portrait): "matched" (their own), "fallback" (the
 ## nearest the library had), "none" (no portrait), one each per person; "seen": hovers opened with one.
 var portraits := {}
-## The TV boxes with the captions (captions_on_screen.gd, ui/tv_inset.gd): "inset" (in the
-## stage's corner) and "zoom" (over the whole window); their faces, "mood" (the caption's own
-## face), "calm" (the plain one, asked for), "stood_in" (the plain one, the mood's face missing);
-## "none": a caption that wanted a face and had nobody's to show.
+## Faces on the captions (captions_on_screen.gd, ui/face_sticker.gd): "beside" (slapped onto a
+## caption over the stage) and "zoom" (the caption and its face over the whole window); their
+## faces, "mood" (the caption's own face), "calm" (the plain one, asked for), "stood_in" (the
+## plain one, the mood's face missing); "none": a caption that wanted a face and had nobody's.
 var stings := {}
 ## The ratings so far tonight (Ratings.score, before the luck: that's only known at 3am), kept
 ## up to date as things happen, and the last nights' ratings, for the panel's RATINGS section.
@@ -949,9 +949,9 @@ func portraits_text() -> String:
 		(" · NONE %d" % int(portraits["none"])) if int(portraits.get("none", 0)) > 0 else "", int(portraits.get("seen", 0))]
 
 
-## The TV boxes tonight: insets and zooms, and their faces.
+## Faces on the captions tonight: beside them and zooms, and which faces.
 func stings_text() -> String:
-	return "TV boxes: insets %d · zooms %d · faces: in the mood %d · calm %d · calm standing in %d%s" % [int(stings.get("inset", 0)), int(stings.get("zoom", 0)),
+	return "Faces on captions: beside %d · zooms %d · in the mood %d · calm %d · calm standing in %d%s" % [int(stings.get("beside", 0)), int(stings.get("zoom", 0)),
 		int(stings.get("mood", 0)), int(stings.get("calm", 0)), int(stings.get("stood_in", 0)), (" · NONE %d" % int(stings["none"])) if int(stings.get("none", 0)) > 0 else ""]
 
 
