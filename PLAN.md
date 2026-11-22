@@ -4,8 +4,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **The food looks (the cooking shows' tropes)**, the next of the edit's clipart (drawn in `tools/art/clipart.py`, picked in `rules/clipart.gd`, as the moods' are): "it must be good" (맛있겠다), wide eyes and a drool drop as a dish comes over, a gulp (꿀꺽); the first bite's bliss, eyes shut, the taste exploding behind them (fireworks, a galaxy), a thumbs-up (엄지 척); the dish itself sparkling and steaming (반짝); the stove backed up as a countdown race (a big timer, "15분!"). Needs two new moods for the faces, "hungry" (wide-eyed, drooling) and "bliss" (eyes shut, a first bite), from Klein's edit workflow overnight like the other seven (126 portraits × 2 moods × 2 seeds), and a moment to put them on: a first bite, not only the second dish's "eating" caption.
-
+- so portriats for diary... 
+  - think about scoials too
+  - and test what we just did
 - **Portraits, the rest of their uses** (everyone has a face, on their hover and slapped onto the captions; how they're made and picked is in ART.md). In this order:
   - **The diary at 3am** (decided 21–22 Nov):
     - **A TV-style end card first:** the night's biggest moment again, its caption with the face slapped on (`ui/face_sticker.gd`, the zoom's size), before the diary page. "Biggest": the highest size, ties the latest (nearly every aired moment's a 4). Needs the size kept with the `big_moment` event (it's counted, then dropped) and in the story's moments. No moment tonight, no card.
