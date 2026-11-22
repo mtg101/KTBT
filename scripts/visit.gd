@@ -1150,6 +1150,10 @@ func _start_night() -> void:
 	_night_visits = 0
 	_night_lines = []
 	_stats = NightStats.new()
+	var owner_hover := (_owner_node.get_node_or_null("Hover") as PortraitHover) if is_instance_valid(_owner_node) else null
+	if owner_hover != null and owner_hover.picked_how != "":  # (their face came as the bar opened, before tonight's stats: counted in them too)
+		_stats.portraits[owner_hover.picked_how] = int(_stats.portraits.get(owner_hover.picked_how, 0)) + 1
+		DebugLog.say("Portraits", "the owner's face counted in tonight's stats (%s)" % owner_hover.picked_how)
 	_stats.transcript_use = {"size": _transcript_view.font_size, "compact": _transcript_view.compact}  # (how it's set as the night opens)
 	if Game.autoplay != null:  # (a night the crew open: in its stats)
 		_stats.crew_run = {"from": Game.autoplay.started_from(), "nights": Game.autoplay.nights, "night": Game.autoplay.progress_text()}
@@ -4780,6 +4784,7 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 	hover.portrait = PeopleArt.portrait(look, str(picked["key"]))
 	if hover.portrait == null:
 		how = "none"
+	hover.picked_how = how
 	_stats.portraits[how] = int(_stats.portraits.get(how, 0)) + 1
 	hover.shown.connect(func(): _stats.portraits["seen"] = int(_stats.portraits.get("seen", 0)) + 1)
 	DebugLog.say("Portraits", "%s: %s (%s%s)" % [str(person.get("name", "?")), str(picked["key"]) if how != "none" else "no portrait", how,

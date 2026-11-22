@@ -75,6 +75,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Technical
 
+- **`stop_art` should clear the art queue's list:** stopping ComfyUI throws its queue away, but `art\raw\pending.json` still lists those pictures, so `queue_art_batch` refuses ("still being made: collect_art them first (or stop_art and start again)", and stop_art doesn't help) until the file's moved aside by hand. `StopArt` in `tools/autoplay_mcp.ps1` should empty it (`SavePending @()`) when it stops ComfyUI, and say so; the same if ComfyUI isn't answering at all. Mind START-HERE's helper gotchas: it can't be tested here.
 - **Optimise: only when noticed:** you'd think 10 local LLM calls with big prompts would take ages... but I'm not noticing delays yet - optimize when we need to!
   - **Watching AI quality over time:** autoplay writes the batch review we do by hand (rejections by kind, give-ups, facts and threads that went wrong, lines misusing what they were told) and compares it with the last batch; a small model reading transcripts could flag what the checks can't see (19 Nov: "that husband… he's a good kid").
   - **Prompt length:** every feature adds context (who you know, facts, threads, notes), and with an 8B model length costs speed and obedience. Measure prompt size and reply time per call in the stats, set a budget, and try a newer or Korean-fluent local model then: a better model may fix more than any single check.
