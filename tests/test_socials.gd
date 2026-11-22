@@ -233,6 +233,19 @@ func test_the_ais_posts_are_checked_one_by_one() -> void:
 	assert_str(Socials.validate_reply({"posts": [{"handle": "@nobody", "text": "hi"}]}, posts, facts)).contains("none of the posts")
 
 
+func test_regression_a_drink_on_their_bill_was_served() -> void:
+	# A night seen in play: Eun-bi's makgeolli was poured as she ordered (never carried over), so
+	# the AI's post about it was turned down as food she wasn't served.
+	var events := [_sat("Cho Eun-bi", 1500), {"kind": "paid", "at": 1640, "name": "Cho Eun-bi", "order_ids": ["pajeon", "makgeolli"]},
+		_served("Cho Eun-bi", 1520, "Pajeon")]
+	var served := Socials.served_tonight(events, {"Kim Ji-ho": ["soju"]})
+	assert_array(served["Cho Eun-bi"]).contains_exactly_in_any_order(["Pajeon", "Makgeolli"])
+	assert_array(served["Kim Ji-ho"]).is_equal(["Soju"])  # (still in at 3am: what's on their table)
+	var post := {"about": "new_regular", "poster": "Cho Eun-bi", "handle": Socials.handle("Cho Eun-bi"), "shot": "text",
+		"text": "another night, another makgeolli under the tarp", "tags": ["#단골"]}
+	assert_str(Socials.check(post, {"posters": ["Cho Eun-bi"], "served": served, "known": ["Cho Eun-bi"]})).is_empty()
+
+
 func test_the_canned_ai_writes_posts_from_the_same_words() -> void:
 	var ai := CannedAi.new()
 	var reply: Dictionary = ai.reply({"purpose": "socials", "facts": {"cat": CAT, "posts": [{"handle": "@jiho_eats", "about": "cat_theft", "dish": "Odeng"}]}})

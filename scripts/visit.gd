@@ -1846,13 +1846,14 @@ func _post_socials(entry: Dictionary) -> void:
 	var faces: Dictionary = entry.get("faces", {})
 	var posts := Socials.pick(_events.timeline, {"owner": str(_owner.get("name", "")), "cat": str(_cat.get("name", "")), "faces": faces,
 		"taken_cards": taken, "seats": NightRules.SEATS}, posts_dice)
-	var served := {}
+	var still_in := {}  # (whoever's not settled up yet: what's on their table)
+	for guest in _guests:
+		still_in[str(guest.customer["name"])] = guest.served.duplicate()
+	var served := Socials.served_tonight(_events.timeline, still_in)
 	var posters: Array = faces.keys()
 	for event in _events.timeline:
 		var who := str(event.get("name", ""))
-		if str(event.get("kind", "")) in ["dish_served", "cat_stole"]:  # (what the cat ran off with was on their table)
-			served[who] = served.get(who, []) + [str(event.get("dish", ""))]
-		elif str(event.get("kind", "")) == "sat_down" and not posters.has(who):
+		if str(event.get("kind", "")) == "sat_down" and not posters.has(who):
 			posters.append(who)
 	var facts := {"posters": posters, "served": served, "known": posters + [str(_owner.get("name", "")), str(_cat.get("name", ""))]}
 	var counts := {"posts": 0, "pictures": 0, "drawn": 0, "text": 0, "dropped": 0, "viewer_comments": 0, "picked": posts.size(),

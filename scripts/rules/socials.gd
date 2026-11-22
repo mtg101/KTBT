@@ -312,6 +312,29 @@ static func handle(full_name: String) -> String:
 	return "@" + given + str(HANDLE_ENDS[absi(hash(full_name)) % HANDLE_ENDS.size()])
 
 
+## What everyone had tonight, for the check: name -> dish names. Food as it's carried over, what
+## the cat ran off with (it was on their table), and everything on their bill (drinks are poured
+## as the order's taken, so they're never carried over); still_in: name -> ids on the table of
+## whoever hasn't settled up yet.
+static func served_tonight(events: Array, still_in: Dictionary = {}) -> Dictionary:
+	var served := {}
+	var add := func(who: String, dish: String) -> void:
+		if dish != "" and not (served.get(who, []) as Array).has(dish):
+			served[who] = served.get(who, []) + [dish]
+	for event in events:
+		var who := str(event.get("name", ""))
+		match str(event.get("kind", "")):
+			"dish_served", "cat_stole":
+				add.call(who, str(event.get("dish", "")))
+			"paid":
+				for id in event.get("order_ids", []):
+					add.call(who, str(Menu.find(str(id)).get("name", id)))
+	for who in still_in:
+		for id in still_in[who]:
+			add.call(str(who), str(Menu.find(str(id)).get("name", id)))
+	return served
+
+
 ## What's wrong with a post, or "" if nothing: facts: "posters" (who was in tonight), "served"
 ## (name -> the dishes they had), "known" (names it may mention: the owner, the cat, tonight's
 ## customers). The AI's words will go through this too (PLAN.md's next step).
