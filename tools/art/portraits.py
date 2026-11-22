@@ -18,6 +18,8 @@ in PROMPT below): black, red and skin are far apart, so the picture splits into 
         split once into art/raw/react_split/, pick sheets, and art/raw/reaction_picks.json)
     python3 tools/art/portraits.py --react-keep  (the reaction picks into art/reactions/, the manifest and LICENSE-ASSETS)
     python3 tools/art/portraits.py --self-test
+    python3 tools/art/portraits.py --expect tests/support/portraits   (what the game's own split, scripts/rules/
+        portrait_split.gd, should make of the pictures there: each one's layer and expected.json, for its test)
 
 What it does, for each picture:
  1. Cuts the background out (pixelate.py's cut_background).
@@ -707,12 +709,33 @@ def react_self_test():
     return not problems
 
 
+def expect(folder):
+    """The Python's answer for the game's port of the split (scripts/rules/portrait_split.gd) to be checked
+    against: for each picture in folder (portrait_<id>_<seed>.png), <same>_layer.png and its score and
+    shares in expected.json, and which of each id's candidates it pre-picks."""
+    import json
+    out, scored = {}, {}
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".png") or name.endswith("_layer.png"):
+            continue
+        ident, seed = re.match(r"portrait_(.+)_(\d+)\.png$", name).groups()
+        gp, gs, shares = portrait(Image.open(os.path.join(folder, name)))
+        layer(gp, gs).save(os.path.join(folder, name.replace(".png", "_layer.png")))
+        out[name] = {"id": ident, "seed": int(seed), "score": score(gp, ident), "shares": shares}
+        scored.setdefault(ident, []).append((score(gp, ident), int(seed)))
+    picks = {ident: min(s)[1] for ident, s in scored.items() if len(s) > 1}
+    with open(os.path.join(folder, "expected.json"), "w", encoding="utf-8") as f:
+        json.dump({"pictures": out, "pre_picks": picks}, f, indent=1)
+    print("%s: %d pictures, pre-picks %s" % (folder, len(out), picks))
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("pictures", nargs="*")
     ap.add_argument("--sheet"); ap.add_argument("--sizes"); ap.add_argument("--layers")
     ap.add_argument("--width", type=int, default=W); ap.add_argument("--height", type=int, default=H)
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--expect", metavar="FOLDER", help="the Python's split of FOLDER's pictures, for the game's port's test")
     ap.add_argument("--pick", metavar="FOLDER", help="pick sheets of the batch's pictures into FOLDER, and art/raw/portrait_picks.json")
     ap.add_argument("--only", help="with --pick, --keep, --react-pick or --react-keep: just these groups (w_20s,m_70s...), so a run fits in a shell call")
     ap.add_argument("--keep", action="store_true", help="the picks (portrait_picks.json) into art/portraits/, the manifest and LICENSE-ASSETS")
@@ -723,6 +746,9 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.self_test:
         sys.exit(0 if self_test() and react_self_test() else 1)
+    if a.expect:
+        expect(a.expect)
+        sys.exit(0)
     if a.react_pick:
         react_pick_sheets(a.react_pick, a.only.split(",") if a.only else None)
         sys.exit(0)

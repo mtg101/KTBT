@@ -1,0 +1,51 @@
+{
+ "pictures": {
+  "portrait_m_50s_balding_glasses_9050.png": {
+   "id": "m_50s_balding_glasses",
+   "seed": 9050,
+   "score": -0.009140625000000013,
+   "shares": {
+    "hair": 0.034879539733908664,
+    "skin": 0.4102840704782452,
+    "cloth": 0.46817691477885653,
+    "lines": 0.08665947500898957
+   }
+  },
+  "portrait_m_50s_balding_glasses_9051.png": {
+   "id": "m_50s_balding_glasses",
+   "seed": 9051,
+   "score": 0.06996093749999999,
+   "shares": {
+    "hair": 0.04203461674320028,
+    "skin": 0.4404803956199223,
+    "cloth": 0.4182267749911692,
+    "lines": 0.09925821264570824
+   }
+  },
+  "portrait_m_50s_balding_glasses_9052.png": {
+   "id": "m_50s_balding_glasses",
+   "seed": 9052,
+   "score": 0.007616460158817007,
+   "shares": {
+    "hair": 0.038700255567725446,
+    "skin": 0.45125958378970427,
+    "cloth": 0.43227455275648047,
+    "lines": 0.07776560788608981
+   }
+  },
+  "portrait_w_20s_long_8000.png": {
+   "id": "w_20s_long",
+   "seed": 8000,
+   "score": 0.064453125,
+   "shares": {
+    "hair": 0.3644335320940021,
+    "skin": 0.2171168011224132,
+    "cloth": 0.38968782883198877,
+    "lines": 0.028761837951595932
+   }
+  }
+ },
+ "pre_picks": {
+  "m_50s_balding_glasses": 9050
+ }
+}
