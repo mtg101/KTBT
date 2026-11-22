@@ -1150,6 +1150,7 @@ func _start_night() -> void:
 	_night_visits = 0
 	_night_lines = []
 	_stats = NightStats.new()
+	_zoomed_tonight = false
 	var owner_hover := (_owner_node.get_node_or_null("Hover") as PortraitHover) if is_instance_valid(_owner_node) else null
 	if owner_hover != null and owner_hover.picked_how != "":  # (their face came as the bar opened, before tonight's stats: counted in them too)
 		_stats.portraits[owner_hover.picked_how] = int(_stats.portraits.get(owner_hover.picked_how, 0)) + 1
@@ -4361,7 +4362,76 @@ func _caption(kind: String, about: Variant = null, fill: Dictionary = {}, spot: 
 		fill["cat"] = _cat["name"]
 	if _weather_kind in ["drizzle", "rain"]:
 		fill["weather"] = "rain"
-	_captions_part.show_caption(kind, fill, about, spot)
+	_captions_part.show_caption(kind, fill, about, spot, _tv_faces(kind, fill, about))
+
+
+## A caption's TV box faces (Captions.faces_for: whose, in what mood): the owner's, the one or
+## two people it names, or whoever it's over; [] for a kind with none, or nobody here with a
+## face (counted as "none").
+func _tv_faces(kind: String, fill: Dictionary, about: Variant) -> Array:
+	var wanted := Captions.faces_for(kind, fill)
+	if wanted.is_empty():
+		return []
+	var names: Array = wanted["names"]
+	if bool(wanted["owner"]):
+		names = [str(_owner.get("name", ""))]
+	elif names.is_empty():
+		names = [_name_of_node(about)]
+	var faces: Array = []
+	for person_name in names:
+		var face := _tv_face(str(person_name), str(wanted["mood"]))
+		if not face.is_empty():
+			faces.append(face)
+	if faces.is_empty():
+		_stats.stings["none"] = int(_stats.stings.get("none", 0)) + 1
+		DebugLog.say("Sting", "no face for the %s caption (%s)" % [kind, ", ".join(PackedStringArray(names))])
+	return faces
+
+
+## Someone's face for a TV box, in a mood ("calm": their plain portrait): {"texture", "name",
+## "how": "mood", "calm", or "stood_in" (the plain one, without a face for that mood)}, or {}
+## without a portrait (or nobody by that name here: a full name or a given name will do).
+func _tv_face(person_name: String, mood: String) -> Dictionary:
+	if person_name == "":
+		return {}
+	var person: Dictionary = {}
+	var node: Control = null
+	if person_name == str(_owner.get("name", "")):
+		person = _owner
+		node = _owner_node
+	else:
+		var guest: Guest = _guest_named(person_name)
+		if guest == null:
+			for g in _guests:
+				if Names.given_name(str(g.customer["name"])) == person_name:
+					guest = g
+		if guest == null:
+			return {}
+		person = guest.customer
+		node = guest.node
+	var hover := (node.get_node_or_null("Hover") as PortraitHover) if is_instance_valid(node) else null
+	if hover == null or hover.portrait == null or hover.picked_key == "":
+		return {}
+	var how := "calm"
+	var texture: Texture2D = hover.portrait
+	if mood != "calm":
+		var moody := PeopleArt.portrait(person.get("look", {}), hover.picked_key, mood)
+		how = "mood" if moody != null else "stood_in"
+		if moody != null:
+			texture = moody
+	return {"texture": texture, "name": str(person.get("name", "")), "how": how}
+
+
+## Whose node it is: the owner's or a customer's name ("" for anyone else, or nobody).
+func _name_of_node(node: Variant) -> String:
+	if not (node is Control) or not is_instance_valid(node):
+		return ""
+	if node == _owner_node:
+		return str(_owner.get("name", ""))
+	for guest in _guests:
+		if guest.node == node:
+			return str(guest.customer["name"])
+	return ""
 
 
 ## A TV reaction: asks the AI whether anything in the latest lines was a big moment (usually
@@ -4440,7 +4510,14 @@ func _air_moment(k: int, spins: Array, reply: Dictionary, lines: Array, names: A
 		_people_view.pose(about, mood)  # (laughing, slumped, jolted, a nod, a fidget)
 		_stats.poses += 1
 	var data: Dictionary = Captions.REACTIONS[mood]
-	_captions_part.pop(Captions.reaction_words(mood, caption, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS)
+	var face := _tv_face(who, mood)
+	var zoom := not face.is_empty() and not _zoomed_tonight  # (the night's first big moment: over the whole window)
+	if face.is_empty():
+		_stats.stings["none"] = int(_stats.stings.get("none", 0)) + 1
+		DebugLog.say("Sting", "no face for %s's big moment" % who)
+	_zoomed_tonight = _zoomed_tonight or zoom
+	_captions_part.pop(Captions.reaction_words(mood, caption, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), false, about, Vector2(-1, -1), Captions.REACTION_SECONDS,
+		[] if face.is_empty() else [face], zoom)
 
 
 ## The door: as someone ducks in, the owner calls out to them, polite for a stranger and casual
@@ -4785,6 +4862,7 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 	if hover.portrait == null:
 		how = "none"
 	hover.picked_how = how
+	hover.picked_key = str(picked["key"]) if how != "none" else ""
 	_stats.portraits[how] = int(_stats.portraits.get(how, 0)) + 1
 	hover.shown.connect(func(): _stats.portraits["seen"] = int(_stats.portraits.get("seen", 0)) + 1)
 	DebugLog.say("Portraits", "%s: %s (%s%s)" % [str(person.get("name", "?")), str(picked["key"]) if how != "none" else "no portrait", how,
@@ -4792,6 +4870,7 @@ func _give_portrait(area: Control, person: Dictionary) -> void:
 
 
 var _portraits_here: Array = []  # the portraits in the library (Art.has), and "" once looked
+var _zoomed_tonight := false  # the night's first big moment's had the zoom (a TV box over the whole window)
 
 
 func _hover_text(guest: Guest) -> String:
@@ -5902,6 +5981,9 @@ func _build_stage(stage: Control) -> void:
 	_caption_layer.z_index = 5  # in front of everything, bubbles included
 	_pd.build_rec(stage)  # ("● REC" in the stage's corner, never hidden)
 	_captions_part.layer = _caption_layer
+	_captions_part.zoom_layer = self  # (a zoom: over the whole window)
+	_captions_part.screen = SCREEN
+	_captions_part.bubble_layer = _bubble_layer
 	var red_frame := Panel.new()
 	red_frame.name = "RedFrame"
 	red_frame.size = STAGE_SIZE

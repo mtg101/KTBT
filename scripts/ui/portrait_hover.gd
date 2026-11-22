@@ -11,6 +11,7 @@ const SCALE := 2  # the portrait's 64 x 80 pixels at 128 x 160: bigger than the 
 var portrait: Texture2D = null
 var picked_for := {}  # the look visit.gd picked it for (once a look: picked again only if it changes, a new owner on "Try again")
 var picked_how := ""  # how it was picked ("matched", "fallback", "none"): visit.gd counts it again in a new night's stats
+var picked_key := ""  # which portrait it is ("w_20s_long"), for the TV box's mood faces ("" for none)
 
 
 func _make_custom_tooltip(for_text: String) -> Object:

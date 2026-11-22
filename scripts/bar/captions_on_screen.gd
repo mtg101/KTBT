@@ -11,11 +11,17 @@ const CaptionPopup = preload("res://scripts/ui/caption.gd")
 const Draw = preload("res://scripts/bar/draw.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
+const TvInset = preload("res://scripts/ui/tv_inset.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 
 var night: Night  # tonight (its stats)
 var layer: Control  # TV captions, over everything
 var red_frame: Panel  # flashes round the tent for an emergency
 var shown: Control  # the one up now (a new one replaces it)
+var shown_box: TvInset  # its TV box, if it has one (ui/tv_inset.gd)
+var zoom_layer: Control  # the whole window, for a zoom (the tent's scene)
+var screen := Vector2(1920, 1080)
+var bubble_layer: Control  # the speech bubbles, cleared for a zoom's beat
 var stage_width := 0.0
 var last := -1.0  # real seconds when the last caption showed (-1: none yet)
 var last_kind := {}  # kind -> real seconds when one of those last showed
@@ -36,8 +42,9 @@ func _init(tonight: Night, width: float, show_line: Callable, play_sting: Callab
 ## A TV caption (Captions.CAPTIONS) for something noteworthy, its blanks filled: paced so they
 ## stay a treat (Captions.caption_allowed; a kind that comes up all night only now and then;
 ## while a reaction's up, routine ones wait), then shown and counted. about: who it's over
-## (untyped: they may have walked off and been freed); spot: where instead.
-func show_caption(kind: String, fill: Dictionary, about: Variant = null, spot: Vector2 = Vector2(-1, -1)) -> void:
+## (untyped: they may have walked off and been freed); spot: where instead; faces: its TV box's
+## (see pop).
+func show_caption(kind: String, fill: Dictionary, about: Variant = null, spot: Vector2 = Vector2(-1, -1), faces: Array = []) -> void:
 	var data: Dictionary = Captions.CAPTIONS[kind]
 	var always := bool(data.get("always", false))  # (closing early: never held back)
 	if Hooks.caption_pacing and not always and randf() >= float(data.get("chance", 1.0)):
@@ -51,7 +58,7 @@ func show_caption(kind: String, fill: Dictionary, about: Variant = null, spot: V
 	last_kind[kind] = now
 	night.stats.captions[kind] = int(night.stats.captions.get(kind, 0)) + 1
 	var roll := randf()  # which of its words, for a kind with several
-	pop(Captions.caption_words(kind, fill, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), bool(data["emergency"]), about, spot, Captions.CAPTION_SECONDS)
+	pop(Captions.caption_words(kind, fill, roll), str(data["icon"]), str(data["colour"]), str(data["sound"]), bool(data["emergency"]), about, spot, Captions.CAPTION_SECONDS, faces)
 
 
 ## Whether there's been long enough since the last reaction to ask for another.
@@ -68,12 +75,18 @@ func reaction_shown() -> void:
 
 
 ## Puts a caption up: in the transcript, popped up on the stage (replacing the last), with its
-## sting, and the red light for an emergency.
-func pop(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Variant, spot: Vector2, hold: float) -> void:
+## sting, and the red light for an emergency. faces: [{"texture", "name", "how"}] for its TV box
+## (ui/tv_inset.gd; how: "mood" its own face, "calm" the plain one asked for, "stood_in" the
+## plain one for a missing mood face), [] for none; zoom: the box over the whole window instead.
+func pop(words: Dictionary, icon: String, colour: String, sound: String, emergency: bool, about: Variant, spot: Vector2, hold: float, faces: Array = [], zoom := false) -> void:
 	transcript.call("[center][b][color=#%s]%s[/color][/b][/center]\n\n" % [colour, ("[TV] %s %s" % [words["hangul"], words["english"]]).replace("[", "[lb]")])
 	if is_instance_valid(shown):
 		shown.name = "OldCaption"  # (so it's never mistaken for the new one while it goes)
 		shown.queue_free()
+	if is_instance_valid(shown_box):
+		shown_box.name = "OldTvBox"
+		shown_box.queue_free()
+	shown_box = null
 	var caption := CaptionPopup.new()
 	caption.name = "Caption"
 	caption.time_scale = Draw.scaled(1.0)
@@ -84,13 +97,57 @@ func pop(words: Dictionary, icon: String, colour: String, sound: String, emergen
 		caption.at = (about as Control).position + Vector2(40, -60)
 	else:
 		caption.at = Vector2(stage_width / 2, 150)
+	var box: TvInset = null
+	if not faces.is_empty():
+		box = _tv_box(faces, Color(colour), zoom and is_instance_valid(zoom_layer), caption.at.x, hold, words)
+		if box.zoomed:
+			caption.at = box.zoom_caption_spot()
+			caption.stage_width = screen.x
 	caption.setup(words, icon, Color(colour))
-	layer.add_child(caption)
+	if box != null and box.zoomed:
+		box.add_child(caption)  # (over the whole window with it)
+	else:
+		layer.add_child(caption)
 	caption.pop(hold)
 	shown = caption
 	sting.call(sound)
 	if emergency:
 		flash_red()
+
+
+## A caption's TV box (ui/tv_inset.gd): an inset in the stage's corner away from them, or the
+## zoom over the whole window (the speech bubbles cleared for its beat). Counted and noted.
+func _tv_box(faces: Array, colour: Color, zoom: bool, their_x: float, hold: float, words: Dictionary) -> TvInset:
+	var box := TvInset.new()
+	box.name = "TvZoom" if zoom else "TvBox"
+	box.time_scale = Draw.scaled(1.0)
+	box.setup(faces, colour, zoom)
+	if zoom:
+		zoom_layer.add_child(box)
+		box.place_zoom(screen)
+		_clear_bubbles(hold)
+	else:
+		layer.add_child(box)
+		box.place_inset(stage_width, their_x)
+	box.pop(hold)
+	shown_box = box
+	var stings: Dictionary = night.stats.stings
+	stings["zoom" if zoom else "inset"] = int(stings.get("zoom" if zoom else "inset", 0)) + 1
+	for face in faces:
+		stings[str(face.get("how", "mood"))] = int(stings.get(str(face.get("how", "mood")), 0)) + 1
+	DebugLog.say("Sting", "%s for «%s»: %s" % ["a zoom" if zoom else "an inset", words.get("english", ""),
+		", ".join(PackedStringArray(faces.map(func(f): return "%s (%s)" % [f.get("name", "?"), f.get("how", "mood")])))])
+	return box
+
+
+## A zoom's beat: the speech bubbles faded out while it's up, and back after.
+func _clear_bubbles(hold: float) -> void:
+	if not is_instance_valid(bubble_layer):
+		return
+	var tween := bubble_layer.create_tween()
+	tween.tween_property(bubble_layer, "modulate:a", 0.0, Draw.scaled(0.2))
+	tween.tween_interval(Draw.scaled(maxf(0.0, hold - 0.4)))
+	tween.tween_property(bubble_layer, "modulate:a", 1.0, Draw.scaled(0.3))
 
 
 ## The emergency light: the red border flashing three times round the tent.

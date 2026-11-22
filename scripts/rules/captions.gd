@@ -173,6 +173,45 @@ const CAPTIONS := {
 }
 
 
+## The TV box's faces (PLAN.md, "Using portraits"): the caption's kind -> the face in its box,
+## a TV mood (REACTIONS: a reaction face, art/reactions) or "calm" (their plain portrait). Whose:
+## who the caption fills in ("name", and "friend" for two: both side by side), else whoever it's
+## over; OWNER_FACES are always the owner's. Kinds not here get no box (the bar as a whole, the
+## cat until it has a portrait, the PD's own call).
+const FACES := {
+	# The owner
+	"stove": "shock", "multitask": "funny", "owner_joins": "funny", "order_up": "warm", "last_orders": "warm",
+	"quiet": "warm", "closing_early": "sad", "closing_reason": "sad",
+	# One customer
+	"new_face": "calm", "late_guest": "awkward", "solo": "sad", "regular_back": "warm", "founding": "warm",
+	"new_regular": "sweet", "big_spender": "funny", "bill": "warm", "eating": "sweet", "cheers": "funny",
+	"another_round": "funny", "hwaiting": "warm", "joins": "funny", "first_snow": "shock", "cliffhanger": "shock",
+	# Two of them
+	"couple": "sweet", "jjin_chin": "funny", "bill_fight": "shock", "sunbae_treat": "warm", "hoesik_escape": "funny",
+	"chat_start": "awkward", "friendlier": "sweet", "game_love_shot": "awkward", "game_spoon_mic": "funny",
+	"game_apartment": "funny", "game_nunchi": "funny", "game_titanic": "shock",
+	# The PD's plant cards
+	"plant_phone": "shock", "plant_text_from": "shock", "plant_text": "shock", "plant_ex_walks_past": "shock",
+	"plant_small_world": "shock", "plant_power_goes": "shock", "plant_rain": "shock", "plant_noraebang": "sad",
+	"plant_ppl": "awkward", "plant_cue_card": "awkward", "plant_interview": "awkward", "plant_round_on": "funny",
+	# The cat's doing, someone else's face
+	"cat_thief": "shock", "cat_lap": "sweet",
+}
+const OWNER_FACES := ["stove", "multitask", "owner_joins", "order_up", "last_orders", "quiet", "closing_early", "closing_reason"]
+
+
+## Whose faces a caption's TV box shows and in what mood: {"mood", "owner": always the owner's,
+## "names": [the one or two people it fills in]}; {} for a kind with no box.
+static func faces_for(kind: String, fill: Dictionary) -> Dictionary:
+	if not FACES.has(kind):
+		return {}
+	var names: Array = []
+	for key in ["name", "friend"]:
+		if str(fill.get(key, "")) != "":
+			names.append(str(fill[key]))
+	return {"mood": str(FACES[kind]), "owner": OWNER_FACES.has(kind), "names": [] if OWNER_FACES.has(kind) else names}
+
+
 ## A kind with a "chance" (the ones that come up all night: a new face, a bill) is shown only
 ## that often, so they don't crowd out the rest ("AT THIS TIME?!" four times after midnight).
 const CAPTION_STINGS := ["siren", "whoosh", "ding", "sparkle", "nyang", "pop"]
@@ -503,5 +542,5 @@ static func for_event(event: String, facts: Dictionary) -> Dictionary:
 		"became_regular":
 			return {"kind": "new_regular", "fill": {"gender": facts.get("gender", ""), "name": facts.get("name", "")}}
 		"friendlier":
-			return {"kind": "friendlier", "fill": {"term": facts.get("term", "")}}
+			return {"kind": "friendlier", "fill": {"term": facts.get("term", ""), "name": facts.get("a", ""), "friend": facts.get("b", "")}}
 	return {}
