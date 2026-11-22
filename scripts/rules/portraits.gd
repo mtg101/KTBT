@@ -76,8 +76,9 @@ static func pick(gender: String, look: Dictionary, have: Array, age: int = 0) ->
 ## (the same style, and always black hair and a plain bright red top on flat green, so the
 ## split finds the parts and the game repaints them onto their own colours), with their look's
 ## hairstyle, age and glasses, and a line of who they are (about: their appearance, in the AI's
-## words) after it. The colours are said again last, as the description may give others.
-const PROMPT := "Head and shoulders portrait of a Korean %s with %s, wearing a plain bright red top, facing the viewer, neutral friendly expression.%s Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Whatever the description says, black hair and a plain bright red top. Plain flat green background, no text."
+## words) after it. The colours are said again last, as the description may give others (an
+## apron from it came out as a dark block the split read as hair; grey at the temples as skin).
+const PROMPT := "Head and shoulders portrait of a Korean %s with %s, wearing a plain bright red top, facing the viewer, neutral friendly expression.%s Flat cel-shaded illustration, simple shapes, clean dark outlines, two tones of shading, like a cozy visual novel character portrait. Whatever the description says: black hair with no grey in it, and a plain bright red T-shirt with nothing over it (no apron, jacket, scarf or straps). Plain flat green background, no text."
 const HAIR_SHAPES := {
 	"long": "long straight black hair falling past the shoulders",
 	"bob": "black hair cut in a chin-length bob",

@@ -9,7 +9,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
   - Counted in the night's stats (regulars' faces made, failed, still the library's; moods made), logged (as the owner's are: ComfyUI started and stopped, each picture, each split's score, each fallback and each PD pick).
 - tidy up quick stuff
-  - things lie extra PD card, simple text extras, the similar loading screens, etc
+  - things like extra PD cards, simple text extras, the similar loading screens, maybe some simple bg animations, customer variants, etc
   - get AI to scan this plan for simple stuff to fix
 
 ## Future ideas and improvements
@@ -32,6 +32,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - more write-in card types
     - big news events, 'did you hear?', themed prompts (kpop, kdrama, food, etc), other ideas...? (better ideas!")
     - and 2 per night for write-ins
+    - and... ability to write out the cue before sending it
+      - so you can plan what the big news even is well in advance of triggering it
 - **Narrative:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
   - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.

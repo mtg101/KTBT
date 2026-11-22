@@ -881,7 +881,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]THE STORY[/b]")
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"]
-		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) if story.has("recap_faces") else "")
+		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) + (" (the owner's own face)" if bool(story["recap_faces"].get("own", false)) else "") if story.has("recap_faces") else "")
 		+ ((" · cut to the internet: %s" % story["recap_online"]) if str(story.get("recap_online", "")) != "" else ""))
 	if not art.is_empty():
 		lines.append("Art: images %d · drawn in code %d · lit by the hour %d%s · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)),
@@ -994,7 +994,7 @@ static func faces_text(faces: Dictionary) -> String:
 	if bool(faces.get("fake", false)):
 		comfy = " · the test's pictures"
 	elif bool(faces.get("already", false)):
-		comfy = " · ComfyUI was already running"
+		comfy = " · ComfyUI was already running%s" % ("" if not faces.has("unloaded") else (" (its models unloaded after)" if bool(faces["unloaded"]) else " (its models NOT UNLOADED)"))
 	elif bool(faces.get("started", false)):
 		comfy = " · ComfyUI started and %s" % ("stopped" if bool(faces.get("stopped", false)) else "NOT STOPPED")
 	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""

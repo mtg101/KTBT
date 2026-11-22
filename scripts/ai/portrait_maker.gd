@@ -145,16 +145,28 @@ func open() -> String:
 	return _fail("ComfyUI didn't answer within %d seconds (see logs/comfyui_errors.log)" % START_SECONDS)
 
 
-## Stops ComfyUI if it was started here (the GPU back for Ollama); one already running is left.
+## Stops ComfyUI if it was started here (the GPU back for Ollama); one already running is left
+## running, its models unloaded. Use with await (the unloading's a request).
 func close() -> void:
 	if not counts.has("seconds") and _opened_at > 0:
 		counts["seconds"] = roundi((Time.get_ticks_msec() - _opened_at) / 1000.0)
 	if not _started:
+		if bool(counts.get("already", false)) and not bool(counts.get("freed", false)) and is_inside_tree():
+			await _free_gpu()  # (one already running is left running, but without the model on the GPU)
 		return
 	_started = false
 	OS.execute("taskkill", ["/PID", str(_pid), "/T", "/F"])  # (the batch file and ComfyUI's Python under it)
 	counts["stopped"] = true
 	DebugLog.say("Faces", "stopped ComfyUI: the GPU's Ollama's again")
+
+
+## Asks a ComfyUI that was already running to unload its models (/free), so Ollama gets the
+## GPU back without stopping it. Use with await.
+func _free_gpu() -> void:
+	counts["freed"] = true
+	var reply := await _request(URL + "/free", HTTPClient.METHOD_POST, JSON.stringify({"unload_models": true, "free_memory": true}), 5.0)
+	counts["unloaded"] = bool(reply[0])
+	DebugLog.say("Faces", "ComfyUI (left running) unloaded its models: the GPU's Ollama's again" if reply[0] else "ComfyUI (left running) didn't unload its models (HTTP %d)" % int(reply[1]))
 
 
 func _exit_tree() -> void:

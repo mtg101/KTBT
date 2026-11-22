@@ -206,6 +206,7 @@ func _casting_pictures() -> Array:
 
 func test_a_new_bars_owner_gets_a_face_of_their_own() -> void:
 	Hooks.fake_comfy = _casting_pictures()
+	Hooks.recaps = true  # (the series opener: their face beside their beat and on its card)
 	var runner := await _open_visit()
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._night_open, FACES_WAIT_MS)).override_failure_message("the bar never opened").is_true()
@@ -226,16 +227,25 @@ func test_a_new_bars_owner_gets_a_face_of_their_own() -> void:
 	var panel: String = scene._stats.panel_text(0, 0)
 	assert_str(panel).contains("Faces of their own: the owner's (picked by the game, score %.3f) · 3 made, 0 failed · the test's pictures" % float(face["score"]))
 	assert_str(panel).contains("Portraits: their own 1 · ")
+	var owner_name := str(scene._owner["name"])
+	var opener: Dictionary = scene._stats.story["recap_faces"]
+	assert_array(opener["card"]).is_equal([owner_name])
+	assert_array(opener["beats"]).contains([owner_name])
+	assert_bool(opener["own"]).is_true()
+	assert_str(panel).contains("on the card 1 (of 1 kept) (the owner's own face)")
 	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
 
 
 func test_offline_the_owner_keeps_the_librarys_face() -> void:
+	Hooks.recaps = true
 	var runner := await _open_visit()
 	var scene = runner.scene()
 	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
 	assert_bool(Game.bar["owner"].has("face")).is_false()
 	assert_str(scene._owner_node.get_node("Hover").picked_how).is_not_equal("own")
 	assert_str(scene._stats.panel_text(0, 0)).contains("Faces of their own: the owner keeps the library's (offline: chosen in the AI settings)")
+	assert_array(scene._stats.story["recap_faces"]["card"]).is_equal([str(scene._owner["name"])])  # (the series opener: the library's face, on its card)
+	assert_bool(scene._stats.story["recap_faces"]["own"]).is_false()
 
 
 func test_the_pd_picks_another_casting_photo_and_has_three_more_taken() -> void:

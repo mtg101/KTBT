@@ -747,7 +747,7 @@ func _invent_owner() -> void:
 	while (_setting_up or _casting) and not _closed():  # (the PD's setting the show up, or a reshoot: it starts when they're done)
 		await get_tree().process_frame
 	_setup_open = false
-	_close_casting()
+	await _close_casting()
 	if _closed():
 		return
 	await _book_channel()  # (who's filming, and where it goes out: after the setup, which may have moved it)
@@ -2463,25 +2463,34 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	if not opener:  # (last night's faces, as its diary entry kept them: none from before 22 Nov)
 		extras["faces"] = last_entry.get("faces", {})
 		extras["photos"] = last_entry.get("photos", [])
+	else:  # (a new show: the owner's face, just made for them (or the library's), beside their beat and on the card)
+		var owner_name := str(_owner.get("name", ""))
+		if _faces_kept.has(owner_name):
+			var kept: Dictionary = _faces_kept[owner_name]
+			extras["faces"] = {owner_name: kept.duplicate(true)}
+			extras["photos"] = [{"name": owner_name, "mood": "calm", "key": str(kept["key"]), "look": (kept["look"] as Dictionary).duplicate(true)}]
 	if not opener and not facts["last"].get("pinned", []).is_empty():
 		_before_night["recap_pins"] = Story.pins_in_recap(facts["last"]["pinned"], recap.get("beats", []))  # (for the stats: tonight's start in them)
 	screen.play(recap.get("beats", []), str(recap.get("teaser", "")), int(extras["place"]["episode"]), str(Game.bar.get("name", "")), opener, extras)
 	await screen.finished
 	_recap_screen = null
-	if not opener:
-		var shown := {"beats": screen.beat_faces.duplicate(), "card": screen.card_faces.duplicate(), "kept": (extras.get("faces", {}) as Dictionary).size()}
-		var online := ", ".join(PackedStringArray(screen.online_shown))  # (the posts and comments it cut to: "post minji_eats")
-		if _night_open:  # (recut early in the night)
-			_stats.story["recap_faces"] = shown
-			_stats.story["recap_online"] = online
-		else:
-			_before_night["recap_faces"] = shown
-			_before_night["recap_online"] = online
-		if online != "":
-			DebugLog.say("Socials", "Previously on…: cut to %s" % online)
-		DebugLog.say("Keepsakes", "Previously on…: faces beside the beats %s; on the card %s (%d faces kept with last night's entry)" % [
-			", ".join(PackedStringArray(screen.beat_faces)) if not screen.beat_faces.is_empty() else "none",
-			", ".join(PackedStringArray(screen.card_faces)) if not screen.card_faces.is_empty() else "none", (extras.get("faces", {}) as Dictionary).size()])
+	# (the faces shown, the series opener's too: the owner's)
+	var shown := {"beats": screen.beat_faces.duplicate(), "card": screen.card_faces.duplicate(), "kept": (extras.get("faces", {}) as Dictionary).size()}
+	if opener:
+		shown["own"] = PortraitRules.is_own(str(extras.get("photos", [{}])[0].get("key", ""))) if not extras.get("photos", []).is_empty() else false
+	var online := ", ".join(PackedStringArray(screen.online_shown))  # (the posts and comments it cut to: "post minji_eats")
+	if _night_open:  # (recut early in the night)
+		_stats.story["recap_faces"] = shown
+		_stats.story["recap_online"] = online
+	else:
+		_before_night["recap_faces"] = shown
+		_before_night["recap_online"] = online
+	if online != "":
+		DebugLog.say("Socials", "Previously on…: cut to %s" % online)
+	DebugLog.say("Keepsakes", "%s: faces beside the beats %s; on the card %s (%d faces %s)" % ["Series opener" if opener else "Previously on…",
+		", ".join(PackedStringArray(screen.beat_faces)) if not screen.beat_faces.is_empty() else "none",
+		", ".join(PackedStringArray(screen.card_faces)) if not screen.card_faces.is_empty() else "none", (extras.get("faces", {}) as Dictionary).size(),
+		("given: the owner's, %s" % ("their own" if shown.get("own", false) else "the library's")) if opener else "kept with last night's entry"])
 	if _step_in_wanted:
 		return  # (stopped for the PD to cut it: what airs is logged when it plays again)
 	var titled := "" if recap.get("title", {}).is_empty() else " (%s)" % Story.title_text(recap["title"])
@@ -5418,7 +5427,9 @@ func _reshoot_owner_face() -> void:
 ## Done with the image model: ComfyUI stopped (if it was ours), and what happened for the stats.
 func _close_casting() -> void:
 	if _maker != null:
-		_maker.close()
+		await _maker.close()
+		if not is_instance_valid(_maker):
+			return  # (the bar closed meanwhile)
 		_faces_story.merge(_maker.counts, true)
 		_maker.queue_free()
 		_maker = null

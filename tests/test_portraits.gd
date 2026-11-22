@@ -152,7 +152,7 @@ func test_a_face_of_their_own_is_asked_for_in_the_librarys_style_and_colours() -
 	assert_str(prompt).starts_with("Head and shoulders portrait of a Korean woman in her sixties with very curly, tightly permed short black hair")
 	assert_str(prompt).contains("lines and wrinkles on her face, and thin-framed glasses")
 	assert_str(prompt).contains("Who they are: A small, quick woman in a padded vest, grey curls under a headscarf, always wiping the counter.")
-	assert_str(prompt).contains("Whatever the description says, black hair and a plain bright red top.")  # (said again after the description's own colours)
+	assert_str(prompt).contains("Whatever the description says: black hair with no grey in it, and a plain bright red T-shirt with nothing over it (no apron")  # (said again after the description's own colours and clothes)
 	assert_str(prompt).ends_with("Plain flat green background, no text.")
 	var plain := PortraitRules.prompt_for("man", {"age_range": "30s", "hair": "two_block"})
 	assert_str(plain).contains("man in his thirties with black hair in a two-block cut").contains("and no glasses").not_contains("Who they are")
