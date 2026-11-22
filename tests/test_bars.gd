@@ -76,6 +76,14 @@ func test_title_says_when_there_are_no_bars() -> void:
 	assert_object(runner.find_child("Bar0")).is_null()
 
 
+
+func test_title_doesnt_warm_the_model_up_offline() -> void:
+	# The title screen warms Ollama's model up (Game.warm_up_ai), but not in offline mode: nothing
+	# for the next night's stats, and nothing left running.
+	var _runner := scene_runner(TITLE)
+	assert_bool(await _wait_until(func(): return Game.get_node_or_null("WarmUp") == null, 3000)).is_true()
+	assert_dict(Game.warmed).is_empty()
+
 func test_title_lists_saved_bars_newest_first() -> void:
 	_saved_bar("Golmok Pocha", 12, 1000)
 	_saved_bar("Sarang Pocha", 34, 2000)

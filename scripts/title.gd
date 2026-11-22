@@ -23,6 +23,7 @@ const CONFIRM_SECONDS := 4.0
 
 func _ready() -> void:
 	Game.start_music()
+	Game.warm_up_ai()  # (so the bar's first reply doesn't wait for Ollama to load the model)
 	_build_ui()
 	_fill_list()
 	if Game.autoplay != null and not Game.autoplay.begun:  # (a batch of nights: straight in, once the screen's up)

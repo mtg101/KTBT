@@ -179,6 +179,21 @@ func _go_offline(reason: String) -> void:
 	offline_started.emit(reason)
 
 
+## Warms the model up (the title screen, through Game.warm_up_ai): Ollama unloads it after
+## keep_alive's idle minutes, and the first reply then waits up to a minute for it to load.
+## Use with await. What happened: {"ok", "seconds", "why"} (why: the error, or "" if it loaded);
+## {} if it wasn't sent because the AI's offline (offline_reason says why).
+func warm_up() -> Dictionary:
+	if _checking_server:
+		await _server_checked
+	if offline or simulate_unreachable:
+		return {}
+	var started := Time.get_ticks_msec()
+	_client.warm_up()
+	var result: Array = await _client.finished
+	return {"ok": bool(result[0]), "seconds": (Time.get_ticks_msec() - started) / 1000.0, "why": "" if bool(result[0]) else str(result[1])}
+
+
 ## Lets the GPU go: asks Ollama to unload the model now (keep_alive 0), so the image model has
 ## the GPU to itself (ai/portrait_maker.gd); the next ask loads it again. Whether Ollama said
 ## yes (false offline, or if it didn't answer). Use with await.

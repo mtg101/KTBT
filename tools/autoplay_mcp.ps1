@@ -120,7 +120,10 @@ function StartBatch($arguments) {
 	$godot = GodotPath
 	if ($null -eq $godot) { return ToolText "Can't find Godot: put the full path of its .exe on one line in tools\godot_path.txt." $true }
 	if (-not (OllamaAnswers)) { return ToolText "Ollama isn't answering at localhost:11434: start it on the PC first (the nights would only be offline ones)." $true }
+	$listed = @(Pending).Count
 	$freed = StopComfy  # (the GPU's Ollama's while the nights play)
+	$forgot = ''
+	if ($freed) { $forgot = ForgetPending $listed }  # (its queue went with it)
 	$null = ImportAssets  # (any art changed since the editor last looked: the nights use it)
 	$godotArgs = @('--path', "`"$Root`"", '--audio-driver', 'Dummy', '--', "--autoplay=$nights")  # (no sound: Windows' audio driver only adds errors)
 	if ($bar -ne '') { $godotArgs += "--autoplay-bar=$bar" }
@@ -129,7 +132,7 @@ function StartBatch($arguments) {
 	$which = 'in a bar of its own'
 	if ($bar -ne '') { $which = "carrying on bar $bar" }
 	if ($freed) { $which += ' (ComfyUI stopped first, to free the GPU)' }
-	return ToolText "Started: $nights nights, $which. A night takes about 4 minutes (longer with Reading pauses on); the summary in logs\autoplay is written after every night."
+	return ToolText ("Started: $nights nights, $which. A night takes about 4 minutes (longer with Reading pauses on); the summary in logs\autoplay is written after every night." + $forgot)
 }
 
 function Status {
@@ -217,10 +220,23 @@ function StopComfy {
 	return $running.Count -gt 0
 }
 
+# Stopping ComfyUI throws its queue away, so the pictures still listed as being made are taken off
+# the list too (or queue_art_batch refuses until they're collected, and they never will be).
 function StopArt {
-	if (StopComfy) { return ToolText 'Stopped ComfyUI: the GPU is free for Ollama.' }
+	$listed = @(Pending).Count
+	if (StopComfy) { return ToolText ('Stopped ComfyUI: the GPU is free for Ollama.' + (ForgetPending $listed)) }
 	if (ComfyAnswers) { return ToolText "ComfyUI is answering but wasn't started from tools\comfyui_path.txt's folder: close its window on the PC." $true }
-	return ToolText "ComfyUI wasn't running."
+	return ToolText ("ComfyUI wasn't running." + (ForgetPending $listed))
+}
+
+# Empties art\raw\pending.json, and says so (nothing to say if it was empty).
+function ForgetPending([int]$count) {
+	SavePending @()
+	if ($count -eq 0) { return '' }
+	$what = 'pictures'
+	if ($count -eq 1) { $what = 'picture' }
+	Note "forgot $count $what still listed as being made"
+	return " The $count $what still listed as being made went with its queue, so they're off the list (art\raw\pending.json): queue them again if they're still wanted."
 }
 
 function ComfyAnswers {
@@ -439,7 +455,7 @@ $Tools = @(
 			file = [ordered]@{ type = 'string'; description = 'The list in art\raw\ (default portrait_batch.json).' } } } },
 	[ordered]@{ name = 'collect_art'; description = 'Fetch pictures generate_art or queue_art_batch was still making (up to 60 a call).'
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
-	[ordered]@{ name = 'stop_art'; description = 'Stop ComfyUI, to give the GPU back (start_autoplay does this itself).'
+	[ordered]@{ name = 'stop_art'; description = 'Stop ComfyUI, to give the GPU back (start_autoplay does this itself), and take any pictures still being made off the list (its queue goes with it).'
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } },
 	[ordered]@{ name = 'import_assets'; description = "Import KTBT's new or changed art and fonts with Godot (headless, as the editor does when it opens), so the game and its tests use them without opening the editor. Waits until it's done (up to 3 minutes); start_autoplay does it first itself."
 		inputSchema = [ordered]@{ type = 'object'; properties = [ordered]@{} } }

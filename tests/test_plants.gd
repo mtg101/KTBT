@@ -28,7 +28,10 @@ func test_the_deal_follows_tonight() -> void:
 		assert_array(Plants.deal(dice, {"winter": true, "snowed": true})).not_contains(["first_snow"])  # (only once a winter)
 		assert_array(Plants.deal(dice, {"wet": true})).not_contains(["rain"])  # (it's raining already)
 		var last := Plants.deal(dice, summer)
-		assert_array(Plants.deal(dice, summer, last)).not_contains(last.filter(func(card): return card != Plants.ALWAYS))  # (not last night's again)
+		var next := Plants.deal(dice, summer, last)
+		assert_array(next).not_contains(last.filter(func(card): return not Plants.is_write(card) and card != Plants.ALWAYS))  # (not last night's events again)
+		# Write-ins: two a night from only three kinds, so one may come round again, never both.
+		assert_int(next.filter(func(card): return Plants.is_write(card) and not last.has(card)).size()).is_greater_equal(1)
 		assert_str(str(last[-1])).is_equal("ppl")  # (a word from our sponsor, every night)
 	assert_bool(Plants.dealable("first_snow", winter)).is_true()
 
@@ -94,16 +97,17 @@ func test_a_cards_moment_is_about_whoever_it_happens_to() -> void:
 	assert_bool(Talk.hint_taken("plant_ex_walks_past", "I'll get you a glass, how's your beer?")).is_false()
 
 
-func test_every_hand_has_a_write_in() -> void:
+func test_every_hand_has_two_write_ins() -> void:
 	var dice := RandomNumberGenerator.new()
 	for k in 30:
 		dice.seed = k
 		var hand := Plants.deal(dice)
-		assert_int(hand.filter(func(card): return Plants.is_write(card)).size()).is_equal(1)  # (the PD's own words, every night)
-		assert_int(hand.size()).is_equal(Plants.HAND)  # (three events, a write-in and the sponsor's)
+		assert_int(hand.filter(func(card): return Plants.is_write(card)).size()).is_equal(Plants.WRITES)  # (the PD's own words, every night: two, different)
+		assert_int(Plants.WRITES).is_equal(2)
+		assert_int(hand.size()).is_equal(Plants.HAND)  # (three events, two write-ins and the sponsor's)
 		assert_int(hand.filter(func(card): return not Plants.is_write(card) and card != Plants.ALWAYS).size()).is_equal(Plants.EVENTS)
 		assert_int(hand.count(Plants.ALWAYS)).is_equal(1)
-		assert_array(hand.map(func(card): return Plants.kind_of(card))).contains_exactly(["event", "event", "event", "write", "sponsor"])
+		assert_array(hand.map(func(card): return Plants.kind_of(card))).contains_exactly(["event", "event", "event", "write", "write", "sponsor"])
 	for card in Plants.CARDS:
 		if Plants.is_write(card):
 			var write: Dictionary = Plants.CARDS[card]["write"]

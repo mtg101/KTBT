@@ -676,6 +676,9 @@ func _end_loading() -> void:
 	if _loading == null or not _loading.visible:
 		return
 	_before_night["loading_seconds"] = Time.get_ticks_msec() / 1000.0 - _loading_opened
+	if not Game.warmed.is_empty():  # (the title screen's warm-up of the model, for the stats)
+		_before_night["warm_up"] = Game.warmed.duplicate()
+		Game.warmed = {}
 	var fade := _loading.create_tween()
 	fade.tween_property(_loading, "modulate:a", 0.0, 0.4)
 	fade.tween_callback(func(): _loading.visible = false)

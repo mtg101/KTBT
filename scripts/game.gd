@@ -10,6 +10,7 @@ extends Node
 const SaveStore = preload("res://scripts/save/save_store.gd")
 const DebugLog = preload("res://scripts/debug_log.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
+const Ai = preload("res://scripts/ai/ai.gd")
 
 const TITLE_SCENE := "res://scenes/title.tscn"
 const VISIT_SCENE := "res://scenes/visit.tscn"
@@ -28,6 +29,12 @@ var music: Music = null
 
 ## A batch of nights playing themselves (`-- --autoplay=10`: see autoplay.gd), or null.
 var autoplay: Autoplay = null
+
+## The title screen's warm-up of the AI's model (warm_up_ai), for the next night's stats (the
+## bar takes it when its loading screen's done, and clears it): {"ok", "seconds", "why"}, with
+## "going": true while it's still loading. {} if there's been none since.
+var warmed := {}
+var _warming: Ai = null
 
 
 func _ready() -> void:
@@ -61,6 +68,33 @@ func end_autoplay() -> void:
 		Autoplay.clear_running()
 		AudioServer.set_bus_mute(0, false)  # (someone's here now)
 	autoplay = null
+
+
+## Warms the AI's model up as the title screen opens, so the bar's first reply doesn't wait up to
+## a minute for Ollama to load it (it unloads after 30 idle minutes). Here rather than on the
+## title, so it carries on when the title gives way to the bar. Not if the AI's offline, or a
+## warm-up's going already. Noted, and counted in the next night's stats ("Opening:").
+func warm_up_ai() -> void:
+	if _warming != null:
+		return
+	_warming = Ai.new()
+	_warming.name = "WarmUp"
+	add_child(_warming)
+	var started := Time.get_ticks_msec()
+	warmed = {"going": true, "ok": false, "seconds": 0.0, "why": ""}
+	var done: Dictionary = await _warming.warm_up()
+	var why_offline := _warming.offline_reason
+	_warming.queue_free()
+	_warming = null
+	if done.is_empty():
+		warmed = {}
+		DebugLog.say("AI", "not warming the model up at the title: offline (%s)" % (why_offline if why_offline != "" else "no Ollama"))
+		return
+	warmed = done
+	if bool(done["ok"]):
+		DebugLog.say("AI", "warmed the model up at the title: loaded in %.1fs" % float(done["seconds"]))
+	else:
+		DebugLog.say("AI", "warming the model up at the title failed after %.1fs: %s" % [(Time.get_ticks_msec() - started) / 1000.0, done["why"]])
 
 
 ## Starts the music if it isn't going yet (the title screen and the bar both ask).

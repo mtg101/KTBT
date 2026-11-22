@@ -249,6 +249,14 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s · recap stormy (ai)")
 	stats.story["loading_tent"] = "placeholder, then the bar's"  # (the loading screen's tent: see loading_screen.gd)
 	assert_str(stats.panel_text(0, 0)).contains("Opening: loading 12s (tent: placeholder, then the bar's) · recap stormy (ai)")
+	stats.story["warm_up"] = {"ok": true, "seconds": 8.6, "why": ""}  # (the title screen's warm-up of the model: Game.warm_up_ai)
+	assert_str(stats.panel_text(0, 0)).contains("recap stormy (ai) · model warmed up at the title: loaded in 8s")
+	stats.story["warm_up"] = {"going": true, "ok": false, "seconds": 0.0, "why": ""}
+	assert_str(stats.panel_text(0, 0)).contains("model warmed up at the title: still going")
+	stats.story["warm_up"] = {"ok": false, "seconds": 2.0, "why": "Can't reach Ollama"}
+	assert_str(stats.panel_text(0, 0)).contains("model warmed up at the title: failed (Can't reach Ollama)")
+	stats.story.erase("warm_up")
+	assert_str(stats.panel_text(0, 0)).not_contains("warmed up")
 	stats.story["recap_faces"] = {"beats": ["Kim Ji-ho", "Park Min-seo"], "card": ["Kim Ji-ho"], "kept": 4}  # (last night's faces in "Previously on…")
 	assert_str(stats.panel_text(0, 0)).contains("recap stormy (ai) · faces beside the beats 2, on the card 1 (of 4 kept)")
 	stats.story["edit"] = {"stepped_in": "loading", "title_by": "pd", "cliffhanger_by": "writers", "title": "Salt", "scene_faces": [3, 5]}

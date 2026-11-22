@@ -34,4 +34,5 @@ A Korean tent bar (pojangmacha) at night, as a reality show: the night runs itse
 - **A quick fix** ("quick fix" in the ask): the fix, a regression test if it can break again, a line in DEVLOG. No docs sweep.
 - **Read little:** grep first, read the lines around the hit. DEVLOG is long: search it, never read it whole.
 - **Art changes:** edit `tools/art/*.py`, run it (it writes `art/`, the manifest and LICENSE-ASSETS), check with `tools/art/light_preview.py`; the user imports in Godot.
+- **Progress updates:** the app only shows "running a command on your machine" for commands here, so on any task longer than a couple of minutes, send the user a one-line plain-English update (SendUserMessage) at each step, and at least every 2–3 minutes while one step runs long: what you're on, what's done, what's next. Use a task list for anything with stages.
 - **Commits:** the user commits from VS Code. When asked, update the docs and suggest a commit message (no private details; AI co-author line is fine).

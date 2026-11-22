@@ -22,6 +22,7 @@ signal finished(ok: bool, text: String)
 
 var busy := false
 var _http: HTTPRequest
+var _warming := false  # (the request going is warm_up()'s: its reply has no "message")
 
 
 func _ready() -> void:
@@ -57,8 +58,27 @@ func chat(messages: Array, json_format: bool = false, options: Dictionary = {}) 
 	busy = true
 
 
+## Loads the model into memory without asking it anything (a generate request with no prompt,
+## Ollama's way to preload), kept for keep_alive, so the first real reply doesn't wait for the
+## load. Ends with `finished`, like chat(): ok, and "" (or the error).
+func warm_up() -> void:
+	if busy:
+		_done.call_deferred(false, "Still waiting for the previous reply.")
+		return
+	var body := {"model": model, "keep_alive": keep_alive}
+	var headers := PackedStringArray(["Content-Type: application/json"])
+	var err := _http.request(base_url + "/api/generate", headers, HTTPClient.METHOD_POST, JSON.stringify(body))
+	if err != OK:
+		_done.call_deferred(false, "Couldn't start the request (Godot error %d)." % err)
+		return
+	busy = true
+	_warming = true
+
+
 func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 	busy = false
+	var warming := _warming
+	_warming = false
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_done(false, _describe_result(result))
 		return
@@ -69,6 +89,9 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
 		if typeof(data) == TYPE_DICTIONARY and data.has("error"):
 			detail = str(data["error"])
 		_done(false, "Ollama said no (HTTP %d): %s" % [response_code, detail])
+		return
+	if warming:
+		_done(true, "")
 		return
 	if typeof(data) != TYPE_DICTIONARY or not data.has("message"):
 		_done(false, "Ollama sent back something unexpected.")

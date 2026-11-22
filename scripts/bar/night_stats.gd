@@ -882,7 +882,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"]
 		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) + (" (the owner's own face)" if bool(story["recap_faces"].get("own", false)) else "") if story.has("recap_faces") else "")
-		+ ((" · cut to the internet: %s" % story["recap_online"]) if str(story.get("recap_online", "")) != "" else ""))
+		+ ((" · cut to the internet: %s" % story["recap_online"]) if str(story.get("recap_online", "")) != "" else "")
+		+ ((" · model warmed up at the title: %s" % warm_up_text(story["warm_up"])) if story.get("warm_up", {}) is Dictionary and not story.get("warm_up", {}).is_empty() else ""))
 	if not art.is_empty():
 		lines.append("Art: images %d · drawn in code %d · lit by the hour %d%s · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)),
 			(" (a bulb's pool +%.1f steps over the counter's end)" % float(art["pools"])) if art.has("pools") else "", int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
@@ -991,6 +992,16 @@ func portraits_text() -> String:
 
 ## Faces of their own made as the bar opened (visit.gd _cast_owner_face): the owner's, or why they
 ## keep the library's; the pictures made and failed, the casting rounds, ComfyUI and how long.
+## The title screen's warm-up of the model (Game.warm_up_ai), for "Opening:": "loaded in 8s",
+## "still going" (the bar opened before it was done) or "failed (why)".
+static func warm_up_text(warm: Dictionary) -> String:
+	if bool(warm.get("going", false)):
+		return "still going"
+	if bool(warm.get("ok", false)):
+		return "loaded in %ds" % int(warm.get("seconds", 0.0))
+	return "failed (%s)" % str(warm.get("why", "?"))
+
+
 static func faces_text(faces: Dictionary) -> String:
 	var rounds := (" · %d rounds" % int(faces["rounds"])) if int(faces.get("rounds", 1)) > 1 else ""
 	var regulars := (" · " + regulars_faces_text(faces["regulars"])) if faces.get("regulars", {}) is Dictionary and not (faces.get("regulars", {}) as Dictionary).is_empty() else ""

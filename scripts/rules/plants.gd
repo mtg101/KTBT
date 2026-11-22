@@ -12,10 +12,11 @@ const Names = preload("res://scripts/rules/names.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 
-## How many cards the PD's dealt each night: three events, one write-in and, always, a word
+## How many cards the PD's dealt each night: three events, two write-ins and, always, a word
 ## from our sponsor (the PPL card).
 const EVENTS := 3
-const HAND := EVENTS + 2
+const WRITES := 2
+const HAND := EVENTS + WRITES + 1
 const ALWAYS := "ppl"
 
 ## The show's sponsors, for the PPL card (a word from our sponsor): our own, made up, never a
@@ -164,13 +165,13 @@ static func dealable(card: String, tonight: Dictionary) -> bool:
 	return true
 
 
-## Tonight's hand: three events, one write-in (the PD's own words, every night) and the
+## Tonight's hand: three events, two write-ins (the PD's own words, every night) and the
 ## sponsor's card, all different and able to happen tonight, not last night's (unless there
 ## aren't enough without them), in the dice's order.
 static func deal(dice: RandomNumberGenerator, tonight: Dictionary = {}, last: Array = []) -> Array:
 	var possible: Array = CARDS.keys().filter(func(card): return dealable(card, tonight) and card != ALWAYS)
 	var events := _pick(possible.filter(func(card): return not is_write(card)), last, dice, EVENTS)
-	return events + _pick(possible.filter(func(card): return is_write(card)), last, dice, 1) + [ALWAYS]
+	return events + _pick(possible.filter(func(card): return is_write(card)), last, dice, WRITES) + [ALWAYS]
 
 
 static func _pick(cards: Array, last: Array, dice: RandomNumberGenerator, count: int) -> Array:

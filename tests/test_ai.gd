@@ -154,5 +154,30 @@ func test_ollama_stopping_every_try_still_goes_offline_in_auto_mode() -> void:
 	assert_bool(_stopped("Can't reach Ollama")).is_false()
 
 
+# The title screen's warm-up of the model (Game.warm_up_ai): loads it, without asking anything.
+func test_warming_the_model_up_loads_it_without_asking_anything() -> void:
+	var made := _ai_with([[true, ""]])
+	var warm: Dictionary = await made[0].warm_up()
+	assert_bool(bool(warm["ok"])).is_true()
+	assert_str(str(warm["why"])).is_empty()
+	assert_int(made[1].warmed).is_equal(1)
+	assert_array(made[1].asked).is_empty()  # (no chat: nothing's asked)
+	assert_array(_answers).is_empty()  # (not an ask: nothing for the stats' AI calls)
+
+
+func test_a_failed_warm_up_says_why() -> void:
+	var made := _ai_with([[false, "Can't reach Ollama at 127.0.0.1"]])
+	var warm: Dictionary = await made[0].warm_up()
+	assert_bool(bool(warm["ok"])).is_false()
+	assert_str(str(warm["why"])).contains("Can't reach Ollama")
+
+
+func test_no_warm_up_when_offline() -> void:
+	var made := _ai_with([[true, ""]])
+	made[0].offline = true
+	assert_dict(await made[0].warm_up()).is_empty()
+	assert_int(made[1].warmed).is_equal(0)
+
+
 func _stopped(error: String) -> bool:
 	return preload("res://scripts/ai/ollama_client.gd").stopped_mid_reply(error)

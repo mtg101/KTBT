@@ -4,12 +4,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
+- tidy up quick stuff
+  - things like extra PD cards, simple text extras, the similar loading screens, maybe some simple bg animations, customer variants, etc
 - **Everyone's own face their moods:** the owner's and the regulars' faces of their own are made in the gaps when the GPU's free (`ai/portrait_maker.gd`); their TV moods are still the library's.
   - **The moods:** each face of their own's seven TV moods made by the edit workflow (`klein_edit_api.json`) from its calm picture (kept beside it with the bar) after a night closes; the library's moods stand in until then. They need the reaction split ported too (`portraits.py` `close_up()`, `react_parts()` finding the eye whites, tears and blush, `react_score()`).
   - Counted in the night's stats (moods made, failed, still the library's), logged (as the faces are: ComfyUI started and stopped, each picture, each split's score, each fallback).
-- tidy up quick stuff
-  - things like extra PD cards, simple text extras, the similar loading screens, maybe some simple bg animations, customer variants, etc
-  - get AI to scan this plan for simple stuff to fix
 
 ## Future ideas and improvements
 
@@ -30,7 +29,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - chaebols in disguise, people transported from the Joseon period, extreme weather events, etc
   - more write-in card types
     - big news events, 'did you hear?', themed prompts (kpop, kdrama, food, etc), other ideas...? (better ideas!")
-    - and 2 per night for write-ins
     - and... ability to write out the cue before sending it
       - so you can plan what the big news even is well in advance of triggering it
 - **Narrative:**
@@ -73,12 +71,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Technical
 
-- **`stop_art` should clear the art queue's list:** stopping ComfyUI throws its queue away, but `art\raw\pending.json` still lists those pictures, so `queue_art_batch` refuses ("still being made: collect_art them first (or stop_art and start again)", and stop_art doesn't help) until the file's moved aside by hand. `StopArt` in `tools/autoplay_mcp.ps1` should empty it (`SavePending @()`) when it stops ComfyUI, and say so; the same if ComfyUI isn't answering at all. Mind START-HERE's helper gotchas: it can't be tested here.
 - **Optimise: only when noticed:** you'd think 10 local LLM calls with big prompts would take ages... but I'm not noticing delays yet - optimize when we need to!
   - **Watching AI quality over time:** autoplay writes the batch review we do by hand (rejections by kind, give-ups, facts and threads that went wrong, lines misusing what they were told) and compares it with the last batch; a small model reading transcripts could flag what the checks can't see (19 Nov: "that husband… he's a good kid").
   - **Prompt length:** every feature adds context (who you know, facts, threads, notes), and with an 8B model length costs speed and obedience. Measure prompt size and reply time per call in the stats, set a budget, and try a newer or Korean-fluent local model then: a better model may fix more than any single check.
   - **Speed and waiting:** each visit is 10+ AI calls:
-    - **Warm the model up at the title screen:** Ollama unloads the model after 30 idle minutes (`keep_alive`), and the first reply then takes up to a minute (the loading screen looks stuck): a tiny request as the title opens.
     - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes; chats got 8–21% of lines) because one request runs at a time. Customer chats on a second voice, alongside (`OLLAMA_NUM_PARALLEL`), each slower on one GPU:
       1. **Measure first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) timing one request, then two at once, on the desktop and the laptop. Go on only if two take much less than twice as long.
       2. **Then build it:** a second AI object for chats that never wait for the owner, bubbles and transcript coping with two at once, and each voice's share in the stats.

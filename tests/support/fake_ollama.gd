@@ -5,6 +5,7 @@ extends "res://scripts/ai/ollama_client.gd"
 
 var replies: Array = []  # [ok, text], used in order
 var asked: Array = []  # each chat()'s messages, as sent
+var warmed := 0  # how many times warm_up() was asked (it takes the next reply too)
 
 
 func _ready() -> void:
@@ -15,3 +16,9 @@ func chat(messages: Array, _json_format: bool = false, _options: Dictionary = {}
 	asked.append(messages.duplicate(true))
 	var reply: Array = replies.pop_front() if not replies.is_empty() else [false, "the fake ran out of replies"]
 	_done.call_deferred(bool(reply[0]), str(reply[1]))
+
+
+func warm_up() -> void:
+	warmed += 1
+	var reply: Array = replies.pop_front() if not replies.is_empty() else [false, "the fake ran out of replies"]
+	_done.call_deferred(bool(reply[0]), "" if bool(reply[0]) else str(reply[1]))
