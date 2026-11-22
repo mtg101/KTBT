@@ -4,20 +4,16 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **AI generated owner/regular portraits:**
-  - lots of other increnmental stuff in this plan but... but generating images during the game is new!
-  - switching AI models, in-game image creation... this is fun!
+- **Owner and regulars get faces of their own, made during the game:** Klein made for that person (their look plus a line of who they are, from their description), split and repainted onto their own colours like the library faces, so the face always matches them on stage. Only in the gaps when the GPU's free (making the bar, and after closing at 3am), never during a night: Ollama lets go of the model, ComfyUI starts, the pictures are made (about 5 seconds each once loaded), ComfyUI stops. Until a face is ready, and in offline mode, without ComfyUI or when every picture fails, the person keeps their library face. A setting: off, owner only, or owner and regulars.
+  - **1. The split in GDScript:** `portraits.py`'s split (parts, light steps, the grid, the layer encoding, and the score that pre-picks) ported to Godot's `Image`, and a test that it matches the Python on the library's raw pictures. No GPU needed, all testable in the VM.
+  - **2. Godot drives ComfyUI, and the owner's face:** a new `scripts/ai/portrait_maker.gd` doing what the helper does (starting ComfyUI from a path in settings, filling `klein_api.json`'s prompt, `/prompt`, `/history`, `/view`) and the GPU handover with Ollama. At bar creation, three candidates of the owner, the best split auto-picked; the PD can step in on the show setup (three casting photos, the pick framed, choose another or reshoot). Saved with the bar (`<bar>/portraits/<person>.png`, its seed with it); `art.gd` looks there first, then the library (`rules/portraits.gd`).
+  - **3. Regulars and their reaction faces:** the first regulars' calm faces at bar creation, a new regular's after closing, auto-picked (none of three splitting cleanly keeps the library face); the PD can recast a regular's face later (three more, pick one). Each face's seven TV moods made by the edit workflow from its calm face after a night closes (the library's moods stand in until then).
+  - Counted in the night's stats (custom faces made, failed, still the library's; moods made), logged (ComfyUI started and stopped, each picture, each split's score, each fallback and each PD pick).
 
 ## Future ideas and improvements
 
 ### Richer play
 
-- **Owner & Regulars have generated portraits:**
-  - regulars get their own AI-generated portraits
-    - initial regulars while the bar is being created
-    - new regulars at end of night
-  - owner also gets generated portrait at bar creation
-  - game launched ComfyUI in the background and generates and saves alongside bar save
 - **Finishing basics of Seasons and the platform ladder:** 
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and a renewal said by name at a season's start ("Moonlight TV's renewed the show for season 3").
