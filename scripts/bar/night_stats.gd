@@ -848,8 +848,9 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("Last night's episode: %s" % (("cut by the PD (stepped in %s) · title %s · cliffhanger %s%s · \"%s\"" % [
 		{"loading": "while loading", "recap": "mid-recap", "night": "early in the night"}.get(str(cut.get("stepped_in", "")), "?"),
 		"the PD's" if str(cut.get("title_by", "")) == "pd" else "the writers'", "the PD's" if str(cut.get("cliffhanger_by", "")) == "pd" else "the writers'",
-		" (their own words)" if bool(cut.get("own_teaser", false)) else "", cut.get("title", "")]) + ((" · scenes the PD's (%d, rewritten in %ss, kept %s)" % [
-		int(cut["rewrite"].get("scenes", 0)), cut["rewrite"].get("seconds", 0), cut["rewrite"].get("kept", "?")]) if not cut.get("rewrite", {}).is_empty() else " · scenes the writers'")
+		" (their own words)" if bool(cut.get("own_teaser", false)) else "", cut.get("title", "")]) + ((" · scenes the PD's (%d, rewritten in %ss, kept %s%s)" % [
+		int(cut["rewrite"].get("scenes", 0)), cut["rewrite"].get("seconds", 0), cut["rewrite"].get("kept", "?"),
+		(", online: %s" % cut["rewrite"]["online"]) if str(cut["rewrite"].get("online", "")) != "" else ""]) if not cut.get("rewrite", {}).is_empty() else " · scenes the writers'")
 		+ ((" · scenes with faces %d/%d" % [int(cut["scene_faces"][0]), int(cut["scene_faces"][1])]) if cut.has("scene_faces") else "")
 		if not cut.is_empty() and not bool(cut.get("left_to_writers", false))
 		else ("stepped in, then left it to the writers" if not cut.is_empty() else "the writers' cut")))
@@ -877,7 +878,8 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("[b]THE STORY[/b]")
 	lines.append("Opening: %s · recap %s" % [("loading %ds%s" % [int(story["loading_seconds"]), (" (tent: %s)" % story["loading_tent"]) if story.has("loading_tent") else ""]) if story.has("loading_seconds") else "no loading screen",
 		("%s (%s)" % [story["recap_style"], story.get("recap_by", "?")]) if story.has("recap_style") else "none"]
-		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) if story.has("recap_faces") else ""))
+		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) if story.has("recap_faces") else "")
+		+ ((" · cut to the internet: %s" % story["recap_online"]) if str(story.get("recap_online", "")) != "" else ""))
 	if not art.is_empty():
 		lines.append("Art: images %d · drawn in code %d · lit by the hour %d%s · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)),
 			(" (a bulb's pool +%.1f steps over the counter's end)" % float(art["pools"])) if art.has("pools") else "", int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),

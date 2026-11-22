@@ -7,8 +7,10 @@ extends Control
 ## each "dun" of the sting. Then the teaser throbs like a heartbeat (두근두근), and the episode
 ## card (제12화) sweeps in on ribbons. Whoever a beat's about has their polaroid beside the
 ## beat (in their big moment's mood), and last night's polaroids are pinned on the episode card,
-## from the faces its diary entry kept (none for nights from before they were). Skip ends it any
-## time. (See visit.gd _play_recap.)
+## from the faces its diary entry kept (none for nights from before they were). A beat that cuts
+## to the internet (a customer's post, or a viewer's comment: Story.online_beats) has its card
+## slammed on beside it under 네티즌 반응 NETIZENS REACT, as on the diary page, instead of a
+## face. Skip ends it any time. (See visit.gd _play_recap.)
 
 signal finished
 signal step_in  ## the PD stepping in to cut it (see show_step_in)
@@ -21,6 +23,10 @@ const Names = preload("res://scripts/rules/names.gd")
 const Story = preload("res://scripts/rules/story.gd")
 const Keepsakes = preload("res://scripts/rules/keepsakes.gd")
 const Polaroid = preload("res://scripts/ui/polaroid.gd")
+const SocialPost = preload("res://scripts/ui/social_post.gd")
+const ViewerComments = preload("res://scripts/ui/viewer_comments.gd")
+const Glossary = preload("res://scripts/rules/glossary.gd")
+const Text = preload("res://scripts/rules/text.gd")
 
 const NIGHT_TOP := Color("0d0b24")
 const NIGHT_BOTTOM := Color("2a1a40")
@@ -66,6 +72,14 @@ const CARD_TILTS := [-0.1, 0.09]
 var beat_faces: Array = []  # whose faces were shown beside the beats (full names, in order), for the stats and tests
 var card_faces: Array = []  # ...and pinned on the episode card
 var _done := false
+const ONLINE_AT := Vector2(50, 360)  # a post's or comment's card, left of the beat (clear of the title above)
+const ONLINE_SCALE := 1.3  # (the diary page's cards, bigger for the whole screen)
+const ONLINE_GAP := 30.0  # between the card and the beat beside it
+const ZOOM_MOST := 1.3  # the last beat's triple zoom, at its biggest (_triple_zoom)
+var _online: Control  # this beat's card, if it cuts to the internet
+var _online_title: Label  # 네티즌 반응 over it
+var online_shown: Array = []  # what the beats cut to ("post minji_eats", "comment night_owl"), for the stats, the log and tests
+var online_rects: Array = []  # each card's rect on screen and its beat's ([card, beat]), for the layout tests
 
 
 func _init() -> void:
@@ -260,7 +274,9 @@ func play(beats: Array, teaser: String, episode: int, bar_name: String, opener: 
 		var beat := str(beats[k])
 		_subtitle.text = beat
 		_subtitle.add_theme_font_size_override("font_size", 54 if beat.length() <= 70 else (46 if beat.length() <= 110 else 40))  # long ones smaller, to fit
-		_show_who(beat, extras)
+		var online: Dictionary = extras.get("online", [])[k] if k < (extras.get("online", []) as Array).size() else {}
+		_show_who(beat, extras, online.is_empty())
+		_show_online(online, str(extras.get("bar_id", "")))
 		_show_quote(extras.get("quotes", []), k)
 		var last := k == beats.size() - 1
 		var how := str(_style["last"]) if last else str(_style["beats"])
@@ -444,7 +460,7 @@ func _bounce() -> void:
 
 ## The beat's person, if it names one the game knows: their name tag (in Hangul too), and, if
 ## they had a big moment last time, its TV reaction stuck on beside the beat.
-func _show_who(beat: String, extras: Dictionary) -> void:
+func _show_who(beat: String, extras: Dictionary, with_face: bool = true) -> void:
 	_who.visible = false
 	if is_instance_valid(_face):
 		_face.queue_free()
@@ -461,7 +477,8 @@ func _show_who(beat: String, extras: Dictionary) -> void:
 		_who.position = Vector2(SIZE.x / 2 - 220, 330)
 		_who.rotation = 0.04
 		_slam(_who, 0.04)
-		_show_face(str(full), extras)
+		if with_face:  # (a post's card has their face on it already)
+			_show_face(str(full), extras)
 		for moment in extras.get("moments", []):
 			if str(moment.get("who", "")) != str(full) or not Captions.REACTIONS.has(str(moment.get("mood", ""))):
 				continue
@@ -520,9 +537,66 @@ func _pin_card_photos(photos: Array) -> void:
 func _clear_beat() -> void:
 	if is_instance_valid(_face):
 		_fade(_face, 0.0)
+	if is_instance_valid(_online):
+		var card := _online.get_child(0) as Control
+		online_rects.append([Rect2(_online.global_position, card.size * ONLINE_SCALE), _subtitle.get_global_rect()])
+		_fade(_online, 0.0)
+		_fade(_online_title, 0.0)
+		_online = null
+		_subtitle.position.x = 240  # (back across the middle)
+		_subtitle.size.x = SIZE.x - 480
+		_subtitle.pivot_offset = _subtitle.size / 2
 	_fade(_subtitle, 0.0)
 	_fade(_who, 0.0)
 	_fade(_quote, 0.0)
+
+
+## A beat cutting to the internet: the post's card (SocialPost) or the comment on its board
+## (ViewerComments, with just it), slammed on left of the beat under 네티즌 반응, the beat moved
+## over beside it. online: a scene (Story.post_scene, comment_scene) or {} (nothing).
+func _show_online(online: Dictionary, bar_id: String) -> void:
+	var card: Control = null
+	var width := 0.0
+	match str(online.get("kind", "")):
+		"post":
+			var post := SocialPost.new()
+			post.setup(online.get("post", {}), bar_id, 0.0)
+			card = post
+			width = SocialPost.WIDTH
+			online_shown.append("post %s" % online.get("post", {}).get("handle", "?"))
+		"comment":
+			var board := ViewerComments.new()
+			board.setup(Story.board_of(online), 0.0)
+			card = board
+			width = ViewerComments.WIDTH
+			online_shown.append("comment %s" % online.get("comment", {}).get("viewer", "?"))
+	if card == null:
+		return
+	var holder := Control.new()  # (scaled up: the slam scales the card inside it)
+	holder.name = "RecapOnline"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.position = ONLINE_AT
+	holder.scale = Vector2(ONLINE_SCALE, ONLINE_SCALE)
+	holder.add_child(card)
+	_stage.add_child(holder)
+	_slam(card, -0.04)
+	_online = holder
+	if _online_title == null:
+		_online_title = _label("네티즌 반응 · NETIZENS REACT", 28, YELLOW, 8)
+		_online_title.name = "RecapOnlineTitle"
+		_online_title.mouse_filter = Control.MOUSE_FILTER_STOP  # (for its hover)
+		_online_title.tooltip_text = Text.tip(Glossary.hangul_tip("네티즌 반응"))
+		_online_title.position = ONLINE_AT + Vector2(0, -46)
+		_stage.add_child(_online_title)
+	_slam(_online_title, -0.03)
+	# The beat beside the card, not under it, even at the last beat's zoom (1.3x from its middle):
+	# its left edge, zoomed, stays right of the card.
+	var right := ONLINE_AT.x + width * ONLINE_SCALE + ONLINE_GAP
+	var far := SIZE.x - 240
+	var left := (2.0 * right + (ZOOM_MOST - 1.0) * far) / (1.0 + ZOOM_MOST)
+	_subtitle.position.x = left
+	_subtitle.size.x = far - left
+	_subtitle.pivot_offset = _subtitle.size / 2
 
 
 ## Under beat k, the line the PD pinned for it (the k-th pin), quoted: “…” (given name).

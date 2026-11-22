@@ -12,6 +12,8 @@ const Talk = preload("res://scripts/rules/talk.gd")
 const Text = preload("res://scripts/rules/text.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
 const Hangul = preload("res://scripts/rules/hangul.gd")
+const Socials = preload("res://scripts/rules/socials.gd")
+const Viewers = preload("res://scripts/rules/viewers.gd")
 
 
 ## Each night is an episode; at 3am the owner writes it up in their diary, from facts the game
@@ -219,6 +221,9 @@ static func validate_recap(data: Variant, facts: Dictionary) -> String:
 		var off := scenes_problem(beats, scenes)
 		if off != "":
 			return off
+	var online: Dictionary = facts.get("online", {})
+	if scenes.is_empty() and not online.is_empty() and not beat_keeps_to(str(beats[-1]), online):
+		return "the last beat should cut to what went online (%s), like \"The internet had opinions…\"" % scene_text(online).left(80)
 	for beat in beats:
 		if beat.length() > MAX_RECAP_BEAT:
 			return "a beat of the recap is too long: one short sentence each"
@@ -376,6 +381,9 @@ static func stitched_recap(facts: Dictionary) -> Dictionary:
 		cliff = {"kind": "comes_back", "who": [str(last["missing"][0])]}
 	elif not last.get("moments", []).is_empty():
 		teaser = "What will %s do now?" % Names.given_name(str(last["moments"][0]["who"]))
+	var online: Dictionary = facts.get("online", {})
+	if facts.get("scenes", []).is_empty() and not online.is_empty():  # (the writers' cut ends on what went online)
+		beats = beats.slice(0, 2) + [online_beat(online)]
 	return {"beats": beats.slice(0, 3), "teaser": teaser, "cliffhanger": cliff}
 
 
@@ -836,11 +844,13 @@ const GAME_NAMES := {"spoon_mic": "the spoon-mic singalong", "apartment": "the a
 
 
 ## Everything last night's "Previously on…" could be made of, for the PD to tick, in the order
-## it happened: the lines they pinned, the big moments, and what happened (a new regular, the
-## cat, the cards they played, a regular who didn't come, at the end). Each {"kind" ("pin",
-## "moment", "happened"), "at" (game minutes, or -1), "text" (as shown), "who", "quote" (a pin's
-## {"speaker", "text"}), "caption" and "mood" (a big moment's)}.
-static func scene_options(facts: Dictionary) -> Array:
+## it happened: the lines they pinned, the big moments, what happened (a new regular, the cat,
+## the cards they played), the customers' posts (when they happened), then the viewers'
+## comments (at 3am) and a regular who didn't come, at the end. Each {"kind" ("pin", "moment",
+## "happened", "post", "comment"), "at" (game minutes, or -1), "text" (as shown), "who", "quote"
+## (a pin's {"speaker", "text"}), "caption" and "mood" (a big moment's), "post" or "comment"
+## (post_scene, comment_scene)}. posts, viewers: the entry's "socials" and "viewers".
+static func scene_options(facts: Dictionary, posts: Array = [], viewers: Dictionary = {}) -> Array:
 	var scenes: Array = []
 	for said in facts.get("pinned", []):
 		scenes.append({"kind": "pin", "at": int(said.get("at", -1)), "text": "%s: «%s»" % [said.get("speaker", ""), said.get("text", "")],
@@ -851,9 +861,15 @@ static func scene_options(facts: Dictionary) -> Array:
 			"mood": str(moment.get("mood", ""))})
 	for happened in facts.get("happenings", []):
 		scenes.append({"kind": "happened", "at": int(happened.get("at", -1)), "text": str(happened.get("text", "")), "who": happened.get("who", []).duplicate()})
+	for post in posts:
+		if post is Dictionary:
+			scenes.append(post_scene(post))
 	var timed := scenes.filter(func(s): return int(s["at"]) >= 0)
 	timed.sort_custom(func(a, b): return int(a["at"]) < int(b["at"]))
 	var untimed := scenes.filter(func(s): return int(s["at"]) < 0)
+	for comment in viewers.get("comments", []):
+		if comment is Dictionary:
+			untimed.append(comment_scene(viewers, comment))
 	for name in facts.get("missing", []):
 		untimed.append({"kind": "happened", "at": -1, "text": "%s, a regular, didn't come in." % name, "who": [str(name)]})
 	return timed + untimed
@@ -875,10 +891,14 @@ static func beat_keeps_to(beat: String, scene: Dictionary) -> bool:
 	for person in scene.get("who", []):
 		if str(person) != "" and (said.contains(Names.given_name(str(person)).to_lower()) or said.contains(str(person).to_lower())):
 			return true
-	var words := Text.words(str(scene.get("quote", {}).get("text", scene.get("caption", scene.get("text", "")))))
+	var words := Text.words(str(scene.get("quote", {}).get("text", scene.get("caption", scene.get("post", scene.get("comment", {})).get("text", scene.get("text", ""))))))
 	for word in words:
 		if word.length() >= 4 and not COMMON_WORDS.has(word) and said.contains(word):
 			return true
+	if ONLINE_KINDS.has(str(scene.get("kind", ""))):  # (cutting to the internet: "the internet had opinions…")
+		for word in Text.words(said):
+			if ONLINE_WORDS.has(word):
+				return true
 	return false
 
 
@@ -903,6 +923,8 @@ static func scene_beats(scenes: Array) -> Array:
 				beats.append(("%s says it: \"%s\"" % [Names.given_name(str(scene["quote"]["speaker"])), scene["quote"]["text"]]).left(MAX_RECAP_BEAT))
 			"moment":
 				beats.append(("%s: %s" % [Names.given_name(str(scene["who"][0])), str(scene["caption"]).capitalize()]).left(MAX_RECAP_BEAT))
+			"post", "comment":
+				beats.append(online_beat(scene))
 			_:
 				beats.append(str(scene.get("text", "")).left(MAX_RECAP_BEAT))
 	return beats
@@ -915,3 +937,89 @@ static func scenes_kept(beats: Array, scenes: Array) -> String:
 		if beat_keeps_to(str(beats[k]), scenes[k]):
 			kept += 1
 	return "%d/%d" % [kept, scenes.size()]
+
+
+# --- The internet's say: posts and comments in "Previously on…" ----------------------------
+
+const ONLINE_KINDS := ["post", "comment"]
+const ONLINE_CHANCE := 0.6  # the writers' cut ends on what went online, this often (when anything did)
+## Words a beat can cut to the internet with ("the internet had opinions…"), as well as a name
+## or a word of the post or comment.
+const ONLINE_WORDS := ["internet", "online", "posted", "post", "posts", "netizen", "netizens", "comment", "comments", "viewers",
+	"chat", "dalbam", "feed", "hashtag", "hashtags", "selfie"]
+## What a post shows, in its scene's words.
+const SHOT_WORDS := {"selfie": "a selfie", "food": "a food pic", "cat": "a photo of the cat", "text": "words alone"}
+
+
+## A customer's post (Socials.pick's, as the entry keeps it) as a scene: "minji_eats on 달밤
+## Dalbam (a selfie): «…» #tentcat". Its time is when what it's about happened.
+static func post_scene(post: Dictionary) -> Dictionary:
+	var tags := " ".join(PackedStringArray(post.get("tags", [])))
+	return {"kind": "post", "at": int(post.get("at", -1)), "who": [str(post.get("poster", ""))], "mood": str(post.get("mood", "calm")),
+		"text": "%s on %s %s (%s): «%s»%s" % [post.get("handle", ""), Socials.APP, Socials.APP_ENGLISH, SHOT_WORDS.get(str(post.get("shot", "text")), "a post"),
+			post.get("text", ""), (" " + tags) if tags != "" else ""], "post": post.duplicate(true)}
+
+
+## A viewer's comment (Viewers.pick's) as a scene, at 3am: "night_owl in the 실시간 채팅 live
+## chat (♥ 12): «…»". board: where it was (the entry's "viewers"), kept without its comments.
+static func comment_scene(board: Dictionary, comment: Dictionary) -> Dictionary:
+	var data := Viewers.place_of(str(board.get("rung", "")))
+	var where := {"rung": str(board.get("rung", "")), "place": str(board.get("place", "")), "crowd": str(board.get("crowd", "")), "figure": str(board.get("figure", ""))}
+	return {"kind": "comment", "at": -1, "when": "3am", "who": [str(comment["who"])] if str(comment.get("who", "")) != "" else [],
+		"text": "%s in the %s %s (%s): «%s»" % [comment.get("viewer", ""), data["hangul"], data["english"], Viewers.likes_text(board, comment), comment.get("text", "")],
+		"comment": comment.duplicate(true), "board": where}
+
+
+## Where a comment scene's comment was, with just it on the board (to show it on its own).
+static func board_of(scene: Dictionary) -> Dictionary:
+	var board: Dictionary = scene.get("board", {}).duplicate(true)
+	board["comments"] = [scene.get("comment", {}).duplicate(true)]
+	return board
+
+
+## What the writers' "Previously on…" cuts to at its end, from last night's diary entry: one of
+## its posts or viewers' comments (pick: which, as an index), or {} (nothing went online, the
+## roll's over ONLINE_CHANCE, or the PD pinned three lines: the beats are those).
+static func online_pick(entry: Dictionary, roll: float, pick: int) -> Dictionary:
+	if roll >= ONLINE_CHANCE or entry.get("facts", {}).get("pinned", []).size() >= MAX_SCENES:
+		return {}
+	var all: Array = []
+	for post in entry.get("socials", []):
+		if post is Dictionary:
+			all.append(post_scene(post))
+	var board: Dictionary = entry.get("viewers", {})
+	for comment in board.get("comments", []):
+		if comment is Dictionary:
+			all.append(comment_scene(board, comment))
+	return {} if all.is_empty() else all[absi(pick) % all.size()]
+
+
+## The game's own beat cutting to a post or comment.
+static func online_beat(scene: Dictionary) -> String:
+	if str(scene.get("kind", "")) == "post" and not scene.get("who", []).is_empty():
+		return "And then %s posted it for the internet to see…" % Names.given_name(str(scene["who"][0]))
+	return "And the internet had opinions…"
+
+
+## The recap's beats, each with what it cuts to online (the scene, or {}): for the recap screen's
+## cards. scenes: the PD's (theirs that are posts or comments); none: the writers', whose last
+## beat is online's, if there is one.
+static func online_beats(beats: Array, scenes: Array, online: Dictionary) -> Array:
+	var out: Array = []
+	for k in beats.size():
+		if not scenes.is_empty():
+			var scene: Dictionary = scenes[k] if k < scenes.size() else {}
+			out.append(scene if ONLINE_KINDS.has(str(scene.get("kind", ""))) else {})
+		else:
+			out.append(online if k == beats.size() - 1 and not online.is_empty() else {})
+	return out
+
+
+## The scenes' kinds that went online, for the stats: "post 1, comment 1", or "".
+static func online_counts(scenes: Array) -> String:
+	var counts := {}
+	for scene in scenes:
+		var kind := str(scene.get("kind", ""))
+		if ONLINE_KINDS.has(kind):
+			counts[kind] = int(counts.get(kind, 0)) + 1
+	return ", ".join(PackedStringArray(counts.keys().map(func(k): return "%s %d" % [k, counts[k]])))

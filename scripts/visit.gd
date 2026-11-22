@@ -2069,9 +2069,18 @@ func _diary_facts() -> Dictionary:
 	})
 
 
-## "Previously on…": what the recap's written from (see StoryKeeper.recap_facts).
+## "Previously on…": what the recap's written from (see StoryKeeper.recap_facts), and the post
+## or comment the writers end on ("online": Story.online_pick, from dice of last night's own, so
+## it's the same each time it's asked for).
 func _recap_facts() -> Dictionary:
-	return StoryKeeper.recap_facts(Game.bar, _owner, _regulars(), _scenery_dice)
+	var facts := StoryKeeper.recap_facts(Game.bar, _owner, _regulars(), _scenery_dice)
+	var diary: Array = Game.bar.get("diary", [])
+	var last: Dictionary = diary[-1] if not diary.is_empty() else {}
+	var dice := RandomNumberGenerator.new()
+	dice.seed = hash("%s night %d online" % [Game.bar.get("id", ""), int(last.get("night", 0))])
+	var roll := dice.randf()
+	facts["online"] = Story.online_pick(last, Hooks.online_roll if Hooks.online_roll >= 0.0 else roll, dice.randi())
+	return facts
 
 
 ## The recap for tonight: the AI's, checked, or the game's own from the same facts.
@@ -2079,6 +2088,8 @@ func _recap_facts() -> Dictionary:
 func _write_recap(scenes: Array = []) -> Dictionary:
 	var facts := _recap_facts()
 	facts["scenes"] = scenes
+	if not scenes.is_empty():
+		facts["online"] = {}  # (the PD's scenes are the beats: any post or comment is one of them)
 	var reply: Dictionary = await _ai.ask_json(Prompts.recap_messages(facts), _validate_recap.bind(facts), {"temperature": 0.85},
 		{"purpose": "recap", "facts": facts, "tries": 2})  # (two goes, then the game's own: it's on the loading screen)
 	if _closed():  # (the bar closed while it was waiting)
@@ -2086,6 +2097,7 @@ func _write_recap(scenes: Array = []) -> Dictionary:
 	_before_night["recap_by"] = "game" if reply.is_empty() else "ai"
 	if reply.is_empty():
 		reply = Story.stitched_recap(facts)
+	reply["online"] = Story.online_beats(reply.get("beats", []), scenes, facts.get("online", {}))  # (each beat's post or comment, for its card)
 	return reply
 
 
@@ -2280,12 +2292,14 @@ func _cut_episode() -> Dictionary:
 	var entry: Dictionary = Game.bar.get("diary", [])[-1]
 	var suite := EditSuite.new()
 	add_child(suite)
+	var offered := Story.scene_options(entry.get("facts", {}), entry.get("socials", []), entry.get("viewers", {}))  # (with last night's posts and comments)
 	suite.open(ShowSeasons.words(ShowSeasons.of(entry)), entry.get("titles", []), str(_writers_recap.get("teaser", "")), Story.cliffhanger_options(entry.get("facts", {})),
-		Story.scene_options(entry.get("facts", {})), entry.get("faces", {}))
-	var scene_faces := [suite.scenes_with_faces, Story.scene_options(entry.get("facts", {})).size()]  # (scenes with faces, of all: for the stats)
-	DebugLog.say("Keepsakes", "the edit suite: %d of %d scenes with faces (%d faces kept with the entry)" % [suite.scenes_with_faces, Story.scene_options(entry.get("facts", {})).size(), (entry.get("faces", {}) as Dictionary).size()])
+		offered, entry.get("faces", {}))
+	var scene_faces := [suite.scenes_with_faces, offered.size()]  # (scenes with faces, of all: for the stats)
+	DebugLog.say("Keepsakes", "the edit suite: %d of %d scenes with faces (%d faces kept with the entry)" % [suite.scenes_with_faces, offered.size(), (entry.get("faces", {}) as Dictionary).size()])
+	DebugLog.say("Socials", "the edit suite offers %s as scenes" % (Story.online_counts(offered) if Story.online_counts(offered) != "" else "no posts or comments"))
 	if _autopilot != null:
-		_autopilot_cuts.call_deferred(suite, entry.get("titles", []).size(), Story.cliffhanger_options(entry.get("facts", {})).size(), Story.scene_options(entry.get("facts", {})).size())
+		_autopilot_cuts.call_deferred(suite, entry.get("titles", []).size(), Story.cliffhanger_options(entry.get("facts", {})).size(), offered.size())
 	var cut: Dictionary = await suite.finished
 	var base := _writers_recap
 	var rewrite := {}
@@ -2300,7 +2314,8 @@ func _cut_episode() -> Dictionary:
 			_editing = false
 			return {}
 		base["quotes"] = scenes.map(func(s): return s.get("quote", {}))  # (a pinned line, quoted under its beat)
-		rewrite = {"scenes": scenes.size(), "kept": Story.scenes_kept(base.get("beats", []), scenes), "seconds": snappedf((Time.get_ticks_msec() - started) / 1000.0, 0.1)}
+		rewrite = {"scenes": scenes.size(), "kept": Story.scenes_kept(base.get("beats", []), scenes), "seconds": snappedf((Time.get_ticks_msec() - started) / 1000.0, 0.1),
+			"online": Story.online_counts(scenes)}
 		entry["scenes"] = scenes.map(func(s): return {"kind": s["kind"], "at": s["at"], "text": s["text"]})
 	_editing = false
 	if not cut.has("title"):
@@ -2422,7 +2437,8 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 		"episode_title": "" if opener or recap.get("title", {}).is_empty() else "%s · %s" % [ShowSeasons.tag(ShowSeasons.of(Game.bar.get("diary", [{}])[-1])), Story.title_text(recap["title"])],
 		"step_in": not opener and _step_in_open,
 		"ratings": "" if opener else _last_ratings_text(),
-		"place": ShowSeasons.tonight(Game.bar.get("show", ShowSeasons.fresh()))}
+		"place": ShowSeasons.tonight(Game.bar.get("show", ShowSeasons.fresh())),
+		"online": [] if opener else recap.get("online", []), "bar_id": str(Game.bar.get("id", ""))}
 	var last_entry: Dictionary = Game.bar.get("diary", [{}])[-1] if not Game.bar.get("diary", []).is_empty() else {}
 	if not opener:  # (last night's faces, as its diary entry kept them: none from before 22 Nov)
 		extras["faces"] = last_entry.get("faces", {})
@@ -2434,10 +2450,15 @@ func _play_recap(recap: Dictionary, opener: bool) -> void:
 	_recap_screen = null
 	if not opener:
 		var shown := {"beats": screen.beat_faces.duplicate(), "card": screen.card_faces.duplicate(), "kept": (extras.get("faces", {}) as Dictionary).size()}
+		var online := ", ".join(PackedStringArray(screen.online_shown))  # (the posts and comments it cut to: "post minji_eats")
 		if _night_open:  # (recut early in the night)
 			_stats.story["recap_faces"] = shown
+			_stats.story["recap_online"] = online
 		else:
 			_before_night["recap_faces"] = shown
+			_before_night["recap_online"] = online
+		if online != "":
+			DebugLog.say("Socials", "Previously on…: cut to %s" % online)
 		DebugLog.say("Keepsakes", "Previously on…: faces beside the beats %s; on the card %s (%d faces kept with last night's entry)" % [
 			", ".join(PackedStringArray(screen.beat_faces)) if not screen.beat_faces.is_empty() else "none",
 			", ".join(PackedStringArray(screen.card_faces)) if not screen.card_faces.is_empty() else "none", (extras.get("faces", {}) as Dictionary).size()])

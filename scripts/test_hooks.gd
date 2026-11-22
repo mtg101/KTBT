@@ -78,6 +78,9 @@ static var titles := true
 static var socials := true
 ## false: 3am's viewer comments have the game's own words (Viewers.stitched_words), not the AI's.
 static var viewers := true
+## >= 0: a fixed roll for whether the writers' "Previously on…" ends on a post or comment
+## (Story.online_pick: 0.0 whenever there's one, 1.0 never); -1 for the bar's own dice.
+static var online_roll := -1.0
 
 # --- On screen ---------------------------------------------------------------------------------
 ## false: no speech bubbles.
@@ -121,6 +124,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	titles = false
 	socials = false
 	viewers = false
+	online_roll = 1.0  # no post or comment in the writers' recap unless a test says so
 	bubbles = false
 	caption_pacing = false  # (pacing has its own rule tests)
 	transcript_folder = transcripts
@@ -166,6 +170,7 @@ static func restore() -> void:
 	titles = true
 	socials = true
 	viewers = true
+	online_roll = -1.0
 	bubbles = true
 	captions = true
 	caption_pacing = true

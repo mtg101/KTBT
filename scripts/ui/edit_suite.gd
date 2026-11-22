@@ -5,8 +5,10 @@ extends Control
 ## the episode's title (three the AI drafted, or their own) and the cliffhanger (two or three
 ## the night can answer, or their own, which plays but nudges nobody in). Nothing's running
 ## while it's open, so there's no timer. "Cut it" (Enter) airs it; Esc leaves it to the writers.
-## Each scene has the faces of who it's about beside it (a moment's in its mood), from the faces
-## last night's diary entry kept (none for nights from before they were).
+## Each scene has the faces of who it's about beside it (a moment's or a post's in its mood), from
+## the faces last night's diary entry kept (none for nights from before they were). The customers'
+## posts (📱, when what they're about happened) and the viewers' comments (💬, at 3am) are scenes
+## too: "Previously on…" cuts to them, card and all.
 
 const Story = preload("res://scripts/rules/story.gd")
 const Text = preload("res://scripts/rules/text.gd")
@@ -35,6 +37,8 @@ var own_title: LineEdit
 var own_teaser: LineEdit
 var problem: Label
 var _done := false
+## Each kind of scene's mark before it.
+const ICONS := {"pin": "📌 ", "moment": "💥 ", "post": "📱 ", "comment": "💬 "}
 const FACE_SIZE := Vector2(48, 60)  # a portrait's 64 x 80, small, beside a scene
 const FACES_MOST := 2  # faces beside one scene
 var scenes_with_faces := 0  # for the stats and the log
@@ -95,8 +99,11 @@ func open(episode: String, titles: Array, writers_teaser: String, options: Array
 			tick.add_theme_color_override("checkbox_checked_color", RED)
 			tick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			tick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var when := NightRules.clock_text(int(scene["at"])) if int(scene["at"]) >= 0 else "all night"
-			tick.text = "%s · %s%s" % [when, {"pin": "📌 ", "moment": "💥 "}.get(str(scene["kind"]), ""), Text.shorten(str(scene["text"]), 150)]
+			var when := NightRules.clock_text(int(scene["at"])) if int(scene["at"]) >= 0 else str(scene.get("when", "all night"))
+			tick.text = "%s · %s%s" % [when, ICONS.get(str(scene["kind"]), ""), Text.shorten(str(scene["text"]), 150)]
+			var korean := Glossary.hangul_tips(str(scene["text"]))  # (a post's app, a comment's place, Korean in their words)
+			if korean != "":
+				tick.tooltip_text = Text.tip(korean)
 			if str(scene["kind"]) == "pin" and _ticked.size() < Story.MAX_SCENES:
 				tick.button_pressed = true
 				_ticked.append(k)
@@ -137,7 +144,7 @@ func open(episode: String, titles: Array, writers_teaser: String, options: Array
 ## mood, anyone else calm; their name on hover. How many it got.
 func _add_faces(row: HBoxContainer, scene: Dictionary, faces: Dictionary) -> int:
 	var shown := 0
-	var mood := str(scene.get("mood", "calm")) if str(scene.get("kind", "")) == "moment" else "calm"
+	var mood := str(scene.get("mood", "calm")) if ["moment", "post"].has(str(scene.get("kind", ""))) else "calm"
 	for person in scene.get("who", []):
 		if shown >= FACES_MOST:
 			break

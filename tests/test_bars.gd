@@ -383,6 +383,54 @@ func test_the_pd_chooses_the_scenes_and_it_is_rewritten() -> void:
 	assert_str(scene._stats.panel_text(0, 0)).contains("scenes the PD's (2, rewritten in").contains("kept 2/2)")
 
 
+const ONLINE_POST := {"about": "cat_theft", "poster": "Kim Ji-ho", "handle": "ji-ho_eats", "shot": "cat", "text": "The tent cat just stole my odeng. Respect.",
+	"tags": ["#tentcat"], "at": 1350, "mood": "funny", "dish": "Odeng", "dish_id": "", "snap": "", "face": {}}
+const ONLINE_BOARD := {"rung": "phone", "place": "live", "crowd": "130 watching", "figure": "11.4K",
+	"comments": [{"viewer": "night_owl", "about": "ratings", "who": "", "mood": "", "dish": "", "said": "", "likes": 12, "text": "11.4K for a tent bar?!", "by": "game"}]}
+
+
+## Last night with a post (and, if asked, the viewers' comments) kept with its diary entry.
+func _bar_with_posts(comments: bool) -> void:
+	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)
+	bar["nights"] = 4
+	SaveStore.record_diary(bar, {"night": 4, "episode": 4, "season": 1, "season_episode": 4, "day": "Friday", "weather": "rain", "text": "Ji-ho quit tonight.", "stamp": "rain",
+		"facts": {"owner": str(OWNER_DATA["name"]), "people": [{"name": "Kim Ji-ho", "job": "nurse"}], "moments": [{"who": "Kim Ji-ho", "mood": "shock", "caption": "SHE QUIT?!", "at": 1262}]},
+		"socials": [ONLINE_POST.duplicate(true)], "viewers": ONLINE_BOARD.duplicate(true) if comments else {}})
+	SaveStore.save_bar(bar)
+	Game.bar = SaveStore.load_bar(bar["id"])
+
+
+func test_the_writers_recap_ends_on_last_nights_post() -> void:
+	Hooks.recaps = true
+	Hooks.online_roll = 0.0  # (whenever there's one)
+	_bar_with_posts(false)
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the recap").is_true()
+	var transcript := (runner.find_child("Transcript") as RichTextLabel).get_parsed_text()
+	assert_str(transcript).contains("And then Ji-ho posted it for the internet to see…")
+	assert_str(str(scene._stats.story.get("recap_online", ""))).is_equal("post ji-ho_eats")
+	assert_str(scene._stats.panel_text(0, 0)).contains("cut to the internet: post ji-ho_eats")
+
+
+func test_the_pd_cuts_to_a_viewers_comment() -> void:
+	Hooks.recaps = true
+	_bar_with_posts(true)
+	var runner := scene_runner(VISIT)
+	var scene = runner.scene()
+	scene._step_in()
+	assert_bool(await _wait_until(func(): return runner.find_child("EditSuite") != null, 10000)).override_failure_message("the edit suite never opened").is_true()
+	var suite = runner.find_child("EditSuite")
+	assert_array(suite._scenes.map(func(s): return s["kind"])).is_equal(["moment", "post", "comment"])
+	suite.tick_scene(2)  # (the comment)
+	suite.cut()
+	assert_bool(await _wait_until(func(): return scene._night_number == 5, 10000)).override_failure_message("the night never started after the cut").is_true()
+	assert_str((runner.find_child("Transcript") as RichTextLabel).get_parsed_text()).contains("And the internet had opinions…")
+	assert_str(str(Game.bar["diary"][-1]["scenes"][0]["kind"])).is_equal("comment")
+	assert_str(str(scene._stats.story.get("recap_online", ""))).is_equal("comment night_owl")
+	assert_str(scene._stats.panel_text(0, 0)).contains("online: comment 1)")
+
+
 func test_the_pd_steps_in_mid_recap_and_it_plays_again() -> void:
 	Hooks.recaps = true
 	var bar := SaveStore.new_bar("Golmok Pocha", "A test tent", OWNER_DATA)

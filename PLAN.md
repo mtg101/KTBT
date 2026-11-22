@@ -4,18 +4,20 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Social media posts:** customers post about their night and viewers comment on the show, stuck round the diary page at 3am. The game picks the facts, the AI writes the words, the game checks them (`Socials.check`, `Viewers.check`); offline or failing the check, the game stitches them. Still to do:
-  1. **Look at the viewers' comments in play:** on each rung (the stream's live chat, the channel's comments, TV's viewer board), at the page's bottom right, with the AI writing them: that they read like fans, and sit clear of the page and the posts.
-  2. **In "Previously on…" and the edit suite:** a beat cutting to a post or a comment ("the internet had opinions…"); posts and comments listed as scenes to tick.
+- not sure yet...
+  - are events being picked up in talks?
+  - should we go for AI created portraits in the game next as a big thing?
+  - yeah lots of incrementals but feels like we should leave those for now...
+    - not point more cards until events get properly reacted to!
 
 ## Future ideas and improvements
 
 ### Richer play
 
-- **Regulars have generated portraits:**
+- **Owner & Regulars have generated portraits:**
   - regulars get their own AI-generated portraits
-  - initial regulars while the bar is being created
-  - new regulars at end of night
+    - initial regulars while the bar is being created
+    - new regulars at end of night
   - owner also gets generated portrait at bar creation
   - game launched ComfyUI in the background and generates and saves alongside bar save
 - **Finishing basics of Seasons and the platform ladder:** 
@@ -32,8 +34,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - more tropey cards
     - chaebols in disguise, people transported from the Joseon period, extreme weather events, etc
   - more write-in card types
-    - big news events, 
-    - and 2 per night
+    - big news events, 'did you hear?', themed prompts (kpop, kdrama, food, etc), other ideas...? (better ideas!")
+    - and 2 per night for write-ins
 - **Narrative:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
   - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.

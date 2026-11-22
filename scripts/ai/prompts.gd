@@ -847,17 +847,19 @@ static func standing(person: Dictionary, owner: Dictionary) -> String:
 
 
 ## What the recap's beats are to be: the PD's scenes (one each, in order), or the lines they
-## pinned, or (neither) the writers' choice.
-static func _recap_scenes_text(scenes: Array, last: Dictionary) -> String:
+## pinned, or (neither) the writers' choice; and, without the PD's scenes, the last beat cutting
+## to a post or comment that went online (online: Story.online_pick's), if there's one.
+static func _recap_scenes_text(scenes: Array, last: Dictionary, online: Dictionary = {}) -> String:
 	if not scenes.is_empty():
 		var listed := PackedStringArray()
 		for k in scenes.size():
 			listed.append("%d. %s" % [k + 1, Story.scene_text(scenes[k])])
 		return ". But the PD has chosen the scenes: write exactly %d beat%s, one for each of these, in this order (each a short, dramatic sentence about it):\n%s\n" % [
 			scenes.size(), "" if scenes.size() == 1 else "s", "\n".join(listed)]
+	var cut_online := "" if online.is_empty() else (". Then, as K-TV does, end on what the internet said after the night (\"The internet had opinions…\"): make the last beat cut to this, naming whoever wrote it or what it said: %s" % Story.scene_text(online))
 	if not last.get("pinned", []).is_empty():
-		return ". The show kept %d line%s for the episode (above): make the beats those moments, one each, in order" % [last["pinned"].size(), "" if last["pinned"].size() == 1 else "s"]
-	return ""
+		return ". The show kept %d line%s for the episode (above): make the beats those moments, one each, in order%s" % [last["pinned"].size(), "" if last["pinned"].size() == 1 else "s", cut_online]
+	return cut_online
 
 
 ## Which episode it is, in words: "season 2, episode 3" (episodes are numbered within their
@@ -1133,7 +1135,7 @@ Only what's above: no other names, no numbers but the ones above, nothing invent
 Then say what the teaser asks, so the show knows if it comes true tonight: a "kind" from this list, and "who" (the full names it's about, if any): %s.
 
 Reply with ONLY a JSON object: {"beats": ["...", "..."], "teaser": "...?", "cliffhanger": {"kind": "...", "who": ["..."]}}""" % [describe_owner(facts.get("owner_data", {})) if not facts.get("owner_data", {}).is_empty() else "", facts.get("bar", ""), _episode_words(facts).left(1).to_upper() + _episode_words(facts).substr(1), "\n".join(lines),
-		_recap_scenes_text(facts.get("scenes", []), last),
+		_recap_scenes_text(facts.get("scenes", []), last, facts.get("online", {})),
 		str(facts.get("teaser_example", Story.RECAP_TEASER_EXAMPLES[0])), Story.cliffhanger_kinds_text()]
 	return [
 		{"role": "system", "content": STYLE_GUIDE},

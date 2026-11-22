@@ -198,6 +198,7 @@ const MEANINGS := {
 	"소주": "soju: (the stamp for an ordinary night)",
 	"도둑냥": "dodungnyang: thief cat",
 	# The viewers' comments (rules/viewers.gd): where they're written, by rung, and a board's thumbs-up
+	"네티즌 반응": "netijeun baneung: netizens react, what the internet's saying (K-TV loves cutting to it)",
 	"실시간 채팅": "silsigan chaeting: live chat, the comments going by under a live stream",
 	"댓글": "daetgeul: comments, written under a video",
 	"시청자 게시판": "sicheongja gesipan: the viewer board, where a TV show's viewers post about each episode",

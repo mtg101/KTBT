@@ -181,6 +181,20 @@ static func explain(bbcode: String, names: Array = [], ink: String = "") -> Stri
 ## and terms of address, and names as they're known (see remember). Steps round tags, and
 ## leaves anything already inside a hint alone. A run it doesn't know is still marked as
 ## Korean.
+## Every run of Hangul in some plain text, with what it means, for a hover ("" if there's none):
+## "달밤: dalbam: a moonlit night…; 실시간 채팅: …".
+static func hangul_tips(text: String) -> String:
+	_hint_hangul("")  # (makes the pattern)
+	var tips := PackedStringArray()
+	for found in _hangul_pattern.search_all(text):
+		var run := _bare(found.get_string())
+		var tip := hangul_tip(run)
+		var line := tip if tip != "" else "%s: Korean, in Hangul" % run
+		if not tips.has(line):
+			tips.append(line)
+	return "\n".join(tips)
+
+
 static func explain_hangul(bbcode: String) -> String:
 	if _tag_pattern == null:
 		_tag_pattern = RegEx.create_from_string("\\[[^\\]]*\\]")

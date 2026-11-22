@@ -20,12 +20,12 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 
 **How we work:** every change ships with tests, stats and docs (the definition of done is in [ARCHITECTURE.md](ARCHITECTURE.md)). A new chat with Claude starts from [START-HERE.md](START-HERE.md): the map, the gotchas and how to work, in two pages.
 
-**Next up:** the AI writing the customers' posts, then viewers' comments on the show, and the posts in "Previously on…" and the edit suite. See [PLAN.md](PLAN.md).
+**Next up:** the next stage isn't picked yet: see the ideas in [PLAN.md](PLAN.md).
 
 ### What's in it so far
 
 - **Bars:** start a new bar from the title screen (the AI invents its owner and a Korean name), carry on with a saved one, or delete old ones. Each bar saves itself as you go.
-- **Nights:** 6pm to 3am, with time running faster while the tent's quiet. About twenty customers turn up, most in the late-evening rush, for five stools; when it's full, people walk on by. Each night is an episode: at 3am the owner writes it up in their diary (with the numbers behind a Stats button), the customers' posts about their night stuck round the page (on 달밤 Dalbam, the game's own app: a selfie, a food pic, the cat mid-theft or words alone, with real snapshots of the stage), and you can flip back through the diary, posts and all, any time. Opening a bar plays "Previously on…", a K-drama recap of last time.
+- **Nights:** 6pm to 3am, with time running faster while the tent's quiet. About twenty customers turn up, most in the late-evening rush, for five stools; when it's full, people walk on by. Each night is an episode: at 3am the owner writes it up in their diary (with the numbers behind a Stats button), the customers' posts about their night stuck round the page (on 달밤 Dalbam, the game's own app: a selfie, a food pic, the cat mid-theft or words alone, with real snapshots of the stage), and you can flip back through the diary, posts and all, any time. Opening a bar plays "Previously on…", a K-drama recap of last time, which now and then ends on what the internet said (a post or a viewer's comment, its card slammed on under 네티즌 반응 NETIZENS REACT).
 - **Customers:** invented by the AI, each with a look the game decides (age range, hair, clothes, colours) and a name in Hangul too ("김지호 Kim Ji-ho"). They order from the menu, get drinks straight away while cooked dishes queue at the one stove, chat with the owner, sometimes talk to each other, and leave when their time's up.
 - **Regulars:** two founding regulars per bar, and new customers can become regulars: they come back as themselves (★), remember what was said last time, get to know each other (∞), and fade away if they stop coming.
 - **Who calls whom:** the game decides who may call whom what (oppa, eonni, imo, sajangnim…), and regulars can earn friendlier terms ("Can I call you eonni?"). Terms are coloured by warmth.
@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of five (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type a write-in the AI answers (a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 847 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 856 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -142,7 +142,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 | `scripts/ui/ktv_style.gd` | The game's look in one place: the K-TV palette, labels, pills and title-card text |
 | `scripts/ui/loading_screen.gd` | The loading screen shown while a bar is set up or reopened, over its own tent (a placeholder for a new bar until its look is chosen) |
 | `scripts/ui/menu_board.gd` | The menu board, in the bar's style: click it to read the whole menu (specials, food, drinks, the favourite and sold-out marked) |
-| `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles |
+| `scripts/ui/recap_screen.gd` | "Previously on…": the K-drama recap, in one of four K-TV styles, with a post's or comment's card beside a beat that cuts to the internet |
 | `scripts/ui/show_setup.gd` | Setting up the show: while a new bar's being made, the PD chooses where it starts on the ladder (more of the setup later) |
 | `scripts/ui/season_page.gd` | The season looked back on (시즌 결산), after a finale: an episode a row, and the verdict |
 
