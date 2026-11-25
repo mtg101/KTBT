@@ -4,7 +4,10 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Faster: the tests and making a bar.** The full test run takes over 3½ minutes; find the slow test files and cut their waits and shared setup. Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them.
+- **Faster: the tests, making a bar, making custom faces** 
+  - The full test run takes over 3½ minutes; find the slow test files and cut their waits and shared setup
+  - Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them.
+  - generating images at the end of the night is slow too (UI says 3mins but it felt longer - need to check)
 
 ## Future ideas and improvements
 
