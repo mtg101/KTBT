@@ -173,6 +173,16 @@ static func portrait(look: Dictionary, key: String, mood: String = "") -> ImageT
 	return made
 
 
+## Forget a face's moods looked up so far (null for one not made yet): once a face of their own's
+## moods come in (visit.gd _make_moods), so the next look finds them.
+static func forget_moods(key: String) -> void:
+	var start := "reaction/%s_" % key
+	for cache_key in _portraits.keys():
+		if str(cache_key).begins_with(start):
+			_portraits.erase(cache_key)
+			_layers.erase(str(cache_key).split("|")[0])
+
+
 ## A portrait from a layer that isn't art yet (a casting photo's split, ai/portrait_maker.gd),
 ## painted onto their colours as portrait() does. Not kept.
 static func paint_portrait(look: Dictionary, layer: Image) -> ImageTexture:

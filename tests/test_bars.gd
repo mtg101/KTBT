@@ -15,6 +15,9 @@ const Ladder = preload("res://scripts/rules/ladder.gd")
 const Channels = preload("res://scripts/rules/channels.gd")
 const ShowSeasons = preload("res://scripts/rules/show_seasons.gd")
 const PortraitRules = preload("res://scripts/rules/portraits.gd")
+const Captions = preload("res://scripts/rules/captions.gd")
+const PeopleArt = preload("res://scripts/ui/people_art.gd")
+const Art = preload("res://scripts/ui/art.gd")
 
 const TITLE := "res://scenes/title.tscn"
 const VISIT := "res://scenes/visit.tscn"
@@ -348,6 +351,80 @@ func test_after_closing_regulars_without_a_face_get_one_or_keep_the_librarys() -
 	assert_str(scene._own_face(regulars[1])).is_empty()
 	assert_array(scene._regulars_without_faces()).is_empty()  # (not tried again)
 	assert_str(scene._stats.panel_text(0, 0)).contains("the regulars' own 0, the library's 1 (%s (the library's))" % regulars[1]["name"])
+
+
+func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
+	Hooks.founding_regulars = true
+	var runner := await _open_visit()  # (offline: no photos as the bar's made)
+	var scene = runner.scene()
+	assert_bool(await _wait_until(func(): return scene._night_open)).is_true()
+	_faces_for_regulars(INF, scene)
+	Hooks.own_moods = true
+	Hooks.mood_clean_enough = INF
+	await scene._faces_after_closing()  # (their faces first, then the moods of both: two a gap)
+	var id := str(Game.bar["id"])
+	var regulars: Array = Game.bar["regulars"]
+	var moods_count: int = Captions.REACTIONS.size()
+	for regular in regulars:
+		var face: Dictionary = regular["face"]
+		var moods: Dictionary = face["moods"]
+		assert_int(moods.size()).is_equal(moods_count)
+		assert_str(str(moods["shock"]["file"])).is_equal("portrait_%s_%d_shock.png" % [scene._face_tag(regular), int(face["seed"])])
+		assert_object(SaveStore.load_picture(id, str(moods["shock"]["file"]))).is_not_null()  # (kept with the bar)
+		assert_object(PeopleArt.portrait(regular["look"], str(face["key"]), "shock")).is_not_null()
+	assert_array(scene._faces_wanting_moods()).is_empty()
+	assert_str(scene._stats.panel_text(0, 0)).contains("their moods: %d kept, 0 the calm face's (%s %d, %s %d)" % [moods_count * 2, regulars[0]["name"], moods_count, regulars[1]["name"], moods_count])
+	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
+	assert_int(SaveStore.load_bar(id)["regulars"][0]["face"]["moods"].size()).is_equal(moods_count)  # (saved)
+	# Their TV box is in the mood (not the calm face standing in).
+	var who := str(regulars[0]["name"])
+	var key := str(regulars[0]["face"]["key"])
+	scene._faces_kept[who] = {"key": key, "look": regulars[0]["look"]}
+	assert_str(str(scene._tv_face(who, "sad")["how"])).is_equal("mood")
+	# Read back as a saved bar opens: from the bar's pictures into Art.own.
+	for mood in Captions.REACTIONS:
+		Art.own.erase("reaction/%s_%s" % [key, mood])
+	PeopleArt.reset()
+	assert_object(PeopleArt.portrait(regulars[0]["look"], key, "sad")).is_null()
+	assert_str(scene._own_face(regulars[0])).is_equal(key)
+	assert_bool(Art.own.has("reaction/%s_sad" % key)).is_true()
+	assert_object(PeopleArt.portrait(regulars[0]["look"], key, "sad")).is_not_null()  # (the null looked up before, forgotten)
+	# A mood scoring too badly: the calm face stands in, and it's tried again another night.
+	(regulars[1]["face"]["moods"] as Dictionary).erase("shock")
+	Art.own.erase("reaction/%s_shock" % str(regulars[1]["face"]["key"]))
+	Hooks.mood_clean_enough = -INF
+	await scene._faces_after_closing()
+	assert_bool((regulars[1]["face"]["moods"] as Dictionary).has("shock")).is_false()
+	assert_str(scene._stats.panel_text(0, 0)).contains("their moods: 0 kept, 1 the calm face's (%s 0 (1 the calm face's))" % regulars[1]["name"])
+	assert_int(scene._faces_wanting_moods().size()).is_equal(1)  # (again next time)
+	scene._faces_kept[str(regulars[1]["name"])] = {"key": str(regulars[1]["face"]["key"]), "look": regulars[1]["look"]}
+	assert_str(str(scene._tv_face(str(regulars[1]["name"]), "shock")["how"])).is_equal("stood_in")
+	# Three to do: the owner first, two a gap, the third the next night.
+	var owner_face: Dictionary = (regulars[0]["face"] as Dictionary).duplicate(true)
+	owner_face["key"] = PortraitRules.own_key(id, "owner", int(owner_face["seed"]))
+	owner_face.erase("moods")
+	scene._owner["face"] = owner_face
+	Game.bar["owner"]["face"] = owner_face.duplicate(true)
+	(regulars[0]["face"] as Dictionary).erase("moods")
+	Hooks.mood_clean_enough = INF
+	assert_int(scene._faces_wanting_moods().size()).is_equal(3)
+	await scene._faces_after_closing()
+	assert_int(Game.bar["owner"]["face"]["moods"].size()).is_equal(moods_count)  # (the owner first, and the bar's copy)
+	assert_int(regulars[0]["face"]["moods"].size()).is_equal(moods_count)
+	assert_bool((regulars[1]["face"]["moods"] as Dictionary).has("shock")).is_false()
+	assert_str(scene._stats.panel_text(0, 0)).contains(", 1 still to do (")
+	await scene._faces_after_closing()
+	assert_bool((regulars[1]["face"]["moods"] as Dictionary).has("shock")).is_true()
+	assert_array(scene._faces_wanting_moods()).is_empty()
+	# A recast's a new face: its moods start again, the old ones not used.
+	var recast: Dictionary = (regulars[0]["face"] as Dictionary).duplicate(true)
+	recast["seed"] = int(recast["seed"]) + 1
+	recast["key"] = PortraitRules.own_key(id, scene._face_tag(regulars[0]), int(recast["seed"]))
+	recast.erase("moods")
+	regulars[0]["face"] = recast
+	assert_array(scene._moods_wanting(recast)).has_size(moods_count)
+	assert_object(PeopleArt.portrait(regulars[0]["look"], str(recast["key"]), "sad")).is_null()
+	assert_int(scene._faces_wanting_moods().size()).is_equal(1)
 
 
 func test_the_pd_recasts_a_regulars_face_at_3am() -> void:

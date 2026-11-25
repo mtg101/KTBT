@@ -80,6 +80,12 @@ static var fake_upload_refused := false
 ## How cleanly a regular's best casting photo must split to be their face (NAN: the rule's,
 ## rules/portraits.gd CLEAN_ENOUGH): tests set INF (any) or -INF (none).
 static var clean_enough := NAN
+## false: no TV moods made for faces of their own after closing (visit.gd _make_moods); the tests
+## that want them say so.
+static var own_moods := true
+## How well a mood's best seed must score to be kept (NAN: visit.gd MOOD_CLEAN_ENOUGH): tests set
+## INF (any) or -INF (none).
+static var mood_clean_enough := NAN
 ## The test's pictures' splits, kept for the whole run (ai/portrait_maker.gd _split): never cleared
 ## between tests, since the same picture always splits the same. Only used with fake_comfy.
 static var kept_splits := {}
@@ -135,6 +141,8 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	fake_comfy = []
 	fake_upload_refused = false
 	clean_enough = NAN
+	own_moods = false
+	mood_clean_enough = NAN
 	titles = false
 	socials = false
 	viewers = false
@@ -184,6 +192,8 @@ static func restore() -> void:
 	fake_comfy = []
 	fake_upload_refused = false
 	clean_enough = NAN
+	own_moods = true
+	mood_clean_enough = NAN
 	titles = true
 	socials = true
 	viewers = true

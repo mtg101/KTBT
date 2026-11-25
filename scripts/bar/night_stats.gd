@@ -925,7 +925,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	if story.get("faces_recast", {}) is Dictionary and not story.get("faces_recast", {}).is_empty():  # (the PD, before tonight)
 		lines.append(recast_text(story["faces_recast"]))
 	if story.get("faces_after", {}) is Dictionary and not story.get("faces_after", {}).is_empty():  # (after closing: the regulars without one)
-		lines.append("Faces of their own after closing: " + regulars_faces_text(story["faces_after"]) + comfy_text(story["faces_after"]))
+		lines.append("Faces of their own after closing: " + after_closing_text(story["faces_after"]) + comfy_text(story["faces_after"]))
 	if story.has("cliffhanger"):
 		lines.append("Cliffhanger: %s · %s" % [story["cliffhanger"], "came true!" if bool(story.get("cliffhanger_answered", false)) else "not yet"])
 	lines.append("")
@@ -1017,6 +1017,28 @@ static func regulars_faces_text(regulars: Dictionary) -> String:
 		return "the regulars keep the library's faces for now (%s, %d waiting)" % [regulars["why"], int(regulars.get("waiting", 0))]
 	var left := (", %d still to do" % int(regulars["left"])) if int(regulars.get("left", 0)) > 0 else ""
 	return "the regulars' own %d, the library's %d%s (%s)" % [int(regulars.get("own", 0)), int(regulars.get("library", 0)), left, ", ".join(PackedStringArray(regulars.get("names", [])))]
+
+
+## After closing (visit.gd _faces_after_closing): the regulars' new faces (if any were to do), and
+## the TV moods of faces of their own (_make_moods), or why neither was made.
+static func after_closing_text(after: Dictionary) -> String:
+	var parts: Array = []
+	if after.has("why"):
+		parts.append(regulars_faces_text(after))
+		if int(after.get("moods_waiting", 0)) > 0:
+			parts.append("%d faces of their own still the calm face in every mood" % int(after["moods_waiting"]))
+		return " · ".join(PackedStringArray(parts))
+	if after.has("own") or after.has("library"):
+		parts.append(regulars_faces_text(after))
+	if after.get("moods", {}) is Dictionary and not (after.get("moods", {}) as Dictionary).is_empty():
+		parts.append(moods_text(after["moods"]))
+	return " · ".join(PackedStringArray(parts))
+
+
+## Faces of their own's TV moods made tonight: kept, the calm face's, who's still to do.
+static func moods_text(moods: Dictionary) -> String:
+	var left := (", %d still to do" % int(moods["left"])) if int(moods.get("left", 0)) > 0 else ""
+	return "their moods: %d kept, %d the calm face's%s (%s)" % [int(moods.get("kept", 0)), int(moods.get("stood_in", 0)), left, ", ".join(PackedStringArray(moods.get("names", [])))]
 
 
 ## What the PD did recasting regulars' faces before tonight (visit.gd _open_recast).

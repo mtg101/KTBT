@@ -5287,21 +5287,22 @@ var _own_missing := {}  # faces of their own whose pictures weren't with the bar
 
 
 ## A face of their own (ai/portrait_maker.gd: person["face"]), its portrait id once its layer's
-## read from the bar's pictures into Art.own; "" for none, or if its picture's gone (the library's then).
+## read from the bar's pictures into Art.own (and its moods': _own_moods); "" for none, or if its
+## picture's gone (the library's then).
 func _own_face(person: Dictionary) -> String:
 	var face = person.get("face", {})
 	if not face is Dictionary or str(face.get("key", "")) == "":
 		return ""
 	var key := str(face["key"])
-	if Art.own.has("portrait/" + key):
-		return key
-	var layer := SaveStore.load_picture(str(Game.bar.get("id", "")), str(face.get("file", "")))
-	if layer == null:
-		if not _own_missing.has(key):
-			_own_missing[key] = true
-			DebugLog.say("Faces", "%s's own face (%s) isn't with the bar: the library's instead" % [str(person.get("name", "?")), face.get("file", "?")])
-		return ""
-	Art.own["portrait/" + key] = layer
+	if not Art.own.has("portrait/" + key):
+		var layer := SaveStore.load_picture(str(Game.bar.get("id", "")), str(face.get("file", "")))
+		if layer == null:
+			if not _own_missing.has(key):
+				_own_missing[key] = true
+				DebugLog.say("Faces", "%s's own face (%s) isn't with the bar: the library's instead" % [str(person.get("name", "?")), face.get("file", "?")])
+			return ""
+		Art.own["portrait/" + key] = layer
+	_own_moods(person, face, key)  # (and their moods, any made: the calm face stands in for the rest)
 	return key
 
 
@@ -5552,17 +5553,19 @@ func _shoot_regular(regular: Dictionary) -> String:
 
 
 ## 3am, once the diary's written: faces of their own for the regulars without one (tonight's new
-## regulars, or ones from before the setting allowed it), in the gap before the next night, the
-## summary page's buttons waiting: Ollama lets go, ComfyUI starts, and it's stopped again before
-## the next night's first AI call. Counted in tonight's stats ("faces_after") and noted.
+## regulars, or ones from before the setting allowed it), then the TV moods for the faces of their
+## own without them (_make_moods), in the gap before the next night, the summary page's buttons
+## waiting: Ollama lets go, ComfyUI starts, and it's stopped again before the next night's first AI
+## call. Counted in tonight's stats ("faces_after") and noted.
 func _faces_after_closing() -> void:
-	var people := _regulars_without_faces()
-	if people.is_empty() or _closed() or str(_ai.settings.get("faces", "owner_and_regulars")) != "owner_and_regulars":
+	var setting := str(_ai.settings.get("faces", "owner_and_regulars"))
+	var people := _regulars_without_faces() if setting == "owner_and_regulars" else []
+	if (people.is_empty() and _faces_wanting_moods().is_empty()) or _closed():
 		return
-	var why := _why_no_faces(true)
+	var why := _why_no_faces()
 	if why != "":
-		_stats.story["faces_after"] = {"why": why, "waiting": people.size()}
-		DebugLog.say("Faces", "%d %s keep the library's faces for now: %s" % [people.size(), "regular" if people.size() == 1 else "regulars", why])
+		_stats.story["faces_after"] = {"why": why, "waiting": people.size(), "moods_waiting": _faces_wanting_moods().size()}
+		DebugLog.say("Faces", "%d %s keep the library's faces, %d faces of their own their calm one, for now: %s" % [people.size(), "regular" if people.size() == 1 else "regulars", _faces_wanting_moods().size(), why])
 		return
 	_writing_up = true
 	for button in _summary_buttons:
@@ -5575,10 +5578,14 @@ func _faces_after_closing() -> void:
 		add_child(_maker)
 		var problem: String = await _maker.open()
 		if problem == "" and not _closed():
-			story = await _cast_regulars(people)
+			if not people.is_empty():
+				story = await _cast_regulars(people)
+			var moody := _faces_wanting_moods()  # (tonight's new faces too, once they're made)
+			if not moody.is_empty() and not _closed() and _maker != null:
+				story["moods"] = await _make_moods(moody)
 		else:
-			story = {"why": problem if problem != "" else "the bar closed", "waiting": people.size()}
-			DebugLog.say("Faces", "after closing, the regulars keep the library's faces for now: %s" % story["why"])
+			story = {"why": problem if problem != "" else "the bar closed", "waiting": people.size(), "moods_waiting": _faces_wanting_moods().size()}
+			DebugLog.say("Faces", "after closing, the regulars keep the library's faces and their own faces their calm one, for now: %s" % story["why"])
 		if _maker != null:
 			await _maker.close()
 			if _maker != null:
@@ -5590,6 +5597,143 @@ func _faces_after_closing() -> void:
 	for button in _summary_buttons:
 		button.disabled = Game.autoplay != null
 	_update_recast_button()
+
+
+# --- Their moods (a face of their own in each TV mood, made after closing) ------------------------
+# PLAN.md: a face of their own is redrawn in each TV mood (captions.gd REACTIONS) from its calm
+# picture (ai/portrait_maker.gd redraw), MOOD_SEEDS seeds each, the best seed of each kept with the
+# bar (portrait_<tag>_<seed>_<mood>.png, the face's "moods") and read into Art.own as
+# reaction/<own key>_<mood> (_own_moods), so PeopleArt.portrait(look, key, mood) and the TV boxes
+# find it. A mood that failed, or scored worse than MOOD_CLEAN_ENOUGH, has the calm face standing in
+# (noted with why) and is tried again another night. A recast's a new key: its moods start again.
+
+const MOODS_A_GAP := 2  # people whose moods are made in one gap (each about 14 pictures: a minute and a half)
+const MOOD_SEEDS := 2  # pictures of each mood, the best kept (as the library's)
+## A mood's best seed is kept only if it scored at least this well (react_score: lower is better).
+## The art tool's own line for "looks like someone else"; the library's 882 picks all scored
+## under it (median about 0.1, the worst 0.56: shock).
+const MOOD_CLEAN_ENOUGH := 0.6
+
+
+## The moods a face of their own hasn't got yet (all of REACTIONS for a new one).
+func _moods_wanting(face: Dictionary) -> Array:
+	var got = face.get("moods", {})
+	return Captions.REACTIONS.keys().filter(func(mood): return not (got is Dictionary and (got as Dictionary).has(mood)))
+
+
+## Who's got a face of their own still without some of its moods: the owner first, then the
+## regulars (as the setting allows). [{"person", "tag", "owner": bool}]. A face without its model's
+## picture (nothing to redraw from) is left out, and noted once.
+func _faces_wanting_moods() -> Array:
+	var setting := str(_ai.settings.get("faces", "owner_and_regulars"))
+	if setting == "off" or not Hooks.own_moods:
+		return []
+	var out: Array = []
+	var people: Array = [{"person": _owner, "tag": "owner", "owner": true}]
+	if setting == "owner_and_regulars":
+		for regular in _regulars():
+			people.append({"person": regular, "tag": _face_tag(regular), "owner": false})
+	for each in people:
+		var face = (each["person"] as Dictionary).get("face", {})
+		if not face is Dictionary or str(face.get("key", "")) == "" or _moods_wanting(face).is_empty():
+			continue
+		if str(face.get("picture", "")) == "":
+			if not _own_missing.has(str(face["key"]) + "|picture"):
+				_own_missing[str(face["key"]) + "|picture"] = true
+				DebugLog.say("Faces", "%s's own face has no picture of the model's to redraw: no moods (the calm face stands in)" % str(each["person"].get("name", "?")))
+			continue
+		out.append(each)
+	return out
+
+
+## The moods of up to MOODS_A_GAP of these (the rest next time). After _maker.open(). What
+## happened, for the stats: {"people": made for, "kept", "stood_in" (moods), "left" (people still
+## to do), "names": ["Kim Mi-ra 7", "Lee Jun 5 (2 the calm face's)"]}.
+func _make_moods(people: Array) -> Dictionary:
+	var story := {"people": 0, "kept": 0, "stood_in": 0, "left": maxi(0, people.size() - MOODS_A_GAP), "names": []}
+	for each in people.slice(0, MOODS_A_GAP):
+		if _closed() or _maker == null:
+			break
+		var got := await _make_moods_for(each["person"], str(each["tag"]), bool(each["owner"]))
+		story["people"] = int(story["people"]) + 1
+		story["kept"] = int(story["kept"]) + int(got["kept"])
+		story["stood_in"] = int(story["stood_in"]) + int(got["stood_in"])
+		story["names"].append("%s %d%s" % [str(each["person"].get("name", "?")), int(got["kept"]), (" (%d the calm face's)" % int(got["stood_in"])) if int(got["stood_in"]) > 0 else ""])
+	_typing_label.text = ""
+	if int(story["left"]) > 0:
+		DebugLog.say("Faces", "moods: %d more %s next time" % [int(story["left"]), "face" if int(story["left"]) == 1 else "faces"])
+	return story
+
+
+## One person's moods still wanted, redrawn from their calm picture: each mood's best seed kept
+## (if it's clean enough), the rest the calm face's for now. {"kept", "stood_in"}.
+func _make_moods_for(person: Dictionary, tag: String, is_owner: bool) -> Dictionary:
+	var who := str(person.get("name", "someone"))
+	var face: Dictionary = person["face"]
+	var key := str(face["key"])
+	var wanted := _moods_wanting(face)
+	var id := str(Game.bar.get("id", ""))
+	_typing_label.text = "The make-up artist's doing %s's faces for the TV..." % who
+	DebugLog.say("Faces", "%s's moods (%s): redrawn from their calm picture" % [who, ", ".join(PackedStringArray(wanted))])
+	var calm := SaveStore.load_picture(id, str(face.get("picture", "")))
+	var made: Dictionary = await _maker.redraw(calm.get_image() if calm != null else null, tag, bool(person.get("look", {}).get("glasses", false)), wanted, MOOD_SEEDS, _casting_seed())
+	if _closed():
+		return {"kept": 0, "stood_in": wanted.size()}
+	var most: float = MOOD_CLEAN_ENOUGH if is_nan(Hooks.mood_clean_enough) else Hooks.mood_clean_enough
+	var moods: Dictionary = (face.get("moods", {}) as Dictionary).duplicate() if face.get("moods", {}) is Dictionary else {}
+	var got := {"kept": 0, "stood_in": 0}
+	for mood in wanted:
+		var pick: Dictionary = made.get(mood, {})
+		var why := ""
+		if pick.is_empty():
+			why = "nothing could be tried (%s)" % (_maker.last_error if _maker != null else "?")
+		elif pick.has("failed"):
+			why = "no picture came out (%s)" % str(pick["failed"])
+		elif float(pick["score"]) > most:
+			why = "the best scored %.3f, over %.2f (another face, perhaps)" % [float(pick["score"]), most]
+		var file := "portrait_%s_%d_%s.png" % [tag, int(face.get("seed", 0)), mood]
+		if why == "":
+			var layer: Image = pick["split"]["layer"]
+			if SaveStore.save_picture(id, file, layer) != OK:
+				why = "couldn't keep it with the bar"
+			else:
+				Art.own["reaction/%s_%s" % [key, mood]] = ImageTexture.create_from_image(layer)
+				moods[mood] = {"file": file, "seed": int(pick["seed"]), "score": snappedf(float(pick["score"]), 0.001)}
+				got["kept"] = int(got["kept"]) + 1
+				DebugLog.say("Faces", "%s, %s: seed %d kept (score %.3f)" % [who, mood, int(pick["seed"]), float(pick["score"])])
+				continue
+		got["stood_in"] = int(got["stood_in"]) + 1
+		DebugLog.say("Faces", "%s, %s: the calm face stands in, tried again another night: %s" % [who, mood, why])
+	face["moods"] = moods
+	if is_owner and Game.bar.get("owner", {}) is Dictionary:
+		Game.bar["owner"]["face"] = face.duplicate(true)  # (the bar's copy of the owner)
+	PeopleArt.forget_moods(key)  # (any mood looked up before it was made: null, kept)
+	Game.save()
+	return got
+
+
+## A face of their own's moods (person["face"]["moods"]) read from the bar's pictures into
+## Art.own (as reaction/<key>_<mood>), the ones not there yet; a missing picture noted once (the
+## calm face stands in for it).
+func _own_moods(person: Dictionary, face: Dictionary, key: String) -> void:
+	var moods = face.get("moods", {})
+	if not moods is Dictionary:
+		return
+	var read := 0
+	for mood in moods:
+		var art_id := "reaction/%s_%s" % [key, mood]
+		if Art.own.has(art_id) or _own_missing.has(art_id):
+			continue
+		var layer := SaveStore.load_picture(str(Game.bar.get("id", "")), str(moods[mood].get("file", "")))
+		if layer == null:
+			_own_missing[art_id] = true
+			DebugLog.say("Faces", "%s's own %s face (%s) isn't with the bar: the calm face stands in" % [str(person.get("name", "?")), mood, moods[mood].get("file", "?")])
+			continue
+		Art.own[art_id] = layer
+		read += 1
+	if read > 0:
+		PeopleArt.forget_moods(key)
+		DebugLog.say("Faces", "%s's own moods read in: %d" % [str(person.get("name", "?")), read])
 
 
 # --- Recasting a regular's face (3am: the summary page's 📷 button) -------------------------------
