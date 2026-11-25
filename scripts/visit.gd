@@ -988,12 +988,22 @@ func _show_bar_name() -> void:
 ## Close the bar: during a night, the owner closes up early (see _close_early); after it (the
 ## night summary's button), back to the title screen, saved: straight away if the owner's
 ## free, otherwise once they've finished what they're doing (an AI call can't be stopped
-## halfway).
+## halfway); at 3am, once tonight's written up and the faces after closing are made.
 func _on_leave_pressed() -> void:
 	if Game.autoplay != null:  # (the crew are running it: stop them first, which asks how)
 		_crew.ask_stop()
 		return
-	if _stopped or _closing_early:
+	if _stopped or _leave_requested:
+		return
+	if _summary != null and _summary.visible and not _night_written and not _night_open:  # (3am: the diary, then the faces after closing)
+		_leave_requested = true
+		_leave_button.disabled = true
+		if _summary_leave != null:
+			_summary_leave.disabled = true
+			_summary_leave.text = "Closing up after..."
+		DebugLog.say("Faces", "Close the bar pressed at 3am: closing up once tonight's written up and the faces after closing are done")
+		return
+	if _closing_early:
 		return
 	if _night_open:
 		_close_early()
@@ -1508,6 +1518,9 @@ func _end_night() -> void:
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
 	_night_written = true
 	_update_recast_button()  # (the 📷 button: the GPU's free until the next night)
+	if _leave_requested and not _closed():  # (Close the bar pressed while it was being written up)
+		_leave()
+		return
 	if Game.autoplay != null:
 		_autoplay_next()
 	if _closing_early:  # (written up: the button's for leaving again)

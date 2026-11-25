@@ -7,7 +7,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **Everyone's own face, their moods: a first real night.** The moods are made after closing and kept (DEVLOG, 25 Nov), but only with the test's pictures so far. On the PC with ComfyUI: close a night with regulars and look at the after-closing stats line (their moods kept, the calm face's, still to do, the seconds) and the "Faces" notes: how long a person's 14 pictures really take (tune `visit.gd` `MOODS_A_GAP` so the summary page's buttons aren't kept waiting long), whether `MOOD_CLEAN_ENOUGH` (0.6) turns down the right ones, and that the faces look like them on the TV boxes ("in the mood" in the stats rising).
 - things i noticed
   - couple of red text lines starting tests (tests run and pass but...) 
-  - and they still take over 3m30s...
+    - and they still take over 3m30s...
+  - bar creation takes ages now
+    - makes sense we're doing a lot
+    - but we need that timed (if not already) so we know if its 3min for 13mins!
+  - potcha sign text often touches the bottom of the sign
+    - nothing major but sorts of sticks out to my eye
 
 ## Future ideas and improvements
 

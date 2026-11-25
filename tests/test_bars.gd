@@ -742,6 +742,32 @@ func test_close_the_bar_closes_up_early_then_goes_back_to_the_title() -> void:
 	assert_bool(SaveStore.load_bar(id).is_empty()).is_false()
 
 
+func test_close_the_bar_at_3am_waits_for_the_faces_after_closing_regression() -> void:
+	Hooks.founding_regulars = true
+	var runner := await _open_visit()  # (offline: no photos as the bar's made)
+	var scene = runner.scene()
+	var id := str(Game.bar["id"])
+	_faces_for_regulars(INF, scene)
+	Hooks.own_moods = true
+	Hooks.mood_clean_enough = INF
+	(runner.find_child("LeaveButton") as Button).pressed.emit()  # (closing up early, to get to 3am)
+	var summary := runner.find_child("NightSummary") as Control
+	assert_bool(await _wait_until(func(): return summary.visible)).override_failure_message("closing early never ended the night").is_true()
+	# Close the bar while tonight's still being written up and the faces made: it waits (25 Nov: it
+	# shut the bar, ComfyUI stopped three seconds in, nothing made and nothing said).
+	var leave := runner.find_child("SummaryLeaveButton") as Button
+	assert_bool(scene._night_written).is_false()
+	leave.pressed.emit()
+	assert_bool(scene._leave_requested).is_true()
+	assert_bool(leave.disabled).is_true()
+	assert_str(leave.text).is_equal("Closing up after...")
+	assert_str(str(Game.requested_scene)).is_not_equal(TITLE)
+	assert_bool(await _wait_until(func(): return Game.requested_scene == TITLE, FACES_WAIT_MS)).override_failure_message("never went back to the title").is_true()
+	var saved: Dictionary = SaveStore.load_bar(id)
+	for regular in saved["regulars"]:
+		assert_int((regular["face"]["moods"] as Dictionary).size()).is_equal(Captions.REACTIONS.size())  # (made, then closed)
+
+
 func test_closing_early_sees_everyone_off_first() -> void:
 	var runner := await _open_visit()
 	var scene = runner.scene()
