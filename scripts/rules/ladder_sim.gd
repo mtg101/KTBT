@@ -61,6 +61,7 @@ static func median_season(result: Dictionary, rung: String) -> int:
 	if got.is_empty():
 		return -1
 	got.sort()
+	@warning_ignore("integer_division")  # (the middle one: whole numbers meant)
 	return int(got[got.size() / 2])
 
 
@@ -83,6 +84,7 @@ static func median_climb(result: Dictionary, rung: String) -> int:
 	if spent.is_empty():
 		return -1
 	spent.sort()
+	@warning_ignore("integer_division")  # (the middle one: whole numbers meant)
 	return int(spent[spent.size() / 2])
 
 

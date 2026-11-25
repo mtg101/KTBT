@@ -309,6 +309,7 @@ func test_people_are_lit_from_above_not_from_one_side() -> void:
 			for x in image.get_width():
 				var pixel := image.get_pixel(x, y)
 				if pixel.a8 >= 128:
+					@warning_ignore("integer_division")  # (whole numbers meant)
 					var side: Array = sides[0 if x < image.get_width() / 2 else 1]
 					side[0] += roundi(pixel.r8 / 36.0)
 					side[1] += 1

@@ -244,6 +244,7 @@ func test_canned_tv_reactions_pass_the_rules() -> void:
 		assert_str(Captions.validate_reaction(reply, names)).is_empty()
 		if str(reply["mood"]) != "none":
 			shown += 1
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	assert_int(shown).is_between(1, TRIES / 2)  # mostly nothing
 
 

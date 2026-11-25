@@ -16,7 +16,7 @@ A Korean tent bar (pojangmacha) at night, as a reality show: the night runs itse
 
 ## Gotchas (each cost a crash or a round trip)
 
-- **Warnings are errors** (project.godot): a local or parameter that shadows a member, a base class's method or a global (`log`, `crew`, GdUnit's `before`/`after`, `owner`), an unused variable or parameter (prefix `_`), and a `const X = preload(...)` named like a global `class_name` (`Ambience`, `Music`, `Bubble`, `Caption`, `LoadingScreen`: use them directly).
+- **Warnings are errors** (project.godot): a local or parameter that shadows a member, a base class's method or a global (`log`, `crew`, GdUnit's `before`/`after`, `owner`), an unused variable or parameter (prefix `_`), a `/` between two whole numbers (`@warning_ignore("integer_division")` on the line before when a whole number's meant, as the Python's `//`), a ternary whose two sides are different types (`x if ok else null`: write the `if`), and a `const X = preload(...)` named like a global `class_name` (`Ambience`, `Music`, `Bubble`, `Caption`, `LoadingScreen`: use them directly).
 - **A new night event kind** goes in `scripts/bar/night_events.gd` KINDS, or `_event()` asserts and the game stops.
 - **Notes:** `DebugLog.say("Kind", "...")`, never `print` (console kinds: `debug_log.gd` CONSOLE).
 - **Hovers** go through `Text.tip`; **Hangul on screen** needs its meaning in `rules/hangul.gd` MEANINGS (or the glossary). The check reads a run of Hangul only across spaces and digits: "까악… 까악…" is two runs of "까악", so keep punctuation out of the middle of a key.

@@ -2046,7 +2046,9 @@ const SNAP_DELAY := {"person": 0.3, "food": 0.2, "cat": 0.0}  # seconds after it
 ## they've gone.
 func _snap_aim(aim: String, who: String) -> Variant:
 	if aim == "cat":
-		return _cat_node.get_global_rect().get_center() if is_instance_valid(_cat_node) and _cat_node.visible else null
+		if is_instance_valid(_cat_node) and _cat_node.visible:
+			return _cat_node.get_global_rect().get_center()
+		return null
 	var guest: Guest = _guest_named(who)
 	if guest == null:
 		for here in _guests:

@@ -39,6 +39,7 @@ func _differing(made: Image, want: Image) -> int:
 	var a := made.get_data()
 	var b := want.get_data()
 	var count := 0
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	for i in a.size() / 4:
 		for c in 4:
 			if a[i * 4 + c] != b[i * 4 + c]:
@@ -165,10 +166,12 @@ func test_a_drawn_close_up_keeps_its_eye_whites_tear_and_blush_as_fixed_colours(
 	assert_array(Array(part)).contains([PortraitSplit.HAIR, PortraitSplit.SKIN])
 	var layer: Image = made["layer"]
 	var at := part.find(PortraitSplit.BLUSH)
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	var blush := layer.get_pixel(at % PortraitSplit.W, at / PortraitSplit.W)
 	assert_int(blush.g8).is_equal(PortraitSplit.FIXED_SLOT * 36)  # (people.py's encoding: a fixed colour, the blush's)
 	assert_int(blush.b8).is_equal(int(PortraitSplit.FIXED_OF[PortraitSplit.BLUSH]) * 8)
 	at = part.find(PortraitSplit.TEAR)
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	assert_int(layer.get_pixel(at % PortraitSplit.W, at / PortraitSplit.W).b8).is_equal(int(PortraitSplit.FIXED_OF[PortraitSplit.TEAR]) * 8)
 
 

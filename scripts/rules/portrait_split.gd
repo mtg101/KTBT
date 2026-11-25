@@ -126,6 +126,7 @@ static func parts_of(image: Image, given_fg: PackedByteArray = PackedByteArray()
 			cloth[i] = 1
 		elif chroma < 16.0:
 			hairish[i] = 1
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var size := maxi(5, w / 70) | 1  # (thicker than the model's outlines: 11 at 768 wide)
 	var opened := _window(_window(hairish, w, h, size, true), w, h, size, false)
 	var near_core := _window(big_areas(opened, w, h, HAIR_MIN), w, h, size + 2, false)
@@ -238,7 +239,9 @@ static func cut_background(data: PackedByteArray, w: int, h: int, light: PackedF
 ## The parts of mask that join up into areas at least share of the picture, as portraits.py's
 ## big_areas (worked on a quarter-size copy, picked nearest, as PIL's resize).
 static func big_areas(mask: PackedByteArray, w: int, h: int, share: float) -> PackedByteArray:
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var sw := maxi(1, w / 4)
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var sh := maxi(1, h / 4)
 	var small := PackedByteArray()
 	small.resize(sw * sh)
@@ -285,6 +288,7 @@ static func big_areas(mask: PackedByteArray, w: int, h: int, share: float) -> Pa
 ## A size x size square's minimum (every: true) or maximum over a mask of 0s and 1s, as PIL's
 ## MinFilter and MaxFilter (the edges repeated, which is the same as the square cut short there).
 static func _window(mask: PackedByteArray, w: int, h: int, size: int, every: bool) -> PackedByteArray:
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var r := size / 2
 	var across := PackedByteArray()
 	across.resize(w * h)
@@ -437,6 +441,7 @@ static func react_face(picture: Image) -> Image:
 	var w := whole.get_width()
 	var h := whole.get_height()
 	var half := whole.duplicate() as Image
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	half.resize(w / 2, h / 2, Image.INTERPOLATE_LANCZOS)
 	var half_data := half.get_data()
 	var half_lab := _lab_of(half_data, half.get_width() * half.get_height())
@@ -460,6 +465,7 @@ static func close_up(picture: Image) -> Image:
 	var h := picture.get_height()
 	var cw := int(_round_even(w * float(CLOSE_UP[0])))
 	var ch := int(_round_even(cw * float(H) / W))
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var x := (w - cw) / 2
 	var y := int(_round_even(h * float(CLOSE_UP[1])))
 	return picture.get_region(Rect2i(x, y, cw, mini(h, y + ch) - y))
@@ -627,6 +633,7 @@ static func _median(values: PackedFloat64Array) -> float:
 	var n := sorted.size()
 	if n == 0:
 		return 0.0
+	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	return sorted[n / 2] if n % 2 == 1 else (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
 
 

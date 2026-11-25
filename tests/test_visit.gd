@@ -1457,6 +1457,7 @@ func test_the_pixels_are_lit_by_the_hour() -> void:
 	assert_float(PixelLight.ambient_steps).is_equal_approx(PixelLight.ambient(scene._clock, scene._weather_kind), 0.001)
 	assert_array(PixelLight.bulbs.map(func(b): return Vector2(b.x, b.y))).is_equal(scene._tent_view.bulb_spots())
 	assert_that(PixelLight.material("tent").get_shader_parameter("to_stage_offset")).is_equal(-scene._stage.global_position)
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	assert_int(scene._light_hour).is_equal(int(scene._clock) / 60)  # (logged on the hour)
 	assert_bool(scene._stats.art.has("pools")).is_true()  # how much brighter under a bulb than at the counter's end, in the stats
 	assert_float(float(scene._stats.art["pools"])).is_greater_equal(0.0)  # (none at dusk, or in fog: the night's still as drawn all along the counter)
@@ -2387,6 +2388,7 @@ func test_a_diary_entry_fits_its_page_and_a_longer_one_scrolls() -> void:
 	var page = auto_free(DiaryPage.new())
 	add_child(page)
 	var words := "It was a quiet night under the tarp, and the rain kept most people home tonight. "
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	var longest := words.repeat(Story.MAX_DIARY / words.length() + 1).left(Story.MAX_DIARY)
 	page.show_entry({"episode": 2, "day": "Wednesday", "weather": "light drizzle", "text": longest}, "Kim Ji-hyun")
 	await get_tree().process_frame

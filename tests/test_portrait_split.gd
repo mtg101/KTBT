@@ -35,6 +35,7 @@ func _differing(made: Image, want: Image) -> int:
 	var a := made.get_data()
 	var b := want.get_data()
 	var count := 0
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	for i in a.size() / 4:
 		for c in 4:
 			if a[i * 4 + c] != b[i * 4 + c]:
@@ -124,8 +125,10 @@ func _check_drawn(made: Dictionary) -> void:
 	assert_array(eyes).contains([PortraitSplit.LINE]).not_contains([PortraitSplit.HAIR])  # (thin and dark: lines, not hair)
 	var layer: Image = made["layer"]
 	var skin := layer.get_pixel(32, 32)
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	assert_int(skin.g8 / 36).is_equal(PortraitSplit.SKIN)  # (people.py's encoding: the slot in green...)
 	assert_int(skin.a8).is_equal(255)
+	@warning_ignore("integer_division")  # (whole numbers meant)
 	var line := layer.get_pixel(eyes.find(PortraitSplit.LINE) % 4 + 25, eyes.find(PortraitSplit.LINE) / 4 + 30)
 	assert_int(line.g8).is_equal(PortraitSplit.FIXED_SLOT * 36)  # (...lines the fixed ink, in blue)
 	assert_int(line.b8).is_equal(int(PortraitSplit.FIXED_OF[PortraitSplit.LINE]) * 8)
