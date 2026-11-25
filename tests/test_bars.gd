@@ -361,10 +361,21 @@ func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
 	_faces_for_regulars(INF, scene)
 	Hooks.own_moods = true
 	Hooks.mood_clean_enough = INF
-	await scene._faces_after_closing()  # (their faces first, then the moods of both: two a gap)
+	scene._summary.visible = true  # (3am's page, where the backstage note is)
+	scene._faces_after_closing()  # (their faces first, then one person's moods a gap)
+	var note := runner.find_child("BackstageNote", true, false) as Label
+	assert_bool(await _wait_until(func(): return note.visible and note.text.contains("picture 2 of about 20"), FACES_WAIT_MS)).override_failure_message("no backstage note: " + note.text).is_true()
+	assert_str(note.text).starts_with("Backstage, while the GPU's free between nights: The casting photographer's taking ")
+	assert_bool(await _wait_until(func(): return note.text.contains("make-up artist's doing") and note.text.contains("to go"), FACES_WAIT_MS)).override_failure_message("the note didn't move on: " + note.text).is_true()
+	assert_bool(await _wait_until(func(): return not scene._writing_up, FACES_WAIT_MS)).is_true()
+	assert_bool(note.visible).is_false()  # (gone once they're done)
 	var id := str(Game.bar["id"])
 	var regulars: Array = Game.bar["regulars"]
 	var moods_count: int = Captions.REACTIONS.size()
+	assert_str(scene._stats.panel_text(0, 0)).contains("their moods: %d kept, 0 the calm face's, 1 still to do (%s %d)" % [moods_count, regulars[0]["name"], moods_count])
+	assert_bool((regulars[1]["face"] as Dictionary).has("moods")).is_false()  # (next time)
+	await scene._faces_after_closing()
+	assert_str(scene._stats.panel_text(0, 0)).contains("their moods: %d kept, 0 the calm face's (%s %d)" % [moods_count, regulars[1]["name"], moods_count])
 	for regular in regulars:
 		var face: Dictionary = regular["face"]
 		var moods: Dictionary = face["moods"]
@@ -373,7 +384,6 @@ func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
 		assert_object(SaveStore.load_picture(id, str(moods["shock"]["file"]))).is_not_null()  # (kept with the bar)
 		assert_object(PeopleArt.portrait(regular["look"], str(face["key"]), "shock")).is_not_null()
 	assert_array(scene._faces_wanting_moods()).is_empty()
-	assert_str(scene._stats.panel_text(0, 0)).contains("their moods: %d kept, 0 the calm face's (%s %d, %s %d)" % [moods_count * 2, regulars[0]["name"], moods_count, regulars[1]["name"], moods_count])
 	assert_bool(scene._maker == null).override_failure_message("the image model's still held").is_true()
 	assert_int(SaveStore.load_bar(id)["regulars"][0]["face"]["moods"].size()).is_equal(moods_count)  # (saved)
 	# Their TV box is in the mood (not the calm face standing in).
@@ -399,7 +409,7 @@ func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
 	assert_int(scene._faces_wanting_moods().size()).is_equal(1)  # (again next time)
 	scene._faces_kept[str(regulars[1]["name"])] = {"key": str(regulars[1]["face"]["key"]), "look": regulars[1]["look"]}
 	assert_str(str(scene._tv_face(str(regulars[1]["name"]), "shock")["how"])).is_equal("stood_in")
-	# Three to do: the owner first, two a gap, the third the next night.
+	# Three to do: the owner first, one a gap, the others the nights after.
 	var owner_face: Dictionary = (regulars[0]["face"] as Dictionary).duplicate(true)
 	owner_face["key"] = PortraitRules.own_key(id, "owner", int(owner_face["seed"]))
 	owner_face.erase("moods")
@@ -410,9 +420,11 @@ func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
 	assert_int(scene._faces_wanting_moods().size()).is_equal(3)
 	await scene._faces_after_closing()
 	assert_int(Game.bar["owner"]["face"]["moods"].size()).is_equal(moods_count)  # (the owner first, and the bar's copy)
+	assert_bool((regulars[0]["face"] as Dictionary).has("moods")).is_false()
+	assert_str(scene._stats.panel_text(0, 0)).contains(", 2 still to do (")
+	await scene._faces_after_closing()
 	assert_int(regulars[0]["face"]["moods"].size()).is_equal(moods_count)
 	assert_bool((regulars[1]["face"]["moods"] as Dictionary).has("shock")).is_false()
-	assert_str(scene._stats.panel_text(0, 0)).contains(", 1 still to do (")
 	await scene._faces_after_closing()
 	assert_bool((regulars[1]["face"]["moods"] as Dictionary).has("shock")).is_true()
 	assert_array(scene._faces_wanting_moods()).is_empty()
@@ -761,11 +773,12 @@ func test_close_the_bar_at_3am_waits_for_the_faces_after_closing_regression() ->
 	assert_bool(scene._leave_requested).is_true()
 	assert_bool(leave.disabled).is_true()
 	assert_str(leave.text).is_equal("Closing up after...")
+	var note := runner.find_child("BackstageNote", true, false) as Label
+	assert_bool(await _wait_until(func(): return note.visible and note.text.ends_with("Close the bar waits for them."), FACES_WAIT_MS)).override_failure_message("no backstage note: " + note.text).is_true()
 	assert_str(str(Game.requested_scene)).is_not_equal(TITLE)
 	assert_bool(await _wait_until(func(): return Game.requested_scene == TITLE, FACES_WAIT_MS)).override_failure_message("never went back to the title").is_true()
 	var saved: Dictionary = SaveStore.load_bar(id)
-	for regular in saved["regulars"]:
-		assert_int((regular["face"]["moods"] as Dictionary).size()).is_equal(Captions.REACTIONS.size())  # (made, then closed)
+	assert_int((saved["regulars"][0]["face"]["moods"] as Dictionary).size()).is_equal(Captions.REACTIONS.size())  # (made, then closed: one a gap)
 
 
 func test_closing_early_sees_everyone_off_first() -> void:

@@ -430,6 +430,8 @@ var _night_lines: Array = []  # what customers said tonight, for the summary
 var _events: NightEvents
 var _diary_page: Control  # the 3am diary page (see diary_page.gd)
 var _summary_buttons: Array = []  # disabled while the owner writes
+var _backstage: Label  # the summary page's note while the faces after closing are made (_tell_backstage)
+var _backstage_plan := {}  # {"total": pictures planned, "done", "since": msec of the first picture asked for}
 var _stats_button: Button
 var _recap_said := ""  # tonight's "Previously on…"
 var _setup_ai: Array = []  # the AI's answers while a night's being got ready (the bar opening: its menu, own dishes, recap), counted in that night's stats; [purpose, problem, reply] for a rejected reply
@@ -1002,6 +1004,7 @@ func _on_leave_pressed() -> void:
 			_summary_leave.disabled = true
 			_summary_leave.text = "Closing up after..."
 		DebugLog.say("Faces", "Close the bar pressed at 3am: closing up once tonight's written up and the faces after closing are done")
+		_tell_backstage()
 		return
 	if _closing_early:
 		return
@@ -5541,6 +5544,7 @@ func _shoot_regular(regular: Dictionary) -> String:
 	var who := str(regular.get("name", "a regular"))
 	var look: Dictionary = regular.get("look", {})
 	_typing_label.text = "The casting photographer's taking %s's photos..." % who
+	_tell_backstage()
 	var prompt := PortraitRules.prompt_for(str(regular.get("gender", "")), look, int(regular.get("age", 0)), str(regular.get("appearance", "")))
 	DebugLog.say("Faces", "%s's casting photos: %s" % [who, prompt])
 	var photos: Array = await _maker.make(prompt, _face_tag(regular), 3, _casting_seed(), PortraitRules.split_name(_face_tag(regular), look))
@@ -5585,13 +5589,20 @@ func _faces_after_closing() -> void:
 	_writing_up = true
 	for button in _summary_buttons:
 		button.disabled = true
+	_backstage_plan = {"total": _planned_pictures(people), "done": 0, "since": 0}
+	_typing_label.text = "The image model's being set up for the make-up artist..."
+	_tell_backstage()
+	DebugLog.say("Faces", "after closing: about %d pictures to make (%d regulars' casting photos, then the moods)" % [int(_backstage_plan["total"]), mini(people.size(), REGULARS_A_GAP)])
 	var let_go: bool = await _ai.let_go()
 	DebugLog.say("Faces", "after closing: Ollama let go of the model" if let_go else "after closing: Ollama didn't let go of the model (it may not have had it loaded)")
 	var story := {}
 	if not _closed():
 		_maker = PortraitMaker.new()
 		add_child(_maker)
+		_maker.picture_done.connect(_picture_backstage)
 		var problem: String = await _maker.open()
+		_backstage_plan["since"] = Time.get_ticks_msec()
+		_tell_backstage()
 		if problem == "" and not _closed():
 			if not people.is_empty():
 				story = await _cast_regulars(people)
@@ -5608,10 +5619,59 @@ func _faces_after_closing() -> void:
 				_maker.queue_free()
 				_maker = null
 	_stats.story["faces_after"] = story
+	_backstage_plan = {}
+	_tell_backstage()
+	_typing_label.text = ""
 	_writing_up = false
 	for button in _summary_buttons:
 		button.disabled = Game.autoplay != null
 	_update_recast_button()
+
+
+## About how many pictures this gap will make: the regulars' casting photos (three each, up to
+## REGULARS_A_GAP), then MOODS_A_GAP people's moods (MOOD_SEEDS each of the moods they're missing;
+## a regular cast tonight is missing all of them), the owner first.
+func _planned_pictures(people: Array) -> int:
+	var cast: Array = people.slice(0, REGULARS_A_GAP)
+	var total := cast.size() * 3
+	var moody: Array = _faces_wanting_moods().map(func(each): return _moods_wanting(each["person"]["face"]).size())
+	if Hooks.own_moods:
+		for regular in cast:
+			moody.append(Captions.REACTIONS.size())  # (once they've their face; roughly in turn)
+	for wanted in moody.slice(0, MOODS_A_GAP):
+		total += int(wanted) * MOOD_SEEDS
+	return total
+
+
+## A picture's done (made or not): the backstage note moves on.
+func _picture_backstage() -> void:
+	if _backstage_plan.is_empty():
+		return
+	_backstage_plan["done"] = int(_backstage_plan["done"]) + 1
+	_tell_backstage()
+
+
+## The summary page's note while the faces after closing are made: what the make-up artist's doing
+## (the same words as the typing line), how far through, and about how long's left from how long
+## the pictures have taken so far; hidden once they're done.
+func _tell_backstage() -> void:
+	if _backstage == null or not is_instance_valid(_backstage):
+		return
+	_backstage.visible = not _backstage_plan.is_empty()
+	if _backstage_plan.is_empty():
+		_backstage.text = ""
+		return
+	var total := maxi(int(_backstage_plan["total"]), int(_backstage_plan["done"]) + 1)
+	var done := int(_backstage_plan["done"])
+	var doing := _typing_label.text.strip_edges()
+	var far := "picture %d of about %d" % [mini(done + 1, total), total]
+	var left := ""
+	if done > 0 and int(_backstage_plan["since"]) > 0:
+		var each := (Time.get_ticks_msec() - int(_backstage_plan["since"])) / 1000.0 / done
+		var minutes := roundi(each * (total - done) / 60.0)
+		left = " · about %s to go" % ("a minute" if minutes <= 1 else "%d minutes" % minutes)
+	var waiting := " Close the bar waits for them." if _leave_requested else ""
+	_backstage.text = "Backstage, while the GPU's free between nights: %s (%s%s).%s" % [doing.trim_suffix("...").trim_suffix(".") if doing != "" else "the make-up artist's at work", far, left, waiting]
 
 
 # --- Their moods (a face of their own in each TV mood, made after closing) ------------------------
@@ -5622,7 +5682,7 @@ func _faces_after_closing() -> void:
 # find it. A mood that failed, or scored worse than MOOD_CLEAN_ENOUGH, has the calm face standing in
 # (noted with why) and is tried again another night. A recast's a new key: its moods start again.
 
-const MOODS_A_GAP := 2  # people whose moods are made in one gap (each about 14 pictures: a minute and a half)
+const MOODS_A_GAP := 1  # people whose moods are made in one gap (14 pictures: about 3½ to 4 minutes, 25 Nov)
 const MOOD_SEEDS := 2  # pictures of each mood, the best kept (as the library's)
 ## A mood's best seed is kept only if it scored at least this well (react_score: lower is better).
 ## The art tool's own line for "looks like someone else"; the library's 882 picks all scored
@@ -5689,6 +5749,7 @@ func _make_moods_for(person: Dictionary, tag: String, is_owner: bool) -> Diction
 	var wanted := _moods_wanting(face)
 	var id := str(Game.bar.get("id", ""))
 	_typing_label.text = "The make-up artist's doing %s's faces for the TV..." % who
+	_tell_backstage()
 	DebugLog.say("Faces", "%s's moods (%s): redrawn from their calm picture" % [who, ", ".join(PackedStringArray(wanted))])
 	var calm := SaveStore.load_picture(id, str(face.get("picture", "")))
 	var made: Dictionary = await _maker.redraw(calm.get_image() if calm != null else null, tag, bool(person.get("look", {}).get("glasses", false)), wanted, MOOD_SEEDS, _casting_seed())
@@ -6754,6 +6815,15 @@ func _build_ui() -> void:
 	_summary_text.custom_minimum_size = Vector2(780, 600)
 	_summary_text.fit_content = false
 	_summary_text.scroll_active = true
+	_backstage = Label.new()  # (what's going on backstage while the faces after closing are made)
+	_backstage.name = "BackstageNote"
+	_backstage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_backstage.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_backstage.custom_minimum_size = Vector2(780, 0)
+	_backstage.add_theme_font_size_override("font_size", 18)
+	_backstage.add_theme_color_override("font_color", MUTED)
+	_backstage.visible = false
+	summary_col.add_child(_backstage)
 	var summary_buttons := HBoxContainer.new()
 	summary_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	summary_buttons.add_theme_constant_override("separation", 20)

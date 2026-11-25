@@ -4,7 +4,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Everyone's own face, their moods: a first real night.** The moods are made after closing and kept (DEVLOG, 25 Nov), but only with the test's pictures so far. On the PC with ComfyUI: close a night with regulars and look at the after-closing stats line (their moods kept, the calm face's, still to do, the seconds) and the "Faces" notes: how long a person's 14 pictures really take (tune `visit.gd` `MOODS_A_GAP` so the summary page's buttons aren't kept waiting long), whether `MOOD_CLEAN_ENOUGH` (0.6) turns down the right ones, and that the faces look like them on the TV boxes ("in the mood" in the stats rising).
+- **Everyone's own face, their moods: how they look.** They're made and kept (DEVLOG, 25 Nov: 497 seconds for a new regular's face and two people's moods, one person a gap now). Still to see in play: whether they look like them on the TV boxes ("in the mood" in the stats rising as regulars come back), and the owner's sad face with no tears (scored 0.426, under the 0.6 limit; the library's worst sad was 0.29): if tearless ones look wrong, a lower limit for the moods with their own colour (sad, sweet, shock), as the art tool does.
 - things i noticed
   - couple of red text lines starting tests (tests run and pass but...) 
     - and they still take over 3m30s...

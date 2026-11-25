@@ -31,6 +31,8 @@ const WIDTH := PortraitSplit.W * PortraitSplit.SAMPLE  # 768 x 960, as the libra
 const HEIGHT := PortraitSplit.H * PortraitSplit.SAMPLE
 
 var last_error := ""
+## After each picture asked for, made or not (make() and redraw()): for the PD's backstage note.
+signal picture_done
 ## What it did, for the night's stats: "started" and "stopped" (ComfyUI, by us), "already" (it was
 ## running), "made", "failed" (pictures), "seconds" (open to close).
 var counts := {}
@@ -205,12 +207,14 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 		if picture == null:
 			counts["failed"] = int(counts.get("failed", 0)) + 1
 			DebugLog.say("Faces", "%s, seed %d: no picture (%s)" % [person, pic_seed, last_error])
+			picture_done.emit()
 			continue
 		var took := (Time.get_ticks_msec() - asked) / 1000.0
 		var split := await _split(picture, split_name if split_name != "" else person)
 		if not is_inside_tree():
 			return made
 		counts["made"] = int(counts.get("made", 0)) + 1
+		picture_done.emit()
 		var shares: Dictionary = split.get("shares", {})
 		DebugLog.say("Faces", "%s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (hair %d%%, skin %d%%, cloth %d%%, lines %d%%)" % [person, pic_seed, took,
 			int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else "", float(split.get("score", 99.0)), roundi(float(shares.get("hair", 0)) * 100), roundi(float(shares.get("skin", 0)) * 100),
@@ -272,12 +276,14 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 				counts["failed"] = int(counts.get("failed", 0)) + 1
 				why = last_error
 				DebugLog.say("Faces", "%s, %s, seed %d: no picture (%s)" % [person, mood, pic_seed, why])
+				picture_done.emit()
 				continue
 			var took := (Time.get_ticks_msec() - asked) / 1000.0
 			var split := await _split(picture, person, true)
 			if not is_inside_tree():
 				return out
 			counts["made"] = int(counts.get("made", 0)) + 1
+			picture_done.emit()
 			var score := PortraitSplit.react_score(split["part"], calm_split["part"], mood)
 			var shown := PortraitSplit.colours(split["part"])
 			DebugLog.say("Faces", "%s, %s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (whites %d, tears %d, blush %d)" % [person, mood, pic_seed, took,
