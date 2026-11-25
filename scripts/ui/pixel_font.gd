@@ -20,6 +20,7 @@ const SIZES := {
 ## Each piece of text on the stage: [size, times its own pixel height].
 const USES := {
 	"sign_hangul": ["galmuri9", 3],  # the sign's Hangul (포장마차): on the art's grid
+	"sign_hangul_small": ["galmuri7", 3],  # ...on a sign with less room inside its frame (the neon's tubes)
 	"sign_english": ["galmuri7", 2],  # the bar's name under it (a long name has to fit the board)
 	"neon": ["galmuri7", 3],  # 노래방, down the pillar: on the grid
 	"closed_hangul": ["galmuri7", 3],  # 마감, on the CLOSED board: on the grid

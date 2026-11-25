@@ -257,6 +257,10 @@ func test_everything_gets_counted() -> void:
 	assert_str(stats.panel_text(0, 0)).contains("model warmed up at the title: failed (Can't reach Ollama)")
 	stats.story.erase("warm_up")
 	assert_str(stats.panel_text(0, 0)).not_contains("warmed up")
+	assert_str(stats.panel_text(0, 0)).not_contains("Making the bar:")  # (a reopened bar: nothing made)
+	stats.story["opening_steps"] = {"owner": 11.6, "sign": 4.2, "faces": 128.0, "recap": 19.4}  # (a new bar's steps: visit.gd _step_done)
+	assert_str(stats.panel_text(0, 0)).contains("Making the bar: 2m43s · owner 12s · sign 4s · faces 2m08s · recap 19s")
+	stats.story.erase("opening_steps")
 	stats.story["recap_faces"] = {"beats": ["Kim Ji-ho", "Park Min-seo"], "card": ["Kim Ji-ho"], "kept": 4}  # (last night's faces in "Previously on…")
 	assert_str(stats.panel_text(0, 0)).contains("recap stormy (ai) · faces beside the beats 2, on the card 1 (of 4 kept)")
 	stats.story["edit"] = {"stepped_in": "loading", "title_by": "pd", "cliffhanger_by": "writers", "title": "Salt", "scene_faces": [3, 5]}

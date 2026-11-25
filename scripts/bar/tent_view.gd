@@ -47,6 +47,42 @@ func _init(size_of_stage: Vector2) -> void:
 	stage_size = size_of_stage
 
 
+## Where the sign's two lines go, by its style, so the letters sit inside its frame with a gap
+## all round: the inside of each art's frame (screen pixels from the sign's top: the art is 21
+## rows, 3 each, from y = -1), the Hangul's size, and each label's top. The letters' own tops
+## and bottoms are worked out in sign_letters() (and checked against the inside in the tests).
+## A sign in code (no art) is laid out as the wood.
+const SIGN_LINES := {
+	"wood": {"inside": [2, 59], "hangul": "sign_hangul", "hangul_y": 2, "english_y": 36},
+	"banner": {"inside": [2, 59], "hangul": "sign_hangul", "hangul_y": 2, "english_y": 36},
+	"lightbox": {"inside": [5, 56], "hangul": "sign_hangul", "hangul_y": 2, "english_y": 35},
+	"neon": {"inside": [8, 53], "hangul": "sign_hangul_small", "hangul_y": 6, "english_y": 32},
+}
+
+
+## A sign style's layout (SIGN_LINES; the wood's for one it hasn't got).
+static func sign_lines(style: String) -> Dictionary:
+	return SIGN_LINES.get(style, SIGN_LINES["wood"])
+
+
+## Where the letters themselves are, top and bottom, on a sign of this style: a label's top,
+## plus the font's ascent to the line the letters stand on, less their height (a pixel font's
+## letters are its pixel height less one, times its multiple: Galmuri9's Hangul are 9 of 10).
+## Without the font, its size stands in for the ascent.
+static func sign_letters(style: String) -> Dictionary:
+	var lines := sign_lines(style)
+	var boxes := {}
+	for line in [["hangul", str(lines["hangul"]), int(lines["hangul_y"])], ["english", "sign_english", int(lines["english_y"])]]:
+		var spec: Array = PixelFont.USES[line[1]]
+		var size := PixelFont.size_for(line[1])
+		var made: Font = PixelFont.font(str(spec[0]))
+		var ascent := made.get_ascent(size) if made != null else float(size)
+		var bottom := float(line[2]) + ascent
+		var height := float((int(PixelFont.SIZES[spec[0]]["pixels"]) - 1) * int(spec[1]))
+		boxes[line[0]] = [bottom - height, bottom]
+	return boxes
+
+
 ## The sign over the tarp: the name in Hangul, big, with the romanised name under it.
 func build_sign(stage: Control) -> void:
 	sign_node = Control.new()
@@ -124,10 +160,14 @@ func show_look(bar: Dictionary) -> void:
 	var style: Array = BarLook.SIGN_STYLES.get(look["sign"], BarLook.SIGN_STYLES["wood"])
 	sign_board.color = Color(style[0])
 	_sign_art("sign/" + str(look["sign"]))
+	var lines := sign_lines(str(look["sign"]))  # (inside its frame, with a gap all round)
+	PixelFont.apply(sign_hangul, str(lines["hangul"]))
+	sign_hangul.position.y = float(lines["hangul_y"])
+	sign_english.position.y = float(lines["english_y"])
 	for label in [sign_hangul, sign_english]:
 		label.add_theme_color_override("font_color", Color(style[1]))
-		if look["sign"] == "neon":  # a glowing tube: a soft halo round the letters
-			label.add_theme_constant_override("outline_size", 8)
+		if look["sign"] == "neon":  # a glowing tube: a soft halo round the letters (small: the tubes are close)
+			label.add_theme_constant_override("outline_size", 4)
 			label.add_theme_color_override("font_outline_color", Color(style[1]).darkened(0.5))
 		else:
 			label.add_theme_constant_override("outline_size", 0)

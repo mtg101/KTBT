@@ -4,15 +4,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Everyone's own face, their moods: how they look.** They're made and kept (DEVLOG, 25 Nov: 497 seconds for a new regular's face and two people's moods, one person a gap now). Still to see in play: whether they look like them on the TV boxes ("in the mood" in the stats rising as regulars come back), and the owner's sad face with no tears (scored 0.426, under the 0.6 limit; the library's worst sad was 0.29): if tearless ones look wrong, a lower limit for the moods with their own colour (sad, sweet, shock), as the art tool does.
-- things i noticed
-  - couple of red text lines starting tests (tests run and pass but...) 
-    - and they still take over 3m30s...
-  - bar creation takes ages now
-    - makes sense we're doing a lot
-    - but we need that timed (if not already) so we know if its 3min for 13mins!
-  - potcha sign text often touches the bottom of the sign
-    - nothing major but sorts of sticks out to my eye
+- **Faster: the tests and making a bar.** The full test run takes over 3½ minutes; find the slow test files and cut their waits and shared setup. Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them.
 
 ## Future ideas and improvements
 
@@ -58,6 +50,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Presentation
 
+- **Tearless sad faces:** the owner's sad mood scored 0.426 with no tears (under the 0.6 limit; the library's worst sad was 0.29). If tearless ones start to look wrong, a lower limit for the moods with their own colour (sad, sweet, shock), as the art tool has.
 - **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
 - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
 - **More sound reactions:** korean TV is famous for it alongside the TV pops

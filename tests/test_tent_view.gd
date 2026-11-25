@@ -50,6 +50,29 @@ func test_the_tent_shows_the_bars_look() -> void:
 		assert_int(view.tent_shape(str(shape)).size()).is_greater_equal(4)
 
 
+## Every sign style's two lines sit inside its frame, with a gap all round and between them
+## (the bar's name touched the lightbox's frame, and ran into the neon's bottom tube), and the
+## Hangul's top is on the art's grid (3 pixels a row, from y = -1).
+func test_the_signs_words_sit_inside_its_frame() -> void:
+	for style in BarLook.SIGN_STYLES:
+		var inside: Array = TentView.sign_lines(str(style))["inside"]
+		var letters := TentView.sign_letters(str(style))
+		var why := "the %s sign: %s inside %s" % [style, letters, inside]
+		assert_float(letters["hangul"][0] - float(inside[0])).override_failure_message(why).is_greater_equal(3.0)
+		assert_float(letters["english"][0] - letters["hangul"][1]).override_failure_message(why).is_greater_equal(3.0)
+		assert_float(float(inside[1]) - letters["english"][1]).override_failure_message(why).is_greater_equal(3.0)
+		assert_int((int(letters["hangul"][0]) + 1) % 3).override_failure_message(why).is_equal(0)
+	var view := _tent()
+	var look := BarLook.default_bar_look()
+	look["sign"] = "neon"
+	view.show_look({"name": "Golmok Pocha", "look": look})
+	assert_int(view.sign_hangul.get_theme_font_size("font_size")).is_equal(PixelFont.size_for("sign_hangul_small"))  # (less room inside the tubes)
+	assert_float(view.sign_english.position.y).is_equal(float(TentView.sign_lines("neon")["english_y"]))
+	look["sign"] = "lightbox"
+	view.show_look({"name": "Golmok Pocha", "look": look})
+	assert_int(view.sign_hangul.get_theme_font_size("font_size")).is_equal(PixelFont.size_for("sign_hangul"))
+
+
 func test_the_light_follows_the_hour_the_weather_and_closing_up() -> void:
 	var view := _tent()
 	view.update_light(NightRules.OPEN_MINUTES, "", false)

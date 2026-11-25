@@ -385,6 +385,8 @@ var _loading_note := ""  # what it's waiting on when the typing label says nothi
 var _loading_said := ""  # ...and what the status said last, and since when (real seconds)
 var _loading_since := 0.0
 var _loading_opened := 0.0  # real seconds when the loading screen went up (for the stats)
+var _opening_steps := {}  # a new bar: seconds each step of making it took, in order (the stats' "Making the bar:", and the notes)
+var _step_from := 0.0  # real seconds when the step going now began
 ## How tonight opened (loading time, the recap's style and who wrote it), noted before the
 ## night's stats exist, and handed to them when it starts (NightStats.story).
 var _before_night := {}
@@ -674,6 +676,15 @@ const LOADING_PATIENCE := 5  # seconds before the status counts them
 const LOADING_WAKING := 15  # ...and before it says why it might be slow
 
 
+## A new bar: the step of making it that just finished, and how long it took (since the last one).
+func _step_done(step: String) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var took := now - _step_from
+	_step_from = now
+	_opening_steps[step] = float(_opening_steps.get(step, 0.0)) + took
+	DebugLog.say("Opening", "%s took %.1fs" % [step, took])
+
+
 func _end_loading() -> void:
 	if _loading == null or not _loading.visible:
 		return
@@ -719,6 +730,7 @@ func _on_try_again_pressed() -> void:
 
 func _invent_owner() -> void:
 	_owner_working = true
+	_step_from = Time.get_ticks_msec() / 1000.0  # (a try again carries on the owner's step)
 	_offer_setup()
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling a tarp...")
 	_typing_label.text = "The casting team are finding the tent's owner..."
@@ -736,6 +748,7 @@ func _invent_owner() -> void:
 		_end_loading()  # so the player can see why, and try again
 		_owner_working = false
 		return
+	_step_done("owner")
 	_owner = result
 	_owner["gender"] = gender
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
@@ -748,32 +761,43 @@ func _invent_owner() -> void:
 	_owner_node.visible = true
 	_narrate(Text.as_sentence(str(_owner["appearance"])))
 	await _name_bar()
+	_step_done("sign")
 	_apply_setup()  # (if the PD set the show up before the bar was saved)
 	await _name_cat()
+	_step_done("cat")
 	await _choose_look()
+	_step_done("tarp")
 	if Hooks.bar_menus:
 		await _choose_menu()
+		_step_done("menu")
 	if Hooks.founding_regulars:
 		await _make_founding_regulars()
+		_step_done("regulars")
 	_show_look()
 	_show_cat()
 	await _cast_owner_face()  # (the AI's done with the bar for now: the GPU's free for the image model)
+	_step_done("faces")
 	await _frame_done  # let the tent draw before the loading screen fades
 	while (_setting_up or _casting or _casting_regulars) and not _closed():  # (the PD's setting the show up, or a reshoot: it starts when they're done)
 		await get_tree().process_frame
 	_setup_open = false
 	await _close_casting()
+	_step_done("waiting on the PD")
 	if _closed():
 		return
 	await _book_channel()  # (who's filming, and where it goes out: after the setup, which may have moved it)
+	_step_done("channel")
 	if _closed():
 		return
 	_end_loading()
 	if Hooks.recaps:
 		_before_night["recap_by"] = "game"  # (a series opener's always the game's)
 		await _play_recap(Story.series_opener(_recap_facts()), true)  # a new series: its first episode
+		_step_done("recap")
 		if _closed():
 			return
+	_before_night["opening_steps"] = _opening_steps.duplicate()  # (for the stats: "Making the bar:")
+	DebugLog.say("Opening", "the bar took %s to make: %s" % [NightStats.span_text(NightStats.total_seconds(_opening_steps)), NightStats.opening_steps_text(_opening_steps)])
 	_narrate("%s opens up for the night." % _owner_display())
 	_update_info()
 	_owner_working = false

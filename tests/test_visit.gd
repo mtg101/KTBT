@@ -1775,6 +1775,12 @@ func test_a_loading_screen_covers_a_new_bar_being_set_up() -> void:
 	assert_bool(loading.is_placeholder()).override_failure_message("the loading screen's tent became the bar's").is_false()
 	assert_str((loading.find_child("SignHangul", true, false) as Label).text).is_equal(str(Game.bar["look"]["hangul"]))
 	assert_str(str(runner.scene()._stats.story.get("loading_tent", runner.scene()._before_night.get("loading_tent", "")))).is_equal("placeholder, then the bar's")
+	# Each step of making it is timed, in order, for the stats ("Making the bar:") and the notes.
+	assert_bool(await _wait_until(func(): return runner.scene()._stats != null and runner.scene()._stats.story.has("opening_steps"))).override_failure_message("the steps of making the bar weren't timed").is_true()
+	var steps: Dictionary = runner.scene()._stats.story["opening_steps"]
+	assert_array(steps.keys().slice(0, 4)).is_equal(["owner", "sign", "cat", "tarp"])
+	assert_array(steps.keys()).contains(["faces", "waiting on the PD", "channel"])
+	assert_float(float(steps["owner"])).is_greater(0.0)  # (the canned AI takes a moment to think)
 
 
 func test_passers_by_carry_umbrellas_in_the_rain() -> void:

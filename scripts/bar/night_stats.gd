@@ -884,6 +884,8 @@ func panel_text(seated: int, cooking: int) -> String:
 		+ ((" · faces beside the beats %d, on the card %d (of %d kept)" % [story["recap_faces"].get("beats", []).size(), story["recap_faces"].get("card", []).size(), int(story["recap_faces"].get("kept", 0))]) + (" (the owner's own face)" if bool(story["recap_faces"].get("own", false)) else "") if story.has("recap_faces") else "")
 		+ ((" · cut to the internet: %s" % story["recap_online"]) if str(story.get("recap_online", "")) != "" else "")
 		+ ((" · model warmed up at the title: %s" % warm_up_text(story["warm_up"])) if story.get("warm_up", {}) is Dictionary and not story.get("warm_up", {}).is_empty() else ""))
+	if story.get("opening_steps", {}) is Dictionary and not (story.get("opening_steps", {}) as Dictionary).is_empty():  # (a new bar: how long each step of making it took, visit.gd _step_done)
+		lines.append("Making the bar: %s · %s" % [span_text(total_seconds(story["opening_steps"])), opening_steps_text(story["opening_steps"])])
 	if not art.is_empty():
 		lines.append("Art: images %d · drawn in code %d · lit by the hour %d%s · words in pixels %d · poses %d · glasses raised %d · mouthfuls %d · the owner: poured %d, carried %d, stirred %d, waved %d%s" % [art.get("images", []).size(), art.get("drawn", []).size(), int(art.get("lit", 0)),
 			(" (a bulb's pool +%.1f steps over the counter's end)" % float(art["pools"])) if art.has("pools") else "", int(art.get("pixel_words", 0)), poses, int(gestures.get("drink", 0)), int(gestures.get("eat", 0)),
@@ -992,6 +994,28 @@ func portraits_text() -> String:
 
 ## Faces of their own made as the bar opened (visit.gd _cast_owner_face): the owner's, or why they
 ## keep the library's; the pictures made and failed, the casting rounds, ComfyUI and how long.
+## A new bar's steps and how long each took, in order: "owner 12s · sign 4s · faces 2m08s".
+static func opening_steps_text(steps: Dictionary) -> String:
+	return " · ".join(PackedStringArray(steps.keys().map(func(step): return "%s %s" % [step, span_text(float(steps[step]))])))
+
+
+## All the steps' seconds added up.
+static func total_seconds(steps: Dictionary) -> float:
+	var total := 0.0
+	for step in steps:
+		total += float(steps[step])
+	return total
+
+
+## Seconds as "45s", or "3m27s" from a minute.
+static func span_text(seconds: float) -> String:
+	var whole := roundi(seconds)
+	if whole < 60:
+		return "%ds" % whole
+	@warning_ignore("integer_division")
+	return "%dm%02ds" % [whole / 60, whole % 60]
+
+
 ## The title screen's warm-up of the model (Game.warm_up_ai), for "Opening:": "loaded in 8s",
 ## "still going" (the bar opened before it was done) or "failed (why)".
 static func warm_up_text(warm: Dictionary) -> String:
