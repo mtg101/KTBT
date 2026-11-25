@@ -6,17 +6,24 @@ extends Node
 ## (/history) and fetching the picture (/view), which rules/portrait_split.gd splits into a
 ## portrait (on a worker thread: about 2.5 seconds a picture). Only in the gaps when the GPU's
 ## free (visit.gd lets Ollama go first, Ai.let_go): open(), make() as many as wanted, close().
+## redraw() makes a face's TV moods from its calm picture, as the library's reaction faces were
+## (tools/art/portraits.py): the picture sent up (/upload/image), tools/art/klein_edit_api.json
+## queued with its Load Image set to it, each picture split into a close-up (react_split) and the
+## best seed of each mood picked against the calm one's (react_score, best()).
 ## A ComfyUI that was already running is used and left running; one started here is stopped.
 ## Anything going wrong is said in last_error and the notes, and the caller keeps the library's
 ## face. Tests hand it pictures (Hooks.fake_comfy) instead of ComfyUI.
 
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const PortraitSplit = preload("res://scripts/rules/portrait_split.gd")
+const PortraitRules = preload("res://scripts/rules/portraits.gd")
 const DebugLog = preload("res://scripts/debug_log.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
 
 const URL := "http://127.0.0.1:8188"
 const WORKFLOW := "res://tools/art/klein_api.json"
+const EDIT_WORKFLOW := "res://tools/art/klein_edit_api.json"  # (the moods: a picture redrawn)
+const MOOD_SEEDS_APART := 10  # a mood's seeds from the last mood's, as portraits.py's jobs
 const PATH_FILE := "res://tools/comfyui_path.txt"  # (this PC's own, as the helper's: not in git)
 const START_SECONDS := 90  # ComfyUI takes 10 to 30 seconds to start
 const PICTURE_SECONDS := 180  # one picture at most (the first loads the model: about 5 seconds each after)
@@ -31,6 +38,11 @@ var _pid := -1
 var _started := false
 var _opened_at := 0
 var _workflow := {}
+var _edit := {}
+## The edit workflow redraw() reads (tests point it somewhere else).
+var edit_workflow := EDIT_WORKFLOW
+## With Hooks.fake_comfy: each workflow that would have been queued, in turn, for the tests.
+var sent: Array = []
 
 
 ## The ComfyUI folder to start: the setting, else tools/comfyui_path.txt's line; "" if neither
@@ -55,11 +67,13 @@ static func clean_path(text: String) -> String:
 
 ## The workflow to queue for one picture: a copy of the exported one with the prompt in its
 ## (first, not negative) text box, the seed, the size (the Klein template's Width and Height
-## boxes) and where it's saved; its whole numbers as whole numbers (JSON gives floats). {} if it
-## has no prompt box.
-static func workflow_for(base: Dictionary, prompt: String, pic_seed: int, width: int, height: int, prefix: String) -> Dictionary:
+## boxes) and where it's saved; its whole numbers as whole numbers (JSON gives floats). reference:
+## the picture an edit workflow redraws (its Load Image's, as ComfyUI named it when it was sent
+## up). {} if it has no prompt box, or a reference and no Load Image.
+static func workflow_for(base: Dictionary, prompt: String, pic_seed: int, width: int, height: int, prefix: String, reference: String = "") -> Dictionary:
 	var workflow: Dictionary = _whole(base.duplicate(true))
 	var prompted := false
+	var loaded := reference == ""
 	for id in workflow:
 		var node = workflow[id]
 		if not node is Dictionary or not (node as Dictionary).get("inputs") is Dictionary:
@@ -83,7 +97,10 @@ static func workflow_for(base: Dictionary, prompt: String, pic_seed: int, width:
 			inputs["value"] = height
 		if type == "SaveImage":
 			inputs["filename_prefix"] = prefix
-	return workflow if prompted else {}
+		if type == "LoadImage" and reference != "" and inputs.has("image"):
+			inputs["image"] = reference
+			loaded = true
+	return workflow if prompted and loaded else {}
 
 
 static func _whole(value: Variant) -> Variant:
@@ -182,7 +199,7 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 	for k in count:
 		var pic_seed := first_seed + k
 		var asked := Time.get_ticks_msec()
-		var picture: Image = await _picture(prompt, person, pic_seed, k)
+		var picture: Image = await _picture(_workflow, prompt, pic_seed, k, "ktbt/faces/%s" % person)
 		if not is_inside_tree():
 			return made
 		if picture == null:
@@ -202,17 +219,131 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 	return made
 
 
-func _picture(prompt: String, person: String, pic_seed: int, k: int) -> Image:
+
+## A face of someone's own in TV moods (moods: captions.gd REACTIONS's), redrawn from its calm
+## picture (the model's, kept with the bar: the face's "picture"), as the library's reaction faces
+## were (tools/art/portraits.py): the picture sent up to ComfyUI (/upload/image, so one that was
+## already running has it too), then for each mood seeds pictures (seeds from first_seed, each mood
+## MOOD_SEEDS_APART on) by the edit workflow, its prompt PortraitRules.react_prompt (glasses said
+## outright), each split into its close-up on a worker thread (react_split) and scored against the
+## calm one's (react_score); each mood's best seed (PortraitSplit.best). After open().
+## {mood: {"seed", "picture", "split", "score", "scores": {seed: score}}}, a mood none of whose
+## pictures came out {"failed": why}; {} if nothing could be tried (no edit workflow, no calm
+## picture, the upload refused: why in last_error and the notes), so the calm face is kept.
+## person: who (for the notes and the pictures' names: "owner", a regular's tag).
+func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int, first_seed: int) -> Dictionary:
+	var out := {}
+	if calm == null or calm.is_empty():
+		_fail_redraw(person, "no calm picture to redraw")
+		return out
+	if _edit.is_empty():
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(edit_workflow)) if FileAccess.file_exists(edit_workflow) else null
+		if not parsed is Dictionary:
+			_fail_redraw(person, "no edit workflow at %s (ComfyUI's Workflow > Export (API))" % edit_workflow)
+			return out
+		_edit = parsed
+	var reference := await _upload(calm, "ktbt_%s_calm.png" % person)
+	if not is_inside_tree():
+		return out
+	if reference == "":
+		_fail_redraw(person, last_error)
+		return out
+	var calm_split := await _split(calm, person, true)
+	if not is_inside_tree():
+		return out
+	var k := 0
+	for m in moods.size():
+		var mood := str(moods[m])
+		var prompt := PortraitRules.react_prompt(mood, glasses)
+		if prompt == "":
+			out[mood] = {"failed": "there's no face for the mood %s" % mood}
+			DebugLog.say("Faces", "%s, %s: %s" % [person, mood, out[mood]["failed"]])
+			continue
+		var tried: Array = []
+		var why := ""
+		for n in seeds:
+			var pic_seed := first_seed + MOOD_SEEDS_APART * m + n
+			var asked := Time.get_ticks_msec()
+			var picture: Image = await _picture(_edit, prompt, pic_seed, k, "ktbt/faces/%s_%s" % [person, mood], reference)
+			k += 1
+			if not is_inside_tree():
+				return out
+			if picture == null:
+				counts["failed"] = int(counts.get("failed", 0)) + 1
+				why = last_error
+				DebugLog.say("Faces", "%s, %s, seed %d: no picture (%s)" % [person, mood, pic_seed, why])
+				continue
+			var took := (Time.get_ticks_msec() - asked) / 1000.0
+			var split := await _split(picture, person, true)
+			if not is_inside_tree():
+				return out
+			counts["made"] = int(counts.get("made", 0)) + 1
+			var score := PortraitSplit.react_score(split["part"], calm_split["part"], mood)
+			var shown := PortraitSplit.colours(split["part"])
+			DebugLog.say("Faces", "%s, %s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (whites %d, tears %d, blush %d)" % [person, mood, pic_seed, took,
+				int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else "", score,
+				int(shown["white"]), int(shown["tear"]), int(shown["blush"])])
+			tried.append({"seed": pic_seed, "picture": picture, "split": split, "score": score})
+		var at := PortraitSplit.best(tried)
+		if at < 0:
+			out[mood] = {"failed": why}
+			DebugLog.say("Faces", "%s, %s: no picture came out (%s)" % [person, mood, why])
+			continue
+		var pick: Dictionary = tried[at]
+		var scores := {}
+		for each in tried:
+			scores[int(each["seed"])] = snappedf(float(each["score"]), 0.001)
+		pick["scores"] = scores
+		out[mood] = pick
+		DebugLog.say("Faces", "%s, %s: seed %d picked, score %.3f (of %s)" % [person, mood, int(pick["seed"]), float(pick["score"]), str(scores)])
+	return out
+
+
+## Sends a picture up to ComfyUI's input folder (/upload/image, a form), for an edit workflow's
+## Load Image: its name as ComfyUI has it ("ktbt/<file>"), or "" (why in last_error).
+func _upload(picture: Image, file: String) -> String:
+	counts["uploads"] = int(counts.get("uploads", 0)) + 1
 	if not Hooks.fake_comfy.is_empty():
+		await get_tree().process_frame
+		if Hooks.fake_upload_refused:
+			last_error = "ComfyUI refused the calm picture (the test's)"
+			return ""
+		DebugLog.say("Faces", "the calm picture sent up as ktbt/%s (the test's: nothing sent)" % file)
+		return "ktbt/" + file
+	var boundary := "ktbt%d" % Time.get_ticks_usec()
+	var body := ("--%s\r\nContent-Disposition: form-data; name=\"image\"; filename=\"%s\"\r\nContent-Type: image/png\r\n\r\n" % [boundary, file]).to_utf8_buffer()
+	body.append_array(picture.save_png_to_buffer())
+	body.append_array(("\r\n--%s\r\nContent-Disposition: form-data; name=\"subfolder\"\r\n\r\nktbt\r\n--%s\r\nContent-Disposition: form-data; name=\"overwrite\"\r\n\r\ntrue\r\n--%s--\r\n" % [boundary, boundary, boundary]).to_utf8_buffer())
+	var reply := await _request(URL + "/upload/image", HTTPClient.METHOD_POST, body, 30.0, "multipart/form-data; boundary=" + boundary)
+	var answer = JSON.parse_string((reply[2] as PackedByteArray).get_string_from_utf8()) if reply[0] else null
+	if not answer is Dictionary or str(answer.get("name", "")) == "":
+		last_error = "ComfyUI refused the calm picture (HTTP %d)" % int(reply[1])
+		return ""
+	var named := str(answer["name"])
+	var folder := str(answer.get("subfolder", ""))
+	var reference := folder + "/" + named if folder != "" else named
+	DebugLog.say("Faces", "the calm picture sent up to ComfyUI as %s (%d KB)" % [reference, roundi(body.size() / 1024.0)])
+	return reference
+
+
+func _fail_redraw(person: String, why: String) -> void:
+	last_error = why
+	counts["redraws_failed"] = int(counts.get("redraws_failed", 0)) + 1
+	DebugLog.say("Faces", "%s's moods not made: %s (the calm face kept)" % [person, why])
+
+func _picture(base: Dictionary, prompt: String, pic_seed: int, k: int, prefix: String, reference: String = "") -> Image:
+	if not Hooks.fake_comfy.is_empty():
+		if not base.is_empty():
+			sent.append(workflow_for(base, prompt, pic_seed, WIDTH, HEIGHT, prefix, reference))
 		await get_tree().process_frame
 		var fake = Hooks.fake_comfy[k % Hooks.fake_comfy.size()]
 		if fake is Image:
 			return (fake as Image).duplicate() as Image
 		last_error = "the test's picture wasn't one"
 		return null
-	var workflow := workflow_for(_workflow, prompt, pic_seed, WIDTH, HEIGHT, "ktbt/faces/%s" % person)
+	var workflow := workflow_for(base, prompt, pic_seed, WIDTH, HEIGHT, prefix, reference)
 	if workflow.is_empty():
-		last_error = "the workflow has no prompt box"
+		last_error = "the workflow has no prompt box" + (" or Load Image" if reference != "" else "")
 		return null
 	var queued := await _request(URL + "/prompt", HTTPClient.METHOD_POST, JSON.stringify({"prompt": workflow, "client_id": "ktbt-game"}), 15.0)
 	var answer = JSON.parse_string((queued[2] as PackedByteArray).get_string_from_utf8()) if queued[0] else null
@@ -248,19 +379,22 @@ func _picture(prompt: String, person: String, pic_seed: int, k: int) -> Image:
 ## (Hooks.kept_splits, by the picture's pixels) and a copy handed back after, scored afresh for who
 ## it's for (the score's the only part that depends on them, and quick), marked "kept": about 2.5
 ## seconds a face saved, the split itself checked against the Python's by test_portrait_split.
-func _split(picture: Image, person: String) -> Dictionary:
+## react: a mood's picture, split into its close-up (react_split: no score of its own, react_score
+## is against the calm one's), checked by test_reaction_split.
+func _split(picture: Image, person: String, react: bool = false) -> Dictionary:
 	var key := ""
 	if not Hooks.fake_comfy.is_empty():
-		key = "%dx%d|%d" % [picture.get_width(), picture.get_height(), hash(picture.get_data())]
+		key = "%s%dx%d|%d" % ["react|" if react else "", picture.get_width(), picture.get_height(), hash(picture.get_data())]
 		if Hooks.kept_splits.has(key):
 			await get_tree().process_frame
 			var kept := copy_split(Hooks.kept_splits[key])
-			kept["score"] = PortraitSplit.score(kept["part"], person)
+			if not react:
+				kept["score"] = PortraitSplit.score(kept["part"], person)
 			kept["kept"] = true
 			kept["ms"] = 0
 			return kept
 	var out := {}
-	var task := WorkerThreadPool.add_task(func(): out.merge(PortraitSplit.split(picture, person)))
+	var task := WorkerThreadPool.add_task(func(): out.merge(PortraitSplit.react_split(picture) if react else PortraitSplit.split(picture, person)))
 	while not WorkerThreadPool.is_task_completed(task):
 		await get_tree().process_frame
 	WorkerThreadPool.wait_for_task_completion(task)
@@ -283,13 +417,15 @@ func _answers() -> bool:
 	return reply[0]
 
 
-## [ok (HTTP 200), the HTTP code, the body].
-func _request(url: String, method: HTTPClient.Method, body: String, seconds: float) -> Array:
+## [ok (HTTP 200), the HTTP code, the body]. body: text (JSON), or bytes sent as they are with
+## content_type (the upload's form).
+func _request(url: String, method: HTTPClient.Method, body: Variant, seconds: float, content_type: String = "application/json") -> Array:
 	var http := HTTPRequest.new()
 	http.timeout = seconds
 	add_child(http)
-	var headers := PackedStringArray(["Content-Type: application/json"]) if method == HTTPClient.METHOD_POST else PackedStringArray()
-	if http.request(url, headers, method, body) != OK:
+	var headers := PackedStringArray(["Content-Type: " + content_type]) if method == HTTPClient.METHOD_POST else PackedStringArray()
+	var asked: Error = http.request_raw(url, headers, method, body) if body is PackedByteArray else http.request(url, headers, method, str(body))
+	if asked != OK:
 		http.queue_free()
 		return [false, 0, PackedByteArray()]
 	var result: Array = await http.request_completed

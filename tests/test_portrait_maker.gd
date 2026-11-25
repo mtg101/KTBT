@@ -1,19 +1,26 @@
 extends GdUnitTestSuite
 ## Tests for scripts/ai/portrait_maker.gd: the workflow filled in as the helper fills it, ComfyUI's
-## folder read from the settings or tools/comfyui_path.txt, and pictures made and split (here from
-## the test's own pictures, Hooks.fake_comfy: the suite never needs ComfyUI).
+## folder read from the settings or tools/comfyui_path.txt, pictures made and split, and a face
+## redrawn in its TV moods with each mood's best seed picked (here from the test's own pictures,
+## Hooks.fake_comfy, the library's reaction faces in tests/support/reactions: the suite never
+## needs ComfyUI).
 
 const PortraitMaker = preload("res://scripts/ai/portrait_maker.gd")
 const PortraitSplit = preload("res://scripts/rules/portrait_split.gd")
 const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
+const PortraitRules = preload("res://scripts/rules/portraits.gd")
+const DebugLog = preload("res://scripts/debug_log.gd")
 
 const FIXTURE := "res://tests/support/portraits/portrait_w_20s_long_8000.png"
 
 
 func after_test() -> void:
 	Hooks.fake_comfy = []
+	Hooks.fake_upload_refused = false
 	AiSettings.override = {}
+	DebugLog.everything_to_console = false
+	DebugLog.printed = []
 
 
 func _workflow() -> Dictionary:
@@ -97,3 +104,105 @@ func test_a_test_pictures_split_is_kept_and_the_same_as_a_fresh_one() -> void:
 	assert_float(float(theirs["score"])).is_greater(float(fresh["score"]))
 	assert_int(Hooks.kept_splits.size()).is_equal(1)
 	Hooks.kept_splits = {}
+
+
+# --- Their moods (redraw) ---------------------------------------------------------------------
+
+const REACTIONS := "res://tests/support/reactions/"
+const CALM := REACTIONS + "portrait_m_40s_side_part_8902.png"
+const NEAR_SCORE := 0.005  # (test_reaction_split's: Godot's Lanczos isn't PIL's)
+
+
+func _picture(path: String) -> Image:
+	return Image.load_from_file(ProjectSettings.globalize_path(path))
+
+
+func _mood_pictures(mood: String, first: int) -> Array:
+	return [_picture(REACTIONS + "react_m_40s_side_part_%s_%d.png" % [mood, first]), _picture(REACTIONS + "react_m_40s_side_part_%s_%d.png" % [mood, first + 1])]
+
+
+func _inputs(workflow: Dictionary, type: String) -> Dictionary:
+	for id in workflow:
+		if str(workflow[id]["class_type"]) == type:
+			return workflow[id]["inputs"]
+	return {}
+
+
+func test_the_edit_workflow_is_given_the_picture_it_redraws() -> void:
+	var base: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(PortraitMaker.EDIT_WORKFLOW))
+	var filled := PortraitMaker.workflow_for(base, "Same person, sad", 41410, 768, 960, "ktbt/faces/owner_sad", "ktbt/ktbt_owner_calm.png")
+	assert_str(str(_inputs(filled, "LoadImage")["image"])).is_equal("ktbt/ktbt_owner_calm.png")
+	assert_str(str(_inputs(filled, "CLIPTextEncode")["text"])).is_equal("Same person, sad")
+	assert_int(_inputs(filled, "RandomNoise")["noise_seed"]).is_equal(41410)
+	assert_str(str(_inputs(filled, "SaveImage")["filename_prefix"])).is_equal("ktbt/faces/owner_sad")
+	assert_bool(_inputs(filled, "EmptyFlux2LatentImage")["width"] is Array).override_failure_message("the size is the picture's (a link), not overwritten").is_true()
+	assert_str(str(_inputs(base, "LoadImage")["image"])).is_not_equal("ktbt/ktbt_owner_calm.png")  # (the exported one isn't changed)
+	assert_dict(PortraitMaker.workflow_for(_workflow(), "x", 1, 8, 8, "p", "ktbt/a.png")).is_empty()  # (a reference, and no Load Image to give it to)
+
+
+func test_a_face_is_redrawn_in_its_moods_and_each_moods_best_seed_picked() -> void:
+	var expected: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(REACTIONS + "expected.json"))
+	Hooks.fake_comfy = _mood_pictures("shock", 41400) + _mood_pictures("sad", 41410) + _mood_pictures("sweet", 41420)
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	assert_str(await maker.open()).is_empty()
+	DebugLog.everything_to_console = true
+	DebugLog.printed = []
+	var moods: Dictionary = await maker.redraw(_picture(CALM), "owner", false, ["shock", "sad", "sweet"], 2, 41400)
+	maker.close()
+	# Noted: the upload, each picture (who, mood, seed, made in, split in, score) and each mood's pick.
+	var noted := "\n".join(DebugLog.printed)
+	assert_str(noted).contains("Faces: the calm picture sent up as ktbt/ktbt_owner_calm.png")
+	assert_str(noted).contains("Faces: owner, sad, seed 41410: made in ").contains("split in ").contains("score ")
+	assert_str(noted).contains("Faces: owner, sweet: seed 41421 picked")
+	assert_array(moods.keys()).contains_exactly(["shock", "sad", "sweet"])
+	for mood in moods:
+		var pick: Dictionary = moods[mood]
+		assert_int(int(pick["seed"])).override_failure_message("%s's pick isn't the Python's" % mood).is_equal(int(expected["picks"][mood]))
+		assert_int(pick["scores"].size()).is_equal(2)
+		for pic_seed in pick["scores"]:
+			var want := float(expected["pictures"]["react_m_40s_side_part_%s_%d.png" % [mood, pic_seed]]["score"])
+			assert_float(float(pick["scores"][pic_seed])).override_failure_message("%s %d scored %.3f, the Python's %.3f" % [mood, pic_seed, pick["scores"][pic_seed], want]).is_equal_approx(want, NEAR_SCORE)
+		assert_int((pick["split"]["layer"] as Image).get_width()).is_equal(PortraitSplit.W)
+		assert_object(pick["picture"]).is_not_null()
+	# What would have been queued: the edit workflow, the calm picture as its reference, each mood's words and seeds.
+	assert_int(maker.sent.size()).is_equal(6)
+	var seeds: Array = []
+	for k in maker.sent.size():
+		var workflow: Dictionary = maker.sent[k]
+		var mood: String = ["shock", "sad", "sweet"][int(k / 2.0)]
+		assert_str(str(_inputs(workflow, "LoadImage")["image"])).is_equal("ktbt/ktbt_owner_calm.png")
+		assert_str(str(_inputs(workflow, "CLIPTextEncode")["text"])).is_equal(PortraitRules.react_prompt(mood, false))
+		seeds.append(int(_inputs(workflow, "RandomNoise")["noise_seed"]))
+	assert_array(seeds).is_equal([41400, 41401, 41410, 41411, 41420, 41421])
+	assert_int(maker.counts["made"]).is_equal(6)
+	assert_int(maker.counts["uploads"]).is_equal(1)
+
+
+func test_a_mood_that_fails_says_why_and_the_rest_carry_on() -> void:
+	Hooks.fake_comfy = ["not a picture", "not a picture"] + _mood_pictures("sweet", 41420)
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	assert_str(await maker.open()).is_empty()
+	var moods: Dictionary = await maker.redraw(_picture(CALM), "regular_minji", true, ["sad", "bored", "sweet"], 2, 500)
+	assert_str(str(moods["sad"].get("failed", ""))).is_equal("the test's picture wasn't one")
+	assert_str(str(moods["bored"].get("failed", ""))).contains("no face for the mood bored")
+	assert_int(int(moods["sweet"]["seed"])).is_between(520, 521)  # (sweet's seeds still its own: the third mood's)
+	assert_str(str(_inputs(maker.sent[0], "CLIPTextEncode")["text"])).contains("same glasses")
+	assert_int(maker.counts["failed"]).is_equal(2)
+	# Nothing to try: the upload refused, no edit workflow, no calm picture. The calm face is kept.
+	Hooks.fake_upload_refused = true
+	assert_dict(await maker.redraw(_picture(CALM), "owner", false, ["sad"], 2, 500)).is_empty()
+	assert_str(maker.last_error).contains("refused the calm picture")
+	Hooks.fake_upload_refused = false
+	assert_dict(await maker.redraw(null, "owner", false, ["sad"], 2, 500)).is_empty()
+	assert_str(maker.last_error).contains("no calm picture")
+	var fresh = auto_free(PortraitMaker.new())
+	add_child(fresh)
+	fresh.edit_workflow = "res://tools/art/no_such_workflow.json"
+	assert_str(await fresh.open()).is_empty()
+	assert_dict(await fresh.redraw(_picture(CALM), "owner", false, ["sad"], 2, 500)).is_empty()
+	assert_str(fresh.last_error).contains("no edit workflow")
+	maker.close()
+	fresh.close()
+	assert_int(maker.counts["redraws_failed"]).is_equal(2)

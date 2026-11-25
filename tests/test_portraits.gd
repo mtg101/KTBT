@@ -178,3 +178,30 @@ func test_a_face_of_their_own_has_an_id_of_its_own_and_is_painted_like_the_libra
 	Art.own["portrait/own_test_owner_1"] = ImageTexture.create_from_image(layer)  # (one of their own: drawn as the library's are)
 	assert_bool(PeopleArt.portrait(STUDENT, "own_test_owner_1").get_image().get_data() == from_art.get_data()).is_true()
 	Art.own.erase("portrait/own_test_owner_1")
+
+
+func test_a_faces_moods_are_asked_for_in_the_librarys_words() -> void:
+	# Word for word tools/art/portraits.py's REACT_PROMPT, REACT_GLASSES and MOOD_FACES.
+	var python := FileAccess.get_file_as_string("res://tools/art/portraits.py")
+	var quoted := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
+	var block := python.get_slice("REACT_PROMPT = (", 1).get_slice(")\n", 0)
+	var joined := ""
+	for found in quoted.search_all(block):
+		joined += found.get_string(1)
+	assert_str(PortraitRules.REACT_PROMPT).is_equal(joined)
+	var glasses := python.get_slice("REACT_GLASSES = {", 1).get_slice("}", 0)
+	var said := quoted.search_all(glasses).map(func(found): return found.get_string(1))
+	assert_array(said).is_equal([PortraitRules.REACT_GLASSES[true], PortraitRules.REACT_GLASSES[false]])
+	var faces := python.get_slice("MOOD_FACES = {", 1).get_slice("}", 0)
+	var python_faces := {}
+	for line in faces.split("\n", false):
+		var pair := quoted.search_all(line)
+		if pair.size() == 2:
+			python_faces[pair[0].get_string(1)] = pair[1].get_string(1)
+	assert_dict(PortraitRules.MOOD_FACES).is_equal(python_faces)
+	assert_array(PortraitRules.MOOD_FACES.keys()).contains_exactly_in_any_order(Captions.REACTIONS.keys())  # (a face for every TV mood)
+	var prompt := PortraitRules.react_prompt("sad", false)
+	assert_str(prompt).starts_with("Same person, same face, same hair, no glasses (bare eyes, as in the picture), same red top")
+	assert_str(prompt).ends_with("Change only the facial expression: sad, eyes glistening with tears, a tear on one cheek, mouth turned down.")
+	assert_str(PortraitRules.react_prompt("shock", true)).contains("same hair, same glasses, same red top")
+	assert_str(PortraitRules.react_prompt("bored", true)).is_empty()

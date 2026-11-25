@@ -75,6 +75,8 @@ static var channels := true
 ## Pictures (Images) the portrait maker (ai/portrait_maker.gd) hands back instead of asking
 ## ComfyUI, in turn, even offline: [] for ComfyUI itself (and none offline).
 static var fake_comfy: Array = []
+## With fake_comfy: the calm picture's upload refused (ai/portrait_maker.gd redraw).
+static var fake_upload_refused := false
 ## How cleanly a regular's best casting photo must split to be their face (NAN: the rule's,
 ## rules/portraits.gd CLEAN_ENOUGH): tests set INF (any) or -INF (none).
 static var clean_enough := NAN
@@ -131,6 +133,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	recaps = false
 	channels = false
 	fake_comfy = []
+	fake_upload_refused = false
 	clean_enough = NAN
 	titles = false
 	socials = false
@@ -179,6 +182,7 @@ static func restore() -> void:
 	recaps = true
 	channels = true
 	fake_comfy = []
+	fake_upload_refused = false
 	clean_enough = NAN
 	titles = true
 	socials = true

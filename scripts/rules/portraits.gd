@@ -141,3 +141,29 @@ const CLEAN_ENOUGH := 0.3
 ## Whether a portrait id is a face of someone's own (not the library's).
 static func is_own(key: String) -> bool:
 	return key.begins_with("own_")
+
+
+# --- Their moods (a face of their own redrawn: ai/portrait_maker.gd redraw) --------------------
+
+## The edit model's prompt for a face of someone's own in a TV mood (rules/captions.gd REACTIONS),
+## word for word tools/art/portraits.py's REACT_PROMPT, REACT_GLASSES and MOOD_FACES (the
+## library's reaction faces: test_portraits checks they match). Glasses said outright: "same
+## glasses if any" put glasses on nearly every face that had none (22 Nov).
+const REACT_PROMPT := "Same person, same face, same hair, {glasses}, same red top, same flat green background, same framing and the same flat cel-shaded illustration style. Change only the facial expression: {face}."
+const REACT_GLASSES := {true: "same glasses", false: "no glasses (bare eyes, as in the picture)"}
+const MOOD_FACES := {
+	"shock": "wide-eyed with shock, eyebrows raised high, mouth dropped open",
+	"sad": "sad, eyes glistening with tears, a tear on one cheek, mouth turned down",
+	"sweet": "shy and flustered, pink blushing cheeks, a small bashful smile, eyes glancing aside",
+	"warm": "deeply touched, a soft warm smile, eyes a little teary",
+	"funny": "laughing hard, eyes squeezed shut, mouth wide open",
+	"awkward": "awkward, a stiff forced smile, eyes glancing sideways, a bead of sweat on the forehead",
+	"roast": "caught out and indignant, frowning, cheeks puffed out, pouting",
+}
+
+
+## A mood's prompt for someone with (or without) glasses: "" for a mood there's no face for.
+static func react_prompt(mood: String, glasses: bool) -> String:
+	if not MOOD_FACES.has(mood):
+		return ""
+	return REACT_PROMPT.format({"glasses": REACT_GLASSES[glasses], "face": MOOD_FACES[mood]})
