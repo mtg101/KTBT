@@ -206,3 +206,35 @@ func test_a_mood_that_fails_says_why_and_the_rest_carry_on() -> void:
 	maker.close()
 	fresh.close()
 	assert_int(maker.counts["redraws_failed"]).is_equal(2)
+
+
+func test_each_picture_is_asked_for_before_the_last_ones_split() -> void:
+	# So ComfyUI makes the next picture while the CPU splits this one (it sat idle half the time).
+	Hooks.fake_comfy = [Image.load_from_file(ProjectSettings.globalize_path(FIXTURE))]
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	assert_str(await maker.open()).is_empty()
+	var made: Array = await maker.make("a portrait", "owner", 3, 500)
+	assert_int(made.size()).is_equal(3)
+	assert_array(maker.order).is_equal(["ask 500", "ask 501", "split", "ask 502", "split", "split"])
+	# The moods too, from one mood to the next, the calm picture's split while the first is made.
+	Hooks.fake_comfy = _mood_pictures("shock", 41400) + _mood_pictures("sad", 41410)
+	maker.order = []
+	var moods: Dictionary = await maker.redraw(_picture(CALM), "owner", false, ["shock", "sad"], 2, 41400)
+	maker.close()
+	assert_array(moods.keys()).contains_exactly(["shock", "sad"])
+	assert_array(maker.order).is_equal(["ask 41400", "split", "ask 41401", "split", "ask 41410", "split", "ask 41411", "split", "split"])
+
+
+func test_comfyuis_own_time_is_read_from_its_history() -> void:
+	var entry := {"status": {"status_str": "success", "messages": [["execution_start", {"prompt_id": "a", "timestamp": 1000}],
+		["execution_cached", {"nodes": [], "timestamp": 1001}], ["execution_success", {"prompt_id": "a", "timestamp": 10500}]]}}
+	assert_int(PortraitMaker.comfy_ms(entry)).is_equal(9500)
+	assert_int(PortraitMaker.comfy_ms({})).is_equal(-1)
+	assert_int(PortraitMaker.comfy_ms({"status": {"messages": [["execution_start", {"timestamp": 1000}]]}})).is_equal(-1)  # (not finished)
+	assert_int(PortraitMaker.comfy_ms({"status": {"messages": ["junk", [1]]}})).is_equal(-1)
+	assert_float(PortraitMaker._took({"ms": 9500, "asked": 0})).is_equal(9.5)
+	# Noted when it closes: where the gap's time went.
+	assert_str(PortraitMaker.time_text({"made": 30, "failed": 1, "gpu_ms": 300200, "first_ms": 30100, "split_ms": 55800, "start_ms": 12000, "seconds": 340})).is_equal(
+		"31 pictures, 300.2s on the GPU (the first 30.1s: the model loading) · splits 55.8s, alongside the next picture · ComfyUI started in 12.0s · 340s in all")
+	assert_str(PortraitMaker.time_text({"made": 2, "failed": 0, "seconds": 3})).is_equal("2 pictures · 3s in all")

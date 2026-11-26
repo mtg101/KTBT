@@ -1083,9 +1083,15 @@ static func comfy_text(faces: Dictionary, rounds: String = "") -> String:
 		comfy = " · ComfyUI was already running%s" % ("" if not faces.has("unloaded") else (" (its models unloaded after)" if bool(faces["unloaded"]) else " (its models NOT UNLOADED)"))
 	elif bool(faces.get("started", false)):
 		comfy = " · ComfyUI started and %s" % ("stopped" if bool(faces.get("stopped", false)) else "NOT STOPPED")
+	var start := (" in %.1fs" % (int(faces["start_ms"]) / 1000.0)) if faces.has("start_ms") and comfy.begins_with(" · ComfyUI started") else ""  # (process started to answering)
+	if start != "":
+		comfy = comfy.replace(" · ComfyUI started", " · ComfyUI started" + start)
 	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""
-	var split := (" · split in %.1fs" % (int(faces["split_ms"]) / 1000.0)) if int(faces.get("split_ms", 0)) > 0 else ""  # (portrait_maker.gd: the splits' time, on the CPU)
-	return made + rounds + comfy + took + split
+	var gpu := (" · on the GPU %.1fs" % (int(faces["gpu_ms"]) / 1000.0)) if faces.has("gpu_ms") else ""  # (ComfyUI's own time making them)
+	if gpu != "" and faces.has("first_ms"):
+		gpu += " (first picture %.1fs: the model loading)" % (int(faces["first_ms"]) / 1000.0)
+	var split := (" · split in %.1fs" % (int(faces["split_ms"]) / 1000.0)) if int(faces.get("split_ms", 0)) > 0 else ""  # (portrait_maker.gd: the splits' time, on the CPU, alongside the next picture)
+	return made + rounds + comfy + took + gpu + split
 
 
 ## Faces on the captions tonight: beside them and zooms, and which faces.

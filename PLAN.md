@@ -4,9 +4,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Faster: making a bar, making custom faces** 
-  - Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them.
-  - generating images at the end of the night is slow too (UI says 3mins but it felt longer - need to check): the faces' line in the stats now says how long the splits took ("split in"), beside the whole time, so the next night shows how much is ComfyUI and how much the split
+- **Faster: making a bar, making custom faces**
+  - Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them (most of it was faces: 129s of 181).
+  - ComfyUI's start-up and the first picture (the model loading) took about a minute on night 1: the next bar's faces line ("ComfyUI started in …s", "first picture …s") says how much is which. If start-up is most of it, start ComfyUI while the AI's still making the bar (its start-up doesn't need the GPU; the model loading does).
+  - The moods' pictures take 9.5 to 32s each (a casting photo 3.2s), two seeds a mood, 14 a person: one seed a mood would about halve it (the two seeds' scores were nearly the same every time), or ask for both in one go (batch_size 2). The user's deciding. Why the same workflow ranges from 9.5 to 32s (the GPU's memory?) is worth a look in ComfyUI's own log.
+  - generating images at the end of the night is slow too (the backstage note said about 3 minutes, and it felt longer): check the note's estimate against the faces' new times.
 
 ## Future ideas and improvements
 

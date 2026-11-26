@@ -27,6 +27,7 @@ const MOOD_SEEDS_APART := 10  # a mood's seeds from the last mood's, as portrait
 const PATH_FILE := "res://tools/comfyui_path.txt"  # (this PC's own, as the helper's: not in git)
 const START_SECONDS := 90  # ComfyUI takes 10 to 30 seconds to start
 const PICTURE_SECONDS := 180  # one picture at most (the first loads the model: about 5 seconds each after)
+const POLL_SECONDS := 0.25  # how often a picture's asked after (it was a second: half a second lost a picture)
 const WIDTH := PortraitSplit.W * PortraitSplit.SAMPLE  # 768 x 960, as the library's
 const HEIGHT := PortraitSplit.H * PortraitSplit.SAMPLE
 
@@ -45,6 +46,9 @@ var _edit := {}
 var edit_workflow := EDIT_WORKFLOW
 ## With Hooks.fake_comfy: each workflow that would have been queued, in turn, for the tests.
 var sent: Array = []
+## With Hooks.fake_comfy: what happened, in turn ("ask <seed>", "split"), for the tests: each
+## picture's asked for before the last one's split.
+var order: Array = []
 
 
 ## The ComfyUI folder to start: the setting, else tools/comfyui_path.txt's line; "" if neither
@@ -153,12 +157,14 @@ func open() -> String:
 	_started = true
 	counts["started"] = true
 	DebugLog.say("Faces", "started ComfyUI (from its folder, process %d)" % _pid)
-	for wait in range(2, START_SECONDS + 1, 2):
-		await get_tree().create_timer(2.0).timeout
+	var since := Time.get_ticks_msec()  # (by the clock: counting the waits missed each check's own time, up to 3s: night 1's "14 seconds" was 34)
+	while Time.get_ticks_msec() - since < START_SECONDS * 1000:
+		await get_tree().create_timer(0.5).timeout
 		if not is_inside_tree():
 			return _fail("closed while ComfyUI was starting")
 		if await _answers():
-			DebugLog.say("Faces", "ComfyUI answering after %d seconds" % wait)
+			counts["start_ms"] = Time.get_ticks_msec() - since
+			DebugLog.say("Faces", "ComfyUI answering after %.1f seconds" % (int(counts["start_ms"]) / 1000.0))
 			return ""
 	close()
 	return _fail("ComfyUI didn't answer within %d seconds (see logs/comfyui_errors.log)" % START_SECONDS)
@@ -169,6 +175,7 @@ func open() -> String:
 func close() -> void:
 	if not counts.has("seconds") and _opened_at > 0:
 		counts["seconds"] = roundi((Time.get_ticks_msec() - _opened_at) / 1000.0)
+		DebugLog.say("Faces", "ComfyUI's time: " + time_text(counts))
 	if not _started:
 		if bool(counts.get("already", false)) and not bool(counts.get("freed", false)) and is_inside_tree():
 			await _free_gpu()  # (one already running is left running, but without the model on the GPU)
@@ -188,6 +195,24 @@ func _free_gpu() -> void:
 	DebugLog.say("Faces", "ComfyUI (left running) unloaded its models: the GPU's Ollama's again" if reply[0] else "ComfyUI (left running) didn't unload its models (HTTP %d)" % int(reply[1]))
 
 
+## Where a gap's time went, for the notes: "31 pictures, 300.2s on the GPU (the first 30.1s: the
+## model loading) · splits 55.8s, alongside the next picture · ComfyUI started in 12.0s · 340s in all".
+static func time_text(faces: Dictionary) -> String:
+	var parts := PackedStringArray()
+	var pictures := "%d pictures" % (int(faces.get("made", 0)) + int(faces.get("failed", 0)))
+	if faces.has("gpu_ms"):
+		pictures += ", %.1fs on the GPU" % (int(faces["gpu_ms"]) / 1000.0)
+		if faces.has("first_ms"):
+			pictures += " (the first %.1fs: the model loading)" % (int(faces["first_ms"]) / 1000.0)
+	parts.append(pictures)
+	if int(faces.get("split_ms", 0)) > 0:
+		parts.append("splits %.1fs, alongside the next picture" % (int(faces["split_ms"]) / 1000.0))
+	if faces.has("start_ms"):
+		parts.append("ComfyUI started in %.1fs" % (int(faces["start_ms"]) / 1000.0))
+	parts.append("%ds in all" % int(faces.get("seconds", 0)))
+	return " · ".join(parts)
+
+
 func _exit_tree() -> void:
 	close()  # (the game closing mid-casting never leaves ComfyUI running)
 
@@ -196,20 +221,30 @@ func _exit_tree() -> void:
 ## [{"seed", "picture" (the model's), "split" (rules/portrait_split.gd), "score"}], the ones that
 ## came out (a picture that fails is counted and noted, and the rest carry on). After open().
 ## split_name: what the split scores them as (PortraitRules.split_name: balding, glasses), else person.
+## Each picture's split while ComfyUI makes the next (it's asked for first), so the GPU's never
+## left waiting on the CPU.
 func make(prompt: String, person: String, count: int, first_seed: int, split_name: String = "") -> Array:
 	var made: Array = []
+	var prefix := "ktbt/faces/%s" % person
+	var ticket := {}
+	if count > 0:
+		ticket = await _ask(_workflow, prompt, first_seed, 0, prefix)
 	for k in count:
 		var pic_seed := first_seed + k
-		var asked := Time.get_ticks_msec()
-		var picture: Image = await _picture(_workflow, prompt, pic_seed, k, "ktbt/faces/%s" % person)
+		var picture: Image = await _collect(ticket)
 		if not is_inside_tree():
 			return made
+		var why := last_error
+		var took := _took(ticket)
+		if k + 1 < count:
+			ticket = await _ask(_workflow, prompt, pic_seed + 1, k + 1, prefix)  # (the next one made while this one's split)
+			if not is_inside_tree():
+				return made
 		if picture == null:
 			counts["failed"] = int(counts.get("failed", 0)) + 1
-			DebugLog.say("Faces", "%s, seed %d: no picture (%s)" % [person, pic_seed, last_error])
+			DebugLog.say("Faces", "%s, seed %d: no picture (%s)" % [person, pic_seed, why])
 			picture_done.emit()
 			continue
-		var took := (Time.get_ticks_msec() - asked) / 1000.0
 		var split := await _split(picture, split_name if split_name != "" else person)
 		if not is_inside_tree():
 			return made
@@ -230,7 +265,8 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 ## already running has it too), then for each mood seeds pictures (seeds from first_seed, each mood
 ## MOOD_SEEDS_APART on) by the edit workflow, its prompt PortraitRules.react_prompt (glasses said
 ## outright), each split into its close-up on a worker thread (react_split) and scored against the
-## calm one's (react_score); each mood's best seed (PortraitSplit.best). After open().
+## calm one's (react_score); each mood's best seed (PortraitSplit.best). After open(). As make(),
+## each picture's split while ComfyUI makes the next, from one mood to the next.
 ## {mood: {"seed", "picture", "split", "score", "scores": {seed: score}}}, a mood none of whose
 ## pictures came out {"failed": why}; {} if nothing could be tried (no edit workflow, no calm
 ## picture, the upload refused: why in last_error and the notes), so the calm face is kept.
@@ -252,36 +288,50 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 	if reference == "":
 		_fail_redraw(person, last_error)
 		return out
-	var calm_split := await _split(calm, person, true)
-	if not is_inside_tree():
-		return out
-	var k := 0
+	# Every picture to make, in turn: [mood, seed, prompt]. A mood with no face is said at once.
+	var jobs: Array = []
 	for m in moods.size():
 		var mood := str(moods[m])
 		var prompt := PortraitRules.react_prompt(mood, glasses)
+		out[mood] = {}  # (keeps the moods in the order asked)
 		if prompt == "":
 			out[mood] = {"failed": "there's no face for the mood %s" % mood}
 			DebugLog.say("Faces", "%s, %s: %s" % [person, mood, out[mood]["failed"]])
 			continue
-		var tried: Array = []
-		var why := ""
 		for n in seeds:
-			var pic_seed := first_seed + MOOD_SEEDS_APART * m + n
-			var asked := Time.get_ticks_msec()
-			var picture: Image = await _picture(_edit, prompt, pic_seed, k, "ktbt/faces/%s_%s" % [person, mood], reference)
-			k += 1
+			jobs.append([mood, first_seed + MOOD_SEEDS_APART * m + n, prompt])
+	var tried := {}
+	var why := {}
+	var ticket := {}
+	if not jobs.is_empty():
+		ticket = await _ask(_edit, jobs[0][2], jobs[0][1], 0, "ktbt/faces/%s_%s" % [person, jobs[0][0]], reference)
+		if not is_inside_tree():
+			return _only_done(out)
+	var calm_split := await _split(calm, person, true)  # (while the first picture's made)
+	if not is_inside_tree():
+		return _only_done(out)
+	for k in jobs.size():
+		var mood: String = jobs[k][0]
+		var pic_seed: int = jobs[k][1]
+		var picture: Image = await _collect(ticket)
+		if not is_inside_tree():
+			return _only_done(out)
+		var failed_why := last_error
+		var took := _took(ticket)
+		if k + 1 < jobs.size():
+			var next: Array = jobs[k + 1]
+			ticket = await _ask(_edit, next[2], next[1], k + 1, "ktbt/faces/%s_%s" % [person, next[0]], reference)  # (the next one made while this one's split)
 			if not is_inside_tree():
-				return out
-			if picture == null:
-				counts["failed"] = int(counts.get("failed", 0)) + 1
-				why = last_error
-				DebugLog.say("Faces", "%s, %s, seed %d: no picture (%s)" % [person, mood, pic_seed, why])
-				picture_done.emit()
-				continue
-			var took := (Time.get_ticks_msec() - asked) / 1000.0
+				return _only_done(out)
+		if picture == null:
+			counts["failed"] = int(counts.get("failed", 0)) + 1
+			why[mood] = failed_why
+			DebugLog.say("Faces", "%s, %s, seed %d: no picture (%s)" % [person, mood, pic_seed, failed_why])
+			picture_done.emit()
+		else:
 			var split := await _split(picture, person, true)
 			if not is_inside_tree():
-				return out
+				return _only_done(out)
 			counts["made"] = int(counts.get("made", 0)) + 1
 			picture_done.emit()
 			var score := PortraitSplit.react_score(split["part"], calm_split["part"], mood)
@@ -289,20 +339,36 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 			DebugLog.say("Faces", "%s, %s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (whites %d, tears %d, blush %d)" % [person, mood, pic_seed, took,
 				int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else " (%d at once)" % int(split.get("pieces", 1)), score,
 				int(shown["white"]), int(shown["tear"]), int(shown["blush"])])
-			tried.append({"seed": pic_seed, "picture": picture, "split": split, "score": score})
-		var at := PortraitSplit.best(tried)
-		if at < 0:
-			out[mood] = {"failed": why}
-			DebugLog.say("Faces", "%s, %s: no picture came out (%s)" % [person, mood, why])
-			continue
-		var pick: Dictionary = tried[at]
-		var scores := {}
-		for each in tried:
-			scores[int(each["seed"])] = snappedf(float(each["score"]), 0.001)
-		pick["scores"] = scores
-		out[mood] = pick
-		DebugLog.say("Faces", "%s, %s: seed %d picked, score %.3f (of %s)" % [person, mood, int(pick["seed"]), float(pick["score"]), str(scores)])
+			if not tried.has(mood):
+				tried[mood] = []
+			tried[mood].append({"seed": pic_seed, "picture": picture, "split": split, "score": score})
+		if k + 1 == jobs.size() or str(jobs[k + 1][0]) != mood:
+			out[mood] = _pick(person, mood, tried.get(mood, []), str(why.get(mood, "")))
 	return out
+
+
+## A mood's best seed of those tried, with every seed's score, or {"failed": why} if none came out.
+func _pick(person: String, mood: String, tried: Array, why: String) -> Dictionary:
+	var at := PortraitSplit.best(tried)
+	if at < 0:
+		DebugLog.say("Faces", "%s, %s: no picture came out (%s)" % [person, mood, why])
+		return {"failed": why}
+	var pick: Dictionary = tried[at]
+	var scores := {}
+	for each in tried:
+		scores[int(each["seed"])] = snappedf(float(each["score"]), 0.001)
+	pick["scores"] = scores
+	DebugLog.say("Faces", "%s, %s: seed %d picked, score %.3f (of %s)" % [person, mood, int(pick["seed"]), float(pick["score"]), str(scores)])
+	return pick
+
+
+## redraw()'s answer when it's stopped early: only the moods it finished.
+static func _only_done(out: Dictionary) -> Dictionary:
+	var done := {}
+	for mood in out:
+		if not (out[mood] as Dictionary).is_empty():
+			done[mood] = out[mood]
+	return done
 
 
 ## Sends a picture up to ComfyUI's input folder (/upload/image, a form), for an edit workflow's
@@ -337,34 +403,55 @@ func _fail_redraw(person: String, why: String) -> void:
 	counts["redraws_failed"] = int(counts.get("redraws_failed", 0)) + 1
 	DebugLog.say("Faces", "%s's moods not made: %s (the calm face kept)" % [person, why])
 
-func _picture(base: Dictionary, prompt: String, pic_seed: int, k: int, prefix: String, reference: String = "") -> Image:
+## Asks ComfyUI for a picture (queued, not waited for): a ticket for _collect, {"id", "asked"}
+## (or with Hooks.fake_comfy {"fake": k, "asked"}), or {"error": why}.
+func _ask(base: Dictionary, prompt: String, pic_seed: int, k: int, prefix: String, reference: String = "") -> Dictionary:
+	var asked := Time.get_ticks_msec()
 	if not Hooks.fake_comfy.is_empty():
 		if not base.is_empty():
 			sent.append(workflow_for(base, prompt, pic_seed, WIDTH, HEIGHT, prefix, reference))
+		order.append("ask %d" % pic_seed)
+		return {"fake": k, "asked": asked}
+	var workflow := workflow_for(base, prompt, pic_seed, WIDTH, HEIGHT, prefix, reference)
+	if workflow.is_empty():
+		return {"error": "the workflow has no prompt box" + (" or Load Image" if reference != "" else "")}
+	var queued := await _request(URL + "/prompt", HTTPClient.METHOD_POST, JSON.stringify({"prompt": workflow, "client_id": "ktbt-game"}), 15.0)
+	var answer = JSON.parse_string((queued[2] as PackedByteArray).get_string_from_utf8()) if queued[0] else null
+	if not answer is Dictionary or str(answer.get("prompt_id", "")) == "":
+		return {"error": "ComfyUI didn't take the picture (HTTP %d)" % int(queued[1])}
+	return {"id": str(answer["prompt_id"]), "asked": asked}
+
+
+## Waits for a picture _ask asked for and fetches it: the picture, or null (why in last_error).
+## ComfyUI's own time making it (its history's start and finish) goes in the ticket ("ms") and
+## the counts ("gpu_ms", and "first_ms" for the first since open(): the model loading).
+func _collect(ticket: Dictionary) -> Image:
+	if ticket.has("error"):
+		last_error = str(ticket["error"])
+		return null
+	if ticket.has("fake"):
 		await get_tree().process_frame
-		var fake = Hooks.fake_comfy[k % Hooks.fake_comfy.size()]
+		var fake = Hooks.fake_comfy[int(ticket["fake"]) % Hooks.fake_comfy.size()]
 		if fake is Image:
 			return (fake as Image).duplicate() as Image
 		last_error = "the test's picture wasn't one"
 		return null
-	var workflow := workflow_for(base, prompt, pic_seed, WIDTH, HEIGHT, prefix, reference)
-	if workflow.is_empty():
-		last_error = "the workflow has no prompt box" + (" or Load Image" if reference != "" else "")
-		return null
-	var queued := await _request(URL + "/prompt", HTTPClient.METHOD_POST, JSON.stringify({"prompt": workflow, "client_id": "ktbt-game"}), 15.0)
-	var answer = JSON.parse_string((queued[2] as PackedByteArray).get_string_from_utf8()) if queued[0] else null
-	if not answer is Dictionary or str(answer.get("prompt_id", "")) == "":
-		last_error = "ComfyUI didn't take the picture (HTTP %d)" % int(queued[1])
-		return null
-	var id := str(answer["prompt_id"])
-	for _second in PICTURE_SECONDS:
-		await get_tree().create_timer(1.0).timeout
+	var id := str(ticket.get("id", ""))
+	var deadline := int(ticket.get("asked", Time.get_ticks_msec())) + PICTURE_SECONDS * 1000
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().create_timer(POLL_SECONDS).timeout
 		if not is_inside_tree():
 			return null
 		var history := await _request(URL + "/history/" + id, HTTPClient.METHOD_GET, "", 5.0)
 		var entries = JSON.parse_string((history[2] as PackedByteArray).get_string_from_utf8()) if history[0] else null
 		if not entries is Dictionary or not entries.has(id):
 			continue
+		var ms := comfy_ms(entries[id])
+		if ms >= 0:
+			ticket["ms"] = ms
+			counts["gpu_ms"] = int(counts.get("gpu_ms", 0)) + ms
+			if not counts.has("first_ms"):
+				counts["first_ms"] = ms
 		for node in entries[id].get("outputs", {}).values():
 			for image in node.get("images", []):
 				var query := "filename=%s&subfolder=%s&type=%s" % [str(image.get("filename", "")).uri_encode(), str(image.get("subfolder", "")).uri_encode(), str(image.get("type", "output"))]
@@ -380,6 +467,35 @@ func _picture(base: Dictionary, prompt: String, pic_seed: int, k: int, prefix: S
 	return null
 
 
+## How long a picture took to make, in seconds: ComfyUI's own time if it said, else from asking
+## to fetching (which, now the next's asked for before a split, can include our split's wait).
+static func _took(ticket: Dictionary) -> float:
+	if ticket.has("ms"):
+		return int(ticket["ms"]) / 1000.0
+	return (Time.get_ticks_msec() - int(ticket.get("asked", Time.get_ticks_msec()))) / 1000.0
+
+
+## ComfyUI's own time making a picture, in ms, from its /history entry's status messages
+## (execution_start to execution_success, each with a timestamp in ms): -1 if it doesn't say.
+static func comfy_ms(entry: Dictionary) -> int:
+	var status = entry.get("status", {})
+	if not status is Dictionary:
+		return -1
+	var start := -1.0
+	var finish := -1.0
+	for message in status.get("messages", []):
+		if not message is Array or message.size() < 2 or not message[1] is Dictionary:
+			continue
+		var stamp := float(message[1].get("timestamp", -1))
+		if str(message[0]) == "execution_start":
+			start = stamp
+		elif str(message[0]) == "execution_success":
+			finish = stamp
+	if start < 0 or finish < start:
+		return -1
+	return roundi(finish - start)
+
+
 ## The split on a worker thread, the game carrying on meanwhile. The test's pictures
 ## (Hooks.fake_comfy) are the same few over and over, so each one's split is kept the first time
 ## (Hooks.kept_splits, by the picture's pixels) and a copy handed back after, scored afresh for who
@@ -390,6 +506,7 @@ func _picture(base: Dictionary, prompt: String, pic_seed: int, k: int, prefix: S
 func _split(picture: Image, person: String, react: bool = false) -> Dictionary:
 	var key := ""
 	if not Hooks.fake_comfy.is_empty():
+		order.append("split")
 		key = "%s%dx%d|%d" % ["react|" if react else "", picture.get_width(), picture.get_height(), hash(picture.get_data())]
 		if Hooks.kept_splits.has(key):
 			await get_tree().process_frame
