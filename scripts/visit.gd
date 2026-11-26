@@ -749,6 +749,7 @@ func _invent_owner() -> void:
 		_owner_working = false
 		return
 	_step_done("owner")
+	_start_comfy_early()  # (its start-up overlaps the sign, the cat, the tarp, the menu and the regulars)
 	_owner = result
 	_owner["gender"] = gender
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
@@ -5382,10 +5383,23 @@ func _why_no_faces(for_regulars: bool = false) -> String:
 	return ""
 
 
+## ComfyUI started as soon as the owner's invented (PortraitMaker.launch), not at the faces step:
+## its start-up (about 30s from cold) needs no GPU, so it's done by the time the AI's made the bar.
+## The model loads with the first picture, after Ollama's let go (_cast_owner_face).
+func _start_comfy_early() -> void:
+	if _maker != null or _why_no_faces() != "" or _stopped:  # (not _closed(): the bar isn't saved yet)
+		return
+	_maker = PortraitMaker.new()
+	add_child(_maker)
+	_maker.launch()
+
+
 ## The owner's casting photos (see above). Never stops the bar: anything wrong, the library's face.
 func _cast_owner_face() -> void:
 	var why := _why_no_faces()
 	if why != "":
+		if _maker != null:  # (started early, and not wanted after all)
+			await _close_casting()
 		_faces_story = {"owner": "library", "why": why}
 		DebugLog.say("Faces", "the owner keeps the library's face: %s" % why)
 		_tell_setup_casting()
@@ -5398,8 +5412,9 @@ func _cast_owner_face() -> void:
 	if _closed():
 		_casting = false
 		return
-	_maker = PortraitMaker.new()
-	add_child(_maker)
+	if _maker == null:  # (else started early, _start_comfy_early)
+		_maker = PortraitMaker.new()
+		add_child(_maker)
 	var problem: String = await _maker.open()
 	_comfy_open = problem == ""
 	if _comfy_open and not _closed():

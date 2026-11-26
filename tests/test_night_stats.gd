@@ -16,6 +16,7 @@ var _real_folder := ""
 func test_the_faces_line_says_how_long_the_splits_took() -> void:
 	assert_str(NightStats.comfy_text({"made": 3, "failed": 0, "seconds": 95, "split_ms": 2400})).is_equal(" · 3 made, 0 failed · 95s · split in 2.4s")
 	assert_str(NightStats.comfy_text({"made": 3, "failed": 0, "split_ms": 0})).is_equal(" · 3 made, 0 failed")
+	assert_str(NightStats.comfy_text({"made": 3, "failed": 0, "started": true, "stopped": true, "start_ms": 31000, "early": true, "waited_ms": 0})).is_equal(" · 3 made, 0 failed · ComfyUI started in 31.0s and stopped · started early, 0.0s waited for it")
 	assert_str(NightStats.comfy_text({"made": 9, "failed": 0, "started": true, "stopped": true, "start_ms": 12400, "seconds": 95, "gpu_ms": 57300, "first_ms": 30100, "split_ms": 16000})).is_equal(
 		" · 9 made, 0 failed · ComfyUI started in 12.4s and stopped · 95s · on the GPU 57.3s (first picture 30.1s: the model loading) · split in 16.0s")
 

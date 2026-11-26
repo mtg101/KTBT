@@ -237,6 +237,7 @@ func test_a_new_bars_owner_gets_a_face_of_their_own() -> void:
 	assert_int(int(scene._stats.portraits.get("own", 0))).is_equal(1)
 	var panel: String = scene._stats.panel_text(0, 0)
 	assert_str(panel).contains("Faces of their own: the owner's (picked by the game, score %.3f) · 3 made, 0 failed · the test's pictures" % float(face["score"]))
+	assert_str(panel).contains("the test's pictures · started early, ")  # (ComfyUI started once the owner was invented, not at the faces step)
 	assert_str(panel).contains("Portraits: their own 1 · ")
 	var owner_name := str(scene._owner["name"])
 	var opener: Dictionary = scene._stats.story["recap_faces"]

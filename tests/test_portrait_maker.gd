@@ -138,6 +138,36 @@ func test_the_edit_workflow_is_given_the_picture_it_redraws() -> void:
 	assert_bool(_inputs(filled, "EmptyFlux2LatentImage")["width"] is Array).override_failure_message("the size is the picture's (a link), not overwritten").is_true()
 	assert_str(str(_inputs(base, "LoadImage")["image"])).is_not_equal("ktbt/ktbt_owner_calm.png")  # (the exported one isn't changed)
 	assert_dict(PortraitMaker.workflow_for(_workflow(), "x", 1, 8, 8, "p", "ktbt/a.png")).is_empty()  # (a reference, and no Load Image to give it to)
+	# Redrawn at the face's own size (768 x 960), not the exported 1 megapixel (~1.36 times the pixels).
+	assert_float(float(_inputs(base, "ImageScaleToTotalPixels")["megapixels"])).is_equal(1.0)
+	assert_float(float(_inputs(filled, "ImageScaleToTotalPixels")["megapixels"])).is_equal_approx(768 * 960 / 1000000.0, 0.000001)
+
+
+func test_comfyui_started_early_is_waited_for_and_not_started_twice() -> void:
+	# Started once the owner's invented (visit.gd _start_comfy_early), so its start-up overlaps the AI
+	# making the bar; open() at the faces step only waits for what's left of it.
+	Hooks.fake_comfy = [Image.load_from_file(ProjectSettings.globalize_path(FIXTURE))]
+	DebugLog.everything_to_console = true
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	maker.launch()
+	maker.launch()  # (once)
+	assert_str(await maker.open()).is_empty()
+	assert_bool(bool(maker.counts.get("early", false))).is_true()
+	assert_bool(maker.counts.has("waited_ms")).is_true()
+	assert_bool(bool(maker.counts.get("fake", false))).is_true()
+	assert_int(DebugLog.printed.filter(func(line): return "starting ComfyUI early" in str(line)).size()).is_equal(1)
+	assert_int(DebugLog.printed.filter(func(line): return "ComfyUI was started early" in str(line)).size()).is_equal(1)
+	assert_int((await maker.make("a portrait", "owner", 1, 500)).size()).is_equal(1)
+	assert_int(int(maker.counts["made"])).is_equal(1)  # (the counts launch() began carry on)
+	maker.close()
+	assert_str(PortraitMaker.time_text({"made": 1, "failed": 0, "early": true, "waited_ms": 4200, "seconds": 9})).is_equal("1 pictures · started early, 4.2s waited for it · 9s in all")
+	# Not launched: open() starts it there and then, as before.
+	var plain = auto_free(PortraitMaker.new())
+	add_child(plain)
+	assert_str(await plain.open()).is_empty()
+	assert_bool(plain.counts.has("early")).is_false()
+	plain.close()
 
 
 func test_a_face_is_redrawn_in_its_moods_and_each_moods_best_seed_picked() -> void:

@@ -42,6 +42,10 @@ var _started := false
 var _opened_at := 0
 var _workflow := {}
 var _edit := {}
+var _launch := ""  # launch(): "" (not used), "starting", "done"
+var _launched_problem := ""  # launch()'s start: "" when ComfyUI answered, otherwise why not
+## When launch()'s start is done (answering or not).
+signal launched
 ## The edit workflow redraw() reads (tests point it somewhere else).
 var edit_workflow := EDIT_WORKFLOW
 ## With Hooks.fake_comfy: each workflow that would have been queued, in turn, for the tests.
@@ -75,7 +79,8 @@ static func clean_path(text: String) -> String:
 ## (first, not negative) text box, the seed, the size (the Klein template's Width and Height
 ## boxes) and where it's saved; its whole numbers as whole numbers (JSON gives floats). reference:
 ## the picture an edit workflow redraws (its Load Image's, as ComfyUI named it when it was sent
-## up). {} if it has no prompt box, or a reference and no Load Image.
+## up), and its Scale To Total Pixels set to width x height (the picture's own size, not 1 megapixel).
+## {} if it has no prompt box, or a reference and no Load Image.
 static func workflow_for(base: Dictionary, prompt: String, pic_seed: int, width: int, height: int, prefix: String, reference: String = "") -> Dictionary:
 	var workflow: Dictionary = _whole(base.duplicate(true))
 	var prompted := false
@@ -103,6 +108,8 @@ static func workflow_for(base: Dictionary, prompt: String, pic_seed: int, width:
 			inputs["value"] = height
 		if type == "SaveImage":
 			inputs["filename_prefix"] = prefix
+		if type == "ImageScaleToTotalPixels" and reference != "" and inputs.has("megapixels"):
+			inputs["megapixels"] = width * height / 1000000.0  # (the face's own size: the exported 1 megapixel made each mood ~1.36 times the pixels, for nothing)
 		if type == "LoadImage" and reference != "" and inputs.has("image"):
 			inputs["image"] = reference
 			loaded = true
@@ -122,10 +129,37 @@ static func _whole(value: Variant) -> Variant:
 
 
 ## Gets ComfyUI answering: already running (used, and left running), or started from its folder
-## and waited for. "" when it's answering, otherwise why not (in last_error too).
+## and waited for. "" when it's answering, otherwise why not (in last_error too). After launch(),
+## it waits for that start instead (counts "early", and "waited_ms": how long it still had to).
 func open() -> String:
 	_opened_at = Time.get_ticks_msec()
+	if _launch == "":
+		counts = {"made": 0, "failed": 0}
+		return await _start()
+	counts["early"] = true
+	var since := Time.get_ticks_msec()
+	if _launch == "starting":
+		await launched
+	counts["waited_ms"] = Time.get_ticks_msec() - since
+	DebugLog.say("Faces", "ComfyUI was started early, while the bar was made: %s" % ("ready, %.1fs still to wait for it" % (int(counts["waited_ms"]) / 1000.0) if _launched_problem == "" else "it failed (%s)" % _launched_problem))
+	return _launched_problem
+
+
+## Starts ComfyUI (or finds it running) without waiting, so its start-up (no GPU needed: the model
+## loads with the first picture) overlaps the AI making the bar; open() then waits for it. Once.
+func launch() -> void:
+	if _launch != "":
+		return
+	_launch = "starting"
 	counts = {"made": 0, "failed": 0}
+	DebugLog.say("Faces", "starting ComfyUI early, while the AI makes the bar")
+	_launched_problem = await _start()
+	_launch = "done"
+	launched.emit()
+
+
+## open()'s work: the workflow read, then ComfyUI found running or started and waited for.
+func _start() -> String:
 	if not Hooks.fake_comfy.is_empty():
 		counts["fake"] = true
 		return ""
@@ -209,6 +243,8 @@ static func time_text(faces: Dictionary) -> String:
 		parts.append("splits %.1fs, alongside the next picture" % (int(faces["split_ms"]) / 1000.0))
 	if faces.has("start_ms"):
 		parts.append("ComfyUI started in %.1fs" % (int(faces["start_ms"]) / 1000.0))
+	if bool(faces.get("early", false)):
+		parts.append("started early, %.1fs waited for it" % (int(faces.get("waited_ms", 0)) / 1000.0))
 	parts.append("%ds in all" % int(faces.get("seconds", 0)))
 	return " · ".join(parts)
 

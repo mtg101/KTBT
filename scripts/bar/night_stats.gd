@@ -1087,6 +1087,8 @@ static func comfy_text(faces: Dictionary, rounds: String = "") -> String:
 	var start := (" in %.1fs" % (int(faces["start_ms"]) / 1000.0)) if faces.has("start_ms") and comfy.begins_with(" · ComfyUI started") else ""  # (process started to answering)
 	if start != "":
 		comfy = comfy.replace(" · ComfyUI started", " · ComfyUI started" + start)
+	if bool(faces.get("early", false)):  # (started while the bar was made: portrait_maker.gd launch)
+		comfy += " · started early, %.1fs waited for it" % (int(faces.get("waited_ms", 0)) / 1000.0)
 	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""
 	var gpu := (" · on the GPU %.1fs" % (int(faces["gpu_ms"]) / 1000.0)) if faces.has("gpu_ms") else ""  # (ComfyUI's own time making them)
 	if gpu != "" and faces.has("first_ms"):
