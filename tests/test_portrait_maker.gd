@@ -11,6 +11,7 @@ const AiSettings = preload("res://scripts/ai/ai_settings.gd")
 const Hooks = preload("res://scripts/test_hooks.gd")
 const PortraitRules = preload("res://scripts/rules/portraits.gd")
 const DebugLog = preload("res://scripts/debug_log.gd")
+const NightStats = preload("res://scripts/bar/night_stats.gd")
 
 const FIXTURE := "res://tests/support/portraits/portrait_w_20s_long_8000.png"
 
@@ -301,3 +302,21 @@ func test_comfyuis_own_time_is_read_from_its_history() -> void:
 	assert_str(PortraitMaker.time_text({"made": 30, "failed": 1, "gpu_ms": 300200, "first_ms": 30100, "split_ms": 55800, "start_ms": 12000, "seconds": 340})).is_equal(
 		"31 pictures, 300.2s on the GPU (the first 30.1s: the model loading) · splits 55.8s, alongside the next picture · ComfyUI started in 12.0s · 340s in all")
 	assert_str(PortraitMaker.time_text({"made": 2, "failed": 0, "seconds": 3})).is_equal("2 pictures · 3s in all")
+
+
+func test_a_picture_given_up_on_is_found_in_comfyuis_queue_and_the_gpu_noted() -> void:
+	# 26 Nov: a picture past PICTURE_SECONDS was left queued, and each next one waited behind it.
+	var queue := {"queue_running": [[7, "abc", {}]], "queue_pending": [[8, "def", {}], [9, "ghi", {}]]}
+	assert_str(PortraitMaker.queue_place(queue, "abc")).is_equal("running")
+	assert_str(PortraitMaker.queue_place(queue, "ghi")).is_equal("waiting")
+	assert_str(PortraitMaker.queue_place(queue, "zzz")).is_empty()
+	assert_str(PortraitMaker.queue_place({}, "abc")).is_empty()
+	assert_str(PortraitMaker.queue_place({"queue_running": "junk", "queue_pending": [["x"]]}, "abc")).is_empty()
+	# The GPU's free memory, noted as the pictures start.
+	var gb := 1024 * 1024 * 1024
+	assert_str(PortraitMaker.gpu_text({"devices": [{"vram_total": 12 * gb, "vram_free": 3 * gb}]})).is_equal("3.0 of 12.0 GB free on the GPU")
+	assert_str(PortraitMaker.gpu_text({})).is_empty()
+	assert_str(PortraitMaker.gpu_text({"devices": [{"name": "cpu"}]})).is_empty()
+	# Counted in the notes and the night's stats.
+	assert_str(PortraitMaker.time_text({"made": 2, "failed": 1, "cancelled": 1, "seconds": 3})).is_equal("3 pictures · 1 given up on and taken off ComfyUI · 3s in all")
+	assert_str(NightStats.comfy_text({"made": 2, "failed": 1, "cancelled": 1})).contains("(1 given up on)")

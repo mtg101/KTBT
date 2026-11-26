@@ -9,6 +9,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **The owner stays with it:** after the line reacting to a card, the owner keeps to that person for a couple more turns (night 5: one line, then straight back to Kwon Soo-yeon).
   - **Brought back later:** 30 to 60 game minutes on, the owner asks about it once ("so… the ex"), as a regular's thread is asked about; and their goodbye can mention it.
   - **The power card's words:** "A moment later, they're back on" settles it before anyone speaks, so every line is "ah, electricity's back": the lights out for a few lines. And the "taken up" check counted those reactions as not taken up (by the words).
+- **VM disk full keeps costing us time:**
+  - How do I fix that? Setting in the desktop app? Get it to clean up? Give it more space? SOme fle or folder I can delete manually?
 - **Red PD lines like 'will they step in' appear in PD console when bar first opens for a night:**
   - left over from the loading screens?
 

@@ -135,13 +135,18 @@ func open() -> String:
 	_opened_at = Time.get_ticks_msec()
 	if _launch == "":
 		counts = {"made": 0, "failed": 0}
-		return await _start()
+		var problem := await _start()
+		if problem == "":
+			await _note_gpu()
+		return problem
 	counts["early"] = true
 	var since := Time.get_ticks_msec()
 	if _launch == "starting":
 		await launched
 	counts["waited_ms"] = Time.get_ticks_msec() - since
 	DebugLog.say("Faces", "ComfyUI was started early, while the bar was made: %s" % ("ready, %.1fs still to wait for it" % (int(counts["waited_ms"]) / 1000.0) if _launched_problem == "" else "it failed (%s)" % _launched_problem))
+	if _launched_problem == "":
+		await _note_gpu()
 	return _launched_problem
 
 
@@ -239,6 +244,8 @@ static func time_text(faces: Dictionary) -> String:
 		if faces.has("first_ms"):
 			pictures += " (the first %.1fs: the model loading)" % (int(faces["first_ms"]) / 1000.0)
 	parts.append(pictures)
+	if int(faces.get("cancelled", 0)) > 0:
+		parts.append("%d given up on and taken off ComfyUI" % int(faces["cancelled"]))
 	if int(faces.get("split_ms", 0)) > 0:
 		parts.append("splits %.1fs, alongside the next picture" % (int(faces["split_ms"]) / 1000.0))
 	if faces.has("start_ms"):
@@ -527,7 +534,62 @@ func _collect(ticket: Dictionary) -> Image:
 		last_error = "ComfyUI finished without a picture"
 		return null
 	last_error = "no picture after %d seconds" % PICTURE_SECONDS
+	await _cancel(id)
 	return null
+
+
+## Takes a picture we gave up on off ComfyUI (26 Nov: left queued, each next one waited behind
+## the abandoned ones, and the faces after closing took 20 minutes): deleted if it's still
+## waiting, interrupted if it's being made. Use with await.
+func _cancel(id: String) -> void:
+	var queue := await _request(URL + "/queue", HTTPClient.METHOD_GET, "", 5.0)
+	var parsed = JSON.parse_string((queue[2] as PackedByteArray).get_string_from_utf8()) if queue[0] else null
+	var where := queue_place(parsed if parsed is Dictionary else {}, id)
+	var done := false
+	if where == "waiting":
+		done = (await _request(URL + "/queue", HTTPClient.METHOD_POST, JSON.stringify({"delete": [id]}), 5.0))[0]
+	elif where == "running":
+		done = (await _request(URL + "/interrupt", HTTPClient.METHOD_POST, JSON.stringify({"prompt_id": id}), 5.0))[0]
+	if done:
+		counts["cancelled"] = int(counts.get("cancelled", 0)) + 1
+	DebugLog.say("Faces", "the picture given up on (%s): %s" % [id.left(8), {"waiting": "taken off ComfyUI's queue", "running": "interrupted"}.get(where, "not in ComfyUI's queue any more") + ("" if done or where == "" else " (ComfyUI said no)")])
+
+
+## Where a picture is in ComfyUI's /queue: "running", "waiting" or "" (gone, or couldn't tell).
+## Each entry's [number, prompt id, ...].
+static func queue_place(queue: Dictionary, id: String) -> String:
+	for place in [["queue_running", "running"], ["queue_pending", "waiting"]]:
+		var entries = queue.get(place[0], [])
+		if not entries is Array:
+			continue
+		for entry in entries:
+			if entry is Array and entry.size() > 1 and str(entry[1]) == id:
+				return place[1]
+	return ""
+
+
+## The GPU's memory from ComfyUI's /system_stats, for the notes: "3.1 of 12.0 GB free on the GPU";
+## "" if it didn't say. Little free means pictures spill into shared memory and crawl (26 Nov).
+static func gpu_text(stats: Dictionary) -> String:
+	var devices = stats.get("devices", [])
+	if not devices is Array or devices.is_empty() or not devices[0] is Dictionary:
+		return ""
+	var device: Dictionary = devices[0]
+	if not device.has("vram_total") or not device.has("vram_free"):
+		return ""
+	var gb := 1024.0 * 1024.0 * 1024.0
+	return "%.1f of %.1f GB free on the GPU" % [float(device["vram_free"]) / gb, float(device["vram_total"]) / gb]
+
+
+## Notes the GPU's free memory as the pictures start. Use with await.
+func _note_gpu() -> void:
+	if not Hooks.fake_comfy.is_empty():
+		return
+	var reply := await _request(URL + "/system_stats", HTTPClient.METHOD_GET, "", 3.0)
+	var parsed = JSON.parse_string((reply[2] as PackedByteArray).get_string_from_utf8()) if reply[0] else null
+	var text := gpu_text(parsed if parsed is Dictionary else {})
+	if text != "":
+		DebugLog.say("Faces", text)
 
 
 ## How long a picture took to make, in seconds: ComfyUI's own time if it said, else from asking
