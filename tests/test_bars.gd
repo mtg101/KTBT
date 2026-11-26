@@ -365,7 +365,7 @@ func test_after_closing_faces_of_their_own_get_their_tv_moods() -> void:
 	scene._summary.visible = true  # (3am's page, where the backstage note is)
 	scene._faces_after_closing()  # (their faces first, then one person's moods a gap)
 	var note := runner.find_child("BackstageNote", true, false) as Label
-	assert_bool(await _wait_until(func(): return note.visible and note.text.contains("picture 2 of about 20"), FACES_WAIT_MS)).override_failure_message("no backstage note: " + note.text).is_true()
+	assert_bool(await _wait_until(func(): return note.visible and note.text.contains("picture 2 of about 13"), FACES_WAIT_MS)).override_failure_message("no backstage note: " + note.text).is_true()
 	assert_str(note.text).starts_with("Backstage, while the GPU's free between nights: The casting photographer's taking ")
 	assert_bool(await _wait_until(func(): return note.text.contains("make-up artist's doing") and note.text.contains("to go"), FACES_WAIT_MS)).override_failure_message("the note didn't move on: " + note.text).is_true()
 	assert_bool(await _wait_until(func(): return not scene._writing_up, FACES_WAIT_MS)).is_true()

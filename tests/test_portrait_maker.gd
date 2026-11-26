@@ -209,6 +209,39 @@ func test_a_face_is_redrawn_in_its_moods_and_each_moods_best_seed_picked() -> vo
 	assert_int(maker.counts["uploads"]).is_equal(1)
 
 
+func test_one_seed_a_mood_and_a_second_only_when_it_scores_badly() -> void:
+	# The game's way (visit.gd passes MOOD_CLEAN_ENOUGH): a mood's two seeds were never more than
+	# 0.03 apart, so the second's only made when the first scores worse than retry_over.
+	# shock 41400 scores 0.180 (kept), sad 41410 0.422 (over 0.3: 41411 too, 0.125, picked).
+	Hooks.fake_comfy = [_picture(REACTIONS + "react_m_40s_side_part_shock_41400.png"), _picture(REACTIONS + "react_m_40s_side_part_sad_41410.png"), _picture(REACTIONS + "react_m_40s_side_part_sad_41411.png")]
+	var maker = auto_free(PortraitMaker.new())
+	add_child(maker)
+	assert_str(await maker.open()).is_empty()
+	DebugLog.everything_to_console = true
+	DebugLog.printed = []
+	var moods: Dictionary = await maker.redraw(_picture(CALM), "owner", false, ["shock", "sad"], 2, 41400, 0.3)
+	assert_array(moods.keys()).contains_exactly(["shock", "sad"])
+	assert_int(int(moods["shock"]["seed"])).is_equal(41400)
+	assert_int(moods["shock"]["scores"].size()).is_equal(1)
+	assert_int(int(moods["sad"]["seed"])).is_equal(41411)
+	assert_array(moods["sad"]["scores"].keys()).contains_exactly([41410, 41411])
+	assert_array(maker.order).is_equal(["ask 41400", "split", "ask 41410", "split", "split", "ask 41411", "split"])  # (the retry asked for once it's known it's needed)
+	assert_int(maker.counts["made"]).is_equal(3)
+	assert_int(maker.counts["retries"]).is_equal(1)
+	assert_str("\n".join(DebugLog.printed)).contains("Faces: owner, sad: scored 0.42").contains("over 0.30, so seed 41411 too")
+	# A first picture that doesn't come out is tried again too; never more than seeds.
+	Hooks.fake_comfy = ["not a picture", _picture(REACTIONS + "react_m_40s_side_part_sad_41411.png")]
+	maker.order = []
+	var again: Dictionary = await maker.redraw(_picture(CALM), "owner", false, ["sad"], 2, 500, 0.3)
+	assert_int(int(again["sad"]["seed"])).is_equal(501)
+	assert_int(maker.counts["retries"]).is_equal(2)
+	Hooks.fake_comfy = ["not a picture"]
+	var none: Dictionary = await maker.redraw(_picture(CALM), "owner", false, ["sad"], 2, 500, 0.3)
+	assert_str(str(none["sad"].get("failed", ""))).is_equal("the test's picture wasn't one")  # (two tries, then the calm face)
+	assert_int(maker.counts["retries"]).is_equal(3)
+	maker.close()
+
+
 func test_a_mood_that_fails_says_why_and_the_rest_carry_on() -> void:
 	Hooks.fake_comfy = ["not a picture", "not a picture"] + _mood_pictures("sweet", 41420)
 	var maker = auto_free(PortraitMaker.new())

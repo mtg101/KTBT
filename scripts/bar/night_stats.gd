@@ -1077,6 +1077,8 @@ static func recast_text(recast: Dictionary) -> String:
 ## and how long, for a gap's faces (rounds: the owner's casting rounds, after the pictures).
 static func comfy_text(faces: Dictionary, rounds: String = "") -> String:
 	var made := " · %d made, %d failed" % [int(faces.get("made", 0)), int(faces.get("failed", 0))] if faces.has("made") else ""
+	if made != "" and int(faces.get("retries", 0)) > 0:  # (a mood's second seed, its first scoring badly: portrait_maker.gd redraw)
+		made += " (%d a mood's second try)" % int(faces["retries"])
 	var comfy := ""
 	if bool(faces.get("fake", false)):
 		comfy = " · the test's pictures"

@@ -5681,7 +5681,7 @@ func _faces_after_closing() -> void:
 
 
 ## About how many pictures this gap will make: the regulars' casting photos (three each, up to
-## REGULARS_A_GAP), then MOODS_A_GAP people's moods (MOOD_SEEDS each of the moods they're missing;
+## REGULARS_A_GAP), then MOODS_A_GAP people's moods (one each of the moods they're missing, retries aside;
 ## a regular cast tonight is missing all of them), the owner first.
 func _planned_pictures(people: Array) -> int:
 	var cast: Array = people.slice(0, REGULARS_A_GAP)
@@ -5691,7 +5691,7 @@ func _planned_pictures(people: Array) -> int:
 		for regular in cast:
 			moody.append(Captions.REACTIONS.size())  # (once they've their face; roughly in turn)
 	for wanted in moody.slice(0, MOODS_A_GAP):
-		total += int(wanted) * MOOD_SEEDS
+		total += int(wanted)
 	return total
 
 
@@ -5728,14 +5728,14 @@ func _tell_backstage() -> void:
 
 # --- Their moods (a face of their own in each TV mood, made after closing) ------------------------
 # PLAN.md: a face of their own is redrawn in each TV mood (captions.gd REACTIONS) from its calm
-# picture (ai/portrait_maker.gd redraw), MOOD_SEEDS seeds each, the best seed of each kept with the
+# picture (ai/portrait_maker.gd redraw), one seed each (a second, up to MOOD_SEEDS, if it scores badly), the best kept with the
 # bar (portrait_<tag>_<seed>_<mood>.png, the face's "moods") and read into Art.own as
 # reaction/<own key>_<mood> (_own_moods), so PeopleArt.portrait(look, key, mood) and the TV boxes
 # find it. A mood that failed, or scored worse than MOOD_CLEAN_ENOUGH, has the calm face standing in
 # (noted with why) and is tried again another night. A recast's a new key: its moods start again.
 
-const MOODS_A_GAP := 1  # people whose moods are made in one gap (14 pictures: about 3½ to 4 minutes, 25 Nov)
-const MOOD_SEEDS := 2  # pictures of each mood, the best kept (as the library's)
+const MOODS_A_GAP := 1  # people whose moods are made in one gap (7 pictures now, one a mood: 14 were about 3½ to 4 minutes, 25 Nov)
+const MOOD_SEEDS := 2  # pictures of a mood at most: the second only if the first scores worse than MOOD_CLEAN_ENOUGH (portrait_maker.gd redraw's retry_over)
 ## A mood's best seed is kept only if it scored at least this well (react_score: lower is better).
 ## The art tool's own line for "looks like someone else"; the library's 882 picks all scored
 ## under it (median about 0.1, the worst 0.56: shock).
@@ -5804,10 +5804,10 @@ func _make_moods_for(person: Dictionary, tag: String, is_owner: bool) -> Diction
 	_tell_backstage()
 	DebugLog.say("Faces", "%s's moods (%s): redrawn from their calm picture" % [who, ", ".join(PackedStringArray(wanted))])
 	var calm := SaveStore.load_picture(id, str(face.get("picture", "")))
-	var made: Dictionary = await _maker.redraw(calm.get_image() if calm != null else null, tag, bool(person.get("look", {}).get("glasses", false)), wanted, MOOD_SEEDS, _casting_seed())
+	var most: float = MOOD_CLEAN_ENOUGH if is_nan(Hooks.mood_clean_enough) else Hooks.mood_clean_enough
+	var made: Dictionary = await _maker.redraw(calm.get_image() if calm != null else null, tag, bool(person.get("look", {}).get("glasses", false)), wanted, MOOD_SEEDS, _casting_seed(), most)
 	if _closed():
 		return {"kept": 0, "stood_in": wanted.size()}
-	var most: float = MOOD_CLEAN_ENOUGH if is_nan(Hooks.mood_clean_enough) else Hooks.mood_clean_enough
 	var moods: Dictionary = (face.get("moods", {}) as Dictionary).duplicate() if face.get("moods", {}) is Dictionary else {}
 	var got := {"kept": 0, "stood_in": 0}
 	for mood in wanted:

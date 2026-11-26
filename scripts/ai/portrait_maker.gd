@@ -303,11 +303,14 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 ## outright), each split into its close-up on a worker thread (react_split) and scored against the
 ## calm one's (react_score); each mood's best seed (PortraitSplit.best). After open(). As make(),
 ## each picture's split while ComfyUI makes the next, from one mood to the next.
+## retry_over: one picture a mood, the next seed (up to seeds) only while the mood's best scores
+## worse than it (or none came out): the seeds of a mood were never more than 0.03 apart, so the
+## second was mostly time (about 90s a face). Below 0 (the default), every seed, as the library's.
 ## {mood: {"seed", "picture", "split", "score", "scores": {seed: score}}}, a mood none of whose
 ## pictures came out {"failed": why}; {} if nothing could be tried (no edit workflow, no calm
 ## picture, the upload refused: why in last_error and the notes), so the calm face is kept.
 ## person: who (for the notes and the pictures' names: "owner", a regular's tag).
-func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int, first_seed: int) -> Dictionary:
+func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int, first_seed: int, retry_over: float = -1.0) -> Dictionary:
 	var out := {}
 	if calm == null or calm.is_empty():
 		_fail_redraw(person, "no calm picture to redraw")
@@ -324,8 +327,10 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 	if reference == "":
 		_fail_redraw(person, last_error)
 		return out
-	# Every picture to make, in turn: [mood, seed, prompt]. A mood with no face is said at once.
+	# Every picture to make, in turn: [mood, seed, prompt, which mood, which seed]. A mood with no
+	# face is said at once. With retry_over, a mood's next seed is added at the end when it's needed.
 	var jobs: Array = []
+	var left := {}  # a mood's pictures still to come
 	for m in moods.size():
 		var mood := str(moods[m])
 		var prompt := PortraitRules.react_prompt(mood, glasses)
@@ -334,8 +339,10 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 			out[mood] = {"failed": "there's no face for the mood %s" % mood}
 			DebugLog.say("Faces", "%s, %s: %s" % [person, mood, out[mood]["failed"]])
 			continue
-		for n in seeds:
-			jobs.append([mood, first_seed + MOOD_SEEDS_APART * m + n, prompt])
+		var first_go := seeds if retry_over < 0.0 else mini(1, seeds)
+		left[mood] = first_go
+		for n in first_go:
+			jobs.append([mood, first_seed + MOOD_SEEDS_APART * m + n, prompt, m, n])
 	var tried := {}
 	var why := {}
 	var ticket := {}
@@ -346,9 +353,16 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 	var calm_split := await _split(calm, person, true)  # (while the first picture's made)
 	if not is_inside_tree():
 		return _only_done(out)
-	for k in jobs.size():
+	var asked_for := 0  # (which job the ticket's for)
+	var k := 0
+	while k < jobs.size():
 		var mood: String = jobs[k][0]
 		var pic_seed: int = jobs[k][1]
+		if asked_for != k:  # (a retry added after the last job: not asked for yet)
+			ticket = await _ask(_edit, jobs[k][2], pic_seed, k, "ktbt/faces/%s_%s" % [person, mood], reference)
+			asked_for = k
+			if not is_inside_tree():
+				return _only_done(out)
 		var picture: Image = await _collect(ticket)
 		if not is_inside_tree():
 			return _only_done(out)
@@ -357,6 +371,7 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 		if k + 1 < jobs.size():
 			var next: Array = jobs[k + 1]
 			ticket = await _ask(_edit, next[2], next[1], k + 1, "ktbt/faces/%s_%s" % [person, next[0]], reference)  # (the next one made while this one's split)
+			asked_for = k + 1
 			if not is_inside_tree():
 				return _only_done(out)
 		if picture == null:
@@ -378,8 +393,20 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 			if not tried.has(mood):
 				tried[mood] = []
 			tried[mood].append({"seed": pic_seed, "picture": picture, "split": split, "score": score})
-		if k + 1 == jobs.size() or str(jobs[k + 1][0]) != mood:
+		left[mood] = int(left[mood]) - 1
+		var n: int = jobs[k][4]
+		if retry_over >= 0.0 and int(left[mood]) == 0 and n + 1 < seeds:
+			var at := PortraitSplit.best(tried.get(mood, []))
+			var best_score: float = float(tried[mood][at]["score"]) if at >= 0 else INF
+			if best_score > retry_over:
+				var again := first_seed + MOOD_SEEDS_APART * int(jobs[k][3]) + n + 1
+				jobs.append([mood, again, jobs[k][2], jobs[k][3], n + 1])
+				left[mood] = 1
+				counts["retries"] = int(counts.get("retries", 0)) + 1
+				DebugLog.say("Faces", "%s, %s: %s, so seed %d too" % [person, mood, "scored %.3f, over %.2f" % [best_score, retry_over] if at >= 0 else "no picture", again])
+		if int(left[mood]) == 0:
 			out[mood] = _pick(person, mood, tried.get(mood, []), str(why.get(mood, "")))
+		k += 1
 	return out
 
 
