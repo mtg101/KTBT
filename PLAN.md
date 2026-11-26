@@ -9,7 +9,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - ComfyUI's start-up and the first picture (the model loading) took about a minute on night 1: the next bar's faces line ("ComfyUI started in …s", "first picture …s") says how much is which. If start-up is most of it, start ComfyUI while the AI's still making the bar (its start-up doesn't need the GPU; the model loading does).
   - The moods' pictures take 9.5 to 32s each (a casting photo 3.2s), two seeds a mood, 14 a person: one seed a mood would about halve it (the two seeds' scores were nearly the same every time), or ask for both in one go (batch_size 2). The user's deciding. Why the same workflow ranges from 9.5 to 32s (the GPU's memory?) is worth a look in ComfyUI's own log.
   - generating images at the end of the night is slow too (the backstage note said about 3 minutes, and it felt longer): check the note's estimate against the faces' new times.
-- **end of night social posts with pics have double hastags
+- **end of night social posts with pics have double hastags**
   - #regular #mood then repeated in blue #regular #mood
 - **Events getting forgotten**
   - some events ignored, some get a single mention
