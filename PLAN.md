@@ -4,10 +4,13 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Events getting forgotten**
-  - some events ignored, some get a single mention
-  - feels to me like new events overtake the event?
-  - get AI to investigate logs etc...
+- **Events getting forgotten** (the rest of it: cards no longer wipe each other out, see DEVLOG 26 Nov)
+  - **Tonight so far, in every prompt:** the last two or three big things tonight, with how long ago each was ("20 minutes ago: Jae-moon's ex walked past, walking a dog"), for everyone in the tent, fading out by game time (an hour or so) rather than by lines. From NightEvents' `plant_played`; nothing can wipe it out. Counted: how often a card comes up an hour on.
+  - **The owner stays with it:** after the line reacting to a card, the owner keeps to that person for a couple more turns (night 5: one line, then straight back to Kwon Soo-yeon).
+  - **Brought back later:** 30 to 60 game minutes on, the owner asks about it once ("so… the ex"), as a regular's thread is asked about; and their goodbye can mention it.
+  - **The power card's words:** "A moment later, they're back on" settles it before anyone speaks, so every line is "ah, electricity's back": the lights out for a few lines. And the "taken up" check counted those reactions as not taken up (by the words).
+- **Red PD lines like 'will they step in' appear in PD console when bar first opens for a night:**
+  - left over from the loading screens?
 
 ## Future ideas and improvements
 

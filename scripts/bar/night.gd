@@ -12,3 +12,4 @@ var owner_stunned := ""  # a Talk.stunned_moment for the owner's next line (used
 var owner_cat_moment := ""  # the cat's up to something the owner has to deal with (used once)
 var owner_plant_moment := ""  # a PD's card has just happened to the whole tent: for the owner's next line (used once)
 var owner_plant_card := ""  # ... which card (for the stats)
+var owner_plant_queue: Array = []  # ... and any more for the tent, waiting their turn: {"moment", "card"} (see CardSlots)

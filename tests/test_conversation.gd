@@ -7,6 +7,7 @@ const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Night = preload("res://scripts/bar/night.gd")
 const Talk = preload("res://scripts/rules/talk.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
+const CardSlots = preload("res://scripts/bar/card_slots.gd")
 
 
 ## Just what the conversations look at.
@@ -24,8 +25,14 @@ class Someone:
 	var plant_moment := ""
 	var thread_moment := ""
 	var plant_card := ""
+	var plant_happened := ""
+	var card_turn := false
+	var plant_queue: Array = []
 	var pd_topic := ""
 	var pd_topic_lines := 0
+	var pd_topic_card := ""
+	var pd_topic_personal := false
+	var pd_topic_queue: Array = []
 
 
 func test_a_quiet_one_drawn_into_a_chat_keeps_it_short() -> void:
@@ -278,6 +285,40 @@ func test_the_line_reacting_to_a_card_is_given_only_that() -> void:
 	var owner_given := Conversation.owner_line(night, guest, 3, false, false)
 	assert_str(str(owner_given["direction"])).contains("power has just cut out").not_contains("A little while ago")
 	assert_int(guest.pd_topic_lines).is_equal(2)
+
+
+func test_a_lingering_line_is_only_used_up_when_its_given() -> void:
+	# 26 Nov: "can I call you eonni?" and a table game took the ex's lines, and they were gone.
+	var night := Night.new()
+	var chat := CounterChats.Chat.new()
+	chat.pd_topic = Talk.aftermath_hint("The ex walked past.")
+	chat.pd_topic_lines = 2
+	var speaking := Someone.new()
+	var dice := RandomNumberGenerator.new()
+	var asked := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, true, "eonni", false, [0, 0, false], 0, false, dice)
+	assert_str(str(asked["direction"])).contains("Eonni")
+	assert_int(chat.pd_topic_lines).is_equal(2)  # (that line was the eonni moment's)
+	for _k in 2:  # (late, a few drinks in: a table game could come up, but not over what's lingering)
+		var given := Conversation.chat_line(night, chat, "Kim Ji-ho", "Lee Min-jun", false, speaking, false, true, "", false, [0, 0, false], 5, true, dice)
+		assert_str(str(given["direction"])).contains("A little while ago")
+		assert_str(str(given["hint"])).not_contains("game_")
+	assert_int(chat.pd_topic_lines).is_equal(0)
+	assert_str(chat.game).is_empty()
+
+
+func test_what_waits_takes_over_when_a_steers_done() -> void:
+	var night := Night.new()
+	var guest := Someone.new()
+	CardSlots.steer(guest, Talk.aftermath_hint("The ex walked past."), 1, "ex_walks_past", true)
+	CardSlots.steer(guest, Talk.aftermath_hint("A song started up across the street."), 1, "noraebang", false)
+	assert_str(str(Conversation.owner_line(night, guest, 2, false, false)["direction"])).contains("ex walked past")
+	assert_str(str(Conversation.owner_line(night, guest, 3, false, false)["direction"])).contains("song started up")
+	assert_str(str(Conversation.owner_line(night, guest, 4, false, false)["direction"])).not_contains("A little while ago")
+	# A second card's moment, waiting: it's the next line's.
+	CardSlots.plant(guest, "phone", "Their phone has just rung.", "")
+	CardSlots.plant(guest, "text", "A text has just come.", "")
+	assert_str(str(Conversation.owner_line(night, guest, 5, false, false)["hint"])).is_equal("plant_phone")
+	assert_str(str(Conversation.owner_line(night, guest, 7, false, false)["hint"])).is_equal("plant_text")
 
 
 func test_something_they_mentioned_last_time_is_asked_about_once() -> void:

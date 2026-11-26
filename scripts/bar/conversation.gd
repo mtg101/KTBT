@@ -14,6 +14,7 @@ extends RefCounted
 const Talk = preload("res://scripts/rules/talk.gd")
 const Looks = preload("res://scripts/rules/looks.gd")
 const Night = preload("res://scripts/bar/night.gd")
+const CardSlots = preload("res://scripts/bar/card_slots.gd")
 
 
 ## What the owner's (or a customer's) next line to the other is given: {"direction", "hint"
@@ -41,9 +42,8 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			thread_now = true
 	elif guest.stay_left < 10.0:
 		direction = "The customer is nearly ready to leave."
-	elif guest.pd_topic_lines > 0:  # (the PD's cue card, or a card's moment lingering, for a few lines)
+	elif guest.pd_topic_lines > 0:  # (the PD's cue card, or a card's moment lingering, for a few lines: used up at the end, if it's still this line's)
 		direction = guest.pd_topic
-		guest.pd_topic_lines -= 1
 		used_steer = true
 	elif guest.topic != "":
 		direction = Talk.topic_hint(guest.topic)
@@ -57,17 +57,15 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 		else:
 			guest.stunned = ""
 	elif owner_speaks and night.owner_plant_moment != "":  # (a PD's card for the whole tent: the owner reacts too, 18 Nov)
-		if used_steer:
-			guest.pd_topic_lines += 1  # (not used up on this line)
+		used_steer = false  # (not used up on this line)
 		direction = night.owner_plant_moment + " " + Talk.JUST_HAPPENED
 		hint = "plant_" + night.owner_plant_card
-		night.owner_plant_moment = ""  # once
+		CardSlots.use_owner_plant(night)  # once (and the next for the tent, if one's waiting)
 	elif line > 0 and not owner_speaks and guest.plant_moment != "":  # (a PD's plant card: it's happened to them)
-		if used_steer:
-			guest.pd_topic_lines += 1  # (not used up on this line)
+		used_steer = false  # (not used up on this line)
 		direction = guest.plant_moment + " " + Talk.JUST_HAPPENED
 		hint = "plant_" + guest.plant_card
-		guest.plant_moment = ""  # once
+		CardSlots.use_plant(guest)  # once (and the next card for them, if one's waiting)
 	elif line > 0 and not owner_speaks and guest.camera_moment != "":  # (the PD's camera has just turned to them)
 		direction = (guest.camera_moment + " " + direction).strip_edges()
 		hint = "camera"
@@ -87,6 +85,8 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 			night.owner_cat_moment = ""
 		else:
 			guest.cat_moment = ""
+	if used_steer:
+		CardSlots.use_steer(guest)
 	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()
 	if thread_now and hint == "":
 		hint = "thread"
@@ -102,12 +102,14 @@ static func owner_line(night: Night, guest: Variant, line: int, late: bool, wet:
 static func chat_line(night: Night, chat: Variant, speaker: String, addressee: String, first: bool, speaking: Variant, owner_speaks: bool,
 		close: bool, moment_term: String, met_before: bool, food: Array, fewest_drinks: int, late_enough: bool, dice: RandomNumberGenerator) -> Dictionary:
 	var direction := "This is the first thing they've ever said to each other." if first else Talk.topic_hint(chat.topic, true)
+	var used_steer := false  # (this line's direction is what's lingering: used up at the end, if it still is)
 	if not first and chat.pd_topic_lines > 0:  # (the PD's cue card, or a card's moment lingering, for a few lines)
 		direction = chat.pd_topic
-		chat.pd_topic_lines -= 1
+		used_steer = true
 	if first and met_before:
 		direction = "They've met here before: they pick up where they left off."
 	if moment_term != "":
+		used_steer = false  # (it takes this line: what's lingering waits for the next)
 		direction = "%s has got to know %s over their chats here, and asks if they can drop the formalities: can they call them %s, and talk to each other casually from now on, like friends?" % [speaker, addressee, moment_term.capitalize()]
 	var hint := ""
 	var game := ""
@@ -118,11 +120,10 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 	# It comes first, before a pour, a table game, the stunned moment or the cat: those wait (22 Nov:
 	# the ex walked past, and Ji-yoon's next three lines were a refill and a drinking game).
 	if speaking != null and speaking.plant_moment != "":
-		if not first and chat.pd_topic_lines > 0 and direction == chat.pd_topic:
-			chat.pd_topic_lines += 1  # (not used up on this line)
+		used_steer = false  # (not used up on this line)
 		direction = speaking.plant_moment + " " + Talk.JUST_HAPPENED + (" " + "This is the first thing they've ever said to each other." if first else "")
 		hint = "plant_" + speaking.plant_card
-		speaking.plant_moment = ""
+		CardSlots.use_plant(speaking)  # (and the next card for them, if one's waiting)
 	# Now and then, once a chat: something to share (a bite, a refill).
 	if hint == "" and not first and moment_term == "" and not chat.shared and speaking != null and int(food[0]) > 0:
 		var sharing := Talk.sharing_moment(speaker, addressee, close, int(food[0]) > int(food[1]), bool(food[2]), randf(), randf())
@@ -133,12 +134,12 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 	# Late on, a few drinks in: a table game now and then, once a chat (the AI takes it up, or
 	# doesn't). It's what's going on at the table for a few lines, not one passing remark, and it
 	# takes the place of the chat's topic: the 8B model ignored it next to a topic (0 of 4 taken up).
-	if hint == "" and not first and chat.game == "" and speaking != null:
+	if hint == "" and not first and not used_steer and chat.game == "" and speaking != null:  # (not over what's lingering: 26 Nov)
 		game = Talk.table_game(chat.people.size(), fewest_drinks, close, late_enough, dice.randf(), dice.randf())
 		if game != "":
 			chat.game = game
 			chat.game_lines = Talk.TABLE_GAME_LINES
-	if hint == "" and not first and chat.game != "" and not chat.game_on and chat.game_lines > 0:
+	if hint == "" and not first and not used_steer and chat.game != "" and not chat.game_on and chat.game_lines > 0:
 		direction = str(Talk.TABLE_GAMES[chat.game]["situation"]) + " " + Talk.TABLE_GAME_NOW
 		hint = "game_" + chat.game
 		chat.game_lines -= 1
@@ -166,6 +167,8 @@ static func chat_line(night: Night, chat: Variant, speaker: String, addressee: S
 		direction = speaking.camera_moment + " " + direction
 		hint = "camera"
 		speaking.camera_moment = ""
+	if used_steer:
+		CardSlots.use_steer(chat)
 	if speaking != null and "company" in speaking and str(speaking.company) == "quiet":
 		direction = (direction + " " + Talk.QUIET_IN_A_CHAT % speaker).strip_edges()
 	direction = (direction + " " + Talk.worn_out_note(night.stats.worn_out())).strip_edges()

@@ -197,6 +197,8 @@ var plant_watch := {}  # plant cards played: how many more lines (anyone's) to w
 var plant_watch_for := {}  # ...a card played for someone: watched for as long as they're here (card -> their name)
 var plant_mentions := {}  # ... and how many of them did (card: count)
 const PLANT_WATCH_LINES := 12
+var cards_waited := {}  # card -> times its moment or aftermath had to wait its turn behind another's (see CardSlots)
+var cards_lost := {}  # card -> times it never came up: they left first, or too many were waiting
 var camera_lines := 0  # lines said tonight (the owner's conversations and the chats)...
 var camera_lines_on := 0  # ...and how many of them with whoever the PD's camera was following
 var gave_up_by := {}  # what the AI was being asked for -> how many times it gave up
@@ -503,6 +505,16 @@ func esc_menu_text() -> String:
 
 
 ## Someone a card had just happened to, turned to first.
+## A card's moment (or what lingers after it) had to wait behind another's, rather than wiping it out.
+func record_card_waited(card: String) -> void:
+	cards_waited[card] = int(cards_waited.get(card, 0)) + 1
+
+
+## A card that never came up: whoever it was for left first, or too many were waiting.
+func record_card_lost(card: String) -> void:
+	cards_lost[card] = int(cards_lost.get(card, 0)) + 1
+
+
 func record_card_turn() -> void:
 	card_turns += 1
 
@@ -573,15 +585,26 @@ func camera_follows() -> Array:
 
 ## The PD's plant cards tonight: {card: [played, lines given it, lines that took it up, lines
 ## (anyone's) that brought it up after it was played: the next PLANT_WATCH_LINES, or for a
-## card played for someone, as long as they're here]}.
+## card played for someone, as long as they're here, times it waited its turn behind another
+## card, times it never came up (see CardSlots)]}.
 func plants() -> Dictionary:
 	var found := {}
 	for event in events:
 		if str(event.get("kind", "")) == "plant_played":
 			var card := str(event.get("card", ""))
 			found[card] = [int(found.get(card, [0])[0]) + 1, int(hints_given.get("plant_" + card, 0)), int(hints_taken.get("plant_" + card, 0)),
-				int(plant_mentions.get(card, 0))]
+				int(plant_mentions.get(card, 0)), int(cards_waited.get(card, 0)), int(cards_lost.get(card, 0))]
 	return found
+
+
+## ", waited 2, lost 1" for a card in plants() (or "" if it did neither).
+static func _waited_lost(card: Array) -> String:
+	var said := ""
+	if int(card[4]) > 0:
+		said += ", waited %d" % int(card[4])
+	if int(card[5]) > 0:
+		said += ", lost %d" % int(card[5])
+	return said
 
 
 ## The table games: {game: [offered, taken up]}, a chat each (a game's in the air for a few
@@ -910,7 +933,7 @@ func panel_text(seated: int, cooking: int) -> String:
 	lines.append("The edit: offered %d · you picked a spin %d%s" % [edits_offered, edited, (" (" + counts_text(edits_made) + ")") if edited > 0 else ""])
 	if written_refused > 0:
 		lines.append("Write-ins sent back by the checks: %d" % written_refused)
-	lines.append("Plants: %s" % (("played %d · turned to first %d · " % [played.size(), card_turns]) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d lines after" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3])]))) if not played.is_empty() else "none played tonight"))
+	lines.append("Plants: %s" % (("played %d · turned to first %d · " % [played.size(), card_turns]) + " · ".join(PackedStringArray(played.keys().map(func(c): return "%s taken up %d/%d, came up in %d lines after%s" % [c, int(played[c][2]), int(played[c][1]), int(played[c][3]), _waited_lost(played[c])]))) if not played.is_empty() else "none played tonight"))
 	lines.append("")
 	lines.append("[b]REGULARS[/b]")
 	lines.append("On the books %d (%d founding) · average pull %.2f" % [regular_pulls.size(), founding_regulars, average(regular_pulls.values())])

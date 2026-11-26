@@ -27,6 +27,9 @@ class Chat:
 	var cat_talk_done := false  # the cat's taken over this chat's topic once (only once)
 	var pd_topic := ""  # the PD's cue card, or a card's moment lingering: the direction for the chat's lines...
 	var pd_topic_lines := 0  # ... for this many more lines
+	var pd_topic_card := ""  # ... which card it's from ("cue_card" for a write-in)
+	var pd_topic_personal := false  # ... someone's own card (not the whole tent's)
+	var pd_topic_queue: Array = []  # ... and what's waiting to take over after it (see CardSlots)
 
 
 var chats: Array = []  # Chat: customer conversations going on at the counter

@@ -430,7 +430,7 @@ func test_the_pds_camera_is_counted() -> void:
 	assert_bool(stats.record_hint("plant_phone", "Anyway.")).is_false()
 	assert_str(stats.panel_text(0, 0)).contains("Plants: played 1 · turned to first 0 · phone taken up 1/2")
 	assert_array(stats.highlights()).contains(["11:30pm  plant: phone (Kim Ji-ho)"])
-	assert_array(stats.summary({})["pd"]["plants"]["phone"]).is_equal([1, 2, 1, 0])
+	assert_array(stats.summary({})["pd"]["plants"]["phone"]).is_equal([1, 2, 1, 0, 0, 0])
 	# ... and whether it came up at all, in anyone's lines (the owner's too), soon after.
 	stats.record_event("plant_played", {"card": "rain", "name": ""})
 	stats.events.append({"kind": "plant_played", "card": "rain", "name": "", "at": 1420})
@@ -438,8 +438,13 @@ func test_the_pds_camera_is_counted() -> void:
 	stats.record_line("Another soju, please.")
 	for _k in NightStats.PLANT_WATCH_LINES:
 		stats.record_line("Look at all that rain!")  # (past the watch: not counted)
-	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1])
+	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1, 0, 0])
 	assert_str(stats.panel_text(0, 0)).contains("rain taken up 0/0, came up in %d lines after" % [NightStats.PLANT_WATCH_LINES - 1])
+	# A card that had to wait its turn, or never came up (26 Nov: see CardSlots).
+	stats.record_card_waited("rain")
+	stats.record_card_lost("rain")
+	assert_array(stats.plants()["rain"]).is_equal([1, 0, 0, NightStats.PLANT_WATCH_LINES - 1, 1, 1])
+	assert_str(stats.panel_text(0, 0)).contains("lines after, waited 1, lost 1")
 	# A card for someone is watched for as long as they're here (night 25: the sponsor's keyring came up 25 lines on).
 	stats.record_event("plant_played", {"card": "ppl", "name": "Kim Min-seok"})
 	for _k in NightStats.PLANT_WATCH_LINES * 2:

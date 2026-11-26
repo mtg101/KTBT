@@ -40,6 +40,7 @@ const RegularsTonight = preload("res://scripts/bar/regulars_tonight.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Friendliness = preload("res://scripts/bar/friendliness.gd")
 const Conversation = preload("res://scripts/bar/conversation.gd")
+const CardSlots = preload("res://scripts/bar/card_slots.gd")
 const Scenery = preload("res://scripts/bar/scenery.gd")
 const StatsPanel = preload("res://scripts/bar/stats_panel.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
@@ -188,8 +189,12 @@ class Guest:
 	var plant_moment := ""  # a Plants.moment for their next line: a PD's plant card has just happened to them...
 	var plant_card := ""  # ... which card
 	var plant_happened := ""  # ... and what happened, for whichever conversation they speak in next
+	var plant_queue: Array = []  # ... and more cards for them, waiting their turn: {"moment", "card", "happened"} (see CardSlots)
 	var pd_topic := ""  # the PD's cue card, or a card's moment lingering: the direction for their talk...
 	var pd_topic_lines := 0  # ... for this many more lines
+	var pd_topic_card := ""  # ... which card it's from ("cue_card" for a write-in)
+	var pd_topic_personal := false  # ... their own card (not the whole tent's)
+	var pd_topic_queue: Array = []  # ... and what's waiting to take over after it (see CardSlots)
 	var to_camera := false  # their next line's an interview cut: answered straight to camera
 	var cat_talk_done := false  # the cat's taken over their talk with the owner once tonight (only once: it's a tent bar, not a cat cafe)
 	var kya_done := false  # had their "Kya~!" after the first drink
@@ -3464,9 +3469,8 @@ func _comes_in(regular: Dictionary, group: Dictionary, with: Guest) -> Guest:
 			return null
 		look = customer["look"]
 		if str(regular.get("id", "")) == _planted_regular:  # (the PD rang them: they know why they're here)
-			guest.plant_moment = Plants.moment("regular_in", str(regular["name"]), "", "", str(regular.get("gender", "")))
-			guest.plant_card = "regular_in"
-			guest.plant_happened = Plants.happened("regular_in", str(regular["name"]), "", "", str(regular.get("gender", "")))
+			CardSlots.plant(guest, "regular_in", Plants.moment("regular_in", str(regular["name"]), "", "", str(regular.get("gender", ""))),
+				Plants.happened("regular_in", str(regular["name"]), "", "", str(regular.get("gender", ""))))  # (just in: nothing else waiting for them)
 			_planted_regular = ""
 			_narrate("(%s)" % guest.plant_happened)
 	else:
@@ -4064,11 +4068,9 @@ func _chat_speaker(chat: Chat, voices: Array, first: bool) -> String:
 ## or joins a chat: it comes with them (17 Nov: the ex walked past, Yeon-mi got talking to
 ## Joon-hyung, and two lines on they were arguing about ramyeon).
 func _bring_into_chat(chat: Chat, people: Array) -> void:
-	for person in people:
-		if person.pd_topic_lines > 0 and chat.pd_topic_lines == 0:
-			chat.pd_topic = person.pd_topic
-			chat.pd_topic_lines = person.pd_topic_lines
-		person.pd_topic_lines = 0
+	for person in people:  # (both of them: 26 Nov, only the first one's came, and the other's was lost)
+		for slot in CardSlots.hand_over(person, chat):
+			_steer_noted(slot, "", str(person.customer["name"]) + ", into a chat")
 
 
 func _chat_possible() -> bool:
@@ -4081,7 +4083,16 @@ func _winding_down() -> bool:
 
 
 func _leave_chats(guest: Guest) -> void:
+	for card in CardSlots.unsaid(guest):  # (they've gone before it came up: the notes and the stats say so)
+		DebugLog.say("Plants", "%s left with their %s card still to come" % [guest.customer["name"], card])
+		_stats.record_card_lost(str(card))
+	var chat := _chat_of(guest)
 	_counter_chats.leave(guest)
+	if chat != null and not _chats.has(chat):  # (the chat's over: what was on its mind goes with whoever's still here)
+		for person in chat.people:
+			if person != guest:
+				for slot in CardSlots.hand_over(chat, person):
+					_steer_noted(slot, "", str(person.customer["name"]) + ", their chat over")
 
 
 ## A spell of customers chatting: carry on a chat already going (sometimes someone else
@@ -6388,12 +6399,7 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 				steer = Talk.aftermath_hint(Plants.happened(card, who, "", what, gender, for_ai))
 			if steers > 0:
 				var chat := _chat_of(target)
-				if chat != null:
-					chat.pd_topic = steer
-					chat.pd_topic_lines = steers
-				else:
-					target.pd_topic = steer
-					target.pd_topic_lines = steers
+				_steer_on(chat if chat != null else target, steer, steers, card, true, who)
 			if card == "interview":
 				target.to_camera = true
 			if text != "":
@@ -6416,8 +6422,7 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 			_narrate(said)
 			var pair_chat := _chat_of(a)
 			if Plants.lingers(card) > 0 and pair_chat != null:  # (it's what they talk about for a while)
-				pair_chat.pd_topic = Talk.aftermath_hint(said)
-				pair_chat.pd_topic_lines = Plants.lingers(card)
+				_steer_on(pair_chat, Talk.aftermath_hint(said), Plants.lingers(card), card, true, who)
 		"tent":
 			for guest in _guests:
 				_plant_on(guest, card, Plants.moment(card, str(guest.customer["name"]), "", what), Plants.happened(card, "", "", what))
@@ -6425,17 +6430,17 @@ func _card_happens(card: String, text: String, aimed: Array, what: String) -> vo
 				chat.transcript.append({"action": Plants.happened(card, "", "", what)})
 			# The owner's in the tent too, and talks most: their next line reacts (18 Nov: the song and
 			# the power cut went by with nobody but the customers told, and they talked on).
-			_night.owner_plant_moment = Plants.moment(card, str(_owner["name"]), "", what)
-			_night.owner_plant_card = card
+			var owner_behind := CardSlots.owner_plant(_night, card, Plants.moment(card, str(_owner["name"]), "", what))
+			if owner_behind != "":
+				DebugLog.say("Plants", "the owner's line on the %s card waits behind the %s card's" % [card, owner_behind])
+				_stats.record_card_waited(card)
 			if Plants.lingers(card) > 0:  # (and it stays on everyone's minds for a few lines)
 				var steer := Talk.aftermath_hint(Plants.happened(card, "", "", what))
 				for guest in _guests:
 					if _chat_of(guest) == null:
-						guest.pd_topic = steer
-						guest.pd_topic_lines = Plants.lingers(card)
+						_steer_on(guest, steer, Plants.lingers(card), card, false, str(guest.customer["name"]))
 				for chat in _chats:
-					chat.pd_topic = steer
-					chat.pd_topic_lines = Plants.lingers(card)
+					_steer_on(chat, steer, Plants.lingers(card), card, false, "a chat with " + " and ".join(PackedStringArray(chat.people.map(func(g): return str(g.customer["name"])))))
 			if str(data.get("fact", "")) == "":
 				_narrate(Plants.happened(card, "", "", what))
 	# The facts: what the game makes true.
@@ -6505,11 +6510,40 @@ func _sponsor_on_table(guest: Variant, sponsor: Dictionary) -> void:
 
 ## A card happens to someone: their moment, and what happened for the conversation they speak in next.
 func _plant_on(guest: Variant, card: String, moment: String, what: String) -> void:
-	guest.plant_moment = moment
-	guest.plant_card = card
-	guest.plant_happened = what
-	guest.card_turn = false
+	var slot := CardSlots.plant(guest, card, moment, what)
+	if str(slot["behind"]) != "":  # (one's still to come for them: this one waits its turn, 26 Nov)
+		DebugLog.say("Plants", "%s's %s card waits behind their %s card, still to come" % [guest.customer["name"], card, slot["behind"]])
+		_stats.record_card_waited(card)
+		_note_happened(guest.transcript, what)  # (it's happened, all the same)
+	if str(slot["dropped"]) != "":
+		DebugLog.say("Plants", "%s's %s card dropped: too many waiting" % [guest.customer["name"], slot["dropped"]])
+		_stats.record_card_lost(str(slot["dropped"]))
 	_plant_in(guest.transcript, guest)
+
+
+## What's to stay on someone's (or a chat's) mind for a few lines, after a card: queued behind
+## what's still on it, rather than wiping it out (see CardSlots). whose: for the notes.
+func _steer_on(holder: Variant, steer: String, lines: int, card: String, personal: bool, whose: String) -> void:
+	_steer_noted(CardSlots.steer(holder, steer, lines, card, personal), card, whose)
+
+
+func _steer_noted(slot: Dictionary, given: String, whose: String) -> void:
+	var card := str(slot.get("card", given))
+	if str(slot.get("behind", "")) != "":
+		DebugLog.say("Plants", "%s: the %s card's aftermath waits behind the %s card's" % [whose, card, slot["behind"]])
+		_stats.record_card_waited(card)
+	if str(slot.get("ahead_of", "")) != "":
+		DebugLog.say("Plants", "%s: the %s card's aftermath goes first; the %s card's waits" % [whose, card, slot["ahead_of"]])
+		_stats.record_card_waited(str(slot["ahead_of"]))
+	if str(slot.get("dropped", "")) != "":
+		DebugLog.say("Plants", "%s: the %s card's aftermath dropped: too many waiting" % [whose, slot["dropped"]])
+		_stats.record_card_lost(str(slot["dropped"]))
+
+
+## Something that happened, in a conversation's transcript (once).
+func _note_happened(transcript: Array, what: String) -> void:
+	if what != "" and not transcript.any(func(entry): return str(entry.get("action", "")) == what):
+		transcript.append({"action": what})
 
 
 ## Tonight's weather changes (a plant card): the tent, the sound, the street, the top bar and
@@ -6535,8 +6569,7 @@ func _plant_in(transcript: Array, guest: Variant) -> void:
 	if guest.plant_moment != "" and guest.plant_happened != "":
 		said.append(guest.plant_happened)
 	for what in said:
-		if not transcript.any(func(entry): return str(entry.get("action", "")) == what):
-			transcript.append({"action": what})
+		_note_happened(transcript, what)
 
 
 ## A line given a PD's card (hint "plant_…"), in the notes: who said it, where, whether it

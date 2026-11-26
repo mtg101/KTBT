@@ -13,6 +13,7 @@ const Visit = preload("res://scripts/visit.gd")
 const PeopleView = preload("res://scripts/bar/people_view.gd")
 const PdCamera = preload("res://scripts/bar/camera.gd")
 const Plants = preload("res://scripts/rules/plants.gd")
+const CardSlots = preload("res://scripts/bar/card_slots.gd")
 const CounterChats = preload("res://scripts/bar/counter_chats.gd")
 const Autopilot = preload("res://scripts/bar/autopilot.gd")
 const Autoplay = preload("res://scripts/autoplay.gd")
@@ -1202,7 +1203,8 @@ func test_the_pd_writes_a_card() -> void:
 	assert_bool(box.visible).is_false()
 	assert_bool(scene._pd.played.has("cue_card")).is_true()
 	assert_str(_transcript(runner)).contains("[PD]").contains("«her first love»")
-	assert_str(guest.plant_moment).contains("«her first love»")
+	# (their moment, or waiting behind a card still to come for them: it never wipes one out)
+	assert_bool(([guest.plant_moment] + guest.plant_queue.map(func(e): return str(e["moment"]))).any(func(m): return str(m).contains("«her first love»"))).is_true()
 	assert_bool(guest.pd_topic_lines > 0 or scene._chat_of(guest) != null).is_true()
 	assert_str(str(scene._stats.written[-1]["text"])).is_equal("her first love")
 	assert_int(int(scene._stats.captions.get("plant_cue_card", 0))).is_equal(1)
@@ -1299,8 +1301,9 @@ func test_more_of_the_pds_plant_cards() -> void:
 	assert_int(int(scene._stats.captions.get("plant_round_on", 0))).is_equal(1)
 	# It lingers a line (a round's a smaller thing than the ex walking past), in their chat if they're in one.
 	var lingering = scene._chat_of(buyer) if scene._chat_of(buyer) != null else buyer
-	assert_int(lingering.pd_topic_lines).is_equal(Plants.lingers("round_on"))
-	assert_str(lingering.pd_topic).contains("still on their minds")
+	var state := "in a chat: %s, card: %s, lines: %d, waiting: %s" % [scene._chat_of(buyer) != null, lingering.pd_topic_card, lingering.pd_topic_lines, lingering.pd_topic_queue]  # (26 Nov: failed once in three runs, with the lines right and no topic)
+	assert_int(lingering.pd_topic_lines).override_failure_message(state).is_equal(Plants.lingers("round_on"))
+	assert_str(lingering.pd_topic).override_failure_message(state).contains("still on their minds")
 	# Someone with it on their mind who starts a chat brings it with them (and it's the chat's now).
 	var fresh = CounterChats.Chat.new()
 	var mindful = scene._guests.filter(func(g): return g != buyer)[0]
@@ -1338,19 +1341,24 @@ func test_more_of_the_pds_plant_cards() -> void:
 	var pair: Array = scene._pd.target("small_world")
 	assert_int(pair.size()).is_equal(2)
 	scene._pd.press("small_world")
-	assert_str(pair[0].plant_card).is_equal("small_world")
-	assert_str(pair[1].plant_card).is_equal("small_world")
-	assert_str(pair[0].plant_moment).contains(Names.given_name(str(pair[1].customer["name"])))
-	assert_bool(Plants.CARDS["small_world"]["variants"].any(func(v): return pair[0].plant_moment.contains(v))).is_true()  # (what it is, this time)
+	# (their moment now, or waiting behind the round's if that's still to come: it never wipes one out)
+	var small_world := _moment_for(pair[0], "small_world")
+	assert_str(small_world).contains(Names.given_name(str(pair[1].customer["name"])))
+	assert_str(_moment_for(pair[1], "small_world")).is_not_empty()
+	assert_bool(Plants.CARDS["small_world"]["variants"].any(func(v): return small_world.contains(v))).is_true()  # (what it is, this time)
 	# The tent's lights go out: out for a moment, and back.
 	scene._pd.press("power_goes")
 	assert_float(scene._lights_out).is_greater(0.0)
 	# The whole tent's: the owner's next line reacts too, and it stays on everyone's minds a while.
-	assert_str(scene._night.owner_plant_moment).contains("power")
-	assert_str(scene._night.owner_plant_card).is_equal("power_goes")
+	# (now, or waiting behind a card still to come: it never wipes one out)
+	var owners: Array = [scene._night.owner_plant_card] + scene._night.owner_plant_queue.map(func(e): return str(e["card"]))
+	assert_array(owners).contains(["power_goes"])
 	for chat in scene._chats:
-		assert_str(chat.pd_topic).contains("still on their minds")
-		assert_int(chat.pd_topic_lines).is_equal(Plants.lingers("power_goes"))
+		var steers: Array = [{"card": chat.pd_topic_card, "topic": chat.pd_topic, "lines": chat.pd_topic_lines}] + chat.pd_topic_queue
+		var power: Array = steers.filter(func(e): return str(e["card"]) == "power_goes")
+		assert_int(power.size()).is_equal(1)
+		assert_str(str(power[0]["topic"])).contains("still on their minds")
+		assert_int(int(power[0]["lines"])).is_equal(Plants.lingers("power_goes"))
 	assert_bool(await _wait_until(func(): return scene._lights_out <= 0.0, 5000)).is_true()
 	assert_str(_transcript(runner)).contains("The tent's lights go out")
 	assert_int(int(scene._stats.event_counts.get("plant_played", 0))).is_equal(3)
@@ -2504,6 +2512,16 @@ func test_the_autopilot_pd_plays_a_card_when_its_due() -> void:
 	assert_float(float(scene._autopilot.schedule[0]["at"])).is_greater(scene._clock)
 
 
+## Someone's moment for a card: now, or waiting its turn ("" if neither).
+func _moment_for(guest: Variant, card: String) -> String:
+	if guest.plant_card == card and guest.plant_moment != "":
+		return guest.plant_moment
+	for entry in guest.plant_queue:
+		if str(entry["card"]) == card:
+			return str(entry["moment"])
+	return ""
+
+
 func test_whoever_a_card_just_happened_to_gets_the_next_turn() -> void:
 	# 19 Nov: 0 of 5 texts taken up (a newcomer arrived first, and the moment had gone).
 	var runner := await _open_bar()
@@ -2519,8 +2537,13 @@ func test_whoever_a_card_just_happened_to_gets_the_next_turn() -> void:
 	guest.card_turn = true  # (turned to once: not again for the same card)
 	assert_object(scene._struck_by_card()).is_null()
 	scene._plant_on(guest, "text", "A text.", "a text")
+	assert_int(guest.plant_queue.size()).is_equal(1)  # (waiting behind the first: 26 Nov, it wiped it out)
+	assert_str(guest.plant_moment).contains("isn't in their phone")
+	assert_int(int(scene._stats.cards_waited.get("text", 0))).is_equal(1)
+	assert_str(CardSlots.use_plant(guest)).is_equal("text")
 	assert_bool(guest.card_turn).is_false()  # (a new card: a new turn)
-	guest.plant_moment = ""
+	assert_object(scene._struck_by_card()).is_same(guest)
+	CardSlots.use_plant(guest)
 
 
 func test_a_cards_line_is_in_the_notes() -> void:
