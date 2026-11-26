@@ -5,12 +5,11 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 ## Next stages
 
 - **Faster: making a bar, making custom faces**
-  - Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them (most of it was faces: 129s of 181).
-  - ComfyUI's start-up and the first picture (the model loading) took about a minute on night 1: the next bar's faces line ("ComfyUI started in …s", "first picture …s") says how much is which. If start-up is most of it, start ComfyUI while the AI's still making the bar (its start-up doesn't need the GPU; the model loading does).
-  - The moods' pictures take 9.5 to 32s each (a casting photo 3.2s), two seeds a mood, 14 a person: one seed a mood would about halve it (the two seeds' scores were nearly the same every time), or ask for both in one go (batch_size 2). The user's deciding. Why the same workflow ranges from 9.5 to 32s (the GPU's memory?) is worth a look in ComfyUI's own log.
+  - Making a new bar still takes minutes (2m25s on the 26th: faces 94s, the recap 19s, the menu 15s): speed up the slowest steps, as the "Making the bar:" line in the stats shows them.
+  - In the opening, ComfyUI's start-up (33s) and its first picture (29s, the model loading) were 62s of the faces' 94s; the other 8 pictures about 22s. After closing the same two took 12s and 7s, so the opening's slow because it's the first start since the PC came on. Start ComfyUI's program while the AI's still making the bar (at the title, beside the owner and the menu): its start-up doesn't need the GPU; the model loading does, so that may still have to wait for Ollama.
+  - The recap (19s) may be mostly Ollama loading its model back after ComfyUI stops (warming up at the title took 13s): check before changing anything.
+  - The moods' pictures take 9 to 17s each (a casting photo about 2.5s): 14 of them, about 185s of the 221s after closing on the 26th. Two things to try, the user deciding: (1) the mood workflow (`tools/art/klein_edit_api.json`) scales the calm picture up to 1 megapixel before redrawing from it (the faces are 768×960, 0.74): scale it to the face's own size instead, and time it; (2) one seed a mood, the second only if the first scores badly (the two seeds were never more than 0.03 apart), which would save about 90s. Why the same workflow swings between about 9 and 17s (the GPU's memory?) is worth a look in ComfyUI's own log.
   - generating images at the end of the night is slow too (the backstage note said about 3 minutes, and it felt longer): check the note's estimate against the faces' new times.
-- **end of night social posts with pics have double hastags**
-  - #regular #mood then repeated in blue #regular #mood
 - **Events getting forgotten**
   - some events ignored, some get a single mention
   - feels to me like new events overtake the event?
@@ -82,6 +81,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes; chats got 8–21% of lines) because one request runs at a time. Customer chats on a second voice, alongside (`OLLAMA_NUM_PARALLEL`), each slower on one GPU:
       1. **Measure first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) timing one request, then two at once, on the desktop and the laptop. Go on only if two take much less than twice as long.
       2. **Then build it:** a second AI object for chats that never wait for the owner, bubbles and transcript coping with two at once, and each voice's share in the stats.
+- **The tests in the VM (Claude's runs):** the VM's session disk is shared by every Cowork session on the PC and fills up with old ones (26 Nov: 9.3 of 9.8 GB, 40 old sessions, none of it ours to delete), and `tools/run_tests.py` puts its shards' copies on it (Python's temp folder, `$TMPDIR`), so a run with three shards ran out of space. `/tmp` is on another disk with room, but a fixed `/tmp/ktbt_test_shards` left by an old session can't be written to. Fix the runner: its shards' copies in a new folder of its own beside the scratch copy (or `mktemp -d` under `/tmp`), cleared when the run ends, and a clear message (how much is free, and where) instead of a Python traceback when there's no room. Until then, Claude runs it with `TMPDIR=$(mktemp -d /tmp/shards.XXXX)` (START-HERE).
 - **Older saves kept up to date:** upgrade by the save's `version` rather than by what's missing (`scripts/save/save_upgrades.gd`), filling in whatever a new feature needs (a bar from before the cat still has none).
 
 ### Pretending to release it

@@ -238,7 +238,9 @@ static func ai_facts(posts: Array, info: Dictionary) -> Dictionary:
 ## Checks the AI's posts (Prompts.socials_messages): "" if they'll do. Each post's words are
 ## tidied and go through check(); the ones that pass go in data["words"] (handle -> {"text",
 ## "tags"}), the ones that don't in data["turned_down"] ("@handle: why"), and get the game's
-## own words. Turned down only if it isn't posts at all, or none of them pass.
+## own words. Turned down only if it isn't posts at all, or none of them pass. Hashtags the AI
+## put in the words are taken out (the ones on the list join its tags, once each), so none shows
+## twice: data["tags_from_words"] ("@handle: #a #b") says whose.
 static func validate_reply(data: Variant, posts: Array, facts: Dictionary) -> String:
 	if typeof(data) != TYPE_DICTIONARY or typeof(data.get("posts")) != TYPE_ARRAY:
 		return "it didn't include \"posts\""
@@ -249,6 +251,7 @@ static func validate_reply(data: Variant, posts: Array, facts: Dictionary) -> St
 			by_handle[at if at.begins_with("@") else "@" + at] = written
 	var words := {}
 	var turned_down: Array = []
+	var tags_from_words: Array = []
 	for post in posts:
 		var at := str(post["handle"])
 		if not by_handle.has(at):
@@ -258,9 +261,14 @@ static func validate_reply(data: Variant, posts: Array, facts: Dictionary) -> St
 		var text := Text.unquote(Text.tidy_text(str(written.get("text", ""))))
 		if text.begins_with(at):  # (their own handle on the front: it's on the card already)
 			text = text.trim_prefix(at).lstrip(": ").strip_edges()
+		var in_words := words_hashtags(text)
+		if not in_words.is_empty():
+			text = without_hashtags(text)
+			tags_from_words.append("%s: %s" % [at, " ".join(PackedStringArray(in_words))])
 		var tags: Array = []
 		var raw_tags: Variant = written.get("tags", [])
-		for tag in (raw_tags if raw_tags is Array else str(raw_tags).split(" ", false)):
+		var all_tags: Array = (raw_tags as Array).duplicate() if raw_tags is Array else Array(str(raw_tags).split(" ", false))
+		for tag in all_tags + in_words:
 			var hashed := str(tag).strip_edges()
 			hashed = hashed if hashed.begins_with("#") else "#" + hashed
 			if HASHTAGS.has(hashed) and not tags.has(hashed):
@@ -277,9 +285,26 @@ static func validate_reply(data: Variant, posts: Array, facts: Dictionary) -> St
 		words[at] = {"text": text, "tags": trial["tags"]}
 	data["words"] = words
 	data["turned_down"] = turned_down
+	data["tags_from_words"] = tags_from_words
 	if words.is_empty() and not posts.is_empty():
 		return "none of the posts could be used: %s" % "; ".join(PackedStringArray(turned_down))
 	return ""
+
+
+## The hashtags in some words, in order ("#latenight." -> "#latenight": its punctuation off).
+static func words_hashtags(text: String) -> Array:
+	var found: Array = []
+	for hit in RegEx.create_from_string("#[^\\s#]+").search_all(text):
+		var tag := hit.get_string().rstrip(".,!?;:)…~'\"")
+		if tag.length() > 1:
+			found.append(tag)
+	return found
+
+
+## Some words with their hashtags taken out (and the spaces they leave).
+static func without_hashtags(text: String) -> String:
+	var bare := RegEx.create_from_string("#[^\\s#]+").sub(text, "", true)
+	return RegEx.create_from_string("\\s{2,}").sub(bare, " ", true).strip_edges()
 
 
 ## A post's words, the game's own (TEMPLATES).
@@ -344,6 +369,8 @@ static func check(post: Dictionary, facts: Dictionary) -> String:
 		return "empty"
 	if text.length() > MOST_CHARS:
 		return "too long (%d characters)" % text.length()
+	if not words_hashtags(text).is_empty():
+		return "a hashtag in the words: %s" % words_hashtags(text)[0]
 	if not SHOTS.has(str(post.get("shot", ""))):
 		return "not a kind of post: %s" % post.get("shot", "")
 	var poster := str(post.get("poster", ""))

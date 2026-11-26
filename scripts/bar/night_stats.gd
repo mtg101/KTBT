@@ -63,7 +63,8 @@ var keepsakes := {}
 ## "pictures" (real snapshots kept with them), "drawn" (a picture that wasn't taken, drawn),
 ## "text" (words alone), "dropped" (failing the check), "picked", "words_ai" / "words_game" (whose
 ## words: the AI's, or the game's own), "ai_turned_down" (the AI's words for a post failing the
-## check, so the game's instead), "viewer_comments" (the viewers' comments shown: rules/viewers.gd,
+## check, so the game's instead), "tags_from_words" (the AI's posts with hashtags in their words,
+## taken out: Socials.validate_reply), "viewer_comments" (the viewers' comments shown: rules/viewers.gd,
 ## visit.gd _viewers_comment), "viewer_words_ai" / "viewer_words_game", "viewer_ai_turned_down",
 ## "viewer_dropped" (failing the check, not shown), "snapshots" (bar/snapshots.gd counts: asked, taken, failed, over, no_screen).
 var socials := {}
@@ -1113,8 +1114,9 @@ func socials_text() -> String:
 	for count in [["failed", "FAILED"], ["over", "over the limit"], ["no_screen", "no screen"]]:
 		if int(snaps.get(count[0], 0)) > 0:
 			why.append("%s %d" % [count[1], int(snaps[count[0]])])
-	return "Socials: posts %d (words: AI %d, game %d%s) · pictures %d (drawn %d, words alone %d) · viewer comments %s · snapshots %d of %d%s%s" % [int(socials.get("posts", 0)),
+	return "Socials: posts %d (words: AI %d, game %d%s%s) · pictures %d (drawn %d, words alone %d) · viewer comments %s · snapshots %d of %d%s%s" % [int(socials.get("posts", 0)),
 		int(socials.get("words_ai", 0)), int(socials.get("words_game", 0)), (", AI's TURNED DOWN %d" % int(socials["ai_turned_down"])) if int(socials.get("ai_turned_down", 0)) > 0 else "",
+		(", hashtags out of the words %d" % int(socials["tags_from_words"])) if int(socials.get("tags_from_words", 0)) > 0 else "",
 		int(socials.get("pictures", 0)), int(socials.get("drawn", 0)), int(socials.get("text", 0)), viewers_text(),
 		int(snaps.get("taken", 0)), int(snaps.get("asked", 0)), (" (%s)" % ", ".join(why)) if not why.is_empty() else "",
 		(" · NOT POSTED %d" % int(socials["dropped"])) if int(socials.get("dropped", 0)) > 0 else ""]

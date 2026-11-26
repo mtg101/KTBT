@@ -1936,7 +1936,7 @@ func _post_socials(entry: Dictionary) -> void:
 			posters.append(who)
 	var facts := {"posters": posters, "served": served, "known": posters + [str(_owner.get("name", "")), str(_cat.get("name", ""))]}
 	var counts := {"posts": 0, "pictures": 0, "drawn": 0, "text": 0, "dropped": 0, "viewer_comments": 0, "picked": posts.size(),
-		"words_ai": 0, "words_game": 0, "ai_turned_down": 0}
+		"words_ai": 0, "words_game": 0, "ai_turned_down": 0, "tags_from_words": 0}
 	await _write_socials(posts, facts, counts)
 	if _closed():
 		return
@@ -1993,6 +1993,9 @@ func _write_socials(posts: Array, facts: Dictionary, counts: Dictionary) -> void
 		for why in reply.get("turned_down", []):
 			DebugLog.say("Socials", "the AI's words turned down, the game's instead: %s" % why)
 		counts["ai_turned_down"] = (reply.get("turned_down", []) as Array).size() if not reply.is_empty() else posts.size()
+		for whose in reply.get("tags_from_words", []):
+			DebugLog.say("Socials", "hashtags taken out of the AI's words (on the list: in the tags, once): %s" % whose)
+		counts["tags_from_words"] = (reply.get("tags_from_words", []) as Array).size()
 		if reply.is_empty():
 			DebugLog.say("Socials", "the AI's posts couldn't be used (%s): the game's own words" % _ai.last_error)
 	for post in posts:
@@ -3495,6 +3498,18 @@ func _takes_order(guest: Guest, turned_up: float) -> void:
 	guest.extra_turns = Orders.extra_order_turns(randi_range(3, 5) + extra_count, extra_count)
 
 
+## The names a newcomer can't have: the owner's, everyone's at the counter, and, for the second
+## of a pair, the first's (with: _with_whom), who isn't sat down yet as the second's invented
+## (26 Nov, on GitHub: a couple both called the same thing, each the payer, each paying their own).
+func _names_taken(with: Dictionary = {}) -> Array:
+	var taken: Array = [str(_owner["name"])]  # nobody at the counter shares a name
+	for other in _guests:
+		taken.append(str(other.customer["name"]))
+	if not with.is_empty() and not taken.has(str(with.get("name", ""))):
+		taken.append(str(with["name"]))
+	return taken
+
+
 ## Someone new: the AI invents them, in two steps (name and gender, then the rest), to fit the
 ## look and age range the game decides. {} if the AI couldn't.
 ## Invents a new customer arriving at this time (as text): {} if the AI can't. ahead: being
@@ -3504,9 +3519,7 @@ func _new_customer(arrived: String, ahead: bool = false, with: Dictionary = {}) 
 	# again costs little. Then the rest of that person.
 	if not ahead:
 		_typing_label.text = "The casting team are finding the next customer..."
-	var taken: Array = [str(_owner["name"])]  # nobody at the counter shares a name
-	for other in _guests:
-		taken.append(str(other.customer["name"]))
+	var taken := _names_taken(with)
 	var used: Array = _names_tonight.filter(func(n): return not taken.has(n))
 	# About one in a hundred is non-binary: the game decides; otherwise the AI chooses.
 	var gender := Hooks.gender_override if Hooks.gender_override != "" else People.game_gender(randf())

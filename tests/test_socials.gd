@@ -233,6 +233,28 @@ func test_the_ais_posts_are_checked_one_by_one() -> void:
 	assert_str(Socials.validate_reply({"posts": [{"handle": "@nobody", "text": "hi"}]}, posts, facts)).contains("none of the posts")
 
 
+func test_regression_hashtags_in_the_ais_words_are_taken_out_and_never_shown_twice() -> void:
+	# A night seen in play: the AI put its hashtags in the words as well as the tags, so the post
+	# read "...in months #pojangmacha #야식 #야식 #pojangmacha".
+	var posts := _night_posts()
+	var facts := _facts(posts, {"Lee Do-yun": ["Odeng"]})
+	var reply := {"posts": [
+		{"handle": posts[0]["handle"], "text": "quit my job tonight #pojangmacha #야식", "tags": ["#야식", "#pojangmacha"]},
+		{"handle": posts[1]["handle"], "text": "%s took my odeng #tentcat. #notalist and i said thank you" % CAT, "tags": []}]}
+	assert_str(Socials.validate_reply(reply, posts, facts)).is_empty()
+	var words: Dictionary = reply["words"]
+	assert_str(str(words[posts[0]["handle"]]["text"])).is_equal("quit my job tonight")
+	assert_array(words[posts[0]["handle"]]["tags"]).is_equal(["#야식", "#pojangmacha"])  # (once each)
+	assert_str(str(words[posts[1]["handle"]]["text"])).is_equal("%s took my odeng and i said thank you" % CAT)
+	assert_array(words[posts[1]["handle"]]["tags"]).is_equal(["#tentcat"])  # (its full stop off; one not on the list left off)
+	assert_int((reply["tags_from_words"] as Array).size()).is_equal(2)
+	# And the check never lets words with a hashtag through.
+	var post: Dictionary = posts[0].duplicate(true)
+	post["text"] = "a quiet one #latenight"
+	post["tags"] = ["#latenight"]
+	assert_str(Socials.check(post, facts)).contains("a hashtag in the words")
+
+
 func test_regression_a_drink_on_their_bill_was_served() -> void:
 	# A night seen in play: Eun-bi's makgeolli was poured as she ordered (never carried over), so
 	# the AI's post about it was turned down as food she wasn't served.
@@ -396,6 +418,6 @@ func test_the_feed_puts_up_to_three_round_the_page_and_the_diary_book_shows_them
 func test_the_night_stats_count_the_posts() -> void:
 	var stats := NightStats.new()
 	stats.socials = {"posts": 2, "pictures": 1, "drawn": 1, "text": 0, "dropped": 1, "viewer_comments": 0, "snapshots": {"asked": 4, "taken": 3, "no_screen": 1},
-		"words_ai": 2, "words_game": 1, "ai_turned_down": 1}
-	assert_str(stats.socials_text()).is_equal("Socials: posts 2 (words: AI 2, game 1, AI's TURNED DOWN 1) · pictures 1 (drawn 1, words alone 0) · viewer comments 0 · snapshots 3 of 4 (no screen 1) · NOT POSTED 1")
+		"words_ai": 2, "words_game": 1, "ai_turned_down": 1, "tags_from_words": 1}
+	assert_str(stats.socials_text()).is_equal("Socials: posts 2 (words: AI 2, game 1, AI's TURNED DOWN 1, hashtags out of the words 1) · pictures 1 (drawn 1, words alone 0) · viewer comments 0 · snapshots 3 of 4 (no screen 1) · NOT POSTED 1")
 	assert_str(stats.panel_text(0, 0)).contains("Socials: posts 2")

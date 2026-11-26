@@ -936,7 +936,7 @@ Rules:
 - No numbers or digits at all (no times, prices, counts or ratings).
 - No names but these: %s. No @mentions, no brands, no other apps or shows.
 - Food or drink only if it's named above for that post.
-- One to three hashtags each, only from this list: %s
+- One to three hashtags each, only from this list: %s. They go in "tags", never in the words.
 
 Reply with ONLY a JSON object: {"posts": [{"handle": "the handle above, as it is", "text": "the post's words", "tags": ["#tag", ...]}, ...one for each handle above]}""" % [
 		facts.get("owner", "the owner"), (" (" + str(facts["weather"]) + " tonight)") if str(facts.get("weather", "")) != "" else "", "\n".join(lines),

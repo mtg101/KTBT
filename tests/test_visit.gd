@@ -2790,6 +2790,20 @@ func test_two_people_come_in_together_sit_together_talk_and_settle_the_bill() ->
 	assert_bool(await _wait_until(func(): return not scene.busy)).is_true()
 
 
+func test_regression_the_second_of_a_pair_never_gets_the_firsts_name() -> void:
+	# On GitHub (26 Nov) a couple were both invented before either sat down, and only the names
+	# at the counter were taken, so the second could get the first's: then each was the payer,
+	# and each paid their own.
+	var runner := await _open_bar()
+	var scene = runner.scene()
+	var with := {"kind": "couple", "name": "Kim Seo-yeon", "gender": "woman", "age_range": "20s"}
+	var taken: Array = scene._names_taken(with)
+	assert_bool(taken.has("Kim Seo-yeon")).is_true()
+	assert_bool(taken.has(str(scene._owner["name"]))).is_true()
+	assert_int(taken.count("Kim Seo-yeon")).is_equal(1)
+	assert_bool(scene._names_taken().has("Kim Seo-yeon")).is_false()  # (someone on their own: only who's here)
+
+
 func _chat_of(a, b):
 	var chat := Visit.Chat.new()
 	chat.people = [a, b]
