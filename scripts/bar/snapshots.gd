@@ -71,9 +71,11 @@ func take(key: String, aim: Callable, delay: float = 0.0) -> void:
 	camera.disable_3d = true
 	camera.world_2d = host.get_viewport().world_2d  # (the same scene as the window)
 	camera.canvas_cull_mask = IN_SHOT
-	camera.canvas_transform = Transform2D(0.0, -rect.position)
 	camera.render_target_update_mode = SubViewport.UPDATE_ONCE
 	host.add_child(camera)
+	# (after add_child: the shared canvas is only attached to the camera once it's in the tree,
+	# and setting its transform before that is Godot's "canvas_map.has(p_canvas)" error)
+	camera.canvas_transform = Transform2D(0.0, -rect.position)
 	await RenderingServer.frame_post_draw
 	var image: Image = camera.get_texture().get_image() if is_instance_valid(camera) else null
 	if is_instance_valid(camera):

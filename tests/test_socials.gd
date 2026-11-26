@@ -289,6 +289,17 @@ func test_no_screen_means_no_snapshot_and_its_counted() -> void:
 	assert_int(int(snaps.counts["asked"])).is_equal(1)
 
 
+func test_the_snapshot_camera_is_aimed_only_once_its_in_the_tree() -> void:
+	# Regression: aimed (canvas_transform) before add_child, every snapshot logged Godot's
+	# "canvas_map.has(p_canvas)" error, the shared canvas not yet attached. Headless can't render,
+	# so this reads the order in the script.
+	var source := FileAccess.get_file_as_string("res://scripts/bar/snapshots.gd")
+	var added := source.find("host.add_child(camera)")
+	var aimed := source.find("camera.canvas_transform =")
+	assert_int(added).is_greater(0)
+	assert_int(aimed).is_greater(added)
+
+
 func test_whats_never_in_a_shot_is_kept_out_to_its_last_child() -> void:
 	var layer: Control = auto_free(Control.new())
 	var bubble := Control.new()
