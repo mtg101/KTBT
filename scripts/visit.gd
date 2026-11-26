@@ -731,6 +731,7 @@ func _on_try_again_pressed() -> void:
 func _invent_owner() -> void:
 	_owner_working = true
 	_step_from = Time.get_ticks_msec() / 1000.0  # (a try again carries on the owner's step)
+	_start_comfy_early()  # (its start-up overlaps the AI inventing the owner and making the bar; once, a try again aside)
 	_offer_setup()
 	_narrate("Somewhere under a Seoul overpass, someone is unrolling a tarp...")
 	_typing_label.text = "The casting team are finding the tent's owner..."
@@ -749,7 +750,6 @@ func _invent_owner() -> void:
 		_owner_working = false
 		return
 	_step_done("owner")
-	_start_comfy_early()  # (its start-up overlaps the sign, the cat, the tarp, the menu and the regulars)
 	_owner = result
 	_owner["gender"] = gender
 	_owner["title"] = Prompts.OWNER_ADDRESS[gender]["title"]
@@ -5383,8 +5383,12 @@ func _why_no_faces(for_regulars: bool = false) -> String:
 	return ""
 
 
-## ComfyUI started as soon as the owner's invented (PortraitMaker.launch), not at the faces step:
-## its start-up (about 30s from cold) needs no GPU, so it's done by the time the AI's made the bar.
+var _comfy_early_after: Array = []  # (for the tests)
+
+
+## ComfyUI started as the AI starts inventing the owner (PortraitMaker.launch), not at the faces step:
+## its start-up (about 25s from cold) needs no GPU, so it's done by the time the AI's made the bar
+## (started after the owner on the 26th, 15s of it was still waited for: the owner took 15s).
 ## The model loads with the first picture, after Ollama's let go (_cast_owner_face).
 func _start_comfy_early() -> void:
 	if _maker != null or _why_no_faces() != "" or _stopped:  # (not _closed(): the bar isn't saved yet)
@@ -5392,6 +5396,7 @@ func _start_comfy_early() -> void:
 	_maker = PortraitMaker.new()
 	add_child(_maker)
 	_maker.launch()
+	_comfy_early_after = _opening_steps.keys()  # (the steps of making the bar already done: none, so it overlaps them all)
 
 
 ## The owner's casting photos (see above). Never stops the bar: anything wrong, the library's face.
@@ -5734,7 +5739,7 @@ func _tell_backstage() -> void:
 # find it. A mood that failed, or scored worse than MOOD_CLEAN_ENOUGH, has the calm face standing in
 # (noted with why) and is tried again another night. A recast's a new key: its moods start again.
 
-const MOODS_A_GAP := 1  # people whose moods are made in one gap (7 pictures now, one a mood: 14 were about 3½ to 4 minutes, 25 Nov)
+const MOODS_A_GAP := 2  # people whose moods are made in one gap (7 pictures each, one a mood: about 65 to 80s a person on the 26th, so about 2½ minutes)
 const MOOD_SEEDS := 2  # pictures of a mood at most: the second only if the first scores worse than MOOD_CLEAN_ENOUGH (portrait_maker.gd redraw's retry_over)
 ## A mood's best seed is kept only if it scored at least this well (react_score: lower is better).
 ## The art tool's own line for "looks like someone else"; the library's 882 picks all scored

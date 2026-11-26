@@ -144,7 +144,7 @@ func test_the_edit_workflow_is_given_the_picture_it_redraws() -> void:
 
 
 func test_comfyui_started_early_is_waited_for_and_not_started_twice() -> void:
-	# Started once the owner's invented (visit.gd _start_comfy_early), so its start-up overlaps the AI
+	# Started as the owner's invented (visit.gd _start_comfy_early), so its start-up overlaps the AI
 	# making the bar; open() at the faces step only waits for what's left of it.
 	Hooks.fake_comfy = [Image.load_from_file(ProjectSettings.globalize_path(FIXTURE))]
 	DebugLog.everything_to_console = true

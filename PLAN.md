@@ -4,12 +4,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Faster: making a bar, making custom faces**
-  - Making a new bar still takes minutes (2m25s on the 26th: faces 94s, the recap 19s, the menu 15s): speed up the slowest steps, as the "Making the bar:" line in the stats shows them.
-  - ComfyUI now starts as soon as the owner's invented (its start-up overlaps the rest of the bar's making): check on a real new bar that the stats' "started early, Xs waited for it" is near 0, and how long the first picture (the model loading) still takes after Ollama lets go.
-  - The recap (19s) may be mostly Ollama loading its model back after ComfyUI stops (warming up at the title took 13s): check before changing anything.
-  - The moods' pictures took 9 to 17s each (a casting photo about 2.5s): 14 of them, about 185s of the 221s after closing on the 26th. They're now redrawn at the face's own 768×960 instead of 1 megapixel (about 26% fewer pixels): time them on a real night. They're also made one seed a mood now, the second only when the first scores over MOOD_CLEAN_ENOUGH (about 90s saved a face): watch the stats' "a mood's second try" count, and whether MOODS_A_GAP could be 2 now a face's moods take about half as long. Why the same workflow swings between about 9 and 17s (the GPU's memory?) is worth a look in ComfyUI's own log.
-  - generating images at the end of the night is slow too (the backstage note said about 3 minutes, and it felt longer): check the note's estimate against the faces' new times.
+- **the options menu is ugly:** 
+  - let's make it more like other games esc menus, and have section for commands (close, crew) and the options
+- **Exit warning:** if you close the window, the bar doesn't get closed up 
+  - to stop that happening accidentally add a 'close up bar before exiting' dialog- **Closing the bar early:** it takes ages
+  - just the small 'closed' sign would be fine if the bar closed up quickly, but the current customer can take ages to leave, leaving the player wondering what's going on
+  - I don't want the owner to just throw the customers out as soon as i click close the bar but... can we speed them up a bit?
 - **Events getting forgotten**
   - some events ignored, some get a single mention
   - feels to me like new events overtake the event?
@@ -59,8 +59,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Presentation
 
-- **Tearless sad faces:** the owner's sad mood scored 0.426 with no tears (under the 0.6 limit; the library's worst sad was 0.29). If tearless ones start to look wrong, a lower limit for the moods with their own colour (sad, sweet, shock), as the art tool has.
-- **Background animation:** the occasional street cat, more vessels and bits as dishes are added. (Cars on the overpass were tried: lights above the tent looked wrong.)
 - **Varying the music:** more public-domain tunes Korean TV uses, arranged in code: folk songs (Doraji taryeong, Milyang and Jindo Arirang, Ganggang-sullae, Saeya saeya) and the classical pieces variety shows love (Flight of the Bumblebee for a rush, a Chopin nocturne at 2am, Vivaldi, the Can-can), chosen by the game from the scene, never over a reaction's sting.
 - **More sound reactions:** korean TV is famous for it alongside the TV pops
   - I just need to be in the mood to do sound...
@@ -68,9 +66,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **Babble (first):** Animal Crossing-style syllables per word, pitched and paced per character (deeper and slower for an old ajusshi, quicker when nervous), from a few CC0 sounds. No AI, runs anywhere.
   - **System voices:** Godot's built-in text-to-speech with Windows' voices: robotic, but no setup; a quick test of whether speech adds anything, and a fallback.
   - **AI voices:** a local text-to-speech service beside Ollama, on the CPU so it doesn't fight the LLM: **Kokoro** (82M, Apache-2.0, good quality) or **Piper** (fast, GPL-3.0 engine, voices with their own licences). Check first how they say Korean names and words.
-- **Opening style:** is it always the same rotating splat?
-- **Customer variants:** more looks for the customers (art work: each its own chat).
-- **The loading screens:** they're all much alike; vary them, and other simple text extras.
+
 
 ### Technical
 
@@ -81,6 +77,7 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
     - **A second voice:** the owner's AI voice is busy about 98% of the night (first drinks took 11–19 minutes; chats got 8–21% of lines) because one request runs at a time. Customer chats on a second voice, alongside (`OLLAMA_NUM_PARALLEL`), each slower on one GPU:
       1. **Measure first:** a button in the pipeline test (`scenes/pipeline_test.tscn`) timing one request, then two at once, on the desktop and the laptop. Go on only if two take much less than twice as long.
       2. **Then build it:** a second AI object for chats that never wait for the owner, bubbles and transcript coping with two at once, and each voice's share in the stats.
+    - **The odd slow mood picture:** most of a face's mood pictures take 6 to 9s, but now and then one (or three in a row) takes about 15s, ComfyUI's own log showing the sampling itself about 3 times slower, not loading. The text encoder (7.7 GB) and Klein (3.9 GB) only just fit the 12 GB card, so anything else on the GPU likely pushes part of them out (a guess). Only worth chasing if the wait after closing is noticed again (two people's moods, about 2½ minutes).
 - **The tests in the VM (Claude's runs):** the VM's session disk is shared by every Cowork session on the PC and fills up with old ones (26 Nov: 9.3 of 9.8 GB, 40 old sessions, none of it ours to delete), and `tools/run_tests.py` puts its shards' copies on it (Python's temp folder, `$TMPDIR`), so a run with three shards ran out of space. `/tmp` is on another disk with room, but a fixed `/tmp/ktbt_test_shards` left by an old session can't be written to. Fix the runner: its shards' copies in a new folder of its own beside the scratch copy (or `mktemp -d` under `/tmp`), cleared when the run ends, and a clear message (how much is free, and where) instead of a Python traceback when there's no room. Until then, Claude runs it with `TMPDIR=$(mktemp -d /tmp/shards.XXXX)` (START-HERE).
 - **Older saves kept up to date:** upgrade by the save's `version` rather than by what's missing (`scripts/save/save_upgrades.gd`), filling in whatever a new feature needs (a bar from before the cat still has none).
 

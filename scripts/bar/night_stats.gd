@@ -995,16 +995,31 @@ func portraits_text() -> String:
 
 ## Faces of their own made as the bar opened (visit.gd _cast_owner_face): the owner's, or why they
 ## keep the library's; the pictures made and failed, the casting rounds, ComfyUI and how long.
-## A new bar's steps and how long each took, in order: "owner 12s · sign 4s · faces 2m08s".
+## A new bar's steps and how long each took, in order: "owner 12s · sign 4s · faces 2m08s", then
+## what was shown once it was made, not part of making it: "· then the series opener shown 19s".
 static func opening_steps_text(steps: Dictionary) -> String:
-	return " · ".join(PackedStringArray(steps.keys().map(func(step): return "%s %s" % [step, span_text(float(steps[step]))])))
+	var parts: Array = []
+	var shown: Array = []
+	for step in steps:
+		if SHOWN_STEPS.has(step):
+			shown.append("then %s %s" % [SHOWN_STEPS[step], span_text(float(steps[step]))])
+		else:
+			parts.append("%s %s" % [step, span_text(float(steps[step]))])
+	return " · ".join(PackedStringArray(parts + shown))
 
 
-## All the steps' seconds added up.
+## The steps timed with the rest that are the bar being shown, not made (the loading screen's gone
+## by then): left out of the total. The series opener plays for about 19s, the same every time
+## (18.82s on both new bars on the 26th), and was counted as making the bar.
+const SHOWN_STEPS := {"recap": "the series opener shown"}
+
+
+## The steps' seconds added up: how long the bar took to make (what's shown after it left out).
 static func total_seconds(steps: Dictionary) -> float:
 	var total := 0.0
 	for step in steps:
-		total += float(steps[step])
+		if not SHOWN_STEPS.has(step):
+			total += float(steps[step])
 	return total
 
 
