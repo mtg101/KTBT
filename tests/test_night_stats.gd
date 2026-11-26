@@ -73,6 +73,25 @@ func test_panel_shows_every_section() -> void:
 		assert_str(text).contains(part)
 
 
+func test_closing_up_early_is_counted() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.closing_up_text()).is_empty()  # (not closed early: no line)
+	assert_str(stats.panel_text(0, 0)).not_contains("Closed early")
+	stats.record_closing_up(2)
+	assert_str(stats.closing_up_text()).is_equal("Closed early: 2 still in, still finishing up")
+	stats.record_closed_up(41.6)
+	assert_str(stats.panel_text(0, 0)).contains("Closed early: 2 still in, empty after 42s")
+
+
+func test_the_esc_menu_and_quitting_are_counted() -> void:
+	var stats := NightStats.new()
+	assert_str(stats.panel_text(0, 0)).contains("Esc menu opened 0")
+	stats.record_esc_menu()
+	stats.record_quit("asked")
+	stats.record_quit("kept_playing")
+	assert_str(stats.esc_menu_text()).is_equal("Esc menu opened 1 · quitting with the bar open: asked 1 (closed up first 0, quit now 0, kept playing 1)")
+
+
 func test_the_ratings_have_their_own_section() -> void:
 	var stats := NightStats.new()
 	assert_str(stats.panel_text(0, 0)).contains("[b]RATINGS[/b]\nTonight: at 3am\nTonight as busy as usual")

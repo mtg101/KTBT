@@ -582,15 +582,15 @@ const MAX_CLOSING_CAPTION := 32
 ## tell the counter, and its TV caption. By the weather first (it's the likeliest reason), or
 ## one that fits any night.
 const CLOSING_REASONS := {
-	"rain": [{"line": "This rain's not letting up. Finish up at your own pace, but I'm not letting anyone else in tonight.", "caption": "THE RAIN WINS TONIGHT"},
-		{"line": "Tarp's been dripping on me all night. You lot take your time, then that's me done.", "caption": "DEFEATED BY THE DRIP"}],
+	"rain": [{"line": "This rain's not letting up. Finish what you've got, but I'm not letting anyone else in tonight.", "caption": "THE RAIN WINS TONIGHT"},
+		{"line": "Tarp's been dripping on me all night. You lot finish your drinks, then that's me done.", "caption": "DEFEATED BY THE DRIP"}],
 	"snow": [{"line": "Snow's getting deep out there. You finish up, and I'll close up after you so we all get home.", "caption": "SNOWED OUT EARLY"}],
-	"cold": [{"line": "My hands have gone stiff with this cold. No rush for you, but nobody new tonight.", "caption": "TOO COLD TO CARRY ON"}],
-	"muggy": [{"line": "This heat's done me in. Finish your drinks, no hurry, then I'm closing up.", "caption": "THE HEAT WINS"}],
-	"any": [{"line": "My knees are telling me it's time. Take your time, but you're the last ones tonight.", "caption": "THE KNEES HAVE SPOKEN"},
+	"cold": [{"line": "My hands have gone stiff with this cold. Finish what you've got, but that's it for tonight.", "caption": "TOO COLD TO CARRY ON"}],
+	"muggy": [{"line": "This heat's done me in. Finish your drinks, then I'm closing up.", "caption": "THE HEAT WINS"}],
+	"any": [{"line": "My knees are telling me it's time. Finish your glasses, you're the last ones tonight.", "caption": "THE KNEES HAVE SPOKEN"},
 		{"line": "I've a feeling tonight's done all it's going to. Finish up when you're ready, then I'm closing.", "caption": "A GUT FEELING"},
-		{"line": "Early start tomorrow at the market. You're the last ones in, so no rush.", "caption": "MARKET CALLS AT DAWN"},
-		{"line": "Family's calling me home tonight. Finish what you've got, there's no hurry.", "caption": "FAMILY COMES FIRST"}],
+		{"line": "Early start tomorrow at the market. Finish up, you're the last ones in.", "caption": "MARKET CALLS AT DAWN"},
+		{"line": "Family's calling me home tonight. Finish what you've got, then I'm off.", "caption": "FAMILY COMES FIRST"}],
 }
 
 

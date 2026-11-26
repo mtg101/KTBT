@@ -343,6 +343,7 @@ var _leave_requested := false
 ## just saves and quits, and the night doesn't count.)
 var _closing_early := false
 var _closed_early_at := 0.0  # game minutes
+var _closed_early_ms := 0  # when Close the bar was pressed (Time.get_ticks_msec), for how long closing up took
 var _closing_to_say := false  # the owner's still to tell the counter why (once they're free)
 var _closing_said := ""  # what they said
 var _closed_sign: Control  # the 마감 CLOSED board out front
@@ -446,8 +447,14 @@ var _summary_text: RichTextLabel
 # UI
 var _try_again: Button  # only shown if the owner couldn't be invented
 var _leave_button: Button
-var _menu_buttons: HBoxContainer  # in the menu: the diary, closing the bar
+var _menu_buttons: VBoxContainer  # in the menu's Commands: Resume, closing the bar (then the crew's row, and Quit)
+var _menu_dim: ColorRect  # the screen dimmed behind the menu (a click on it closes the menu)
+var _quit_button: Button  # the menu's Quit game
+var _exit_dialog: ConfirmationDialog  # "The bar's still open": close up first, quit now, or keep playing
+var _quit_after_closing := false  # close up first, then quit: once tonight's written up
 const MENU_WIDTH := 600.0
+const MENU_BUTTON_HEIGHT := 44.0  # the menu's commands, a stack of wide buttons as in most games' Esc menus
+const MENU_LABEL_WIDTH := 170.0  # an option's name, so their sliders line up
 var _ratings_result := {}  # the top bar's numbers, as last worked out (for the side panel's The show)
 var _time_speed := NightRules.time_speed(0)  # how fast game time is running now (eases to the target)
 var _reading_toggle: CheckBox
@@ -516,6 +523,7 @@ var _food_rows: Array = []
 
 
 func _ready() -> void:
+	get_tree().set_auto_accept_quit(false)  # (closing the window asks first while the bar's open: _ask_before_quitting)
 	if Game.autoplay != null:  # (a batch playing itself: the PD's desk is played too)
 		_autopilot = Autopilot.new("%s nights %d" % [Game.bar.get("id", "new"), int(Game.bar.get("nights", 0))])
 	_people_view = PeopleView.new(_scenery_dice, _night)  # (the same dice as the rest of the scenery)
@@ -1044,21 +1052,102 @@ func _on_leave_pressed() -> void:
 	_leave()
 
 
-## Closing the window: the bar's saved anyway (see game.gd); a night cut short gets its log.
+## Closing the window: the bar's saved anyway (see game.gd), and with the bar open it asks
+## first (see _ask_before_quitting). Godot's quit-on-close is off while the tent's on screen,
+## and back on when it goes (the title screen just quits).
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST and _night_open and not _stopped:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_ask_before_quitting("window")
+	elif what == NOTIFICATION_EXIT_TREE:
+		get_tree().set_auto_accept_quit(true)
+
+
+## Whether there's a night to lose by quitting now: the bar's open, or tonight's over but still
+## being written up (the diary, the faces after closing).
+func _night_to_lose() -> bool:
+	return not _stopped and (_night_open or (_summary != null and _summary.visible and not _night_written))
+
+
+## Quitting (from: "window", the window's ✕, or "menu", the menu's Quit game). With nothing to
+## lose, saved and quit. With the bar open, it asks (26 Nov: closing the window by accident left
+## the night uncounted): close up first (as Close the bar: everyone finishes up, the night's
+## written up, then the game quits), quit now (saved, but tonight's cut short and doesn't count),
+## or keep playing. A batch the crew are playing quits without asking (nobody's there to answer).
+func _ask_before_quitting(from: String) -> void:
+	if not _night_to_lose() or Game.autoplay != null:
+		DebugLog.say("Menu", "Quitting (%s): nothing open tonight to lose" % from if not _night_to_lose() else "Quitting (%s) while the crew are running it: no question" % from)
+		_quit_now()
+		return
+	_stats.record_quit("asked")
+	DebugLog.say("Menu", "Quitting (%s) with the bar open: asking whether to close up first" % from)
+	if _exit_dialog == null:
+		_exit_dialog = ConfirmationDialog.new()
+		_exit_dialog.name = "ExitDialog"
+		_exit_dialog.title = "The bar's still open"
+		_exit_dialog.dialog_autowrap = true
+		_exit_dialog.min_size = Vector2i(560, 0)
+		_exit_dialog.ok_button_text = "Close up, then quit"
+		_exit_dialog.cancel_button_text = "Keep playing"
+		_exit_dialog.add_button("Quit now", false, "quit_now")
+		_exit_dialog.confirmed.connect(_close_up_then_quit)
+		_exit_dialog.canceled.connect(func():
+			_stats.record_quit("kept_playing")
+			DebugLog.say("Menu", "Quitting: kept playing"))
+		_exit_dialog.custom_action.connect(func(action: StringName):
+			if action == &"quit_now":
+				_exit_dialog.hide()
+				_stats.record_quit("quit_now")
+				DebugLog.say("Menu", "Quitting now, with the bar open: tonight doesn't count")
+				_quit_now())
+		add_child(_exit_dialog)
+	if _night_open:
+		_exit_dialog.dialog_text = "Tonight's still going. Close up first (nobody new, everyone finishes up, %s writes up the night, then the game quits), or quit now (the bar's saved, but tonight won't count)?" % _owner_display()
+	else:
+		_exit_dialog.dialog_text = "%s's still writing up tonight. Wait for it, then quit, or quit now (the bar's saved, but the write-up may be cut short)?" % _owner_display()
+	_options_button.button_pressed = false
+	_exit_dialog.popup_centered()
+
+
+## Close up, then quit: the bar closes early (if it's still open), and the game quits once
+## tonight's written up (see _end_night).
+func _close_up_then_quit() -> void:
+	_stats.record_quit("close_up_first")
+	_quit_after_closing = true
+	DebugLog.say("Menu", "Quitting once the bar's closed up and tonight's written up")
+	if _night_open and not _closing_early:
+		_close_early()
+	_leave_button.disabled = true
+	_leave_button.text = "Closing up, then quitting..."
+	if _night_written or not _night_to_lose():
+		_quit_now()
+
+
+## Saved and quit: a night cut short gets its log (not counted), one being written up is saved as it is.
+func _quit_now() -> void:
+	if _night_open:
 		_save_stats(false)
+	elif _story.is_writing():
+		_save_stats(true)
+	_stopped = true
+	_night_open = false
+	Game.quit()
 
 
 ## Closing up early: the sign goes out front and a bulb goes off, nobody new comes in (anyone
 ## waiting, or turning up, sees the sign and walks on), and the owner tells the counter why as
-## soon as they're free (see _say_closing). Whoever's here finishes their night as usual, at
-## their own pace (orders, chats, goodbyes), and once the tent's empty the night ends.
+## soon as they're free (see _say_closing). Whoever's here finishes up: a few minutes more at
+## most (NightRules.CLOSING_UP_MINUTES), no more orders and no new chats, then they settle up and
+## say goodbye as usual; once the tent's empty the night ends.
 func _close_early() -> void:
 	_closing_early = true
 	_closing_to_say = true
 	_closing_said = ""
 	_closed_early_at = _clock
+	_closed_early_ms = Time.get_ticks_msec()
+	for guest in _guests:
+		guest.stay_left = minf(guest.stay_left, NightRules.CLOSING_UP_MINUTES)
+	_stats.record_closing_up(_guests.size())
+	DebugLog.say("Night", "Closing up early at %s: %d at the counter, each finishing up within %d minutes" % [NightRules.clock_text(int(_clock)), _guests.size(), int(NightRules.CLOSING_UP_MINUTES)])
 	_leave_button.disabled = true
 	_leave_button.text = "Closing up..."
 	_narrate("%s. %s decides to close up early tonight, and turns the sign round: 마감, closed." % [NightRules.clock_text(int(_clock)), _owner_display()])
@@ -1105,7 +1194,7 @@ func _say_closing() -> void:
 	_give_time_to_read(_closing_said, _say_in_bubble(_owner_node, listener, "→ everyone" if listener != null else "", OWNER_TEXT, OWNER_TEXT, _closing_said))
 	for guest in _guests:
 		guest.transcript.append({"speaker": owner_name, "text": _closing_said})
-		guest.transcript.append({"action": "%s is closing up early: nobody new tonight, but there's no hurry for anyone already here." % owner_name})
+		guest.transcript.append({"action": "%s is closing up early: nobody new tonight, and everyone here's finishing what they've got, then settling up. Nobody's being thrown out." % owner_name})
 	_event("closed_early", {"at": int(_clock), "seated": _guests.size(), "reason": str(reply.get("caption", ""))}, _owner_node)
 	_owner_working = false
 
@@ -1122,7 +1211,7 @@ func _show_closing_up() -> void:
 	_closed_sign.pivot_offset = Vector2(42, 81)  # (it pops up from the pavement)
 	_closed_sign.z_index = 4
 	_closed_sign.mouse_filter = Control.MOUSE_FILTER_STOP  # (Korean on screen explains itself)
-	_closed_sign.tooltip_text = Text.tip("마감 magam: closed. The owner's closing up early tonight: nobody new, and everyone here finishes at their own pace.")
+	_closed_sign.tooltip_text = Text.tip("마감 magam: closed. The owner's closing up early tonight: nobody new, and everyone here finishes what they've got, then settles up and goes.")
 	_stage.add_child(_closed_sign)
 	var board := TextureRect.new()  # a little A-frame chalkboard, in pixel art (scenery.gd)
 	board.name = "Board"
@@ -1500,6 +1589,10 @@ func _end_night() -> void:
 		_cliffhanger["answered"] = true
 		_stats.story["cliffhanger_answered"] = true
 		_narrate("Last time's cliffhanger, answered: \"%s\" No sign of %s tonight." % [_cliffhanger["teaser"], Names.given_name(str(_cliffhanger["who"][0]))])
+	if _closing_early:
+		var took := (Time.get_ticks_msec() - _closed_early_ms) / 1000.0
+		_stats.record_closed_up(took)
+		DebugLog.say("Night", "Closed up early: the tent was empty %.0f seconds after Close the bar (%d game minutes)" % [took, int(_clock - _closed_early_at)])
 	_night_open = false
 	_errands = {}
 	_move_owner(OWNER_HOME_X)
@@ -1546,6 +1639,9 @@ func _end_night() -> void:
 	_save_stats(true)  # after the diary, so the transcript runs right to the end (and has it)
 	_night_written = true
 	_update_recast_button()  # (the 📷 button: the GPU's free until the next night)
+	if _quit_after_closing and not _closed():  # (quitting, after closing up: see _close_up_then_quit)
+		_quit_now()
+		return
 	if _leave_requested and not _closed():  # (Close the bar pressed while it was being written up)
 		_leave()
 		return
@@ -3420,6 +3516,8 @@ func _sits_down(guest: Guest, from_x: float, with: Guest) -> void:
 	customer["company"] = guest.company
 	var stay := Hooks.stay_minutes_override if Hooks.stay_minutes_override >= 0 else People.stay_minutes(guest.company, randf())
 	guest.stay_left = 0.0 if _last_orders else float(stay)
+	if _closing_early:  # (greeted as the owner closed up: they finish up with everyone else)
+		guest.stay_left = minf(guest.stay_left, NightRules.CLOSING_UP_MINUTES)
 	if with != null:
 		guest.stay_left = with.stay_left  # (they'll leave together)
 	guest.color = _free_color()
@@ -3802,10 +3900,10 @@ func _their_turn_first(guest: Guest) -> bool:
 func _next_line(guest: Guest) -> void:
 	var i := guest.line
 	guest.moment["time"] = NightRules.clock_text(int(_clock))
-	if guest.extra_turns.has(i) and not _last_orders and guest.plant_moment != "":
+	if guest.extra_turns.has(i) and not _winding_down() and guest.plant_moment != "":
 		guest.extra_turns.erase(i)  # (something's just happened to them: that comes first, the order a turn later)
 		guest.extra_turns.append(i + 2)
-	if guest.extra_turns.has(i) and not _last_orders:
+	if guest.extra_turns.has(i) and not _winding_down():  # (no more orders at last orders, or closing up early)
 		var ordered: bool = await _extra_order(guest)
 		if ordered:
 			guest.line += 1
@@ -3974,7 +4072,12 @@ func _bring_into_chat(chat: Chat, people: Array) -> void:
 
 
 func _chat_possible() -> bool:
-	return _counter_chats.possible(_guests, _last_orders)
+	return _counter_chats.possible(_guests, _winding_down())
+
+
+## Last orders, or closing up early: everyone's finishing up, so no more orders and no new chats.
+func _winding_down() -> bool:
+	return _last_orders or _closing_early
 
 
 func _leave_chats(guest: Guest) -> void:
@@ -6664,27 +6767,29 @@ func _build_ui() -> void:
 	# the bar, the ladder's rules, and the settings, so they don't crowd the top bar (see
 	# _build_options_panel; more settings will go there).
 	var opts := _build_options_panel()
+	var screen := _menu_group(opts, "Screen")
+	var sound := _menu_group(opts, "Sound")
 
 	_reading_toggle = CheckBox.new()
 	_reading_toggle.name = "ReadingToggle"
 	_reading_toggle.text = "Reading pauses"
 	_reading_toggle.button_pressed = false  # Off while we try the bar without them.
 	_reading_toggle.tooltip_text = Text.tip("Wait after each line so there's time to read it. Off: lines come as fast as the AI writes them.")
-	opts.add_child(_reading_toggle)
+	screen.add_child(_reading_toggle)
 
 	_bubbles_toggle = CheckBox.new()
 	_bubbles_toggle.name = "BubblesToggle"
 	_bubbles_toggle.text = "Bubbles"
 	_bubbles_toggle.button_pressed = true
 	_bubbles_toggle.tooltip_text = Text.tip("Speech bubbles over whoever's talking, with a line to who they're talking to.")
-	opts.add_child(_bubbles_toggle)
+	screen.add_child(_bubbles_toggle)
 
 	_captions_toggle = CheckBox.new()
 	_captions_toggle.name = "CaptionsToggle"
 	_captions_toggle.text = "Captions"
 	_captions_toggle.button_pressed = true
 	_captions_toggle.tooltip_text = Text.tip("Korean TV-style captions when something noteworthy happens.")
-	opts.add_child(_captions_toggle)
+	screen.add_child(_captions_toggle)
 
 	_sound_toggle = CheckBox.new()
 	_sound_toggle.name = "SoundToggle"
@@ -6694,8 +6799,8 @@ func _build_ui() -> void:
 	_sound_toggle.toggled.connect(_ambience.set_enabled)
 	var sound_row := HBoxContainer.new()
 	sound_row.add_theme_constant_override("separation", 12)
-	opts.add_child(sound_row)
-	_sound_toggle.custom_minimum_size = Vector2(150, 0)
+	sound.add_child(sound_row)
+	_sound_toggle.custom_minimum_size = Vector2(MENU_LABEL_WIDTH, 0)
 	sound_row.add_child(_sound_toggle)
 	var volume := HSlider.new()
 	volume.name = "SoundVolume"
@@ -6707,18 +6812,18 @@ func _build_ui() -> void:
 	volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	volume.tooltip_text = Text.tip("How loud the background sound is.")
 	volume.value_changed.connect(_ambience.set_volume)
-	volume.custom_minimum_size = Vector2(180, 0)
+	volume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sound_row.add_child(volume)
 	var music_row := HBoxContainer.new()
 	music_row.add_theme_constant_override("separation", 12)
-	opts.add_child(music_row)
+	sound.add_child(music_row)
 	_music_toggle = CheckBox.new()
 	_music_toggle.name = "MusicToggle"
 	_music_toggle.text = "Music"
 	_music_toggle.button_pressed = _music.enabled  # on unless it was turned off last time
 	_music_toggle.tooltip_text = Text.tip("Arirang, now and then through the night.")
 	_music_toggle.toggled.connect(_music.set_enabled)
-	_music_toggle.custom_minimum_size = Vector2(150, 0)
+	_music_toggle.custom_minimum_size = Vector2(MENU_LABEL_WIDTH, 0)
 	music_row.add_child(_music_toggle)
 	var music := HSlider.new()
 	music.name = "MusicVolume"
@@ -6730,7 +6835,7 @@ func _build_ui() -> void:
 	music.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	music.tooltip_text = Text.tip("Arirang, now and then through the night (all the way down for none).")
 	music.value_changed.connect(_music.set_volume)
-	music.custom_minimum_size = Vector2(180, 0)
+	music.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	music_row.add_child(music)
 
 	# Godot's default tick boxes are dark: on this background an empty one disappears.
@@ -6749,8 +6854,8 @@ func _build_ui() -> void:
 	_leave_button = Button.new()
 	_leave_button.name = "LeaveButton"
 	_leave_button.text = "Close the bar"
-	_leave_button.tooltip_text = Text.tip("Closes up early: nobody new comes in, whoever's here finishes at their own pace, and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)")
-	_leave_button.custom_minimum_size = Vector2(150, 40)
+	_leave_button.tooltip_text = Text.tip("Closes up early: nobody new comes in, whoever's here finishes up within a few minutes (no more orders), and the owner writes up the night. Then you can open the next night, or go back to the title screen. (Closing the window just saves and quits.)")
+	_leave_button.custom_minimum_size = Vector2(150, MENU_BUTTON_HEIGHT)
 	_leave_button.pressed.connect(func(): _options_button.button_pressed = false)
 	_leave_button.pressed.connect(_on_leave_pressed)
 	_menu_buttons.add_child(_leave_button)
@@ -6758,7 +6863,7 @@ func _build_ui() -> void:
 	_options_button = Button.new()
 	_options_button.name = "OptionsButton"
 	_options_button.text = "☰ Menu (Esc)"
-	_options_button.tooltip_text = Text.tip("The options (sound, music, speech bubbles, TV captions, reading pauses, the stats panel) and closing the bar.")
+	_options_button.tooltip_text = Text.tip("The menu: closing the bar, letting the crew run it, quitting the game, and the options (speech bubbles, TV captions, reading pauses, sound, music).")
 	_options_button.toggle_mode = true
 	_options_button.custom_minimum_size = Vector2(140, 40)
 	_options_button.toggled.connect(_on_menu_toggled)
@@ -6769,7 +6874,7 @@ func _build_ui() -> void:
 	_crew = CrewControls.new()
 	_crew.name = "Crew"
 	add_child(_crew)
-	_crew.build(bar, _options_panel.get_child(0), _badge(Ktv.MINT))
+	_crew.build(bar, _menu_buttons.get_parent(), _badge(Ktv.MINT))  # (its row goes in Commands, after closing the bar)
 	_crew.start_asked.connect(_on_crew_start)
 	_crew.stop_chosen.connect(_on_crew_stop)
 
@@ -6927,59 +7032,112 @@ func _badge(colour: Color) -> StyleBoxTexture:
 	return PixelFrame.style([colour, colour.darkened(0.35), colour.lightened(0.15), colour.darkened(0.12)], Vector2(9, 6))  # (in pixels: pixel_frame.gd)
 
 
-## The menu (Esc, or the top bar's button): a window over the bar, its actions along the top
-## (closing the bar; more to come), then the options. (The diary and the show are in the side
-## panel's tabs.) Returns the Options column, for the settings.
+## The menu (Esc, or the top bar's button), as most games' Esc menus: the screen dims, and a
+## window in the middle has the Commands (Resume, Close the bar, the crew's row, Quit game) as a
+## stack of wide buttons, then the Options in groups (see _build_ui). The night carries on behind
+## it. (The diary and the show are in the side panel's tabs.) Returns the Options column.
 func _build_options_panel() -> VBoxContainer:
+	_menu_dim = ColorRect.new()
+	_menu_dim.name = "MenuDim"
+	_menu_dim.color = Color(0, 0, 0, 0.55)
+	_menu_dim.size = SCREEN
+	_menu_dim.z_index = 19  # (under the menu, over everything else)
+	_menu_dim.visible = false
+	_menu_dim.mouse_filter = Control.MOUSE_FILTER_STOP  # (a click outside the menu closes it, and doesn't reach the tent)
+	_menu_dim.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_options_button.button_pressed = false)
+	add_child(_menu_dim)
 	_options_panel = _panel(Vector2((SCREEN.x - MENU_WIDTH) / 2, 60), Vector2(MENU_WIDTH, 0))
 	_options_panel.name = "OptionsPanel"
 	_options_panel.z_index = 20  # over the tent, the bubbles and the captions
 	_options_panel.visible = false
 	_options_panel.add_theme_stylebox_override("panel", PixelFrame.style([Ktv.PANEL, ACCENT, PixelFrame.PANEL[2], PixelFrame.PANEL[3]]))  # (its edge in the accent: it's over the tent)
 	add_child(_options_panel)
-	# Clicks go to whatever's last in the tree, whatever's drawn on top: the panel's built
-	# before the tent and the other panels, so it's moved to the end once they're all in.
-	(func(): move_child(_options_panel, get_child_count() - 1)).call_deferred()
+	# Clicks go to whatever's last in the tree, whatever's drawn on top: the dim and the panel are
+	# built before the tent and the other panels, so they're moved to the end once they're all in.
+	(func():
+		move_child(_menu_dim, get_child_count() - 1)
+		move_child(_options_panel, get_child_count() - 1)).call_deferred()
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 10)
+	column.add_theme_constant_override("separation", 14)
 	_options_panel.add_child(column)
-	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 12)
-	column.add_child(top)
 	var heading := Label.new()
 	heading.text = "Menu"
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_font_size_override("font_size", 22)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_font_size_override("font_size", 26)
 	heading.add_theme_color_override("font_color", ACCENT)
-	top.add_child(heading)
-	_menu_buttons = HBoxContainer.new()  # the actions (closing the bar: added in _build_ui)
+	column.add_child(heading)
+	var commands := _menu_section(column, "Commands")
+	commands.name = "Commands"
+	_menu_buttons = VBoxContainer.new()  # Resume, then closing the bar (added in _build_ui)
 	_menu_buttons.name = "MenuButtons"
-	_menu_buttons.add_theme_constant_override("separation", 12)
-	top.add_child(_menu_buttons)
-	var close_menu := Button.new()
-	close_menu.name = "MenuClose"
-	close_menu.text = "✕ (Esc)"
-	close_menu.custom_minimum_size = Vector2(100, 40)
-	close_menu.pressed.connect(func(): _options_button.button_pressed = false)
-	top.add_child(close_menu)
-	var settings := Label.new()
-	settings.text = "⚙ Options"
-	settings.add_theme_font_size_override("font_size", 20)
-	settings.add_theme_color_override("font_color", ACCENT)
-	column.add_child(settings)
-	var options := VBoxContainer.new()
+	_menu_buttons.add_theme_constant_override("separation", 8)
+	commands.add_child(_menu_buttons)
+	var resume := Button.new()
+	resume.name = "MenuClose"
+	resume.text = "Resume (Esc)"
+	resume.custom_minimum_size = Vector2(0, MENU_BUTTON_HEIGHT)
+	resume.tooltip_text = Text.tip("Back to the bar. (The night carries on while the menu's up.)")
+	resume.pressed.connect(func(): _options_button.button_pressed = false)
+	_menu_buttons.add_child(resume)
+	_quit_button = Button.new()  # (after the crew's row: crew_controls.gd puts it second)
+	_quit_button.name = "QuitButton"
+	_quit_button.text = "Quit game"
+	_quit_button.custom_minimum_size = Vector2(0, MENU_BUTTON_HEIGHT)
+	_quit_button.tooltip_text = Text.tip("Saves and quits. If the bar's open, it asks first: close up and write up tonight, then quit, or quit now (tonight won't count).")
+	_quit_button.pressed.connect(func():
+		_options_button.button_pressed = false
+		_ask_before_quitting("menu"))
+	commands.add_child(_quit_button)
+	var options := _menu_section(column, "⚙ Options")
 	options.name = "Options"
-	options.add_theme_constant_override("separation", 10)
-	column.add_child(options)
 	return options
 
 
-## The menu opens (Esc, or the top bar's button) or closes.
+## A section of the menu: its heading in the accent, a rule under it, and a column for what's in it.
+func _menu_section(column: VBoxContainer, title: String) -> VBoxContainer:
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 20)
+	heading.add_theme_color_override("font_color", ACCENT)
+	column.add_child(heading)
+	var rule := ColorRect.new()
+	rule.color = ACCENT.darkened(0.3)
+	rule.custom_minimum_size = Vector2(0, 2)
+	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(rule)
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", 10)
+	column.add_child(section)
+	return section
+
+
+## A group of options under the Options heading (Screen, Sound), in a lighter, smaller heading.
+func _menu_group(options: VBoxContainer, title: String) -> VBoxContainer:
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 16)
+	heading.add_theme_color_override("font_color", Ktv.PANEL.lightened(0.6))
+	options.add_child(heading)
+	var group := VBoxContainer.new()
+	group.name = title + "Options"
+	group.add_theme_constant_override("separation", 6)
+	options.add_child(group)
+	return group
+
+
+## The menu opens (Esc, or the top bar's button) or closes: in the middle of the screen, with
+## the screen dimmed behind it.
 func _on_menu_toggled(on: bool) -> void:
 	_options_panel.visible = on
+	_menu_dim.visible = on
 	if on:
 		_update_crew()  # (whether the crew can take over now)
 		_options_panel.reset_size()
+		_options_panel.position = ((SCREEN - _options_panel.size) / 2).round()
+		_stats.record_esc_menu()
+		DebugLog.say("Menu", "The Esc menu opened")
 
 
 func _panel(pos: Vector2, panel_size: Vector2) -> PanelContainer:

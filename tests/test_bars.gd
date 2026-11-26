@@ -789,9 +789,15 @@ func test_closing_early_sees_everyone_off_first() -> void:
 	var stay: float = guest.stay_left
 	leave.pressed.emit()  # (top-bar buttons: a caption can pop up over them, see the stats test)
 	assert_bool(leave.disabled).is_true()  # closing up
-	# No hurry for them: their night carries on as it was.
-	assert_float(guest.stay_left).is_equal(stay)
+	# Not thrown out, but not lingering either (26 Nov: the last customer took ages): a few
+	# minutes to finish up, no more orders, no new chats. Not last orders, though.
+	assert_float(stay).is_greater(scene.NightRules.CLOSING_UP_MINUTES)
+	assert_float(guest.stay_left).is_less_equal(scene.NightRules.CLOSING_UP_MINUTES)
+	assert_bool(scene._winding_down()).is_true()
+	assert_bool(scene._chat_possible()).is_false()
 	assert_bool(scene._last_orders).is_false()
+	assert_int(int(scene._stats.closing_up["seated"])).is_equal(1)
+	guest.stay_left = 600.0  # (held again, until the test says their time's up)
 	# The owner tells them why, and it's on TV.
 	assert_bool(await _wait_until(func(): return scene._closing_said != "")).override_failure_message("the owner never said why").is_true()
 	assert_bool(await _wait_until(func(): return guest.transcript.any(func(entry): return str(entry.get("text", "")) == scene._closing_said))).is_true()  # (once there's been time to read the last line)
@@ -809,6 +815,48 @@ func test_closing_early_sees_everyone_off_first() -> void:
 	assert_bool(await _wait_until(func(): return summary.visible)).override_failure_message("the night never ended").is_true()
 	assert_array(scene._guests).is_empty()
 	assert_int(int(Game.bar["visits"])).is_greater(0)  # (they paid)
+	assert_bool(scene._stats.closing_up.has("seconds")).is_true()  # (counted: how long closing up took)
+	assert_str(scene._stats.closing_up_text()).starts_with("Closed early: 1 still in, empty after ")
+
+
+func test_closing_the_window_with_the_bar_open_asks_first() -> void:
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	var nights := int(Game.bar.get("nights", 0))
+	# 26 Nov: closing the window by accident left the night uncounted. Now it asks.
+	scene._notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	var dialog := runner.find_child("ExitDialog", true, false) as ConfirmationDialog
+	assert_object(dialog).is_not_null()
+	assert_bool(dialog.visible).is_true()
+	assert_str(dialog.dialog_text).contains("Close up first").contains("tonight won't count")
+	assert_str(str(Game.requested_scene)).is_not_equal("quit")
+	dialog.canceled.emit()  # Keep playing: nothing happens
+	assert_bool(scene._night_open).is_true()
+	assert_bool(scene._closing_early).is_false()
+	# The menu's Quit game asks the same; Quit now quits, tonight not counted.
+	(runner.find_child("QuitButton") as Button).pressed.emit()
+	assert_bool(dialog.visible).is_true()
+	dialog.custom_action.emit(&"quit_now")
+	assert_str(str(Game.requested_scene)).is_equal("quit")
+	assert_int(int(Game.bar.get("nights", 0))).is_equal(nights)
+	assert_int(int(scene._stats.quit_asked["asked"])).is_equal(2)
+	assert_int(int(scene._stats.quit_asked["kept_playing"])).is_equal(1)
+	assert_int(int(scene._stats.quit_asked["quit_now"])).is_equal(1)
+
+
+func test_close_up_then_quit_counts_the_night_first() -> void:
+	var runner := await _open_visit()
+	var scene = runner.scene()
+	var nights := int(Game.bar.get("nights", 0))
+	scene._notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	var dialog := runner.find_child("ExitDialog", true, false) as ConfirmationDialog
+	dialog.confirmed.emit()  # Close up, then quit
+	assert_bool(scene._closing_early).is_true()
+	assert_str((runner.find_child("LeaveButton") as Button).text).is_equal("Closing up, then quitting...")
+	assert_bool(await _wait_until(func(): return Game.requested_scene == "quit", 30000)).override_failure_message("never quit after closing up").is_true()
+	assert_int(int(Game.bar.get("nights", 0))).is_equal(nights + 1)  # (counted, and written up)
+	assert_str(str(Game.bar["diary"][-1]["facts"]["closed_early"])).is_not_empty()
+	assert_int(int(scene._stats.quit_asked["close_up_first"])).is_equal(1)
 
 
 func test_closing_the_window_saves_the_bar() -> void:

@@ -81,10 +81,13 @@ var crew_run := {}
 ## "all" (the filter picked, each time), "catch_ups", "caught" (lines caught up on), "size" and
 ## "compact" (as it is: set as the night opens, then as it's changed)}.
 var transcript_use := {}
+var esc_menu := 0  # times the Esc menu was opened tonight
+var quit_asked := {}  # quitting with the bar open (the window's ✕ or the menu's Quit game): "asked" and the answer ("close_up_first", "quit_now", "kept_playing") -> times
 var ratings_before: Array = []
 var arrived := 0
 var served := 0  # paid and left
 var walked_past := 0  # gave up waiting for a stool
+var closing_up := {}  # closing up early: "seated" (at the counter when Close the bar was pressed), "seconds" (real seconds until the tent was empty)
 var peak_seated := 0
 var prepared := 0  # new customers invented ahead, while the owner was free
 var prepared_used := 0  # ...who came in
@@ -462,6 +465,43 @@ func owner_moves_text() -> String:
 		percent(owner_front_seconds, owner_stove_seconds + owner_front_seconds), trips if trips != "" else "none", from_the_stove]
 
 
+## Closing up early: how many were at the counter when Close the bar was pressed...
+func record_closing_up(seated: int) -> void:
+	closing_up = {"seated": seated}
+
+
+## ...and how long (real seconds) until the tent was empty and the night ended.
+func record_closed_up(seconds: float) -> void:
+	closing_up["seconds"] = seconds
+
+
+## The closing-up line for the panel: "" if the bar wasn't closed early.
+func closing_up_text() -> String:
+	if closing_up.is_empty():
+		return ""
+	var empty := "empty after %ds" % roundi(float(closing_up["seconds"])) if closing_up.has("seconds") else "still finishing up"
+	return "Closed early: %d still in, %s" % [int(closing_up.get("seated", 0)), empty]
+
+
+## The Esc menu opened.
+func record_esc_menu() -> void:
+	esc_menu += 1
+
+
+## Quitting with the bar open: "asked" (the dialog came up), then what was chosen.
+func record_quit(what: String) -> void:
+	quit_asked[what] = int(quit_asked.get(what, 0)) + 1
+
+
+## The menu's line for the panel: how often it was opened, and quitting asked about (if it was).
+func esc_menu_text() -> String:
+	var quit := ""
+	if not quit_asked.is_empty():
+		quit = " · quitting with the bar open: asked %d (closed up first %d, quit now %d, kept playing %d)" % [int(quit_asked.get("asked", 0)),
+			int(quit_asked.get("close_up_first", 0)), int(quit_asked.get("quit_now", 0)), int(quit_asked.get("kept_playing", 0))]
+	return "Esc menu opened %d%s" % [esc_menu, quit]
+
+
 ## Someone a card had just happened to, turned to first.
 func record_card_turn() -> void:
 	card_turns += 1
@@ -778,6 +818,8 @@ func panel_text(seated: int, cooking: int) -> String:
 		lines.append("")
 	lines.append("[b]PEOPLE[/b]")
 	lines.append("Arrived %d · served %d · walked past %d" % [arrived, served, walked_past])
+	if closing_up_text() != "":
+		lines.append(closing_up_text())
 	lines.append("At the counter %d (most tonight %d, avg %.1f)" % [seated, peak_seated, average_seated()])
 	lines.append("Two or more in: %d%% of the night" % percent(together_seconds, real_seconds))
 	if not who.is_empty():
@@ -826,6 +868,7 @@ func panel_text(seated: int, cooking: int) -> String:
 			int(event_counts.get("cat_kept", 0)), int(event_counts.get("cat_fed", 0)), int(event_counts.get("cat_answered", 0)), int(event_counts.get("cat_ignored", 0)), int(event_counts.get("cat_stole", 0))])
 	lines.append("")
 	lines.append("[b]THE PD[/b]")
+	lines.append(esc_menu_text())
 	if transcript_use.has("size"):
 		var t := transcript_use
 		lines.append("Transcript: searched %d (went through matches %d) · showed Talk %d, Events %d, All %d · caught up %d (%d new lines) · text %d%s" % [int(t.get("searches", 0)), int(t.get("jumps", 0)),
@@ -1180,13 +1223,13 @@ func summary(context: Dictionary) -> Dictionary:
 		"tonight": {"date": story.get("date", ""), "season": story.get("season", ""), "weather": story.get("weather", "")},
 		"pocha_life": {"rituals": rituals.duplicate(), "table_games": table_games(), "double_takes": [int(hints_given.get("stunned", 0)), int(hints_taken.get("stunned", 0))],
 			"hwaiting_chorus": int(event_counts.get("cheered_on", 0)), "first_snow": int(event_counts.get("first_snow", 0)) > 0},
-		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true), "crew": crew_run.duplicate(true), "transcript": transcript_use.duplicate(),
+		"pd": {"edit": story.get("edit", {}).duplicate(), "pins": {"made": pins_made, "dropped": pins_dropped, "kept": pinned.duplicate(true)}, "edits": {"offered": edits_offered, "made": edits_made.duplicate(), "log": edit_log.duplicate(true)}, "camera": camera_follows(), "lines_on_camera": [camera_lines_on, camera_lines], "plants": plants(), "card_turns": card_turns, "written": written.duplicate(true), "written_refused": written_refused, "autopilot": autopilot.duplicate(true), "crew": crew_run.duplicate(true), "transcript": transcript_use.duplicate(), "esc_menu": {"opened": esc_menu, "quit": quit_asked.duplicate()},
 			"noticed_camera": [int(hints_given.get("camera", 0)), int(hints_taken.get("camera", 0))]},
 		"menu": {"chosen_by": story.get("menu_by", ""), "its_own": story.get("menu_own", []), "board_opened": menu_opened,
 			"signatures": signature_orders(), "signatures_by": story.get("signatures_by", ""), "change": story.get("menu_change", {})},
 		"who": {"genders": who.duplicate(), "ages": ages.duplicate(), "company": company_mix.duplicate(), "tipsy": tipsy},
 		"people": {
-			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated,
+			"arrived": arrived, "served": served, "walked_past": walked_past, "peak_seated": peak_seated, "closing_up": closing_up.duplicate(),
 			"average_seated": average_seated(), "two_or_more_percent": percent(together_seconds, real_seconds),
 			"quick_greetings": quick_greetings, "proper_greetings": proper_greetings,
 			"invented_ahead": {"invented": prepared, "came_in": prepared_used, "thrown_away": prepared_stale},

@@ -12,6 +12,13 @@ const OPEN_MINUTES := 18 * 60
 const CLOSE_MINUTES := 27 * 60
 
 
+## Closing up early (visit.gd _close_early): whoever's at the counter has at most this many game
+## minutes left to finish what they've got (no more orders, no new chats), then they settle up
+## and go, goodbyes and all. Not thrown out, but not lingering for another hour either (26 Nov:
+## the last customer took ages, and the player wondered what was going on).
+const CLOSING_UP_MINUTES := 15.0
+
+
 const LAST_ARRIVAL_MINUTES := 26 * 60 + 30  # 2:30am
 
 

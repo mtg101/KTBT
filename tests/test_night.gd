@@ -531,7 +531,28 @@ func test_the_side_panel_has_the_show_and_the_diary_and_the_esc_menu_the_options
 	esc.pressed = true
 	scene._unhandled_input(esc)
 	assert_bool(menu.visible).is_true()
+	# As other games' Esc menus: the screen dimmed, the menu in the middle, Commands (Resume,
+	# Close the bar, the crew's row, Quit game, in that order) then the Options in groups.
+	var dim := runner.find_child("MenuDim") as Control
+	assert_bool(dim.visible).is_true()
+	assert_float(menu.position.x + menu.size.x / 2).is_equal_approx(scene.SCREEN.x / 2, 1.0)
+	var commands := runner.find_child("Commands", true, false) as Control
+	var order: Array = [runner.find_child("MenuClose"), runner.find_child("LeaveButton"), runner.find_child("CrewRow"), runner.find_child("QuitButton")]
+	for i in order.size():
+		assert_bool(commands.is_ancestor_of(order[i])).override_failure_message("%s isn't in Commands" % order[i].name).is_true()
+		if i > 0:
+			assert_bool(order[i].is_greater_than(order[i - 1])).override_failure_message("%s comes before %s" % [order[i].name, order[i - 1].name]).is_true()
+	assert_bool(runner.find_child("ScreenOptions", true, false).is_ancestor_of(runner.find_child("BubblesToggle", true, false))).is_true()
+	assert_bool(runner.find_child("SoundOptions", true, false).is_ancestor_of(runner.find_child("MusicToggle", true, false))).is_true()
+	assert_int(scene._stats.esc_menu).is_equal(1)  # (counted)
 	scene._unhandled_input(esc)  # Esc again: closed
+	assert_bool(menu.visible).is_false()
+	assert_bool(dim.visible).is_false()
+	scene._unhandled_input(esc)
+	var outside := InputEventMouseButton.new()  # a click outside the menu closes it too
+	outside.button_index = MOUSE_BUTTON_LEFT
+	outside.pressed = true
+	dim.gui_input.emit(outside)
 	assert_bool(menu.visible).is_false()
 	# The top bar's numbers: a short hover, and a click opens the whole story in the side panel's The show.
 	scene._update_ratings()

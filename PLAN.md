@@ -4,12 +4,6 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **the options menu is ugly:** 
-  - let's make it more like other games esc menus, and have section for commands (close, crew) and the options
-- **Exit warning:** if you close the window, the bar doesn't get closed up 
-  - to stop that happening accidentally add a 'close up bar before exiting' dialog- **Closing the bar early:** it takes ages
-  - just the small 'closed' sign would be fine if the bar closed up quickly, but the current customer can take ages to leave, leaving the player wondering what's going on
-  - I don't want the owner to just throw the customers out as soon as i click close the bar but... can we speed them up a bit?
 - **Events getting forgotten**
   - some events ignored, some get a single mention
   - feels to me like new events overtake the event?
@@ -19,6 +13,16 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ### Richer play
 
+- **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
+- **Videos:**
+  - if we can take pics... why not a video clip?
+  - can be social media or the TV show using it
+- **My fave tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
+  - repeating words: chijeu chijeu, gogi gogi gogi, etc
+  - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
+  - myers briggs (and other astrology ;)
+  - everyone is welcome - Midnight Diner style - doesn't matter who you are what you do, everyone is welcome
+  - probably all similar updates so wait until I've got a list not just a few items before asking for it
 - **Finishing basics of Seasons and the platform ladder:**
   - **The niece or nephew, higher up:** they film the phone stream (in the prompts as who's behind the camera); when the show moves up they go with it, a junior PD at the channel, then the show's PD on TV, and the prompts should say so (on the channel and TV, it's "the channel's camera" and "the show's camera crew" for now).
   - **The channels' history, told:** the side panel's The show lists every channel the show's been on; the diary, "Previously on…" and the title screen could tell it too ("three seasons on 달빛TV"), and "Previously on…"'s card could show the channel (the loading screen does).
@@ -31,6 +35,12 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 - **More PD cards:**
   - **More tropey cards and write-in types,** when there are better ideas (there are 13 events and 6 write-ins now).
   - **Writing a write-in ahead:** the ability to write out the cue before sending it, so you can plan what the big news even is well in advance of triggering it.
+- **The show itself:**
+  - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
+    - good for both sandbox mode and makes testing specific features easier
+  - **Better layout for PD stepping in / set up:**
+    - currently it's just a list of stuff
+    - needs a better layout
 - **Story and people:**
   - **Drama incidents and story arcs:** K-drama beats: a confession at the counter, a drunk sent home in a taxi, a breakup at the next table, the owner's secret slowly coming out, redevelopers threatening to tear the tent down. A light **drama director** picks a beat for the night (a game fact) and the AI writes it. Over many nights, **long-term relationships**: a regular moving away, a romance at the counter, an old friend falling out with the owner.
   - **Cliffhangers the night can answer, more often:** the first recaps ended on questions no night can answer ("other"). Watch HIGHLIGHTS and THE STORY; if it persists, steer the recap prompt to the kinds on the list.
@@ -40,22 +50,8 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
   - **Types of people:**
     - **Where people are from:** a home town as a game fact (Seoul, Busan, Daegu, Jeju, a village in Jeolla…) shaping how they talk: Busan's blunt, warm Gyeongsang satoori as flavour in fluent English (the odd "mwo-kko?", a gruffer rhythm), not broken English. Ties into the things that stick.
     - **Non-Korean visitors:** tourists and expats, naturally using Western name order (see LLM-TUNING.md).
-  - **Weather that changes:** one weather at 6pm today; it could change during the night (rain setting in after midnight), the sound and visuals fading across.
-  - **More of being on a show:** now and then a fly-on-the-wall trope beyond noticing the camera: someone hiding their face, someone playing up to it, a regular asking if they'll be in this week's episode, an "off the record" confession that isn't. Not every night: it's still mostly a tent bar.
-  - **My fave tropes:** I'm creating a tropey Korean game... I know some tropes I want to hear!
-    - repeating words: chijeu chijeu, gogi gogi gogi, etc
-    - ye jeon-ha / ma-ma (sarcasm in a tent bar :)
-    - myers briggs (and other astrology ;)
-    - everyone is welcome - Midnight Diner style - doesn't matter who you are what you do, everyone is welcome
-    - probably all similar updates so wait until I've got a list not just a few items before asking for it
-- **The show itself:**
-  - **More of the show's setup:** the setup screen (a new bar's, while it's being made) choosing more than the rung: the niece or nephew, the season's length, the content setting, perhaps the owner's kind or the bar's look.
-    - good for both sandbox mode and makes testing specific features easier
-  - **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
-    - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
-  - **Videos:**
-    - if we can take pics... why not a video clip?
-    - can be social media or the TV show using it
+- **Tuning the seasons/ladder:** going down the ladder nearly never happens. We want it cozy, but we already have it so you can't 'die' in the game. So we should have shows having bad runs and being able to drop down. Can use simulated runs but real testing mean leaving the GPU spinning for hours...
+  - also meh - your tent gets popular, that's fine, don't get much dopamine from tuning and I'm just here to learn to vibe...
 
 ### Presentation
 

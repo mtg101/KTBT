@@ -1035,7 +1035,7 @@ static func closing_messages(owner: Dictionary, context: Dictionary) -> Array:
 	var who := "nobody's at the counter, so they say it to the empty stools" if seated.is_empty() else "they tell everyone at the counter (%s)" % ", ".join(PackedStringArray(seated))
 	var request := """%s
 
-It's %s, %s, and %d customers have been in so far tonight. The owner's decided to close up early: nobody new tonight, and whoever's here finishes at their own pace, no hurry. Long before the usual 3am, so there's a reason, their own, that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, an early start, a night that's had all it's going to have). It's about them, not anyone here.
+It's %s, %s, and %d customers have been in so far tonight. The owner's decided to close up early: nobody new tonight, and whoever's here finishes what they've got, then that's the night (kindly: nobody's being thrown out, but no more orders either). Long before the usual 3am, so there's a reason, their own, that fits who they are and tonight (tired bones, a call from family, a bad feeling, the weather, an early start, a night that's had all it's going to have). It's about them, not anyone here.
 
 They say so out loud, in one or two short sentences, the way they talk (%s): %s.
 
