@@ -126,7 +126,7 @@ static func for_tests(saves: String, stats: String, transcripts: String) -> void
 	pause_scale_override = 0.01
 	random_seed = 1234
 	first_date = 318  # 15 November: late autumn
-	strollers = true
+	strollers = false  # (on, the squeezed time sent someone walking past nearly every frame: most of a scene test's time; the street's tests turn them on)
 	offer_every_look = true
 	founding_regulars = false
 	bar_menus = false

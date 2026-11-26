@@ -141,6 +141,29 @@ func test_a_drawn_portrait_splits_into_hair_skin_cloth_and_lines() -> void:
 	_check_drawn(made)
 
 
+## The split's big passes are shared out over the CPU's cores (_in_pieces): however many pieces,
+## the same split, pixel for pixel (5: pieces that don't divide the picture evenly), and the
+## reaction split's too. ("pieces" in the split says how many it was in, for the notes.)
+func test_a_split_is_the_same_in_one_piece_or_many() -> void:
+	var picture := _drawn(768, 960, false)
+	var close_up := _picture("res://tests/support/reactions/portrait_m_40s_side_part_8902.png")
+	var made := {}
+	for pieces in [1, 5]:
+		PortraitSplit.pieces_override = pieces
+		made[pieces] = [PortraitSplit.split(picture, "w_20s_long"), PortraitSplit.react_split(close_up)]
+	PortraitSplit.pieces_override = 0
+	assert_int(int(made[5][0]["pieces"])).is_equal(5)
+	for k in 2:
+		var one: Dictionary = made[1][k]
+		var many: Dictionary = made[5][k]
+		assert_bool(one["part"] == many["part"] and one["step"] == many["step"]).override_failure_message(
+			"%s: the grid isn't the same in 5 pieces" % ["split", "react_split"][k]).is_true()
+		assert_bool((one["layer"] as Image).get_data() == (many["layer"] as Image).get_data()).override_failure_message(
+			"%s: the layer isn't the same in 5 pieces" % ["split", "react_split"][k]).is_true()
+	assert_float(float(made[5][0]["score"])).is_equal(float(made[1][0]["score"]))
+	assert_dict(made[5][0]["shares"]).is_equal(made[1][0]["shares"])
+
+
 func test_a_picture_with_its_own_transparency_and_another_size_still_splits() -> void:
 	var made := PortraitSplit.split(_drawn(384, 480, true), "w_20s_long")
 	assert_bool(made["resized"]).is_true()  # (Godot's Lanczos isn't PIL's: near the Python's, not the same)

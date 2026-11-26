@@ -1084,7 +1084,8 @@ static func comfy_text(faces: Dictionary, rounds: String = "") -> String:
 	elif bool(faces.get("started", false)):
 		comfy = " · ComfyUI started and %s" % ("stopped" if bool(faces.get("stopped", false)) else "NOT STOPPED")
 	var took := (" · %ds" % int(faces["seconds"])) if faces.has("seconds") else ""
-	return made + rounds + comfy + took
+	var split := (" · split in %.1fs" % (int(faces["split_ms"]) / 1000.0)) if int(faces.get("split_ms", 0)) > 0 else ""  # (portrait_maker.gd: the splits' time, on the CPU)
+	return made + rounds + comfy + took + split
 
 
 ## Faces on the captions tonight: beside them and zooms, and which faces.

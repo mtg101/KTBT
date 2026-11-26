@@ -37,7 +37,7 @@ Night after night, the bar fills with characters who fit the hour: salarymen fle
 - **You're the PD:** the night runs itself, and you shape the episode without ever pausing it: follow someone with the camera (they get the airtime; the cat, or the owner, too), play plant cards from tonight's hand of six (a regular rung and asked down, a downpour, the power going, a word from the show's made-up sponsor…), type write-ins the AI answers (two a night: a cue card, an interview question, a text someone gets), give a big moment's caption its spin in five seconds (the AI's own, the flip, or a roast), pin up to three lines a night for the episode (they're its quote, the diary's, and "Previously on…"), and, the next day, step in to cut the episode (its title, scenes and cliffhanger) before "Previously on…" airs. Every episode gets its TV ratings at 3am, and good ones bring a few more customers; every eight make a season, and its verdict moves the show up or down a ladder from a phone stream to a network.
 - **The mood of a night:** lighter before midnight (teasing between friends, the owner's nagging, food fights, embarrassing stories), more open after it, and teasing that stays warm (see [CONCEPT.md](CONCEPT.md), "Cheeky, not 'bants'").
 - **Offline mode:** runs without the AI too.
-- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 895 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
+- **For testing:** a debug stats panel, nightly stats logs and night transcripts, and 897 automated tests (rules, prompts, asking the AI, offline mode, saves, stats, and whole visits, bars and nights played by clicking).
 
 The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
@@ -88,7 +88,7 @@ The bar runs itself; you play its PD. Talking to customers yourself comes later.
 
 **Let the crew run it (autoplay in the game):** the menu (Esc) has a row to hand the bar to the crew for so many nights (5 by default, up to 30): the PD's desk and opening the next night play themselves, as in a batch, on the bar that's open (tonight, if it's open, is the first). While they're running it the top bar says so ("▶ CREW RUNNING · NIGHT 3 OF 10"), and whatever would upset the run is locked (closing the bar, the desk, stepping in, opening the next night, reading pauses); everything you only look at works. Stop (the badge, the menu, or Close the bar) asks: after tonight (played out and written up, then the bar's yours), or now (tonight's yours from there). When their nights are done the bar's handed back, not quit. Its summary goes to `logs/autoplay/` like a batch's; it isn't on the phone helper's list (no `running.json`: the helper's Stop ends the game). A batch from the command line can be stopped the same way, and then hands the bar back too.
 
-**Tests:** open the **GdUnit** panel in Godot and click **Run All**, or run them headless with gdUnit's command-line runner so nothing takes the mouse (they don't need Ollama). See [TESTS.md](TESTS.md).
+**Tests:** `python tools/run_tests.py` runs them all headless in three Godots at once (`--quick` leaves out a few slow picture checks; Godot's path from `tools/godot_path.txt`), with one pass or fail and the failures at the end. Or open the **GdUnit** panel in Godot and click **Run All**, or use gdUnit's own command-line runner. They don't need Ollama. See [TESTS.md](TESTS.md).
 
 ## Project layout
 

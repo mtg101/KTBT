@@ -34,8 +34,12 @@ const EYES := [0.32, 0.52]  # the band of the portrait (top to bottom) the eyes 
 const CLOSE_UP := [0.56, 0.08]  # a reaction face's close-up: the middle 56% across, from 8% down, 4:5
 const CLOSE_SCALE := 7  # picture pixels per game pixel while splitting a close-up
 const MOOD_NEEDS := {"sad": [TEAR, 3], "sweet": [BLUSH, 6], "shock": [WHITE, 6]}  # a mood's own colour, and how many pixels of it
+const PIECE_MIN := 20000  # pixels below which a pass isn't shared out over the threads
 const NO_MOOD := 0.3  # a candidate without its mood's colour scores this much worse
 
+## How many pieces a pass is shared out in (0: one per CPU core, up to 16). Tests set it to check a
+## split's the same however it's shared out (test_portrait_split.gd).
+static var pieces_override := 0
 static var _linear := PackedFloat64Array()  # sRGB 0..255 to linear light, worked out once
 
 
@@ -43,7 +47,8 @@ static var _linear := PackedFloat64Array()  # sRGB 0..255 to linear light, worke
 ## light step), "layer": the Image in people.py's encoding, "shares": {hair, skin, cloth, lines},
 ## "score": how cleanly it split (lower is better; name, the portrait's id, says if it's balding
 ## or has glasses), "resized": whether the picture wasn't the model's 768x960 (Godot's Lanczos isn't
-## PIL's, so then it's only near the Python's), "ms": how long it took}.
+## PIL's, so then it's only near the Python's), "ms": how long it took, "pieces": how many at once
+## its big passes were shared out in (_in_pieces)}.
 static func split(picture: Image, name: String = "") -> Dictionary:
 	var started := Time.get_ticks_msec()
 	var image := picture.duplicate() as Image
@@ -57,7 +62,7 @@ static func split(picture: Image, name: String = "") -> Dictionary:
 	var grid := to_grid(found["part"], steps, image.get_width(), image.get_height())
 	return {"part": grid["part"], "step": grid["step"], "layer": layer(grid["part"], grid["step"]),
 		"shares": shares(grid["part"]), "score": score(grid["part"], name), "resized": resized,
-		"ms": Time.get_ticks_msec() - started}
+		"ms": Time.get_ticks_msec() - started, "pieces": pieces_now()}
 
 
 ## Which of several splits of the same person (or of one mood's seeds) to pre-pick: the index of the
@@ -74,6 +79,57 @@ static func best(candidates: Array) -> int:
 		if float(c["score"]) < float(b["score"]) or (float(c["score"]) == float(b["score"]) and int(c["seed"]) < int(b["seed"])):
 			at = k
 	return at
+
+
+# --- Working in pieces ---------------------------------------------------------------------------
+
+## Runs work.call(from, to) on pieces of 0..count (each that many pixels: a row's width, say) on the worker threads, at once, and gives back their
+## results in order (one piece, here, when there's too little to share out). Each piece only reads
+## what's shared and hands back arrays of its own, joined in order after, so a split's the same pixel
+## for pixel however many pieces it's in.
+static func _in_pieces(count: int, work: Callable, each: int = 1) -> Array:
+	var pieces := pieces_now() if count * each >= PIECE_MIN else 1
+	if pieces == 1:
+		return [work.call(0, count)]
+	var results := []
+	results.resize(pieces)
+	var lock := Mutex.new()
+	var job := func(k: int) -> void:
+		@warning_ignore("integer_division")  # (whole numbers meant)
+		var got = work.call(count * k / pieces, count * (k + 1) / pieces)
+		lock.lock()
+		results[k] = got
+		lock.unlock()
+	var task := WorkerThreadPool.add_group_task(job, pieces, -1, true, "Splitting a picture")
+	WorkerThreadPool.wait_for_group_task_completion(task)
+	return results
+
+
+## How many pieces a big pass is shared out in, here: one per CPU core (up to 16), or the tests'.
+static func pieces_now() -> int:
+	return pieces_override if pieces_override > 0 else clampi(OS.get_processor_count(), 1, 16)
+
+
+## Pieces' bytes (or each piece's k-th array) joined in order.
+static func _join_bytes(pieces: Array, k: int = -1) -> PackedByteArray:
+	var out := PackedByteArray()
+	for piece in pieces:
+		out.append_array(piece if k < 0 else piece[k])
+	return out
+
+
+static func _join_floats(pieces: Array, k: int = -1) -> PackedFloat64Array:
+	var out := PackedFloat64Array()
+	for piece in pieces:
+		out.append_array(piece if k < 0 else piece[k])
+	return out
+
+
+static func _join_ints(pieces: Array, k: int = -1) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for piece in pieces:
+		out.append_array(piece if k < 0 else piece[k])
+	return out
 
 
 # --- Colour ------------------------------------------------------------------------------------
@@ -114,36 +170,42 @@ static func parts_of(image: Image, given_fg: PackedByteArray = PackedByteArray()
 	var aa: PackedFloat64Array = lab[1]
 	var bb: PackedFloat64Array = lab[2]
 	var fg := given_fg if not given_fg.is_empty() else cut_background(data, w, h, light, aa, bb)
-	var cloth := PackedByteArray()
-	var hairish := PackedByteArray()
-	cloth.resize(n)
-	hairish.resize(n)
-	for i in n:
-		if fg[i] == 0 or light[i] >= 62.0:
-			continue
-		var chroma := sqrt(aa[i] * aa[i] + bb[i] * bb[i])
-		if aa[i] > 38.0 and chroma > 45.0:
-			cloth[i] = 1
-		elif chroma < 16.0:
-			hairish[i] = 1
+	var marked := _in_pieces(n, func(from: int, to: int) -> Array:
+		var cloth_here := PackedByteArray()
+		var hairish_here := PackedByteArray()
+		cloth_here.resize(to - from)
+		hairish_here.resize(to - from)
+		for i in range(from, to):
+			if fg[i] == 0 or light[i] >= 62.0:
+				continue
+			var chroma := sqrt(aa[i] * aa[i] + bb[i] * bb[i])
+			if aa[i] > 38.0 and chroma > 45.0:
+				cloth_here[i - from] = 1
+			elif chroma < 16.0:
+				hairish_here[i - from] = 1
+		return [cloth_here, hairish_here])
+	var cloth := _join_bytes(marked, 0)
+	var hairish := _join_bytes(marked, 1)
 	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var size := maxi(5, w / 70) | 1  # (thicker than the model's outlines: 11 at 768 wide)
 	var opened := _window(_window(hairish, w, h, size, true), w, h, size, false)
 	var near_core := _window(big_areas(opened, w, h, HAIR_MIN), w, h, size + 2, false)
-	var part := PackedInt32Array()
-	part.resize(n)
-	part.fill(EMPTY)
-	for i in n:
-		if fg[i] == 0:
-			continue
-		if cloth[i] == 1:
-			part[i] = CLOTH
-		elif hairish[i] == 1 and near_core[i] == 1:
-			part[i] = HAIR
-		elif light[i] < 40.0:
-			part[i] = LINE
-		else:
-			part[i] = SKIN
+	var part := _join_ints(_in_pieces(n, func(from: int, to: int) -> PackedInt32Array:
+		var out := PackedInt32Array()
+		out.resize(to - from)
+		out.fill(EMPTY)
+		for i in range(from, to):
+			if fg[i] == 0:
+				continue
+			if cloth[i] == 1:
+				out[i - from] = CLOTH
+			elif hairish[i] == 1 and near_core[i] == 1:
+				out[i - from] = HAIR
+			elif light[i] < 40.0:
+				out[i - from] = LINE
+			else:
+				out[i - from] = SKIN
+		return out))
 	return {"part": part, "L": light, "a": aa, "b": bb}
 
 
@@ -153,23 +215,30 @@ static func _lab_of(data: PackedByteArray, n: int) -> Array:
 		_linear.resize(256)
 		for v in 256:
 			_linear[v] = _lin(v)
-	var light := PackedFloat64Array()
-	var aa := PackedFloat64Array()
-	var bb := PackedFloat64Array()
-	light.resize(n)
-	aa.resize(n)
-	bb.resize(n)
-	for i in n:
-		var r := _linear[data[i * 4]]
-		var g := _linear[data[i * 4 + 1]]
-		var b := _linear[data[i * 4 + 2]]
-		var fx := _f((r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047)
-		var fy := _f(r * 0.2126 + g * 0.7152 + b * 0.0722)
-		var fz := _f((r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883)
-		light[i] = 116.0 * fy - 16.0
-		aa[i] = 500.0 * (fx - fy)
-		bb[i] = 200.0 * (fy - fz)
-	return [light, aa, bb]
+	var linear := _linear
+	var pieces := _in_pieces(n, func(from: int, to: int) -> Array:
+		var light := PackedFloat64Array()
+		var aa := PackedFloat64Array()
+		var bb := PackedFloat64Array()
+		light.resize(to - from)
+		aa.resize(to - from)
+		bb.resize(to - from)
+		for i in range(from, to):
+			var r := linear[data[i * 4]]
+			var g := linear[data[i * 4 + 1]]
+			var b := linear[data[i * 4 + 2]]
+			# (_f() written out: the call was a third of the time; the same sums)
+			var tx := (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047
+			var ty := r * 0.2126 + g * 0.7152 + b * 0.0722
+			var tz := (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883
+			var fx := pow(tx, 1.0 / 3.0) if tx > 0.008856 else 7.787 * tx + 16.0 / 116.0
+			var fy := pow(ty, 1.0 / 3.0) if ty > 0.008856 else 7.787 * ty + 16.0 / 116.0
+			var fz := pow(tz, 1.0 / 3.0) if tz > 0.008856 else 7.787 * tz + 16.0 / 116.0
+			light[i - from] = 116.0 * fy - 16.0
+			aa[i - from] = 500.0 * (fx - fy)
+			bb[i - from] = 200.0 * (fy - fz)
+		return [light, aa, bb])
+	return [_join_floats(pieces, 0), _join_floats(pieces, 1), _join_floats(pieces, 2)]
 
 
 ## The foreground (1) and background (0), as pixelate.py's cut_background: the picture's own
@@ -180,10 +249,12 @@ static func cut_background(data: PackedByteArray, w: int, h: int, light: PackedF
 	var n := w * h
 	var fg := PackedByteArray()
 	fg.resize(n)
-	var lowest := 255
-	for i in n:
-		lowest = mini(lowest, data[i * 4 + 3])
-	if lowest < 250:
+	var lows := _in_pieces(n, func(from: int, to: int) -> bool:
+		for i in range(from, to):
+			if data[i * 4 + 3] < 250:
+				return true
+		return false)
+	if lows.has(true):  # (the picture's own transparency: any pixel under 250)
 		for i in n:
 			fg[i] = 1 if data[i * 4 + 3] >= 128 else 0
 		return fg
@@ -201,39 +272,71 @@ static func cut_background(data: PackedByteArray, w: int, h: int, light: PackedF
 		for c in 3:
 			edge[c].append(data[i * 4 + c])
 	var bg := to_lab(_median(edge[0]), _median(edge[1]), _median(edge[2]))
-	var distance := PackedFloat64Array()
-	distance.resize(n)
-	for i in n:
-		var dl := light[i] - bg[0]
-		var da := aa[i] - bg[1]
-		var db := bb[i] - bg[2]
-		distance[i] = sqrt(dl * dl + da * da + db * db)
+	var distance := _join_floats(_in_pieces(n, func(from: int, to: int) -> PackedFloat64Array:
+		var out := PackedFloat64Array()
+		out.resize(to - from)
+		for i in range(from, to):
+			var dl := light[i] - bg[0]
+			var da := aa[i] - bg[1]
+			var db := bb[i] - bg[2]
+			out[i - from] = sqrt(dl * dl + da * da + db * db)
+		return out))
 	var background := PackedByteArray()
 	background.resize(n)
+	var near := _join_bytes(_in_pieces(n, func(from: int, to: int) -> PackedByteArray:  # (1 where the flood may go: near the edges' colour)
+		var out := PackedByteArray()
+		out.resize(to - from)
+		for i in range(from, to):
+			if distance[i] < BG_CLOSE:
+				out[i - from] = 1
+		return out))
+	# (flooded in from the edges through the near-background pixels, so a white collar stays: a row's run
+	# at a time, which reaches the same pixels as one at a time, with far fewer on the stack)
 	var stack := PackedInt32Array()
-	stack.resize(n)
+	stack.resize(2 * n + border.size())  # (a pixel can be a run's start from above and from below)
 	var top := 0
-	for i in border:  # (flooded in from the edges through the near-background pixels, so a white collar stays)
-		if distance[i] < BG_CLOSE and background[i] == 0:
-			background[i] = 1
+	for i in border:
+		if near[i] == 1:
 			stack[top] = i
 			top += 1
 	while top > 0:
 		top -= 1
 		var i := stack[top]
-		var x := i % w
-		for j in [i + w if i + w < n else -1, i - w, i + 1 if x < w - 1 else -1, i - 1 if x > 0 else -1]:
-			if j >= 0 and background[j] == 0 and distance[j] < BG_CLOSE:
-				background[j] = 1
-				stack[top] = j
-				top += 1
-	for i in n:  # (the background's own colour anywhere, even shut in, is background)
-		if distance[i] < BG_CLOSE * 0.5:
-			background[i] = 1
+		if background[i] == 1:
+			continue
+		var row := i - i % w
+		var lo := i
+		while lo > row and near[lo - 1] == 1 and background[lo - 1] == 0:
+			lo -= 1
+		var hi := i
+		while hi < row + w - 1 and near[hi + 1] == 1 and background[hi + 1] == 0:
+			hi += 1
+		for k in range(lo, hi + 1):
+			background[k] = 1
+		for side in [-w, w]:  # (each run of floodable pixels above and below, once)
+			if row + side < 0 or row + side >= n:
+				continue
+			var was := false
+			for k in range(lo + side, hi + side + 1):
+				var open := near[k] == 1 and background[k] == 0
+				if open and not was:
+					stack[top] = k
+					top += 1
+				was = open
+	var flooded := background
+	background = _join_bytes(_in_pieces(n, func(from: int, to: int) -> PackedByteArray:
+		var out := flooded.slice(from, to)  # (the background's own colour anywhere, even shut in, is background)
+		for i in range(from, to):
+			if distance[i] < BG_CLOSE * 0.5:
+				out[i - from] = 1
+		return out))
 	var beside := _window(background, w, h, 7, false)
-	for i in n:  # (the soft edge beside it, nearer its colour than the thing's, goes with it)
-		fg[i] = 0 if background[i] == 1 or (beside[i] == 1 and distance[i] < BG_CLOSE * 1.8) else 1
-	return fg
+	return _join_bytes(_in_pieces(n, func(from: int, to: int) -> PackedByteArray:
+		var out := PackedByteArray()  # (the soft edge beside it, nearer its colour than the thing's, goes with it)
+		out.resize(to - from)
+		for i in range(from, to):
+			out[i - from] = 0 if background[i] == 1 or (beside[i] == 1 and distance[i] < BG_CLOSE * 1.8) else 1
+		return out))
 
 
 ## The parts of mask that join up into areas at least share of the picture, as portraits.py's
@@ -268,11 +371,24 @@ static func big_areas(mask: PackedByteArray, w: int, h: int, share: float) -> Pa
 			var i := stack[top]
 			area.append(i)
 			var x := i % sw
-			for j in [i + sw if i + sw < sw * sh else -1, i - sw, i + 1 if x < sw - 1 else -1, i - 1 if x > 0 else -1]:
-				if j >= 0 and small[j] == 1 and seen[j] == 0:
-					seen[j] = 1
-					stack[top] = j
-					top += 1
+			var j := i + sw  # (the four neighbours written out, in the same order)
+			if j < sw * sh and small[j] == 1 and seen[j] == 0:
+				seen[j] = 1
+				stack[top] = j
+				top += 1
+			j = i - sw
+			if j >= 0 and small[j] == 1 and seen[j] == 0:
+				seen[j] = 1
+				stack[top] = j
+				top += 1
+			if x < sw - 1 and small[i + 1] == 1 and seen[i + 1] == 0:
+				seen[i + 1] = 1
+				stack[top] = i + 1
+				top += 1
+			if x > 0 and small[i - 1] == 1 and seen[i - 1] == 0:
+				seen[i - 1] = 1
+				stack[top] = i - 1
+				top += 1
 		if area.size() >= share * sw * sh:
 			for i in area:
 				keep[i] = 1
@@ -290,30 +406,57 @@ static func big_areas(mask: PackedByteArray, w: int, h: int, share: float) -> Pa
 static func _window(mask: PackedByteArray, w: int, h: int, size: int, every: bool) -> PackedByteArray:
 	@warning_ignore("integer_division")  # (whole numbers meant, as the Python's //)
 	var r := size / 2
-	var across := PackedByteArray()
-	across.resize(w * h)
-	var sums := PackedInt32Array()
-	sums.resize(maxi(w, h) + 1)
-	for y in h:
-		var row := y * w
-		for x in w:
-			sums[x + 1] = sums[x] + mask[row + x]
-		for x in w:
-			var lo := maxi(0, x - r)
-			var hi := mini(w - 1, x + r)
-			var count := sums[hi + 1] - sums[lo]
-			across[row + x] = 1 if (count == hi - lo + 1 if every else count > 0) else 0
-	var out := PackedByteArray()
-	out.resize(w * h)
-	for x in w:
-		for y in h:
-			sums[y + 1] = sums[y] + across[y * w + x]
-		for y in h:
-			var lo := maxi(0, y - r)
-			var hi := mini(h - 1, y + r)
-			var count := sums[hi + 1] - sums[lo]
-			out[y * w + x] = 1 if (count == hi - lo + 1 if every else count > 0) else 0
-	return out
+	var across := _join_bytes(_in_pieces(h, func(from: int, to: int) -> PackedByteArray:
+		var out := PackedByteArray()
+		out.resize((to - from) * w)
+		var sums := PackedInt32Array()
+		sums.resize(w + 1)
+		for y in range(from, to):
+			var row := y * w
+			for x in w:
+				sums[x + 1] = sums[x] + mask[row + x]
+			_window_line(sums, w, r, every, out, (y - from) * w)
+		return out, w))
+	var turned := _join_bytes(_in_pieces(w, func(from: int, to: int) -> PackedByteArray:  # (column by column: x * h + y)
+		var out := PackedByteArray()
+		out.resize((to - from) * h)
+		var sums := PackedInt32Array()
+		sums.resize(h + 1)
+		for x in range(from, to):
+			for y in h:
+				sums[y + 1] = sums[y] + across[y * w + x]
+			_window_line(sums, h, r, every, out, (x - from) * h)
+		return out, h))
+	return _join_bytes(_in_pieces(h, func(from: int, to: int) -> PackedByteArray:  # (turned back, row by row)
+		var out := PackedByteArray()
+		out.resize((to - from) * w)
+		for y in range(from, to):
+			var at := (y - from) * w
+			for x in w:
+				out[at + x] = turned[x * h + y]
+		return out, w))
+
+
+## One line of the window (its running sums: sums[k] the 1s before k), into out from at: the ends,
+## where the square's cut short, and the middle, where it's always size, apart (the same answers).
+static func _window_line(sums: PackedInt32Array, length: int, r: int, every: bool, out: PackedByteArray, at: int) -> void:
+	var middle_from := mini(r, length)
+	var middle_to := maxi(middle_from, length - r)
+	for k in middle_from:
+		var hi := mini(length - 1, k + r)
+		var count := sums[hi + 1]
+		out[at + k] = 1 if (count == hi + 1 if every else count > 0) else 0
+	var full := 2 * r + 1
+	if every:
+		for k in range(middle_from, middle_to):
+			out[at + k] = 1 if sums[k + r + 1] - sums[k - r] == full else 0
+	else:
+		for k in range(middle_from, middle_to):
+			out[at + k] = 1 if sums[k + r + 1] - sums[k - r] > 0 else 0
+	for k in range(middle_to, length):
+		var lo := maxi(0, k - r)
+		var count := sums[length] - sums[lo]
+		out[at + k] = 1 if (count == length - lo if every else count > 0) else 0
 
 
 # --- Light steps, the grid, the layer ------------------------------------------------------------
@@ -321,28 +464,42 @@ static func _window(mask: PackedByteArray, w: int, h: int, size: int, every: boo
 ## Each pixel's light step on its part's ramp: the part's median lightness is step 4, a step up or
 ## down for every STEP_L from it, 1 to 6 (so black hair keeps its shine on blonde too).
 static func steps_of(part: PackedInt32Array, light: PackedFloat64Array) -> PackedInt32Array:
-	var skin := PackedFloat64Array()  # (three of their own: a packed array in a Dictionary isn't appended to in place)
-	var hair := PackedFloat64Array()
-	var cloth := PackedFloat64Array()
-	for i in part.size():
-		match part[i]:
-			SKIN:
-				skin.append(light[i])
-			HAIR:
-				hair.append(light[i])
-			CLOTH:
-				cloth.append(light[i])
-	var mid := {}
+	var sorted := _in_pieces(part.size(), func(from: int, to: int) -> Array:
+		var skin_here := PackedFloat64Array()  # (three of their own: a packed array in a Dictionary isn't appended to in place)
+		var hair_here := PackedFloat64Array()
+		var cloth_here := PackedFloat64Array()
+		for i in range(from, to):
+			match part[i]:
+				SKIN:
+					skin_here.append(light[i])
+				HAIR:
+					hair_here.append(light[i])
+				CLOTH:
+					cloth_here.append(light[i])
+		return [skin_here, hair_here, cloth_here])
+	var skin := _join_floats(sorted, 0)  # (a median's the same whatever order they're in)
+	var hair := _join_floats(sorted, 1)
+	var cloth := _join_floats(sorted, 2)
+	var mid := PackedFloat64Array()  # (by part, CLOTH the highest of the three; NAN for a part with none)
+	mid.resize(CLOTH + 1)
+	mid.fill(NAN)
 	for pair in [[SKIN, skin], [HAIR, hair], [CLOTH, cloth]]:
 		if not (pair[1] as PackedFloat64Array).is_empty():
 			mid[pair[0]] = _median(pair[1])
-	var step := PackedInt32Array()
-	step.resize(part.size())
-	step.fill(4)
-	for i in part.size():
-		if mid.has(part[i]):
-			step[i] = clampi(4 + int(_round_even((light[i] - float(mid[part[i]])) / STEP_L)), 1, 6)
-	return step
+	return _join_ints(_in_pieces(part.size(), func(from: int, to: int) -> PackedInt32Array:
+		var step := PackedInt32Array()
+		step.resize(to - from)
+		step.fill(4)
+		for i in range(from, to):
+			var p := part[i]
+			if p < SKIN or p > CLOTH or is_nan(mid[p]):
+				continue
+			var v := (light[i] - mid[p]) / STEP_L  # (_round_even() written out: the call was most of the time)
+			var down := floorf(v)
+			var rest := v - down
+			var rounded := down + 1.0 if rest > 0.5 or (rest == 0.5 and posmod(int(down), 2) != 0) else down
+			step[i - from] = clampi(4 + int(rounded), 1, 6)
+		return step))
 
 
 ## The game pixels from the picture's whole frame (w x h): each the part most of its samples are
@@ -350,56 +507,62 @@ static func steps_of(part: PackedInt32Array, light: PackedFloat64Array) -> Packe
 ## step; EMPTY where most of it is background. {"part", "step": PackedInt32Array, W x H}.
 static func to_grid(part: PackedInt32Array, step: PackedInt32Array, w: int, h: int,
 		width: int = W, height: int = H) -> Dictionary:
-	var out_part := PackedInt32Array()
-	var out_step := PackedInt32Array()
-	out_part.resize(width * height)
-	out_part.fill(EMPTY)
-	out_step.resize(width * height)
 	var ys := _cuts(h, height)
 	var xs := _cuts(w, width)
-	var counts := PackedInt32Array()  # (by part + 1: the background's at 0)
-	var step_counts := PackedInt32Array()  # (by (part + 1) x 8 + step)
-	counts.resize(BLUSH + 2)
-	step_counts.resize((BLUSH + 2) * 8)
-	for j in height:
-		for i in width:
-			counts.fill(0)
-			step_counts.fill(0)
-			var total := 0
-			for y in range(ys[j], ys[j + 1]):
-				for x in range(xs[i], xs[i + 1]):
-					var p := part[y * w + x] + 1
-					counts[p] += 1
-					step_counts[p * 8 + step[y * w + x]] += 1
-					total += 1
-			var drawn := total - counts[0]
-			if drawn < total / 2.0:
-				continue
-			var at := j * width + i
-			if counts[LINE + 1] >= LINE_SHARE * drawn:
-				out_part[at] = LINE
-				continue
-			var extra: int = EXTRAS[0]
-			for e in EXTRAS:
-				if counts[e + 1] > counts[extra + 1]:
-					extra = e
-			if counts[extra + 1] >= EXTRA_SHARE * drawn:
-				out_part[at] = extra
-				out_step[at] = 4
-				continue
-			var best_part := EMPTY
-			for p in [SKIN, HAIR, CLOTH]:  # (in order, so a tie goes to the lower, as numpy's argmax)
-				if counts[p + 1] > 0 and (best_part == EMPTY or counts[p + 1] > counts[best_part + 1]):
-					best_part = p
-			if best_part == EMPTY:
-				out_part[at] = LINE
-				continue
-			var best_step := 0
-			for s in 8:
-				if step_counts[(best_part + 1) * 8 + s] > step_counts[(best_part + 1) * 8 + best_step]:
-					best_step = s
-			out_part[at] = best_part
-			out_step[at] = best_step
+	@warning_ignore("integer_division")  # (whole numbers meant: the picture pixels in a row of game pixels)
+	var per_row := w * h / height
+	var rows := _in_pieces(height, func(from: int, to: int) -> Array:
+		var part_here := PackedInt32Array()
+		var step_here := PackedInt32Array()
+		part_here.resize((to - from) * width)
+		part_here.fill(EMPTY)
+		step_here.resize((to - from) * width)
+		var counts := PackedInt32Array()  # (by part + 1: the background's at 0)
+		var step_counts := PackedInt32Array()  # (by (part + 1) x 8 + step)
+		counts.resize(BLUSH + 2)
+		step_counts.resize((BLUSH + 2) * 8)
+		for j in range(from, to):
+			for i in width:
+				counts.fill(0)
+				step_counts.fill(0)
+				var total := 0
+				for y in range(ys[j], ys[j + 1]):
+					for x in range(xs[i], xs[i + 1]):
+						var p := part[y * w + x] + 1
+						counts[p] += 1
+						step_counts[p * 8 + step[y * w + x]] += 1
+						total += 1
+				var drawn := total - counts[0]
+				if drawn < total / 2.0:
+					continue
+				var at := (j - from) * width + i
+				if counts[LINE + 1] >= LINE_SHARE * drawn:
+					part_here[at] = LINE
+					continue
+				var extra: int = EXTRAS[0]
+				for e in EXTRAS:
+					if counts[e + 1] > counts[extra + 1]:
+						extra = e
+				if counts[extra + 1] >= EXTRA_SHARE * drawn:
+					part_here[at] = extra
+					step_here[at] = 4
+					continue
+				var best_part := EMPTY
+				for p in [SKIN, HAIR, CLOTH]:  # (in order, so a tie goes to the lower, as numpy's argmax)
+					if counts[p + 1] > 0 and (best_part == EMPTY or counts[p + 1] > counts[best_part + 1]):
+						best_part = p
+				if best_part == EMPTY:
+					part_here[at] = LINE
+					continue
+				var best_step := 0
+				for s in 8:
+					if step_counts[(best_part + 1) * 8 + s] > step_counts[(best_part + 1) * 8 + best_step]:
+						best_step = s
+				part_here[at] = best_part
+				step_here[at] = best_step
+		return [part_here, step_here], per_row)
+	var out_part := _join_ints(rows, 0)
+	var out_step := _join_ints(rows, 1)
 	return {"part": out_part, "step": out_step}
 
 
@@ -430,6 +593,7 @@ static func react_split(picture: Image) -> Dictionary:
 	var started := Time.get_ticks_msec()
 	var grid := react_grid(react_face(picture))
 	grid["ms"] = Time.get_ticks_msec() - started
+	grid["pieces"] = pieces_now()
 	return grid
 
 
@@ -490,28 +654,32 @@ static func react_grid(face: Image) -> Dictionary:
 static func react_parts(image: Image) -> Dictionary:
 	var data := image.get_data()
 	var n := image.get_width() * image.get_height()
-	var fg := PackedByteArray()
-	fg.resize(n)
-	for i in n:
-		fg[i] = 1 if data[i * 4 + 3] >= 128 else 0
+	var fg := _join_bytes(_in_pieces(n, func(from: int, to: int) -> PackedByteArray:
+		var out := PackedByteArray()
+		out.resize(to - from)
+		for i in range(from, to):
+			out[i - from] = 1 if data[i * 4 + 3] >= 128 else 0
+		return out))
 	var found := parts_of(image, fg)
 	var part: PackedInt32Array = found["part"]
 	var light: PackedFloat64Array = found["L"]
 	var aa: PackedFloat64Array = found["a"]
 	var bb: PackedFloat64Array = found["b"]
-	for i in n:
-		if part[i] != SKIN:
-			continue
-		var l := light[i]
-		var a := aa[i]
-		var b := bb[i]
-		if l > 60.0 and a > 28.0 and b < 0.4 * a:
-			part[i] = BLUSH
-		elif l > 70.0 and b < -3.0 and a < 2.0:
-			part[i] = TEAR
-		elif l > 92.0 and sqrt(a * a + b * b) < 6.0:
-			part[i] = WHITE
-	found["part"] = part
+	found["part"] = _join_ints(_in_pieces(n, func(from: int, to: int) -> PackedInt32Array:
+		var out := part.slice(from, to)
+		for i in range(from, to):
+			if part[i] != SKIN:
+				continue
+			var l := light[i]
+			var a := aa[i]
+			var b := bb[i]
+			if l > 60.0 and a > 28.0 and b < 0.4 * a:
+				out[i - from] = BLUSH
+			elif l > 70.0 and b < -3.0 and a < 2.0:
+				out[i - from] = TEAR
+			elif l > 92.0 and sqrt(a * a + b * b) < 6.0:
+				out[i - from] = WHITE
+		return out))
 	return found
 
 

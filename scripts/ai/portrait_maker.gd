@@ -217,7 +217,7 @@ func make(prompt: String, person: String, count: int, first_seed: int, split_nam
 		picture_done.emit()
 		var shares: Dictionary = split.get("shares", {})
 		DebugLog.say("Faces", "%s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (hair %d%%, skin %d%%, cloth %d%%, lines %d%%)" % [person, pic_seed, took,
-			int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else "", float(split.get("score", 99.0)), roundi(float(shares.get("hair", 0)) * 100), roundi(float(shares.get("skin", 0)) * 100),
+			int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else " (%d at once)" % int(split.get("pieces", 1)), float(split.get("score", 99.0)), roundi(float(shares.get("hair", 0)) * 100), roundi(float(shares.get("skin", 0)) * 100),
 			roundi(float(shares.get("cloth", 0)) * 100), roundi(float(shares.get("lines", 0)) * 100)])
 		made.append({"seed": pic_seed, "picture": picture, "split": split, "score": float(split.get("score", 99.0))})
 	return made
@@ -287,7 +287,7 @@ func redraw(calm: Image, person: String, glasses: bool, moods: Array, seeds: int
 			var score := PortraitSplit.react_score(split["part"], calm_split["part"], mood)
 			var shown := PortraitSplit.colours(split["part"])
 			DebugLog.say("Faces", "%s, %s, seed %d: made in %.1fs, split in %.1fs%s, score %.3f (whites %d, tears %d, blush %d)" % [person, mood, pic_seed, took,
-				int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else "", score,
+				int(split.get("ms", 0)) / 1000.0, " (the test's picture's split, kept)" if split.get("kept", false) else " (%d at once)" % int(split.get("pieces", 1)), score,
 				int(shown["white"]), int(shown["tear"]), int(shown["blush"])])
 			tried.append({"seed": pic_seed, "picture": picture, "split": split, "score": score})
 		var at := PortraitSplit.best(tried)
@@ -404,6 +404,7 @@ func _split(picture: Image, person: String, react: bool = false) -> Dictionary:
 	while not WorkerThreadPool.is_task_completed(task):
 		await get_tree().process_frame
 	WorkerThreadPool.wait_for_task_completion(task)
+	counts["split_ms"] = int(counts.get("split_ms", 0)) + int(out.get("ms", 0))  # (for the stats: how long the splits took, not the kept ones)
 	if key != "":
 		Hooks.kept_splits[key] = copy_split(out)
 	return out

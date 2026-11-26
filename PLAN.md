@@ -4,10 +4,9 @@ What's left to build for [KTBT](CONCEPT.md). Only what's left goes here: when so
 
 ## Next stages
 
-- **Faster: the tests, making a bar, making custom faces** 
-  - The full test run takes over 3½ minutes; find the slow test files and cut their waits and shared setup
+- **Faster: making a bar, making custom faces** 
   - Making a new bar takes minutes: speed up the slowest steps, as the next new bar's "Making the bar:" line in the stats shows them.
-  - generating images at the end of the night is slow too (UI says 3mins but it felt longer - need to check)
+  - generating images at the end of the night is slow too (UI says 3mins but it felt longer - need to check): the faces' line in the stats now says how long the splits took ("split in"), beside the whole time, so the next night shows how much is ComfyUI and how much the split
 
 ## Future ideas and improvements
 

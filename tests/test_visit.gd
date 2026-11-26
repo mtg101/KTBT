@@ -1736,6 +1736,7 @@ func test_stripes_are_cut_to_the_shape() -> void:
 
 
 func test_people_walk_past_without_coming_in() -> void:
+	Hooks.strollers = true  # (off in tests unless they're what's tested: Hooks.for_tests)
 	var runner := await _open_bar()
 	var scene = runner.scene()
 	Hooks.run_clock = true  # (once open: running before, a customer could keep the bar from being seen open)

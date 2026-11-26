@@ -11,6 +11,13 @@ const TEST_FOLDER := "user://test_stats/"
 var _real_folder := ""
 
 
+## The faces' line saying how long their splits took (ai/portrait_maker.gd's split_ms: on the CPU,
+## the fresh splits only), and nothing when none was split.
+func test_the_faces_line_says_how_long_the_splits_took() -> void:
+	assert_str(NightStats.comfy_text({"made": 3, "failed": 0, "seconds": 95, "split_ms": 2400})).is_equal(" · 3 made, 0 failed · 95s · split in 2.4s")
+	assert_str(NightStats.comfy_text({"made": 3, "failed": 0, "split_ms": 0})).is_equal(" · 3 made, 0 failed")
+
+
 func before_test() -> void:
 	_real_folder = NightStats.folder
 	NightStats.folder = TEST_FOLDER

@@ -163,7 +163,8 @@ func test_a_drawn_close_up_keeps_its_eye_whites_tear_and_blush_as_fixed_colours(
 	assert_int(found["white"]).override_failure_message("no eye whites").is_greater(0)
 	assert_int(found["tear"]).override_failure_message("no tear").is_greater(0)
 	assert_int(found["blush"]).override_failure_message("no blush").is_greater(0)
-	assert_array(Array(part)).contains([PortraitSplit.HAIR, PortraitSplit.SKIN])
+	assert_bool(part.has(PortraitSplit.HAIR) and part.has(PortraitSplit.SKIN)).override_failure_message(
+		"no hair or no skin").is_true()  # (not assert_array().contains(): on a grid it took 11 seconds)
 	var layer: Image = made["layer"]
 	var at := part.find(PortraitSplit.BLUSH)
 	@warning_ignore("integer_division")  # (whole numbers meant)
